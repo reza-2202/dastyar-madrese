@@ -2079,8 +2079,8 @@ function printOneParentMeeting(id){const rec=localRead('dastyar_parent_meetings_
 function printParentMeetings(){const rows=localRead('dastyar_parent_meetings_v1').filter(r=>user?.role==='admin'||r.owner===currentOwner());if(!rows.length){toast('گزارشی برای چاپ وجود ندارد');return}document.getElementById('print-area').innerHTML=rows.map(parentMeetingMarkup).join('');window.print()}
 function deleteParentMeeting(id){if(!confirm('این گزارش حذف شود؟'))return;const rows=localRead('dastyar_parent_meetings_v1').filter(r=>r.id!==id||!(user?.role==='admin'||r.owner===currentOwner()));localWrite('dastyar_parent_meetings_v1',rows);renderParentMeetings();toast('گزارش حذف شد')}
 
-setupAllDateDropdowns();
-init();
+https://reza-2202.github.io/dastyar-madrese/version.json
+https://reza-2202.github.io/dastyar-madrese/
 
 
 function fillPublicInviteClasses(){
