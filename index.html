@@ -2260,3 +2260,40 @@ function printPublicInvitations(){
 
 </body>
 </html>
+<!-- سیستم به‌روزرسانی هوشمند -->
+<button id="update-btn" onclick="applyUpdate()" style="display:none; position:fixed; bottom:20px; left:20px; z-index:9999; background:#28a745; color:white; border:none; padding:12px 20px; border-radius:8px; cursor:pointer; font-family:Tahoma; font-weight:bold; box-shadow:0 4px 6px rgba(0,0,0,0.2);">
+    🚀 نسخه جدید موجود است! کلیک کنید
+</button>
+
+<script>
+    // نسخه فعلی برنامه شما
+    const CURRENT_VERSION = "2026.10.22.3";
+    
+    // آدرس فایل version.json شما
+    const VERSION_FILE_URL = "https://raw.githubusercontent.com/reza-2202/dastyar-madrese/main/version.json";
+
+    async function checkAppUpdate() {
+        try {
+            // اضافه کردن time stamp برای جلوگیری از کش شدن نسخه قدیمی
+            let response = await fetch(VERSION_FILE_URL + "?t=" + new Date().getTime());
+            let data = await response.json();
+            
+            if (data.version && data.version !== CURRENT_VERSION) {
+                document.getElementById('update-btn').style.display = 'block';
+                window.newAppUrl = data.url;
+            }
+        } catch (e) {
+            console.log("بررسی به‌روزرسانی انجام نشد.");
+        }
+    }
+
+    function applyUpdate() {
+        if (window.newAppUrl) {
+            window.location.href = window.newAppUrl;
+        }
+    }
+
+    // اجرای تابع به محض باز شدن صفحه
+    checkAppUpdate();
+ </script>
+ 
