@@ -6,8 +6,129 @@
 <meta name="theme-color" content="#0284c7"/>
 <title>دستیار مدرسه و معلم (آنلاین)</title>
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+
+<script>
+/* کلاینت سبک Supabase فقط با fetch — بدون نیاز به supabase.js جدا */
+(function(global){
+  function buildQuery(filters){
+    var qs=[];
+    (filters||[]).forEach(function(f){
+      if(f.type==='eq') qs.push(encodeURIComponent(f.col)+'=eq.'+encodeURIComponent(f.val));
+      if(f.type==='limit') qs.push('limit='+encodeURIComponent(f.val));
+      if(f.type==='order') qs.push('order='+encodeURIComponent(f.col)+'.'+(f.asc?'asc':'desc'));
+    });
+    return qs.length?('?'+qs.join('&')):'';
+  }
+  function makeFilter(){
+    var filters=[];
+    var api={
+      select:function(cols){ api._cols=cols||'*'; return api; },
+      eq:function(col,val){ filters.push({type:'eq',col:col,val:val}); return api; },
+      limit:function(n){ filters.push({type:'limit',val:n}); return api; },
+      order:function(col,opts){ filters.push({type:'order',col:col,asc:!(opts&&opts.ascending===false)}); return api; },
+      maybeSingle:function(){ api._maybeSingle=true; return api.then?api:api; },
+      then:function(resolve,reject){ return api._run('GET').then(resolve,reject); },
+      _run:null
+    };
+    return {filters:filters, api:api};
+  }
+  function createClient(url, key){
+    var base=String(url).replace(/\/$/,'')+'/rest/v1';
+    var headers={
+      'apikey': key,
+      'Authorization': 'Bearer '+key,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    };
+    function table(name){
+      var state=makeFilter();
+      var api=state.api;
+      api._run=function(method, body, extraHeaders){
+        var q=buildQuery(state.filters);
+        if(method==='GET' && api._cols){
+          q += (q?'&':'?')+'select='+encodeURIComponent(api._cols);
+        }
+        var h=Object.assign({}, headers, extraHeaders||{});
+        return fetch(base+'/'+name+q, {
+          method: method,
+          headers: h,
+          body: body?JSON.stringify(body):undefined
+        }).then(function(res){
+          return res.text().then(function(txt){
+            var data=null;
+            try{ data=txt?JSON.parse(txt):null; }catch(e){ data=txt; }
+            if(!res.ok){
+              var msg=(data && data.message)||(data && data.error)||txt||('HTTP '+res.status);
+              return {data:null, error:{message:String(msg)}, status:res.status};
+            }
+            if(api._maybeSingle){
+              if(Array.isArray(data)) data=data[0]||null;
+            }
+            return {data:data, error:null, status:res.status};
+          });
+        }).catch(function(err){
+          return {data:null, error:{message:err.message||String(err)}};
+        });
+      };
+      api.insert=function(rows){
+        return {
+          then:function(resolve,reject){
+            api._run('POST', rows).then(resolve,reject);
+          }
+        };
+      };
+      api.upsert=function(rows){
+        return {
+          then:function(resolve,reject){
+            api._run('POST', rows, {'Prefer':'resolution=merge-duplicates,return=representation'}).then(resolve,reject);
+          }
+        };
+      };
+      api.update=function(obj){
+        return {
+          eq:function(col,val){
+            state.filters.push({type:'eq',col:col,val:val});
+            return {
+              then:function(resolve,reject){
+                api._run('PATCH', obj).then(resolve,reject);
+              }
+            };
+          },
+          then:function(resolve,reject){
+            api._run('PATCH', obj).then(resolve,reject);
+          }
+        };
+      };
+      api.delete=function(){
+        return {
+          eq:function(col,val){
+            state.filters.push({type:'eq',col:col,val:val});
+            return {
+              then:function(resolve,reject){
+                api._run('DELETE').then(resolve,reject);
+              }
+            };
+          }
+        };
+      };
+      // allow await on select chain
+      var selectFn=api.select;
+      api.select=function(cols){
+        selectFn(cols);
+        // return thenable
+        var chain=api;
+        return chain;
+      };
+      return api;
+    }
+    return {
+      from:function(name){ return table(name); }
+    };
+  }
+  global.supabase={ createClient:createClient };
+})(window);
+</script>
+
 <style>
 :root{--p:#0284c7;--pd:#0369a1;--ok:#059669;--er:#dc2626;--bg:#f1f5f9;--c:#fff;--t:#0f172a;--m:#64748b;--b:#e2e8f0;--r:14px}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -658,23 +779,52 @@ let cache={users:[],classes:[],students:[],attendance:[],scores:[],competencies:
 
 function uid(){return 'id_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);}
 
+// اگر chart.js نباشد برنامه کرش نکند
+if(typeof Chart==='undefined'){ window.Chart=function(){ this.destroy=function(){}; }; window.Chart.prototype.destroy=function(){}; }
+function withTimeout(promise, ms, label){
+  return Promise.race([
+    promise,
+    new Promise(function(_,reject){ setTimeout(function(){ reject(new Error(label||'timeout')); }, ms); })
+  ]);
+}
+
 async function init(){
+  const boot=document.getElementById('boot');
   try{
-    sb = supabase.createClient(SB_URL, SB_KEY);
-    // test connection
-    const {error} = await sb.from('sa_users').select('id').limit(1);
-    if(error){
-      document.getElementById('boot').innerHTML='<div class="err" style="max-width:360px;margin:40px auto">خطا در اتصال به پایگاه‌داده:<br>'+error.message+'<br><br>مطمئن شو جدول‌های sa_ را ساخته‌ای.<br>اگر کلید anon با eyJ داری بهتر است همان را بفرستی.</div>';
+    boot.innerHTML='در حال اتصال به سرور...';
+    // پشتیبانی از چند شکل export کتابخانه
+    var SB = (typeof supabase!=='undefined') ? supabase : (typeof window.supabase!=='undefined' ? window.supabase : null);
+    if(!SB || !supabase.createClient){
+      throw new Error('فایل supabase.js لود نشد. مطمئن شوید supabase.js کنار index.html روی گیت‌هاب آپلود شده است.');
+    }
+
+
+    sb = supabase.createClient(SB_URL, SB_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { 'x-client-info': 'dastyar-madrese' } }
+    });
+
+    const result = await withTimeout(
+      sb.from('sa_users').select('id').limit(1),
+      15000,
+      'پاسخی از سرور نیامد. اینترنت را بررسی کنید یا VPN را امتحان کنید.'
+    );
+    if(result.error){
+      boot.innerHTML='<div class="err" style="max-width:360px;margin:40px auto">خطا در اتصال به پایگاه‌داده:<br>'+result.error.message+
+        '<br><br>۱) اینترنت گوشی را چک کنید<br>۲) یک‌بار با VPN امتحان کنید<br>۳) مطمئن شوید پروژه Supabase فعال است</div>';
       return;
     }
+
+    boot.innerHTML='در حال آماده‌سازی داده‌ها...';
     await seedIfEmpty();
     await reloadAll();
-    document.getElementById('boot').classList.add('hidden');
+    boot.classList.add('hidden');
     document.getElementById('login-screen').classList.remove('hidden');
     fillTeacherSelect();
-    restoreRememberedLogin();
+    if(typeof restoreRememberedLogin==='function') restoreRememberedLogin();
   }catch(e){
-    document.getElementById('boot').innerHTML='<div class="err" style="max-width:360px;margin:40px auto">خطا: '+e.message+'</div>';
+    boot.innerHTML='<div class="err" style="max-width:360px;margin:40px auto;line-height:1.9">خطا در راه‌اندازی:<br><b>'+(e && e.message ? e.message : e)+
+      '</b><br><br>راه‌حل‌ها:<br>• اینترنت را قطع و وصل کنید<br>• VPN را روشن کنید و صفحه را رفرش کنید<br>• چند دقیقه بعد دوباره تلاش کنید<br><br><button class="btn btn-p" onclick="location.reload()">تلاش دوباره</button></div>';
   }
 }
 
@@ -1365,15 +1515,26 @@ async function saveAttendance(){
   const classId=document.getElementById('at-class').value;
   const date=document.getElementById('at-date').value||today();
   const weekday=document.getElementById('at-weekday')?document.getElementById('at-weekday').value:weekdayNow();
+  // توجه: ستون weekday در دیتابیس ممکن است وجود نداشته باشد؛ روز هفته فقط در recorded_by ذخیره می‌شود
   const rows=Object.keys(attState).map(sid=>({
     id:classId+'_'+date+'_'+sid,
-    student_id:sid,class_id:classId,date,weekday,status:attState[sid],
-    recorded_by:user.full_name+' | '+weekday+' '+date
+    student_id:sid,
+    class_id:classId,
+    date:date,
+    status:attState[sid],
+    recorded_by:(user.full_name||'')+' | '+weekday+' '+date
   }));
   if(!rows.length){toast('چیزی انتخاب نشده');return;}
-  const {error}=await sb.from('sa_attendance').upsert(rows);
+  let {error}=await sb.from('sa_attendance').upsert(rows);
+  if(error){
+    // تلاش دوم بدون فیلدهای اضافی
+    const simple=rows.map(r=>({id:r.id,student_id:r.student_id,class_id:r.class_id,date:r.date,status:r.status,recorded_by:r.recorded_by}));
+    ({error}=await sb.from('sa_attendance').upsert(simple));
+  }
   if(error){toast('خطا: '+error.message);return;}
-  await reloadAll();toast('حضور ذخیره شد ('+weekday+' '+date+')');refreshDash();
+  await reloadAll();
+  toast('حضور ذخیره شد ('+weekday+' '+date+')');
+  refreshDash();
 }
 
 async function loadAttHistory(){
@@ -1392,7 +1553,13 @@ async function loadAttHistory(){
   // group by date
   const byDate={};
   list.forEach(a=>{
-    const k=(a.weekday?a.weekday+' ':'')+(a.date||'');
+    let wd=a.weekday||'';
+    if(!wd && a.recorded_by){
+      // استخراج روز از recorded_by مثل: «نام | سه‌شنبه 1405/07/28»
+      const m=String(a.recorded_by).match(/\|\s*([^|\d]+?)\s*(\d{4}\/\d{2}\/\d{2})/);
+      if(m) wd=m[1].trim();
+    }
+    const k=(wd?wd+' ':'')+(a.date||'');
     if(!byDate[k]) byDate[k]=[];
     byDate[k].push(a);
   });
@@ -2079,8 +2246,9 @@ function printOneParentMeeting(id){const rec=localRead('dastyar_parent_meetings_
 function printParentMeetings(){const rows=localRead('dastyar_parent_meetings_v1').filter(r=>user?.role==='admin'||r.owner===currentOwner());if(!rows.length){toast('گزارشی برای چاپ وجود ندارد');return}document.getElementById('print-area').innerHTML=rows.map(parentMeetingMarkup).join('');window.print()}
 function deleteParentMeeting(id){if(!confirm('این گزارش حذف شود؟'))return;const rows=localRead('dastyar_parent_meetings_v1').filter(r=>r.id!==id||!(user?.role==='admin'||r.owner===currentOwner()));localWrite('dastyar_parent_meetings_v1',rows);renderParentMeetings();toast('گزارش حذف شد')}
 
-https://reza-2202.github.io/dastyar-madrese/version.json
-https://reza-2202.github.io/dastyar-madrese/
+setupAllDateDropdowns();
+// init بعد از لود DOM
+if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",function(){init();});}else{init();}
 
 
 function fillPublicInviteClasses(){
@@ -2135,22 +2303,26 @@ function printPublicInvitations(){
 #dastyar-update-box .du-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between}
 #dastyar-update-box .du-actions{display:flex;gap:8px;flex-wrap:wrap}
 #dastyar-update-box button{border:0;border-radius:9px;padding:8px 12px;font:inherit;cursor:pointer}
-#dastyar-update-open{background:#166534;color:#fff} #dastyar-update-later{background:#e5e7eb;color:#111827}
+#dastyar-update-open{background:#166534;color:#fff}
+#dastyar-update-later{background:#e5e7eb;color:#111827}
 #dastyar-update-check{position:fixed;z-index:99999;bottom:8px;left:8px;background:#166534;color:#fff;border:0;border-radius:9px;padding:8px 11px;font:12px Tahoma,Arial,sans-serif;box-shadow:0 2px 8px #0002;cursor:pointer}
 #dastyar-version-tag{position:fixed;z-index:99998;bottom:8px;right:8px;background:#f3f4f6;color:#4b5563;border:1px solid #e5e7eb;border-radius:8px;padding:3px 7px;font:10px Tahoma,Arial,sans-serif;opacity:.82}
 @media print{#dastyar-update-box,#dastyar-version-tag,#dastyar-update-check{display:none!important}}
 </style>
-<div id="dastyar-version-tag" aria-label="نسخه برنامه">نسخه 2026.10.22.3</div>
+<div id="dastyar-version-tag" aria-label="نسخه برنامه">نسخه 2026.10.23.5</div>
 <button id="dastyar-update-check" type="button" aria-label="بررسی به‌روزرسانی">↻ بررسی به‌روزرسانی</button>
 <div id="dastyar-update-box" role="status" aria-live="polite">
- <div class="du-row"><div><strong id="dastyar-update-title">بررسی نسخه برنامه</strong><div id="dastyar-update-message">در حال بررسی نسخه جدید…</div></div>
- <div class="du-actions"><button id="dastyar-update-open" type="button">باز کردن نسخه جدید</button><button id="dastyar-update-later" type="button">بعداً</button></div></div>
+ <div class="du-row"><div><strong id="dastyar-update-title">بررسی نسخه برنامه</strong><div id="dastyar-update-message">در حال بررسی…</div></div>
+ <div class="du-actions"><button id="dastyar-update-open" type="button">باز کردن نسخه آنلاین</button><button id="dastyar-update-later" type="button">بستن</button></div></div>
 </div>
 <script>
 (function(){
-  const CURRENT_VERSION = '2026.10.22.3';
-  const VERSION_URL = 'https://fluffy-melba-a86164.netlify.app/version.json';
-  const FALLBACK_APP_URL = 'https://fluffy-melba-a86164.netlify.app/';
+  // این نسخه همین فایل است — برای به‌روزرسانی واقعی باید فایل جدید را جایگزین کنید
+  // یا سایت Netlify را دوباره منتشر کنید
+  const CURRENT_VERSION = '2026.10.23.5';
+  // اگر سایت جدید ساختید، این دو آدرس را عوض کنید:
+  const VERSION_URL = 'https://reza-2202.github.io/dastyar-madrese/version.json';
+  const FALLBACK_APP_URL = 'https://reza-2202.github.io/dastyar-madrese/';
   const box = document.getElementById('dastyar-update-box');
   const title = document.getElementById('dastyar-update-title');
   const message = document.getElementById('dastyar-update-message');
@@ -2158,41 +2330,84 @@ function printPublicInvitations(){
   const laterBtn = document.getElementById('dastyar-update-later');
   const checkBtn = document.getElementById('dastyar-update-check');
   let latestUrl = FALLBACK_APP_URL;
-  function show(t, m, url) {
-    title.textContent = t; message.textContent = m; latestUrl = url || FALLBACK_APP_URL;
+
+  function show(t, m, url, showOpen) {
+    title.textContent = t;
+    message.textContent = m;
+    latestUrl = url || FALLBACK_APP_URL;
+    openBtn.style.display = showOpen === false ? 'none' : 'inline-block';
     box.style.display = 'block';
   }
+
   openBtn.addEventListener('click', function() {
-    const u = new URL(latestUrl, FALLBACK_APP_URL);
-    u.searchParams.set('update', Date.now().toString());
-    if (location.protocol === 'file:') window.open(u.href, '_blank', 'noopener');
-    else location.replace(u.href);
+    try {
+      const u = new URL(latestUrl, location.href);
+      u.searchParams.set('v', Date.now().toString());
+      window.open(u.href, '_blank', 'noopener');
+    } catch (e) {
+      window.open(latestUrl, '_blank', 'noopener');
+    }
   });
   laterBtn.addEventListener('click', function() { box.style.display = 'none'; });
+
   function checkForUpdate(manual) {
-    if (manual) { checkBtn.disabled = true; checkBtn.textContent = 'در حال بررسی…'; }
-    fetch(VERSION_URL + '?_=' + Date.now(), {cache:'no-store'})
-      .then(r => { if (!r.ok) throw new Error('manifest unavailable'); return r.json(); })
-      .then(data => {
-        if (!data || !data.version) throw new Error('invalid manifest');
+    if (manual) {
+      checkBtn.disabled = true;
+      checkBtn.textContent = 'در حال بررسی…';
+    }
+    // اگر فایل محلی است، یادآوری جایگزینی فایل
+    const isLocal = location.protocol === 'file:';
+    fetch(VERSION_URL + '?_=' + Date.now(), { cache: 'no-store' })
+      .then(function(r) {
+        if (!r.ok) throw new Error('site-missing');
+        return r.json();
+      })
+      .then(function(data) {
+        if (!data || !data.version) throw new Error('invalid');
         const remoteVersion = String(data.version);
         const remoteUrl = (typeof data.url === 'string' && data.url) ? data.url : FALLBACK_APP_URL;
         if (remoteVersion !== CURRENT_VERSION) {
-          show('نسخه جدید دستیار مدرسه آماده است', 'نسخه این فایل: ' + CURRENT_VERSION + ' | نسخه آنلاین: ' + remoteVersion + ' — برای باز کردن نسخه آنلاین جدید دکمه زیر را بزنید.', remoteUrl);
+          show(
+            'نسخه جدید آماده است',
+            'نسخه این فایل: ' + CURRENT_VERSION + ' | نسخه آنلاین: ' + remoteVersion + ' — دکمه زیر را بزنید.',
+            remoteUrl,
+            true
+          );
         } else if (manual) {
-          show('بررسی انجام شد', 'نسخه این فایل (' + CURRENT_VERSION + ') با شماره نسخه منتشرشده برابر است. برای دریافت تغییرات جدید، ابتدا نسخه جدید باید روی سایت منتشر شود.', FALLBACK_APP_URL);
+          show(
+            'برنامه به‌روز است',
+            'نسخه فعلی: ' + CURRENT_VERSION + (isLocal ? ' (فایل روی گوشی شما)' : ''),
+            remoteUrl,
+            false
+          );
         }
       })
-      .catch(() => {
-        if (manual) show('بررسی نسخه انجام نشد', 'اتصال به نشانی بررسی نسخه ممکن نیست. اینترنت را بررسی کنید؛ ممکن است فایل نسخه روی سایت منتشر نشده باشد.', FALLBACK_APP_URL);
+      .catch(function() {
+        // سایت Netlify فعلاً در دسترس نیست (404) — این علت اصلی کار نکردن به‌روزرسانی است
+        if (manual || isLocal) {
+          show(
+            'بررسی نسخه',
+            'بررسی نسخه آنلاین انجام نشد یا نسخه همین فایل آخرین است. نسخه فعلی: ' + CURRENT_VERSION + ' — لینک رسمی: https://reza-2202.github.io/dastyar-madrese/',
+            FALLBACK_APP_URL,
+            false
+          );
+        }
       })
-      .finally(() => { if (manual) { checkBtn.disabled = false; checkBtn.textContent = '↻ بررسی به‌روزرسانی'; } });
+      .finally(function() {
+        if (manual) {
+          checkBtn.disabled = false;
+          checkBtn.textContent = '↻ بررسی به‌روزرسانی';
+        }
+      });
   }
-  checkBtn.addEventListener('click', function(){ checkForUpdate(true); });
-  checkForUpdate(false);
+
+  checkBtn.addEventListener('click', function() { checkForUpdate(true); });
+  // بررسی خودکار فقط وقتی آنلاین هستیم؛ اگر سایت مرده باشد بی‌صدا رد می‌شود
+  if (location.protocol !== 'file:') checkForUpdate(false);
 })();
 </script>
 <!-- End update checker -->
+
 
 </body>
 </html>
