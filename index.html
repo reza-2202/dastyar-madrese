@@ -1242,12 +1242,30 @@ function openStudentDossier(id){
  const box=document.getElementById('sf-dossier');
  box.innerHTML='<div id="print-student-dossier"><section class="card"><div class="ct">📁 پرونده دانش‌آموز: '+escHtml((s.first_name||'')+' '+(s.last_name||''))+'</div><div class="meta">کلاس: '+escHtml(cl?.label||'')+' | کد: '+escHtml(s.code||'—')+' | نام پدر: '+escHtml(s.father_name||'—')+'</div><div class="meta">تلفن شاد: '+escHtml(s.shad_phone||'—')+' | تماس اضطراری ۱: '+escHtml(s.emergency_phone_1||'—')+' | ۲: '+escHtml(s.emergency_phone_2||'—')+' | ۳: '+escHtml(s.emergency_phone_3||'—')+'</div><button class="btn btn-p btn-sm no-print" style="margin-top:10px" onclick="printStudentDossier()">🖨️ چاپ پرونده دانش‌آموز</button></section>'+section('حضور و غیاب',att,attHtml)+section('موارد انضباطی',dis,disHtml)+section('ارزشیابی‌های درسی',evs,evHtml)+section('پرسش و فعالیت‌های روزانه',acts,actHtml)+section('نمرات کارنامه',scores,scoreHtml)+section('شایستگی‌ها',comps,compHtml)+'</div>';
 }
+
 function printStudentDossier(){
- const content=document.getElementById('print-student-dossier');if(!content)return;
- const w=window.open('','_blank');if(!w){toast('اجازه باز شدن پنجره چاپ را بدهید');return;}
- w.document.write('<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><title>پرونده دانش‌آموز</title><style>body{font-family:Tahoma,Arial,sans-serif;padding:18px;color:#111;direction:rtl} .card{border:1px solid #bbb;border-radius:8px;padding:10px;margin:10px 0;break-inside:avoid}.ct{font-size:17px;font-weight:bold;margin-bottom:8px}.meta,small{font-size:12px;line-height:1.8}.empty{padding:6px;color:#555}button,.no-print{display:none!important}</style></head><body>'+content.innerHTML+'</body></html>');
- w.document.close();w.focus();setTimeout(()=>w.print(),300);
+ const content=document.getElementById('print-student-dossier');
+ if(!content)return;
+ const w=window.open('','_blank');
+ if(!w){toast('اجازه باز شدن پنجره چاپ را بدهید');return;}
+ const style=`@page{size:A4 portrait;margin:7mm}
+ *{box-sizing:border-box}
+ body{font-family:Tahoma,Arial,sans-serif;color:#111;direction:rtl;font-size:10pt;line-height:1.6;margin:0}
+ .card{border:1px solid #bbb;border-radius:3px;padding:3mm;margin:0 0 3mm;break-inside:avoid}
+ .ct{font-size:12pt;font-weight:bold;margin-bottom:2mm;break-after:avoid}
+ .meta,small{font-size:9pt;line-height:1.5}
+ .empty{padding:2mm;color:#555}
+ button,.no-print{display:none!important}
+ h1,h2,h3{break-after:avoid}
+ table{width:100%;border-collapse:collapse}
+ tr{break-inside:avoid}
+ @media print{body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}`;
+ w.document.write('<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>پرونده دانش‌آموز</title><style>'+style+'</style></head><body>'+content.innerHTML+'</body></html>');
+ w.document.close();
+ w.focus();
+ setTimeout(()=>w.print(),500);
 }
+  
 
 /* SCHOOL FINANCE */
 function fillFinanceStudents(){
