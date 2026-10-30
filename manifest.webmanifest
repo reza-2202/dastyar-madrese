@@ -1,19 +1,37 @@
 {
+  "id": "/dastyar-madrese/",
   "name": "دستیار مدرسه و معلم",
   "short_name": "دستیار مدرسه",
   "description": "دبستان شهید فتح‌الله فلاح‌پور — البرز، ساوجبلاغ، کوهسار، چندار",
-  "start_url": "./",
-  "scope": "./",
+  "start_url": "/dastyar-madrese/",
+  "scope": "/dastyar-madrese/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
   "orientation": "any",
   "background_color": "#1565C0",
   "theme_color": "#1565C0",
   "lang": "fa",
   "dir": "rtl",
+  "prefer_related_applications": false,
   "categories": ["education", "productivity"],
   "icons": [
-    {"src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
-    {"src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
-    {"src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+    {
+      "src": "/dastyar-madrese/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/dastyar-madrese/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/dastyar-madrese/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }
