@@ -2,7 +2,7 @@
   "name": "دستیار مدرسه و معلم",
   "short_name": "دستیار مدرسه",
   "description": "دبستان شهید فتح‌الله فلاح‌پور — البرز، ساوجبلاغ، کوهسار، چندار",
-  "start_url": "./index.html",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
