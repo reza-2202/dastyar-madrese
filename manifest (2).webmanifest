@@ -1,0 +1,46 @@
+{
+  "id": "https://reza-2202.github.io/dastyar-madrese/",
+  "name": "دستیار مدرسه و معلم",
+  "short_name": "دستیار مدرسه",
+  "description": "دبستان شهید فتح‌الله فلاح‌پور — البرز، ساوجبلاغ، کوهسار، چندار",
+  "start_url": "https://reza-2202.github.io/dastyar-madrese/?source=pwa",
+  "scope": "https://reza-2202.github.io/dastyar-madrese/",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "any",
+  "background_color": "#1565C0",
+  "theme_color": "#1565C0",
+  "lang": "fa",
+  "dir": "rtl",
+  "prefer_related_applications": false,
+  "categories": [
+    "education",
+    "productivity"
+  ],
+  "icons": [
+    {
+      "src": "https://reza-2202.github.io/dastyar-madrese/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://reza-2202.github.io/dastyar-madrese/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://reza-2202.github.io/dastyar-madrese/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  }
+}
