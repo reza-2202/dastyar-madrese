@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#075985"><meta name="robots" content="noindex,nofollow">
+<title>پرونده الکترونیکی اولیا</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{font-family:Tahoma,Arial,sans-serif;color:#172033;background:#f1f5f9}*{box-sizing:border-box}body{margin:0;padding:16px 12px 40px;direction:rtl}.wrap{max-width:760px;margin:auto}.head,.card{background:#fff;border:1px solid #dbeafe;border-radius:16px;padding:16px;margin:12px 0;box-shadow:0 4px 18px #0f172a0a}.head{text-align:center;background:linear-gradient(140deg,#e0f2fe,#fff)}h1{font-size:1.2rem;color:#075985;margin:0 0 8px}.muted{color:#64748b;font-size:.83rem;line-height:1.9}.field{margin:12px 0}.field label{display:block;font-size:.85rem;font-weight:bold;margin-bottom:6px}.field input{width:100%;padding:13px;border:1px solid #cbd5e1;border-radius:10px;font:inherit;direction:ltr;text-align:left}.btn{border:0;border-radius:10px;padding:12px 16px;background:#0369a1;color:#fff;font:inherit;font-weight:bold;width:100%;cursor:pointer}.btn.alt{background:#e0f2fe;color:#075985}.error{color:#991b1b;background:#fef2f2;border:1px solid #fecaca;padding:10px;border-radius:10px;display:none}.section{margin-top:16px}.section h2{font-size:1rem;color:#075985;border-bottom:1px solid #dbeafe;padding-bottom:8px}.row{padding:9px 0;border-bottom:1px solid #f1f5f9;line-height:1.8}.row:last-child{border:0}.tag{display:inline-block;background:#e0f2fe;color:#075985;border-radius:30px;padding:3px 9px;font-size:.75rem;margin:3px}.empty{color:#64748b;padding:10px;background:#f8fafc;border-radius:8px}.item{padding:10px;border:1px solid #e2e8f0;border-radius:10px;margin:8px 0;line-height:1.9}.item small{color:#64748b}.good{color:#166534}.warn{color:#92400e}.hidden{display:none!important}footer{text-align:center;color:#94a3b8;font-size:.72rem;margin-top:20px}
+</style>
+</head>
+<body><main class="wrap">
+<header class="head"><div style="font-size:2rem">📚</div><h1>پرونده الکترونیکی اولیا</h1><div class="muted" id="school-label">اطلاعات آموزشی دانش‌آموز</div></header>
+<section class="card" id="login-card"><p class="muted" id="login-help">روش ورود را معلم تعیین می‌کند. اطلاعات لازم را مطابق برگه یا پیام دریافتی وارد کنید.</p>
+<div class="field" id="identity-field"><label for="identity-input" id="identity-label">کد دانش‌آموزی</label><input id="identity-input" inputmode="text" autocomplete="off" placeholder="اطلاعات ورود"></div>
+<div class="field" id="password-field"><label for="parent-password">رمز اختصاصی پرونده</label><input id="parent-password" type="password" autocomplete="current-password" placeholder="رمز تولیدشده توسط برنامه"></div>
+<div id="login-error" class="error"></div><button class="btn" id="open-btn">مشاهده پرونده</button>
+<p class="muted" style="margin-top:10px">این صفحه برای نمایش پرونده نیاز به نصب برنامه یا ورود به حساب کاربری ندارد.</p></section>
+<section id="record-view" class="hidden"></section>
+<footer>اطلاعات پرونده به‌صورت رمزگذاری‌شده از سرور دریافت می‌شود و رمزگشایی فقط در مرورگر شما انجام می‌گیرد. دسترسی ممکن است طبق تنظیم مدیر یا معلم منقضی یا غیرفعال شود.</footer>
+</main>
+<script>
+(function(){'use strict';
+const STORE='dastyar_parent_encrypted_package_v1';
+const SB_URL='https://ulaxykeiusmihfvuxnxy.supabase.co';
+const SB_KEY='sb_publishable_7T0rFOE6BDPqyym3CjSRKQ_DwOV_TN0';
+let pkg=null;let portalClient=null;
+function digits(v){return String(v||'').replace(/[۰-۹]/g,c=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(c)).replace(/[٠-٩]/g,c=>'٠١٢٣٤٥٦٧٨٩'.indexOf(c)).replace(/\D/g,'');}
+function fromB64u(s){s=String(s||'').replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';const bin=atob(s),a=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return a;}
+function toB64u(a){let b='';for(let i=0;i<a.length;i+=32768)b+=String.fromCharCode.apply(null,a.subarray(i,Math.min(i+32768,a.length)));return btoa(b).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+async function shaHex(str){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');}
+async function deriveKey(secret,salt){const m=await crypto.subtle.importKey('raw',new TextEncoder().encode(String(secret)),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt:salt,iterations:180000,hash:'SHA-256'},m,{name:'AES-GCM',length:256},false,['decrypt']);}
+async function decompress(a){if(!window.DecompressionStream)return a;try{const ds=new DecompressionStream('gzip');return new Uint8Array(await new Response(new Blob([a]).stream().pipeThrough(ds)).arrayBuffer());}catch(e){return a;}}
+function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function decodePackage(){let raw='';try{const h=location.hash.replace(/^#/,'');const m=h.match(/(?:^|&)p=([^&]+)/);if(m)raw=decodeURIComponent(m[1]);}catch(e){}if(!raw){try{raw=localStorage.getItem(STORE)||'';}catch(e){}}if(!raw)return null;try{return JSON.parse(new TextDecoder().decode(fromB64u(raw)));}catch(e){return null;}}
+function showError(msg){const e=document.getElementById('login-error');e.textContent=msg;e.style.display='block';}
+function section(title,items,render){return '<section class="section"><h2>'+esc(title)+' ('+items.length+')</h2>'+(items.length?items.map(render).join(''):'<div class="empty">موردی ثبت نشده است.</div>')+'</section>';}
+function dateLabel(x){return [x.weekday,x.date].filter(Boolean).map(esc).join(' ');}
+function renderRecord(data){const s=data.student||{},root=document.getElementById('record-view');document.getElementById('login-card').classList.add('hidden');root.classList.remove('hidden');
+ let html='<div class="card"><h1>'+esc((s.first_name||'')+' '+(s.last_name||''))+'</h1><div class="tag">'+esc(s.class_name||pkg.class_name||'')+'</div>'+(s.father_name?'<div class="row">نام پدر: '+esc(s.father_name)+'</div>':'')+(s.mother_name?'<div class="row">نام مادر: '+esc(s.mother_name)+'</div>':'')+'<div class="muted">آخرین به‌روزرسانی این نسخه: '+esc(new Date(data.updated_at||pkg.created_at).toLocaleString('fa-IR'))+'</div><button class="btn alt" style="margin-top:10px" id="back-btn">بازگشت به ورود</button></div>';
+ const level={excellent:'خیلی خوب',good:'خوب',acceptable:'قابل قبول',needs:'نیاز به تلاش'};
+ html+=section('حضور و غیاب',data.attendance||[],x=>'<div class="item">📅 '+dateLabel(x)+' — <b>'+esc(({present:'حاضر',unexcused:'غایب',absent:'غایب',excused:'غایب موجه',late:'تأخیر'})[x.status]||x.status||'ثبت وضعیت')+'</b></div>');
+ html+=section('ارزشیابی‌ها',data.evaluations||[],x=>'<div class="item"><b>'+esc(x.subject||'درس')+'</b><br>'+dateLabel(x)+' | نمره: '+esc(x.score==null?'—':x.score)+' | '+esc(level[x.level]||x.level||'')+(x.notes?'<div>'+esc(x.notes)+'</div>':'')+'</div>');
+ html+=section('نمرات کارنامه',data.scores||[],x=>'<div class="item"><b>'+esc(x.subject||'درس')+'</b> — '+esc(x.score==null?'—':x.score)+' | '+esc(level[x.level]||x.level||'')+'</div>');
+ html+=section('شایستگی‌ها',data.competencies||[],x=>'<div class="item"><b>'+esc(x.name||'شایستگی')+'</b> — '+esc(level[x.level]||x.level||'')+'</div>');
+ html+=section('پرسش و پاسخ و فعالیت‌های روزانه',data.activities||[],x=>'<div class="item"><b>'+esc(x.type==='qa'?'پرسش و پاسخ':(x.type==='absence_followup'?'پیگیری غیبت':'فعالیت کلاسی'))+' — '+esc(x.subject||'')+'</b><br>'+dateLabel(x)+' | '+esc(level[x.level]||x.level||'')+(x.score!=null?' | نمره: '+esc(x.score):'')+(x.notes?'<div>'+esc(x.notes)+'</div>':'')+'</div>');
+ html+=section('موارد انضباطی و پیگیری',data.discipline||[],x=>'<div class="item"><b>'+esc(x.category||'مورد ثبت‌شده')+'</b><br>'+dateLabel(x)+' | '+esc(x.status==='approved'?'رسیدگی‌شده':'در انتظار رسیدگی')+'<div>'+esc(x.details||'')+'</div>'+(x.feedback?'<small>اقدام: '+esc(x.feedback)+'</small>':'')+(x.decision_text?'<div class="good">'+esc(x.decision_text)+'</div>':'')+'</div>');
+ const custom=s.custom_fields||{};const keys=Object.keys(custom);if(keys.length)html+=section('سایر مشخصات',keys.map(k=>({k,v:custom[k]})),x=>'<div class="item"><b>'+esc(x.k)+'</b>: '+esc(x.v)+'</div>');
+ root.innerHTML=html;document.getElementById('back-btn').onclick=()=>{root.classList.add('hidden');document.getElementById('login-card').classList.remove('hidden');};
+}
+function normalizeName(v){return String(v||'').trim().replace(/[\s\u200c]+/g,' ').toLowerCase();}
+function configureLogin(){const mode=pkg.login_mode||'code_password',field=document.getElementById('identity-field'),label=document.getElementById('identity-label'),input=document.getElementById('identity-input'),pw=document.getElementById('password-field');const needsIdentity=mode!=='password_only',needsPassword=mode==='code_password'||mode==='name_password'||mode==='password_only';field.classList.toggle('hidden',!needsIdentity);pw.classList.toggle('hidden',!needsPassword);if(mode==='code_password'||mode==='code_only'){label.textContent='کد دانش‌آموزی';input.inputMode='numeric';input.maxLength=20;input.placeholder='کد دانش‌آموزی';}else if(mode==='name_password'||mode==='name_only'){label.textContent='نام و نام خانوادگی دانش‌آموز';input.inputMode='text';input.maxLength=120;input.placeholder='نام و نام خانوادگی';}else{label.textContent='رمز اختصاصی';input.inputMode='text';input.placeholder='رمز تولیدشده توسط برنامه';}document.getElementById('login-help').textContent=({code_password:'کد دانش‌آموزی و رمز اختصاصی را وارد کنید.',password_only:'فقط رمز اختصاصی تولیدشده توسط برنامه را وارد کنید.',code_only:'کد دانش‌آموزی را وارد کنید.',name_password:'نام و نام خانوادگی دانش‌آموز و رمز اختصاصی را وارد کنید.',name_only:'نام و نام خانوادگی دانش‌آموز را وارد کنید.'})[mode]||'اطلاعات ورود را وارد کنید.';}
+async function openRecord(){const mode=pkg.login_mode||'code_password',rawIdentity=document.getElementById('identity-input').value||'',pw=document.getElementById('parent-password').value||'';let identity=mode==='code_password'||mode==='code_only'?digits(rawIdentity):(mode==='name_password'||mode==='name_only'?normalizeName(rawIdentity):pw);if((mode!=='password_only'&&!identity)||(mode==='code_password'||mode==='name_password')&&!pw){showError('اطلاعات ورود را کامل وارد کنید.');return;}const hash=await shaHex(pkg.package_salt+'|'+mode+'|'+identity);const legacyHash=await shaHex(pkg.package_salt+'|'+digits(rawIdentity));const rec=(pkg.records||[]).find(x=>(x.login_hash===hash)||(pkg.v===1&&x.code_hash===legacyHash));if(!rec){showError('اطلاعات ورود صحیح نیست یا دسترسی برای این دانش‌آموز فعال نشده است.');return;}try{let secret;if(pkg.v===1){const nid=digits(rawIdentity);secret=nid+':'+pw;}else if(mode==='password_only')secret=identity;else if(mode==='code_only'||mode==='name_only')secret=identity;else secret=identity+':'+pw;const key=await deriveKey(secret,fromB64u(rec.salt));const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:fromB64u(rec.iv)},key,fromB64u(rec.data));const raw=await decompress(new Uint8Array(plain));const data=JSON.parse(new TextDecoder().decode(raw));renderRecord(data);}catch(e){showError('رمز اختصاصی نادرست است یا بسته پرونده آسیب دیده است.');}}
+async function init(){
+ const tokenMatch=location.hash.match(/(?:^|&)t=([^&]+)/);
+ if(tokenMatch){
+  document.getElementById('login-help').textContent='در حال دریافت امن پرونده کلاس از سرور…';
+  document.getElementById('open-btn').disabled=true;
+  try{
+   if(!window.supabase||!window.supabase.createClient)throw new Error('کتابخانه اتصال به سرور بارگذاری نشد.');
+   portalClient=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+   const token=decodeURIComponent(tokenMatch[1]);
+   const result=await portalClient.rpc('get_parent_portal_package',{p_token:token});
+   if(result.error)throw result.error;
+   const response=result.data;
+   if(!response||!response.package)throw new Error('این لینک غیرفعال شده یا مهلت اعتبار آن به پایان رسیده است. برای دریافت لینک فعال با معلم یا مدیر تماس بگیرید.');
+   pkg=response.package;
+   if(response.expires_at){document.getElementById('login-help').textContent='لطفاً اطلاعات ورود دانش‌آموز را وارد کنید. اعتبار این لینک تا '+new Date(response.expires_at).toLocaleString('fa-IR')+' است.';}
+  }catch(e){showError(e.message||'دریافت پرونده از سرور ناموفق بود. اتصال اینترنت را بررسی کنید.');document.getElementById('open-btn').disabled=true;return;}
+ }else{pkg=decodePackage();}
+ if(!pkg||![1,2].includes(pkg.v)||!Array.isArray(pkg.records)){showError('لینک پرونده معتبر نیست. لینک کامل و فعال را از معلم دریافت کنید.');document.getElementById('open-btn').disabled=true;return;}
+ document.getElementById('school-label').textContent=(pkg.school||'مدرسه')+' — کلاس '+(pkg.class_name||'');
+ configureLogin();document.getElementById('open-btn').disabled=false;document.getElementById('open-btn').addEventListener('click',openRecord);document.getElementById('identity-input').addEventListener('keydown',e=>{if(e.key==='Enter')openRecord();});document.getElementById('parent-password').addEventListener('keydown',e=>{if(e.key==='Enter')openRecord();});
+}
+init(); // صفحه والدین به‌صورت آنلاین کار می‌کند؛ عمداً Service Worker جداگانه ثبت نمی‌کند تا Service Worker اصلی برنامه جایگزین نشود.
+})();
+</script></body></html>
