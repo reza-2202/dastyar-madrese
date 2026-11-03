@@ -916,8 +916,10 @@ if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.
   window.addEventListener('load', function () {
     var swUrl = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/sw.js' : './sw.js';
     var scope = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/' : './';
-    navigator.serviceWorker.register(swUrl, { scope: scope }).then(function(reg){
-      try{ console.info('[PWA] service worker ok', reg.scope); }catch(e){}
+    // Force installed clients to check the latest worker instead of keeping a stale cached script.
+    swUrl += (swUrl.indexOf('?') >= 0 ? '&' : '?') + 'release=54';
+    navigator.serviceWorker.register(swUrl, { scope: scope, updateViaCache: 'none' }).then(function(reg){
+      try{ console.info('[PWA] service worker ok', reg.scope); reg.update().catch(function(){}); }catch(e){}
       return navigator.serviceWorker.ready;
     }).then(function(){
       try{ window.__dastyarSwReady = true; }catch(e){}
