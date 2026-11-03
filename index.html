@@ -3580,6 +3580,7 @@ async function saveFinance(){
  const topic=document.getElementById('fin-topic').value;
  const notes=document.getElementById('fin-notes').value.trim();
  if(!classId||!studentId){toast('کلاس و دانش‌آموز را انتخاب کنید');return;}
+ if(!(cache.students||[]).some(s=>String(s.id)===String(studentId)&&String(s.class_id)===String(classId))){toast('دانش‌آموز انتخاب‌شده متعلق به کلاس جاری نیست');return;}
  if(!Number.isFinite(amount)||amount<=0){toast('مبلغ معتبر را به تومان وارد کنید');return;}
  if(user.role!=='admin'&&!myClasses().some(c=>c.id===classId)){toast('فقط می‌توانید دریافت کلاس خود را ثبت کنید');return;}
  const row={id:uid(),student_id:studentId,class_id:classId,date,amount,topic,notes,created_by:user.full_name||user.username,created_role:user.role,status:'pending',approved_by:null,approved_at:null,approval_text:null};
@@ -3677,6 +3678,8 @@ async function saveDiscipline(){
  const inviteDate=feedback==='دعوت اولیا'?(document.getElementById('di-invite-date')?.value||'').trim():'';
  const inviteTime=feedback==='دعوت اولیا'?(document.getElementById('di-invite-time')?.value||'').trim():'';
  if(!classId||!studentId){toast('ابتدا کلاس و دانش‌آموز را انتخاب کنید');return;}
+ if(!(cache.students||[]).some(s=>String(s.id)===String(studentId)&&String(s.class_id)===String(classId))){toast('دانش‌آموز انتخاب‌شده متعلق به کلاس جاری نیست');return;}
+ if(user.role==='teacher'&&!myClasses().some(c=>String(c.id)===String(classId))){toast('اجازه ثبت برای این کلاس را ندارید');return;}
  if(!details){toast('شرح مورد انضباطی را بنویسید');return;}
  const row={id:uid(),student_id:studentId,class_id:classId,date,weekday,category,feedback,details,invite_date:inviteDate||null,invite_time:inviteTime||null,created_by:user.full_name||user.username,created_role:user.role,status:'pending',approved_by:null,approved_at:null,decision_text:null};
  const {error}=await sb.from('sa_discipline').insert(row);
@@ -4114,17 +4117,21 @@ async function saveAct(){
   var classId=document.getElementById('ac-class').value;
   var subject=document.getElementById('ac-sub').value;
   var rows=[];
+  if(!user||!classId||!(cache.classes||[]).some(function(x){return String(x.id)===String(classId)})){toast('کلاس معتبر انتخاب نشده است');return;}
+  if(user.role==='teacher'&&!myClasses().some(function(x){return String(x.id)===String(classId)})){toast('اجازه ثبت برای این کلاس را ندارید');return;}
   if(mode==='group'&&type==='qa'&&!editingId){
     var checks=Array.from(document.querySelectorAll('.ac-group-check:checked'));
     if(!checks.length){toast('حداقل یک دانش‌آموز را انتخاب کنید');return;}
     var date=document.getElementById('ac-g-dt').value.trim(),weekday=document.getElementById('ac-g-wd').value;
-    for(var c of checks){var wrap=document.querySelector('.ac-group-fields[data-student="'+String(c.value).replace(/"/g,'\\"')+'"]');var raw=wrap?.querySelector('.ac-group-score')?.value||'';var score=raw===''?null:Number(raw);if(score!==null&&(!Number.isFinite(score)||score<0||score>20)){toast('نمره باید بین ۰ تا ۲۰ باشد');return;}rows.push({id:uid(),student_id:c.value,class_id:classId,type:'qa',subject:subject,weekday:weekday,date:date,score:score,level:qaLevelFromScore(score) || wrap?.querySelector('.ac-group-level')?.value||'acceptable',notes:(wrap?.querySelector('.ac-group-notes')?.value||'').trim(),recorded_by:user.full_name});}
+    for(var c of checks){if(!(cache.students||[]).some(function(s){return String(s.id)===String(c.value)&&String(s.class_id)===String(classId)})){toast('یکی از دانش‌آموزان انتخاب‌شده متعلق به این کلاس نیست؛ فهرست را دوباره بررسی کنید');return;}var wrap=document.querySelector('.ac-group-fields[data-student="'+String(c.value).replace(/"/g,'\\"')+'"]');var raw=wrap?.querySelector('.ac-group-score')?.value||'';var score=raw===''?null:Number(raw);if(score!==null&&(!Number.isFinite(score)||score<0||score>20)){toast('نمره باید بین ۰ تا ۲۰ باشد');return;}rows.push({id:uid(),student_id:c.value,class_id:classId,type:'qa',subject:subject,weekday:weekday,date:date,score:score,level:qaLevelFromScore(score) || wrap?.querySelector('.ac-group-level')?.value||'acceptable',notes:(wrap?.querySelector('.ac-group-notes')?.value||'').trim(),recorded_by:user.full_name});}
   }else{
     var scoreEl=document.getElementById('ac-score'),rawScore=scoreEl?scoreEl.value:'';var scoreValue=rawScore===''?null:Number(rawScore);
     if(type==='qa'&&scoreValue!==null&&(!Number.isFinite(scoreValue)||scoreValue<0||scoreValue>20)){toast('نمره باید بین ۰ تا ۲۰ باشد');return;}
-    var row={student_id:document.getElementById('ac-st').value,class_id:classId,type:type,subject:subject,weekday:document.getElementById('ac-wd').value,date:document.getElementById('ac-dt').value,level:(type==='qa'&&qaLevelFromScore(scoreValue))||document.getElementById('ac-lv').value,notes:document.getElementById('ac-nt').value.trim(),recorded_by:user.full_name};
+    var selectedStudent=document.getElementById('ac-st').value;
+    if(!selectedStudent||!(cache.students||[]).some(function(s){return String(s.id)===String(selectedStudent)&&String(s.class_id)===String(classId)})){toast('دانش‌آموز انتخاب‌شده متعلق به کلاس جاری نیست');return;}
+    var row={student_id:selectedStudent,class_id:classId,type:type,subject:subject,weekday:document.getElementById('ac-wd').value,date:document.getElementById('ac-dt').value,level:(type==='qa'&&qaLevelFromScore(scoreValue))||document.getElementById('ac-lv').value,notes:document.getElementById('ac-nt').value.trim(),recorded_by:user.full_name};
     if(type==='qa')row.score=scoreValue;
-    if(editingId){delete row.recorded_by;var res=await sb.from('sa_activities').update(row).eq('id',editingId);if(res.error){toast('خطا در ویرایش: '+res.error.message);return;}await reloadAll();cache.activities=applyQaTombstones(cache.activities);document.getElementById('ac-form').innerHTML='';window.editingActivityId='';await loadActivities();toast('فقط همین پرسش و پاسخ ویرایش شد');return;}
+    if(editingId){var existingEdit=(cache.activities||[]).find(function(a){return String(a.id)===String(editingId)&&a.type==='qa'});if(!existingEdit||String(existingEdit.class_id)!==String(classId)||String(existingEdit.student_id)!==String(selectedStudent)){toast('رکورد برای ویرایش معتبر نیست؛ فهرست را دوباره بارگذاری کنید');return;}delete row.recorded_by;var res=await sb.from('sa_activities').update(row).eq('id',editingId);if(res.error){toast('خطا در ویرایش: '+res.error.message);return;}await reloadAll();cache.activities=applyQaTombstones(cache.activities);document.getElementById('ac-form').innerHTML='';window.editingActivityId='';await loadActivities();toast('فقط همین پرسش و پاسخ ویرایش شد');return;}
     row.id=uid();rows.push(row);
   }
   var result=await sb.from('sa_activities').insert(rows);
