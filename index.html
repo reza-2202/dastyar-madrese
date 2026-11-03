@@ -8497,7 +8497,7 @@ window.generateParentPortalLink=async function(classId,studentId){
   const students=(cache.students||[]).filter(s=>String(s.class_id)===String(classId)&&( !studentId||String(s.id)===String(studentId)));
   if(!students.length){toast('برای این کلاس دانش‌آموزی پیدا نشد');return;}
   saveParentSettings();const enabled=(document.getElementById('parent-access-enabled')||{}).checked!==false;const durationHours=parentDurationHours();
-  if(!sb||!navigator.onLine||window.isOffline){toast('برای مدیریت لینک مشترک، اتصال آنلاین به سرور لازم است.');return;}
+  if(!sb||!navigator.onLine){toast('برای مدیریت لینک مشترک، اتصال آنلاین به سرور لازم است.');return;}
   const credentials=parentSessionCredentials();if(!credentials.p_username||!credentials.p_password){toast('برای تأیید مجوز مدیر یا معلم، لطفاً خارج شوید و دوباره با اینترنت وارد شوید.');return;}
   if(!enabled){const disabled=await sb.rpc('set_parent_portal_access',{p_class_id:String(classId),p_username:credentials.p_username,p_password:credentials.p_password,p_enabled:false,p_duration_hours:durationHours});if(disabled.error){toast('غیرفعال‌سازی در سرور انجام نشد: '+disabled.error.message);return;}window.__dastyarParentLink='';const resultBox=document.getElementById('parent-portal-evaluation-result');if(resultBox)resultBox.innerHTML='<b style="color:#991b1b">دسترسی اولیا برای این کلاس غیرفعال شد.</b>';toast('دسترسی لینک مشترک این کلاس در سرور غیرفعال شد.');return;}
   const mode=parentMode();const passwordMap=getPasswordMap();
