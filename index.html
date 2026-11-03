@@ -3924,19 +3924,24 @@ function loadAttendanceUI(){
   document.getElementById('alist').innerHTML=students.map(s=>attendanceStudentCard(s,attState[s.id]||'')).join('');
 }
 async function saveAttendance(){
-  const classId=document.getElementById('at-class').value;
+  const classId=String(document.getElementById('at-class').value||'');
   const date=document.getElementById('at-date').value||today();
   const weekday=document.getElementById('at-weekday')?document.getElementById('at-weekday').value:weekdayNow();
-  // توجه: ستون weekday در دیتابیس ممکن است وجود نداشته باشد؛ روز هفته فقط در recorded_by ذخیره می‌شود
-  const rows=Object.keys(attState).map(sid=>({
+  if(!classId){toast('ابتدا کلاس را انتخاب کنید');return;}
+  if(!user||!sb){toast('اتصال به سرور برقرار نیست؛ اطلاعات تغییر نکرد');return;}
+  if(user.role==='teacher'&&!(user.class_ids||[]).map(String).includes(classId)){toast('شما مجاز به ثبت حضور و غیاب این کلاس نیستید');return;}
+  // فقط دانش‌آموزان متعلق به کلاس انتخاب‌شده ذخیره شوند؛ وضعیت باقی‌مانده از کلاس قبلی نباید وارد این کلاس شود.
+  const classStudentIds=new Set((cache.students||[]).filter(s=>String(s.class_id)===classId).map(s=>String(s.id)));
+  const validStatuses=new Set(['present','absent','unexcused','excused','late']);
+  const rows=Object.keys(attState).filter(sid=>classStudentIds.has(String(sid))&&validStatuses.has(String(attState[sid]))).map(sid=>({
     id:classId+'_'+date+'_'+sid,
     student_id:sid,
     class_id:classId,
     date:date,
     status:attState[sid],
-    recorded_by:(user.full_name||'')+' | '+weekday+' '+date
+    recorded_by:(user.full_name||user.username||'')+' | '+weekday+' '+date
   }));
-  if(!rows.length){toast('چیزی انتخاب نشده');return;}
+  if(!rows.length){toast('برای دانش‌آموزان این کلاس وضعیتی انتخاب نشده است');return;}
   let {error}=await sb.from('sa_attendance').upsert(rows);
   if(error){
     // تلاش دوم بدون فیلدهای اضافی
