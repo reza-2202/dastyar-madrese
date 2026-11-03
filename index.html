@@ -145,7 +145,33 @@
         }
       };
     }
-    return {from:function(name){return table(name);}, storage:storageApi()};
+    return {
+      from:function(name){return table(name);},
+      rpc:async function(functionName,args){
+        if(!/^[a-zA-Z0-9_]+$/.test(String(functionName||'')))return {data:null,error:{message:'نام تابع RPC نامعتبر است.'},status:0};
+        if(!global.navigator.onLine||forceLocal)return {data:null,error:{message:'برای اجرای امن این عملیات، اتصال آنلاین به سرور لازم است.'},status:0,offline:true};
+        var controller=typeof AbortController!=='undefined'?new AbortController():null;
+        var timer=controller?setTimeout(function(){controller.abort();},15000):null;
+        try{
+          var response=await fetch(base+'/'+encodeURIComponent(functionName),{
+            method:'POST',
+            headers:baseHeaders,
+            body:JSON.stringify(args||{}),
+            signal:controller?controller.signal:undefined
+          });
+          var raw=await response.text(),data=null;
+          try{data=raw?JSON.parse(raw):null;}catch(e){data=raw;}
+          if(!response.ok){
+            var message=(data&&(data.message||data.error||data.hint||data.details))||raw||('HTTP '+response.status);
+            return {data:null,error:{message:String(message),code:data&&data.code},status:response.status};
+          }
+          return {data:data,error:null,status:response.status};
+        }catch(error){
+          return {data:null,error:{message:error&&error.name==='AbortError'?'درخواست RPC پس از ۱۵ ثانیه پاسخ نگرفت.':(error.message||String(error))},status:0};
+        }finally{if(timer)clearTimeout(timer);}
+      },
+      storage:storageApi()
+    };
   }
   function isMissingColumnResponse(status,body){
     var code=body&&body.code, message=String(body&&(body.message||body.details||body.hint)||'');
@@ -8516,13 +8542,40 @@ window.copyParentPortalLink=async function(){if(!window.__dastyarParentLink){toa
 window.shareParentPortalLink=async function(){if(!window.__dastyarParentLink){toast('ابتدا لینک پرونده اولیا را ایجاد کنید.');return;}var text=window.parentPortalShareText();if(navigator.share){try{await navigator.share({title:'لینک دسترسی به پرونده الکترونیکی اولیا',text:text});return;}catch(e){if(e&&e.name==='AbortError')return;console.warn('Native share failed',e);}}await window.copyParentPortalLink();};
 window.downloadParentCredentials=function(){const rows=window.__dastyarParentCredentials||[];if(!rows.length)return;const csv='نام دانش‌آموز\tکلاس\tکد دانش‌آموزی\tروش ورود\tشناسه ورود\tرمز اختصاصی\n'+rows.map(x=>[x.name,x.class_name,x.student_code,x.login_mode,x.login_identity,x.password].join('\t')).join('\n');const blob=new Blob(['\ufeff'+csv],{type:'text/tab-separated-values;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='رمزهای-اختصاصی-اولیا-'+Date.now()+'.txt';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
 window.renderParentInvitationSummary=function(){
- const box=document.getElementById('parent-invitation-summary-content');if(!box)return;
- const records=(cache.discipline||[]).filter(r=>String(r.feedback||'').replace(/[\u200c\s]/g,'')==='دعوتاولیا');
- const batch=Array.isArray(inviteBatch)?inviteBatch:[];let issued=[];try{issued=JSON.parse(localStorage.getItem('dastyar_parent_invites_issued_v1')||'[]');if(!Array.isArray(issued))issued=[];}catch(e){}const all=records.concat(batch,issued);
+ const box=document.getElementById('parent-invitation-summary-content');
+ const card=document.getElementById('parent-invitation-summary');
+ if(!box)return;
+ const isAdmin=!!(user&&user.role==='admin');
+ const isTeacher=!!(user&&user.role==='teacher');
+ if(!isAdmin&&!isTeacher){if(card)card.style.display='none';return;}
+ let records=(cache.discipline||[]).filter(r=>String(r.feedback||'').replace(/[\\u200c\\s]/g,'')==='دعوتاولیا');
+ if(isTeacher){
+  const currentName=String(user.full_name||user.username||'').trim();
+  records=records.filter(r=>String(r.created_by||'').trim()===currentName);
+  if(!records.length){if(card)card.style.display='none';return;}
+ }
+ if(card)card.style.display='';
+ const batch=isAdmin&&Array.isArray(inviteBatch)?inviteBatch:[];
+ let issued=[];
+ if(isAdmin){try{issued=JSON.parse(localStorage.getItem('dastyar_parent_invites_issued_v1')||'[]');if(!Array.isArray(issued))issued=[];}catch(e){}}
+ const all=records.concat(batch,issued);
  const names=Array.from(new Set(all.map(r=>r.class_label||((cache.classes||[]).find(c=>String(c.id)===String(r.class_id))||{}).label||'کلاس نامشخص')));
- const uniqueInvites=new Map();all.forEach(function(r){if(!r)return;const person=(r.student_id||r.studentId||'');const key=person?(person+'|'+(r.class_id||r.class_label||'')+'|'+(r.date||'')+'|'+(r.time||'')):'id:'+String(r.id||('row'+i));uniqueInvites.set(key,r);});
- const badge=document.getElementById('parent-invitation-count-badge');if(badge){const count=uniqueInvites.size;badge.textContent=typeof fa==='function'?fa(count):String(count);badge.style.display=count?'inline-block':'none';badge.title='تعداد دعوت‌نامه‌ها و موارد در جریان';}
- box.innerHTML='<b>دعوتنامه‌های صادرشده (ثبت‌شده روی این دستگاه):</b> '+(typeof fa==='function'?fa(issued.length):issued.length)+'<br><b>درخواست‌های دعوت اولیا:</b> '+(typeof fa==='function'?fa(records.length):records.length)+'<br><b>آماده چاپ:</b> '+(typeof fa==='function'?fa(batch.length):batch.length)+'<br><b>کلاس‌ها:</b> '+(names.length?names.map(escParent).join('، '):'هنوز موردی ثبت نشده است.');
+ const uniqueInvites=new Map();
+ all.forEach(function(r,index){
+  if(!r)return;
+  const person=(r.student_id||r.studentId||'');
+  const inviteDate=r.invite_date||r.date||'';
+  const inviteTime=r.invite_time||r.time||'';
+  const key=person?(person+'|'+(r.class_id||r.class_label||'')+'|'+inviteDate+'|'+inviteTime):'id:'+String(r.id||('row'+index));
+  uniqueInvites.set(key,r);
+ });
+ const badge=document.getElementById('parent-invitation-count-badge');
+ if(badge){const count=uniqueInvites.size;badge.textContent=typeof fa==='function'?fa(count):String(count);badge.style.display=count?'inline-block':'none';badge.title='تعداد دعوت‌نامه‌های مربوط به حساب شما';}
+ if(isTeacher){
+  box.innerHTML='<b>درخواست‌های دعوت اولیا که شما ثبت کرده‌اید:</b> '+(typeof fa==='function'?fa(records.length):records.length)+'<br><b>کلاس‌ها:</b> '+(names.length?names.map(escParent).join('، '):'هنوز موردی ثبت نشده است.');
+ }else{
+  box.innerHTML='<b>دعوتنامه‌های صادرشده (ثبت‌شده روی این دستگاه):</b> '+(typeof fa==='function'?fa(issued.length):issued.length)+'<br><b>درخواست‌های دعوت اولیا:</b> '+(typeof fa==='function'?fa(records.length):records.length)+'<br><b>آماده چاپ:</b> '+(typeof fa==='function'?fa(batch.length):batch.length)+'<br><b>کلاس‌ها:</b> '+(names.length?names.map(escParent).join('، '):'هنوز موردی ثبت نشده است.');
+ }
 };
 function bindParentSettings(){const sel=document.getElementById('ev-class'),mode=document.getElementById('parent-login-mode'),enabled=document.getElementById('parent-access-enabled'),duration=document.getElementById('parent-link-duration');if(sel){sel.addEventListener('change',applyParentSettings);if(sel.value)applyParentSettings();}if(mode)mode.addEventListener('change',saveParentSettings);if(enabled)enabled.addEventListener('change',saveParentSettings);if(duration)duration.addEventListener('change',saveParentSettings);}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bindParentSettings);else bindParentSettings();
