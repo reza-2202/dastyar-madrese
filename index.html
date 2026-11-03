@@ -1029,7 +1029,7 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <div class="sg">
 <div class="sc"><div class="n" id="st-s">۰</div><div class="l">دانش‌آموز</div></div>
 <div class="sc"><div class="n" id="st-c">۰</div><div class="l">کلاس</div></div>
-<div class="sc"><div class="n" id="st-p">۰</div><div class="l">حاضر امروز</div></div>
+<div class="sc"><div class="n" id="st-p">۰</div><div class="l">حاضر امروز</div><small id="st-att-summary" style="display:block;font-size:.62rem;line-height:1.6;margin-top:3px;color:#64748b">غایب: ۰ | موجه: ۰ | تأخیر: ۰</small></div>
 <div class="sc" role="button" tabindex="0" onclick="toggleEvaluationClassList()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleEvaluationClassList()}" style="cursor:pointer"><div class="n" id="st-e">۰</div><div class="l">ارزشیابی<br><small>برای مشاهده کلاس‌ها بزنید</small></div></div>
 <div class="sc"><div class="n" id="st-f">۰</div><div class="l">فایل در انتظار</div><small id="st-f-classes" role="button" tabindex="0" onclick="togglePendingFileClasses()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();togglePendingFileClasses()}" style="display:block;font-size:.65rem;line-height:1.5;color:#1d4ed8;margin-top:3px;text-decoration:underline;cursor:pointer">برای مشاهده کلاس‌ها بزنید</small></div>
 <div class="sc" role="button" tabindex="0" onclick="toggleAttendanceClassList()" style="cursor:pointer"><div class="n" id="st-a">۰</div><div class="l">کلاس حضورثبت‌شده<br><small>برای مشاهده نام کلاس‌ها بزنید</small></div></div>
@@ -2429,9 +2429,16 @@ function refreshDash(){
   document.getElementById('st-c').textContent=fa(myClasses().length);
   const t=today();
   const ids=new Set(myStudents().map(s=>String(s.id)));
-  let present=0;
-  (cache.attendance||[]).filter(a=>String(a.date||'')===String(t)&&ids.has(String(a.student_id))).forEach(a=>{if(a.status==='present')present++;});
+  let present=0,absent=0,excused=0,late=0;
+  (cache.attendance||[]).filter(a=>String(a.date||'')===String(t)&&ids.has(String(a.student_id))).forEach(a=>{
+    if(a.status==='present')present++;
+    else if(a.status==='absent'||a.status==='unexcused')absent++;
+    else if(a.status==='excused')excused++;
+    else if(a.status==='late')late++;
+  });
   document.getElementById('st-p').textContent=fa(present);
+  var attSummary=document.getElementById('st-att-summary');
+  if(attSummary)attSummary.textContent='غایب: '+fa(absent)+' | موجه: '+fa(excused)+' | تأخیر: '+fa(late);
   var evCount=(cache.evaluations||[]).filter(function(e){return ids.has(String(e.student_id));}).length;
   var evEl=document.getElementById('st-e');if(evEl)evEl.textContent=fa(evCount);
   // فایل‌های در انتظار چاپ/تحویل (هنوز دکمه آماده تحویل نخورده)
@@ -3962,11 +3969,17 @@ async function loadAttendance(){
   try{
     await reloadAll();
     const students=(cache.students||[]).filter(s=>String(s.class_id)===classId);
-    attState={};
-    // همه دانش‌آموزان در آغاز حاضر در نظر گرفته می‌شوند؛ وضعیت‌های ثبت‌شده قبلی جایگزین می‌شوند.
-    students.forEach(s=>{attState[String(s.id)]='present';});
+    // پیش‌نویس انتخاب‌ها را هنگام جابه‌جایی بین پنل‌ها/کلاس‌ها/تاریخ‌ها نگه می‌داریم.
+    window.__dastyarAttendanceDrafts=window.__dastyarAttendanceDrafts||{};
+    if(window.__dastyarAttendanceActiveKey){
+      window.__dastyarAttendanceDrafts[window.__dastyarAttendanceActiveKey]=Object.assign({},attState||{});
+    }
+    const draftKey=classId+'|'+date;
+    attState=Object.assign({},window.__dastyarAttendanceDrafts[draftKey]||{});
+    // فقط رکوردهای واقعاً ذخیره‌شده وضعیت دارند؛ دانش‌آموز بدون رکورد خالی می‌ماند.
     (cache.attendance||[]).filter(a=>String(a.class_id)===classId&&String(a.date)===date)
-      .forEach(a=>{if(a&&a.student_id!=null)attState[String(a.student_id)]=a.status;});
+      .forEach(a=>{if(a&&a.student_id!=null&&a.status)attState[String(a.student_id)]=a.status;});
+    window.__dastyarAttendanceActiveKey=draftKey;
     if(!students.length){if(box)box.innerHTML='<div class="empty">دانش‌آموزی در این کلاس نیست</div>';return;}
     loadAttendanceUI();
   }catch(error){
@@ -3975,7 +3988,14 @@ async function loadAttendance(){
     toast('خطا در دریافت حضور و غیاب: '+(error&&error.message||String(error)));
   }
 }
-function setAtt(id,st){attState[String(id)]=st;loadAttendanceUI();}
+function setAtt(id,st){
+  attState[String(id)]=st;
+  window.__dastyarAttendanceDrafts=window.__dastyarAttendanceDrafts||{};
+  const key=String(document.getElementById('at-class')?.value||'')+'|'+String(document.getElementById('at-date')?.value||today());
+  window.__dastyarAttendanceDrafts[key]=Object.assign({},attState);
+  window.__dastyarAttendanceActiveKey=key;
+  loadAttendanceUI();
+}
 function markAllPresent(){
   const classId=String(document.getElementById('at-class')&&document.getElementById('at-class').value||'');
   if(!classId){toast('ابتدا کلاس را انتخاب کنید');return;}
@@ -4007,11 +4027,12 @@ async function saveAttendance(){
     if(!students.length){toast('فهرست دانش‌آموزان این کلاس بارگذاری نشده است؛ ابتدا صفحه را تازه‌سازی کنید');return;}
     const allowed=['present','absent','unexcused','excused','late'];
     const recorder=(user.full_name||user.username||'کاربر');
-    // برای تمام دانش‌آموزان کلاس رکورد می‌سازیم؛ انتخاب‌نکردن یک دکمه باعث حذف/جاافتادن رکورد نمی‌شود.
-    const rows=students.map(student=>{
-      const sid=String(student.id),picked=String(attState[sid]||'present');
-      return {id:classId+'_'+date+'_'+sid,student_id:sid,class_id:classId,date:date,status:allowed.includes(picked)?picked:'present',recorded_by:recorder+' | '+weekday+' '+date};
+    // فقط وضعیت‌هایی که کاربر صریحاً انتخاب کرده ذخیره می‌شوند؛ موارد خالی حاضر محسوب نمی‌شوند.
+    const rows=students.filter(student=>allowed.includes(String(attState[String(student.id)]||''))).map(student=>{
+      const sid=String(student.id),picked=String(attState[sid]);
+      return {id:classId+'_'+date+'_'+sid,student_id:sid,class_id:classId,date:date,status:picked,recorded_by:recorder+' | '+weekday+' '+date};
     });
+    if(!rows.length){toast('هنوز وضعیت هیچ دانش‌آموزی انتخاب نشده است؛ ابتدا وضعیت‌ها را مشخص کنید.');return;}
     let saved=null;
     if(navigator.onLine&&!window.isOffline){
       const url=String(SB_URL).replace(/\/$/,'')+'/rest/v1/sa_attendance?on_conflict=id';
@@ -4035,10 +4056,14 @@ async function saveAttendance(){
       if(queued&&queued.error)throw new Error(queued.error.message||'ثبت در صف آفلاین ناموفق بود');
       saved=rows.map(r=>Object.assign({},r));
     }
-    cache.attendance=(cache.attendance||[]).filter(a=>!(String(a.class_id)===classId&&String(a.date)===date)).concat(saved);
+    const savedStudentIds=new Set(rows.map(r=>String(r.student_id)));
+    cache.attendance=(cache.attendance||[]).filter(a=>!(String(a.class_id)===classId&&String(a.date)===date&&savedStudentIds.has(String(a.student_id)))).concat(saved);
     try{localStorage.setItem('dastyar_school_snapshot_v1',JSON.stringify(cache));}catch(e){console.warn('ذخیره نسخه محلی حضور و غیاب ناموفق بود',e);}
     try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){console.warn('ذخیره نسخه آفلاین حضور و غیاب ناموفق بود',e);}
     students.forEach(student=>{const sid=String(student.id),row=saved.find(r=>String(r.student_id)===sid);if(row)attState[sid]=row.status;});
+    window.__dastyarAttendanceDrafts=window.__dastyarAttendanceDrafts||{};
+    window.__dastyarAttendanceDrafts[classId+'|'+date]=Object.assign({},attState);
+    window.__dastyarAttendanceActiveKey=classId+'|'+date;
     loadAttendanceUI();
     try{refreshDash();}catch(e){}
     if(navigator.onLine&&!window.isOffline)toast('حضور و غیاب کلاس '+(cache.classes||[]).find(c=>String(c.id)===classId)?.label+' با موفقیت در سرور ثبت و دوباره بررسی شد ('+saved.length+' دانش‌آموز). در پنل مدیر نیز قابل مشاهده است.');
