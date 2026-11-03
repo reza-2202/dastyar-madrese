@@ -1882,12 +1882,26 @@ async function collectOfflineOnlyStudents(serverList){
   return extra;
 }
 
+async function fetchAllAttendanceRows(){
+  // PostgREST معمولاً تعداد ردیف‌های هر پاسخ را محدود می‌کند؛
+  // صفحه‌بندی صریح باعث می‌شود مدیر و معلم همه سوابق را ببینند.
+  const pageSize=500, all=[];
+  for(let from=0;from<100000;from+=pageSize){
+    const result=await sb.from('sa_attendance').select('*').order('id',{ascending:true}).range(from,from+pageSize-1);
+    if(result.error) return {data:null,error:result.error};
+    const page=Array.isArray(result.data)?result.data:[];
+    all.push(...page);
+    if(page.length<pageSize) return {data:all,error:null};
+  }
+  return {data:null,error:{message:'تعداد رکوردهای حضور و غیاب از حد امن بارگذاری بیشتر است'}};
+}
+
 async function reloadAll(){
   const [u,c,s,a,sc,co,ac,ev,di,fi] = await Promise.all([
     sb.from('sa_users').select('*'),
     sb.from('sa_classes').select('*').order('grade'),
     sb.from('sa_students').select('*'),
-    sb.from('sa_attendance').select('*'),
+    fetchAllAttendanceRows(),
     sb.from('sa_scores').select('*'),
     sb.from('sa_competencies').select('*'),
     sb.from('sa_activities').select('*').order('created_at',{ascending:false}),
@@ -3903,15 +3917,31 @@ async function deleteAttendanceRecord(id){
  }catch(e){toast('حذف انجام نشد: '+(e&&e.message||e));}
 }
 async function loadAttendance(){
-  await reloadAll();
-  const classId=document.getElementById('at-class').value;
-  const date=document.getElementById('at-date').value||today();
-  const students=cache.students.filter(s=>s.class_id===classId);
-  attState={};
-  cache.attendance.filter(a=>a.class_id===classId&&a.date===date).forEach(a=>{attState[a.student_id]=a.status;});
+  const classEl=document.getElementById('at-class');
+  const dateEl=document.getElementById('at-date');
+  const classId=String(classEl&&classEl.value||'');
+  const date=String(dateEl&&dateEl.value||today());
   const box=document.getElementById('alist');
-  if(!students.length){box.innerHTML='<div class="empty">دانش‌آموزی نیست</div>';return;}
-  box.innerHTML=students.map(s=>attendanceStudentCard(s,attState[s.id]||'')).join('');
+  if(!classId){if(box)box.innerHTML='<div class="empty">ابتدا کلاس را انتخاب کنید</div>';return;}
+  if(!user){if(box)box.innerHTML='<div class="empty">ابتدا وارد برنامه شوید</div>';return;}
+  if(user.role==='teacher'&&!myClasses().some(c=>String(c.id)===classId)){
+    if(box)box.innerHTML='<div class="empty">دسترسی به این کلاس ندارید</div>';return;
+  }
+  try{
+    await reloadAll();
+    const students=(cache.students||[]).filter(s=>String(s.class_id)===classId);
+    attState={};
+    // وضعیت اولیه همه دانش‌آموزان حاضر است؛ معلم فقط موارد غیبت/تأخیر را تغییر می‌دهد.
+    students.forEach(s=>{attState[String(s.id)]='present';});
+    (cache.attendance||[]).filter(a=>String(a.class_id)===classId&&String(a.date)===date)
+      .forEach(a=>{if(a&&a.student_id)attState[String(a.student_id)]=a.status;});
+    if(!students.length){if(box)box.innerHTML='<div class="empty">دانش‌آموزی در این کلاس نیست</div>';return;}
+    loadAttendanceUI();
+  }catch(e){
+    console.error('loadAttendance failed',e);
+    if(box)box.innerHTML='<div class="empty">بارگذاری حضور و غیاب ناموفق بود: '+escHtml(e&&e.message||String(e))+'</div>';
+    toast('خطا در دریافت حضور و غیاب: '+(e&&e.message||String(e)));
+  }
 }
 function setAtt(id,st){attState[id]=st;loadAttendanceUI();}
 function markAllPresent(){
@@ -3929,34 +3959,50 @@ function loadAttendanceUI(){
   document.getElementById('alist').innerHTML=students.map(s=>attendanceStudentCard(s,attState[s.id]||'')).join('');
 }
 async function saveAttendance(){
-  const classId=String(document.getElementById('at-class').value||'');
-  const date=document.getElementById('at-date').value||today();
-  const weekday=document.getElementById('at-weekday')?document.getElementById('at-weekday').value:weekdayNow();
-  if(!classId){toast('ابتدا کلاس را انتخاب کنید');return;}
-  if(!user||!sb){toast('اتصال به سرور برقرار نیست؛ اطلاعات تغییر نکرد');return;}
-  if(user.role==='teacher'&&!(user.class_ids||[]).map(String).includes(classId)){toast('شما مجاز به ثبت حضور و غیاب این کلاس نیستید');return;}
-  // فقط دانش‌آموزان متعلق به کلاس انتخاب‌شده ذخیره شوند؛ وضعیت باقی‌مانده از کلاس قبلی نباید وارد این کلاس شود.
-  const classStudentIds=new Set((cache.students||[]).filter(s=>String(s.class_id)===classId).map(s=>String(s.id)));
-  const validStatuses=new Set(['present','absent','unexcused','excused','late']);
-  const rows=Object.keys(attState).filter(sid=>classStudentIds.has(String(sid))&&validStatuses.has(String(attState[sid]))).map(sid=>({
-    id:classId+'_'+date+'_'+sid,
-    student_id:sid,
-    class_id:classId,
-    date:date,
-    status:attState[sid],
-    recorded_by:(user.full_name||user.username||'')+' | '+weekday+' '+date
-  }));
-  if(!rows.length){toast('برای دانش‌آموزان این کلاس وضعیتی انتخاب نشده است');return;}
-  let {error}=await sb.from('sa_attendance').upsert(rows);
-  if(error){
-    // تلاش دوم بدون فیلدهای اضافی
-    const simple=rows.map(r=>({id:r.id,student_id:r.student_id,class_id:r.class_id,date:r.date,status:r.status,recorded_by:r.recorded_by}));
-    ({error}=await sb.from('sa_attendance').upsert(simple));
-  }
-  if(error){toast('خطا: '+error.message);return;}
-  await reloadAll();
-  toast('حضور ذخیره شد ('+weekday+' '+date+')');
-  refreshDash();
+  if(window.__dastyarSavingAttendance){toast('ذخیره حضور و غیاب در حال انجام است؛ کمی صبر کنید');return;}
+  window.__dastyarSavingAttendance=true;
+  try{
+    const classId=String(document.getElementById('at-class')?.value||'');
+    const date=String(document.getElementById('at-date')?.value||today());
+    const weekday=String(document.getElementById('at-weekday')?.value||weekdayNow());
+    if(!classId){toast('ابتدا کلاس را انتخاب کنید');return;}
+    if(!user||!sb){toast('اتصال به سرور برقرار نیست؛ حضور و غیاب ذخیره نشد');return;}
+    if(user.role==='teacher'&&!myClasses().some(c=>String(c.id)===classId)){
+      toast('شما مجاز به ثبت حضور و غیاب این کلاس نیستید');return;
+    }
+    const students=(cache.students||[]).filter(s=>String(s.class_id)===classId&&s.id!=null);
+    if(!students.length){toast('فهرست دانش‌آموزان این کلاس بارگذاری نشده است؛ ابتدا صفحه را تازه‌سازی کنید');return;}
+    const validStatuses=new Set(['present','absent','unexcused','excused','late']);
+    const recorder=(user.full_name||user.username||'مدیر');
+    const rows=students.map(s=>{
+      const sid=String(s.id);
+      const status=validStatuses.has(String(attState[sid]||''))?String(attState[sid]):'present';
+      return {id:classId+'_'+date+'_'+sid,student_id:sid,class_id:classId,date:date,status:status,weekday:weekday,recorded_by:recorder+' | '+weekday+' '+date};
+    });
+    const write=await sb.from('sa_attendance').upsert(rows,{onConflict:'id'}).select('id');
+    if(write.error)throw write.error;
+    if(!Array.isArray(write.data)||write.data.length!==rows.length){
+      throw new Error('سرور تعداد کامل رکوردها را تأیید نکرد؛ تعداد مورد انتظار '+rows.length+' و تعداد تأییدشده '+((write.data||[]).length));
+    }
+    const verify=await sb.from('sa_attendance')
+      .select('id,student_id,class_id,date,status,recorded_by,weekday,notice_approved,notice_approved_by,notice_approved_at')
+      .eq('class_id',classId).eq('date',date);
+    if(verify.error)throw verify.error;
+    const saved=Array.isArray(verify.data)?verify.data:[];
+    const savedIds=new Set(saved.map(r=>String(r.student_id)));
+    const missing=rows.filter(r=>!savedIds.has(String(r.student_id)));
+    if(missing.length)throw new Error('ذخیره کامل تأیید نشد؛ '+missing.length+' دانش‌آموز در بررسی نهایی پیدا نشد');
+    cache.attendance=(cache.attendance||[]).filter(a=>!(String(a.class_id)===classId&&String(a.date)===date)).concat(saved);
+    try{localStorage.setItem('dastyar_school_snapshot_v1',JSON.stringify(cache));}catch(e){console.warn('attendance localStorage snapshot',e);}
+    try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){console.warn('attendance offline snapshot',e);}
+    students.forEach(s=>{const sid=String(s.id);const row=saved.find(a=>String(a.student_id)===sid);if(row)attState[sid]=row.status;});
+    loadAttendanceUI();
+    try{refreshDash();}catch(e){}
+    toast('حضور و غیاب '+(cache.classes.find(c=>String(c.id)===classId)?.label||classId)+' با موفقیت در سرور ثبت و تأیید شد ('+saved.length+' دانش‌آموز). مدیر نیز می‌تواند آن را مشاهده کند.');
+  }catch(e){
+    console.error('saveAttendance failed',e);
+    toast('ذخیره حضور و غیاب ناموفق بود: '+(e&&e.message||String(e)));
+  }finally{window.__dastyarSavingAttendance=false;}
 }
 
 async function loadAttHistory(){
