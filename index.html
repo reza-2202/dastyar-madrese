@@ -2340,7 +2340,7 @@ function go(p){
   if(p==='charts'){fillSelects();loadChartStudents();renderChartView();}
   if(p==='documents'){fillDocumentClassSelect();loadSchoolDocuments();}
   if(p==='chat'){loadSchoolMessages();}
-  if(p==='weekly'){fillSelects();fillWeeklyClasses();renderWeeklyEditor();}
+  if(p==='weekly'){fillSelects();fillWeeklyClasses();renderWeeklyEditor();loadWeeklySchedules();}
   if(p==='parentmeet'){fillParentClasses();if(!document.getElementById('pm-date').value)document.getElementById('pm-date').value=today();syncParentWeekday();if(!document.getElementById('pm-comments').children.length)addParentComment();renderParentMeetings();}
   if(p==='report'){fillSelects();loadReportStudents();document.getElementById('rp-edit').innerHTML='';}
 }
@@ -5505,7 +5505,7 @@ const SCHOOL_DAYS=['شنبه','یکشنبه','دوشنبه','سه‌شنبه','�
 function localRead(key){try{return JSON.parse(localStorage.getItem(key)||'[]')}catch(e){return []}}
 function localWrite(key,val){try{localStorage.setItem(key,JSON.stringify(val));return true}catch(e){toast('فضای ذخیره‌سازی مرورگر در دسترس نیست');return false}}
 function currentOwner(){return user?(user.role==='admin'?'admin':(user.username||user.full_name||'teacher')):'guest'}
-function fillWeeklyClasses(){const el=document.getElementById('wk-class');if(!el)return;const old=el.value;el.innerHTML=myClasses().map(c=>'<option value="'+escHtml(c.id)+'">'+escHtml(c.label)+'</option>').join('')||'<option value="">کلاسی ندارید</option>';if(old)el.value=old;el.onchange=renderWeeklyEditor}
+function fillWeeklyClasses(){const el=document.getElementById('wk-class');if(!el)return;const old=el.value;el.innerHTML=myClasses().map(c=>'<option value="'+escHtml(c.id)+'">'+escHtml(c.label)+'</option>').join('')||'<option value="">کلاسی ندارید</option>';if(old)el.value=old;el.onchange=function(){renderWeeklyEditor();loadWeeklySchedules();}}
 function weeklyKey(){return 'dastyar_weekly_schedules_v1'}
 function renderTeacherTodaySchedule(){
   var box=document.getElementById('teacher-today-schedule'),content=document.getElementById('teacher-today-schedule-content');
