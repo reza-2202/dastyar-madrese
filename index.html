@@ -4207,12 +4207,16 @@ async function saveEv(){
   const scoreRaw=document.getElementById('ev-sc').value;
   const score=scoreRaw===''?null:parseFloat(scoreRaw);
   const studentId=document.getElementById('ev-st').value;
+  const classId=document.getElementById('ev-class').value;
   const subject=document.getElementById('ev-sub').value;
+  if(!classId||!studentId||!cache.students.some(s=>String(s.id)===String(studentId)&&String(s.class_id)===String(classId))){toast('کلاس و دانش‌آموز معتبر از همان کلاس را انتخاب کنید');return}
+  if(score!==null&&(!Number.isFinite(score)||score<0||score>20)){toast('نمره باید بین ۰ تا ۲۰ باشد');return}
+  if(user.role==='teacher'&&!myClasses().some(c=>String(c.id)===String(classId))){toast('اجازه ثبت برای این کلاس را ندارید');return}
   const level=document.getElementById('ev-lv').value;
   syncEvFilterDate();
   const row={
     id:uid(),student_id:studentId,
-    class_id:document.getElementById('ev-class').value,
+    class_id:classId,
     month:document.getElementById('ev-month').value,
     subject,weekday:document.getElementById('ev-wd').value,
     date:document.getElementById('ev-dt').value,
@@ -4220,10 +4224,11 @@ async function saveEv(){
     recorded_by:user.full_name
   };
   let {error}=await sb.from('sa_evaluations').insert(row);
-  if(error){toast('خطا: '+error.message);return;}
-  // update scores table for report card
-  await sb.from('sa_scores').upsert({id:studentId+'_'+subject,student_id:studentId,subject,score,level});
-  await reloadAll();document.getElementById('ev-form').innerHTML='';loadEvals();toast('ارزشیابی آنلاین ذخیره شد');
+  if(error){toast('ارزشیابی ثبت نشد: '+error.message);return;}
+  // نمره کارنامه نیز باید با موفقیت ذخیره شود؛ خطا پنهان نشود.
+  const scoreSave=await sb.from('sa_scores').upsert({id:studentId+'_'+subject,student_id:studentId,subject,score,level});
+  if(scoreSave&&scoreSave.error){toast('ارزشیابی ثبت شد، اما به‌روزرسانی نمره کارنامه ناموفق بود: '+scoreSave.error.message);await reloadAll();return}
+  await reloadAll();document.getElementById('ev-form').innerHTML='';await loadEvals();toast('ارزشیابی و نمره کارنامه ذخیره شدند');
 }
 function toggleEvDateFilter(){
   const mode=document.getElementById('ev-filter-mode')?.value||'date';
@@ -4322,7 +4327,9 @@ function openScore(sid){
 function al(sub){const v=parseFloat(document.getElementById('sc-'+sub).value);if(!isNaN(v))document.getElementById('lv-'+sub).value=scoreLv(v);}
 async function saveScores(){
   if(!editSid)return;
-  const s=cache.students.find(x=>x.id===editSid);
+  const s=cache.students.find(x=>String(x.id)===String(editSid));
+  if(!s){toast('دانش‌آموز انتخاب‌شده دیگر در فهرست موجود نیست؛ دوباره فهرست را بارگذاری کنید');return}
+  if(user.role==='teacher'&&!myClasses().some(c=>String(c.id)===String(s.class_id))){toast('اجازه ویرایش کارنامه این کلاس را ندارید');return}
   const subs=subjectsFor(s.class_id);
   const scoreRows=[];
   subs.forEach(sub=>{
@@ -5514,9 +5521,9 @@ function renderTeacherTodaySchedule(){
   content.innerHTML=html;
 }
 
-function selectedWeekly(){const cl=document.getElementById('wk-class')?.value||'';const all=localRead(weeklyKey()).filter(x=>x.class_id===cl);return all.find(x=>x.owner===currentOwner())||(user?.role==='admin'?all.sort((a,b)=>(b.created_at||0)-(a.created_at||0))[0]:null)}
+let weeklyServerRecords=[];async function loadWeeklySchedules(){if(!sb||!user)return;try{const r=await sb.from('sa_weekly_schedules').select('*');if(r&&!r.error&&Array.isArray(r.data)){weeklyServerRecords=r.data;const local=localRead(weeklyKey());const merged=local.filter(x=>!r.data.some(y=>String(y.id)===String(x.id)||String(y.class_id)===String(x.class_id)&&String(y.owner)===String(x.owner))).concat(r.data);localWrite(weeklyKey(),merged);renderWeeklyEditor();if(user.role==='teacher')renderTeacherTodaySchedule();}}catch(e){console.warn('دریافت برنامه هفتگی',e);}}function selectedWeekly(){const cl=document.getElementById('wk-class')?.value||'';const all=localRead(weeklyKey()).filter(x=>String(x.class_id)===String(cl));const server=weeklyServerRecords.filter(x=>String(x.class_id)===String(cl));const records=all.concat(server.filter(y=>!all.some(x=>String(x.id)===String(y.id)||String(x.owner)===String(y.owner))));return records.find(x=>String(x.owner)===String(currentOwner()))||(user?.role==='admin'?records.sort((a,b)=>String(b.updated_at||'').localeCompare(String(a.updated_at||'')))[0]:null)}
 function renderWeeklyEditor(){const box=document.getElementById('weekly-editor');if(!box)return;const rec=selectedWeekly();let html='<table class="week-grid"><thead><tr><th>روز</th>'+[1,2,3,4,5].map(n=>'<th>زنگ '+fa(n)+'</th>').join('')+'</tr></thead><tbody>';SCHOOL_DAYS.forEach((day,di)=>{html+='<tr><td class="day">'+day+'</td>';for(let period=1;period<=5;period++){const val=rec?.slots?.[day+'_'+period]||'';html+='<td><input aria-label="'+day+' زنگ '+period+'" data-day="'+day+'" data-period="'+period+'" value="'+escHtml(val)+'" placeholder="درس" /></td>'}html+='</tr>'});box.innerHTML=html+'</tbody></table>';const st=document.getElementById('weekly-status');if(st)st.textContent=rec?'برنامهٔ ذخیره‌شدهٔ '+(myClasses().find(c=>c.id===rec.class_id)?.label||'کلاس')+' نمایش داده شد.':'برای این کلاس هنوز برنامه‌ای ذخیره نشده است.'}
-function saveWeekly(){const cls=document.getElementById('wk-class')?.value;if(!cls){toast('ابتدا کلاس را انتخاب کنید');return}const slots={};document.querySelectorAll('#weekly-editor input[data-day]').forEach(i=>slots[i.dataset.day+'_'+i.dataset.period]=i.value.trim());const all=localRead(weeklyKey()).filter(x=>!(x.class_id===cls&&x.owner===currentOwner()));all.push({id:uid(),class_id:cls,owner:currentOwner(),owner_name:user?.full_name||user?.username||'',updated_at:today(),slots});if(localWrite(weeklyKey(),all)){toast('برنامه هفتگی ذخیره شد');renderWeeklyEditor();if(user&&user.role==='teacher')renderTeacherTodaySchedule()}}
+async function saveWeekly(){const cls=document.getElementById('wk-class')?.value;if(!cls||!user){toast('ابتدا وارد شوید و کلاس را انتخاب کنید');return}if(user.role==='teacher'&&!myClasses().some(c=>String(c.id)===String(cls))){toast('اجازه ثبت برنامه برای این کلاس را ندارید');return}const slots={};document.querySelectorAll('#weekly-editor input[data-day]').forEach(i=>slots[i.dataset.day+'_'+i.dataset.period]=i.value.trim());const row={id:uid(),class_id:cls,owner:currentOwner(),owner_name:user.full_name||user.username||'',updated_at:today(),slots};const all=localRead(weeklyKey()).filter(x=>!(String(x.class_id)===String(cls)&&String(x.owner)===String(currentOwner())));all.push(row);if(!localWrite(weeklyKey(),all))return;try{const res=await sb.from('sa_weekly_schedules').upsert(row);if(res&&res.error){toast('روی گوشی ذخیره شد، اما ارسال به سرور ناموفق بود: '+res.error.message+'؛ اطلاعات در صف/حافظه محلی باقی ماند.');return}weeklyServerRecords=weeklyServerRecords.filter(x=>!(String(x.class_id)===String(cls)&&String(x.owner)===String(currentOwner())));weeklyServerRecords.push(row);toast('برنامه هفتگی ذخیره و برای مدیر و معلم قابل دریافت شد');renderWeeklyEditor();if(user.role==='teacher')renderTeacherTodaySchedule()}catch(e){toast('ذخیره محلی انجام شد؛ ارتباط سرور برقرار نشد: '+(e.message||e))}}
 function clearWeekly(){if(!confirm('خانه‌های برنامه خالی شوند؟'))return;document.querySelectorAll('#weekly-editor input').forEach(i=>i.value='')}
 function weeklyPrintMarkup(rec){const cl=myClasses().find(c=>c.id===rec.class_id);let h='<section class="print-schedule"><h2>برنامه هفتگی — دبستان شهید فتح‌الله فلاح‌پور</h2><div>کلاس: '+escHtml(cl?.label||'')+'　 |　 معلم: '+escHtml(rec.owner_name||'')+'　 |　 سال تحصیلی ۱۴۰۵–۱۴۰۶</div><table class="week-grid"><thead><tr><th>روز</th>'+[1,2,3,4,5].map(n=>'<th>زنگ '+fa(n)+'</th>').join('')+'</tr></thead><tbody>';SCHOOL_DAYS.forEach(day=>{h+='<tr><td class="day">'+day+'</td>';for(let p=1;p<=5;p++)h+='<td><span class="print-subject">'+escHtml(rec.slots?.[day+'_'+p]||'')+'</span></td>';h+='</tr>'});return h+'</tbody></table><div style="text-align:left;font-size:8pt;margin-top:5px">امضای معلم: ....................　 امضای مدیر: '+PRINCIPAL+'</div></section>'}
 function printWeekly(){const cls=document.getElementById('wk-class')?.value;const rec=selectedWeekly();if(!cls){toast('ابتدا کلاس را انتخاب کنید');return}const live={class_id:cls,owner:currentOwner(),owner_name:user?.full_name||user?.username||'',slots:{}};document.querySelectorAll('#weekly-editor input[data-day]').forEach(i=>live.slots[i.dataset.day+'_'+i.dataset.period]=i.value.trim());const area=document.getElementById('print-area');area.innerHTML='<div class="schedule-a4">'+weeklyPrintMarkup(live)+weeklyPrintMarkup(live)+'<div class="cut">✂ برش از خط جداکننده</div></div>';window.print()}
