@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<title>پرونده اولیا — دستیار مدرسه</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Vazirmatn,Tahoma,sans-serif;background:linear-gradient(160deg,#e0f2fe,#f8fafc);min-height:100vh;color:#0f172a}
+.wrap{max-width:480px;margin:0 auto;padding:20px 16px 40px}
+.card{background:#fff;border-radius:16px;padding:18px;box-shadow:0 8px 30px rgba(15,23,42,.08);border:1px solid #e2e8f0}
+h1{font-size:1.15rem;margin:0 0 6px;color:#0c4a6e}
+.meta{font-size:.82rem;color:#64748b;line-height:1.7}
+label{display:block;font-size:.85rem;margin:12px 0 4px;font-weight:600}
+input,button{font-family:inherit}
+input{width:100%;padding:12px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:1rem}
+button{width:100%;margin-top:14px;padding:12px;border:0;border-radius:12px;background:#0369a1;color:#fff;font-weight:700;font-size:1rem;cursor:pointer}
+.err{display:none;margin-top:10px;padding:10px;border-radius:10px;background:#fef2f2;color:#991b1b;border:1px solid #fecaca;font-size:.88rem}
+.section{margin-top:14px;padding-top:12px;border-top:1px solid #e2e8f0}
+.section h3{margin:0 0 8px;font-size:.95rem;color:#1e3a8a}
+.item{font-size:.84rem;padding:6px 0;border-bottom:1px solid #f1f5f9;line-height:1.7}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#e0f2fe;color:#075985;font-size:.75rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card" id="login-card">
+    <div style="text-align:center;margin-bottom:12px">
+      <img src="./icon-192.png" alt="آیکون مدرسه" width="72" height="72" style="border-radius:16px;background:#e0f2fe;object-fit:cover" onerror="this.src='https://reza-2202.github.io/dastyar-madrese/icon-192.png';this.onerror=null;"/>
+    </div>
+    <h1 style="text-align:center">پرونده الکترونیکی اولیا</h1>
+    <p class="meta" style="text-align:center;margin:0 0 8px">صاحب امتیاز و سازنده: <b>رضا فلاحتکار</b></p>
+    <p class="meta" id="pkg-meta">در حال بارگذاری لینک امن…</p>
+    <div id="login-fields" style="display:none">
+      <label id="id-label">شناسه ورود</label>
+      <input id="identity" autocomplete="username"/>
+      <label>رمز اختصاصی</label>
+      <input id="password" type="password" autocomplete="current-password" dir="ltr"/>
+      <button type="button" id="btn-login">ورود به پرونده</button>
+      <div class="err" id="err"></div>
+      <p class="meta" style="margin-top:12px">رمز را فقط از معلم یا مدرسه دریافت کنید.</p>
+    </div>
+  </div>
+  <div class="card" id="view-card" style="display:none;margin-top:14px">
+    <h1 id="v-title">پرونده دانش‌آموز</h1>
+    <p class="meta" id="v-sub"></p>
+    <div id="v-body"></div>
+    <p class="meta" style="text-align:center;margin-top:12px">صاحب امتیاز و سازنده: <b>رضا فلاحتکار</b></p>
+    <button type="button" id="btn-out" style="background:#64748b;margin-top:16px">خروج</button>
+  </div>
+</div>
+<script>
+(function(){
+  var SB_URL="https://ulaxykeiusmihfvuxnxy.supabase.co";
+  var SB_KEY="sb_publishable_7T0rFOE6BDPqyym3CjSRKQ_DwOV_TN0";
+  var pkg=null, token="";
+  function $(id){return document.getElementById(id);}
+  function showErr(m){var e=$("err");e.style.display="block";e.textContent=m||"خطا";}
+  function clearErr(){var e=$("err");e.style.display="none";e.textContent="";}
+  function digits(v){
+    return String(v==null?"":v)
+      .replace(/[۰-۹]/g,function(c){return String("۰۱۲۳۴۵۶۷۸۹".indexOf(c));})
+      .replace(/[٠-٩]/g,function(c){return String("٠١٢٣٤٥٦٧٨٩".indexOf(c));})
+      .replace(/\D/g,"");
+  }
+  function b64uToBytes(s){
+    s=String(s||"").replace(/-/g,"+").replace(/_/g,"/");
+    while(s.length%4) s+="=";
+    var bin=atob(s), out=new Uint8Array(bin.length);
+    for(var i=0;i<bin.length;i++) out[i]=bin.charCodeAt(i);
+    return out;
+  }
+  async function shaHex(str){
+    var b=await crypto.subtle.digest("SHA-256", new TextEncoder().encode(String(str)));
+    return Array.from(new Uint8Array(b)).map(function(x){return x.toString(16).padStart(2,"0");}).join("");
+  }
+  async function deriveKey(secret, saltBytes){
+    var material=await crypto.subtle.importKey("raw", new TextEncoder().encode(String(secret)), "PBKDF2", false, ["deriveKey"]);
+    return crypto.subtle.deriveKey({name:"PBKDF2",salt:saltBytes,iterations:180000,hash:"SHA-256"}, material, {name:"AES-GCM",length:256}, false, ["decrypt"]);
+  }
+  async function decompress(bytes){
+    try{
+      if(!window.DecompressionStream) return bytes;
+      var ds=new DecompressionStream("gzip");
+      var stream=new Blob([bytes]).stream().pipeThrough(ds);
+      return new Uint8Array(await new Response(stream).arrayBuffer());
+    }catch(e){ return bytes; }
+  }
+  function parentSecret(identity, password, mode){
+    if(mode==="password_only") return password;
+    if(mode==="code_only" || mode==="name_only") return identity;
+    return identity+":"+password;
+  }
+  function normIdentity(raw, mode){
+    var s=String(raw||"").trim();
+    if(mode==="code_only"||mode==="code_password") return digits(s);
+    if(mode==="name_only"||mode==="name_password") return s.replace(/[\s\u200c]+/g," ").toLowerCase();
+    return s;
+  }
+  async function rpc(name, args){
+    var res=await fetch(SB_URL.replace(/\/$/,"")+"/rest/v1/rpc/"+name, {
+      method:"POST",
+      headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Content-Type":"application/json"},
+      body:JSON.stringify(args||{})
+    });
+    var txt=await res.text(); var data=null;
+    try{data=txt?JSON.parse(txt):null;}catch(e){data=txt;}
+    if(!res.ok) return {data:null,error:{message:(data&&(data.message||data.error))||txt||("HTTP "+res.status)}};
+    return {data:data,error:null};
+  }
+  async function loadPackage(){
+    var h=(location.hash||"").replace(/^#/,"");
+    var q=new URLSearchParams(h.indexOf("=")>=0?h:("t="+h));
+    token=q.get("t")||q.get("token")||"";
+    if(!token) token=new URLSearchParams(location.search).get("t")||"";
+    if(!token){ $("pkg-meta").textContent="لینک نامعتبر است."; return; }
+    var tries=[
+      ["get_parent_portal_package",{p_token:token}],
+      ["get_parent_portal_package",{token:token}],
+      ["open_parent_portal_package",{p_token:token}],
+      ["parent_portal_get_package",{p_token:token}]
+    ];
+    var lastErr="بسته پرونده از سرور دریافت نشد";
+    for(var i=0;i<tries.length;i++){
+      try{
+        var r=await rpc(tries[i][0], tries[i][1]);
+        if(r.error){ lastErr=r.error.message||lastErr; continue; }
+        var data=r.data;
+        if(Array.isArray(data)) data=data[0];
+        if(data && data.package) data=data.package;
+        if(data && data.p_package) data=data.p_package;
+        if(data && data.records){ pkg=data; break; }
+        if(data && data.login_mode){ pkg=data; break; }
+      }catch(e){ lastErr=e.message||String(e); }
+    }
+    if(!pkg){
+      try{
+        var url=SB_URL.replace(/\/$/,"")+"/rest/v1/parent_portal_packages?token=eq."+encodeURIComponent(token)+"&select=*&limit=1";
+        var res=await fetch(url,{headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY}});
+        var arr=await res.json();
+        if(Array.isArray(arr)&&arr[0]) pkg=arr[0].package||arr[0].p_package||arr[0].payload||arr[0];
+      }catch(e){}
+    }
+    if(!pkg || !pkg.records){
+      $("pkg-meta").textContent="دریافت پرونده ممکن نشد: "+lastErr;
+      return;
+    }
+    var mode=pkg.login_mode||"code_password";
+    $("pkg-meta").innerHTML="مدرسه: <b>"+(pkg.school||"—")+"</b><br>کلاس: <b>"+(pkg.class_name||"—")+"</b><br>روش ورود: <span class=\"badge\">"+mode+"</span>";
+    var idLabel="شناسه ورود";
+    if(mode==="code_only"||mode==="code_password") idLabel="کد دانش‌آموزی / کد ملی";
+    if(mode==="name_only"||mode==="name_password") idLabel="نام و نام خانوادگی دانش‌آموز";
+    if(mode==="password_only"){ $("identity").style.display="none"; $("id-label").style.display="none"; }
+    $("id-label").textContent=idLabel;
+    $("login-fields").style.display="block";
+  }
+  async function doLogin(){
+    clearErr();
+    if(!pkg){ showErr("بسته پرونده آماده نیست"); return; }
+    var mode=pkg.login_mode||"code_password";
+    var identity=normIdentity($("identity").value, mode);
+    var password=String($("password").value||"");
+    if(mode!=="password_only" && !identity){ showErr("شناسه ورود را وارد کنید"); return; }
+    if((mode==="password_only"||mode==="code_password"||mode==="name_password") && !password){ showErr("رمز اختصاصی را وارد کنید"); return; }
+    if(mode==="code_only"||mode==="name_only") password="";
+    try{
+      var secret=parentSecret(identity, password, mode);
+      var loginHash=await shaHex(String(pkg.package_salt||"")+"|"+mode+"|"+identity);
+      var rec=null;
+      (pkg.records||[]).forEach(function(r){ if(String(r.login_hash)===String(loginHash)) rec=r; });
+      if(!rec){
+        var alt=await shaHex(String(pkg.package_salt||"")+"|"+mode+"|"+String($("identity").value||"").trim());
+        (pkg.records||[]).forEach(function(r){ if(String(r.login_hash)===String(alt)) rec=r; });
+      }
+      if(!rec){ showErr("شناسه یا رمز نادرست است"); return; }
+      var key=await deriveKey(secret, b64uToBytes(rec.salt));
+      var plain=await crypto.subtle.decrypt({name:"AES-GCM",iv:b64uToBytes(rec.iv)}, key, b64uToBytes(rec.data));
+      var bytes=await decompress(new Uint8Array(plain));
+      var payload=JSON.parse(new TextDecoder().decode(bytes));
+      renderPayload(payload);
+    }catch(e){
+      console.error(e);
+      showErr("ورود ناموفق بود. شناسه/رمز را بررسی کنید.");
+    }
+  }
+  function renderPayload(p){
+    $("login-card").style.display="none";
+    $("view-card").style.display="block";
+    var st=p.student||{};
+    $("v-title").textContent=((st.first_name||"")+" "+(st.last_name||"")).trim()||"پرونده دانش‌آموز";
+    $("v-sub").textContent=(pkg.class_name||"")+" | "+(p.updated_at||"");
+    function list(title, arr, fmt){
+      arr=arr||[];
+      var h="<div class=\"section\"><h3>"+title+" ("+arr.length+")</h3>";
+      if(!arr.length) return h+"<div class=\"item\">موردی نیست</div></div>";
+      return h+arr.slice(0,40).map(fmt).join("")+"</div>";
+    }
+    var html="";
+    html+=list("حضور و غیاب", p.attendance, function(a){return "<div class=\"item\">"+String(a.date||"")+" — "+String(a.status||"")+"</div>";});
+    html+=list("پرسش و پاسخ / فعالیت", p.activities, function(a){return "<div class=\"item\">"+String(a.date||"")+" — "+String(a.subject||"")+" — "+String(a.level||a.score||"")+"</div>";});
+    html+=list("ارزشیابی", p.evaluations, function(a){return "<div class=\"item\">"+String(a.month||a.date||"")+" — "+String(a.subject||"")+" — "+String(a.level||a.score||"")+"</div>";});
+    html+=list("نمرات", p.scores, function(a){return "<div class=\"item\">"+String(a.subject||"")+" — "+String(a.level||a.score||"")+"</div>";});
+    html+=list("انضباط", p.discipline, function(a){return "<div class=\"item\">"+String(a.date||"")+" — "+String(a.feedback||a.category||"")+"</div>";});
+    $("v-body").innerHTML=html;
+  }
+  $("btn-login").onclick=function(e){ e.preventDefault(); doLogin(); };
+  $("password").onkeydown=function(e){ if(e.key==="Enter"){ e.preventDefault(); doLogin(); } };
+  $("identity").onkeydown=function(e){ if(e.key==="Enter"){ e.preventDefault(); doLogin(); } };
+  $("btn-out").onclick=function(){ location.reload(); };
+  loadPackage();
+})();
+</script>
+</body>
+</html>
