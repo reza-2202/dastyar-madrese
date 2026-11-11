@@ -34,7 +34,7 @@
 /* Supabase-compatible REST client with IndexedDB offline-first write queue and GET cache. */
 (function(global){
   'use strict';
-  var DB_NAME='dastyar_offline_db', DB_VERSION=2, QUEUE='queue', SYNC_QUEUE='sync_queue', RESPONSES='responses';
+  var DB_NAME='dastyar_offline_db', DB_VERSION=3, QUEUE='queue', SYNC_QUEUE='sync_queue', RESPONSES='responses', DOCS='pending_documents';
   var dbPromise=null, syncRunning=false, forceLocal=false;
   global.isOffline=false;
   function openDB(){
@@ -42,7 +42,7 @@
     dbPromise=new Promise(function(resolve,reject){
       if(!global.indexedDB){reject(new Error('مرورگر این گوشی از IndexedDB پشتیبانی نمی‌کند'));return;}
       var req=global.indexedDB.open(DB_NAME,DB_VERSION);
-      req.onupgradeneeded=function(){var db=req.result;if(!db.objectStoreNames.contains(QUEUE))db.createObjectStore(QUEUE,{keyPath:'qid',autoIncrement:true});if(!db.objectStoreNames.contains(SYNC_QUEUE))db.createObjectStore(SYNC_QUEUE,{keyPath:'qid',autoIncrement:true});if(!db.objectStoreNames.contains(RESPONSES))db.createObjectStore(RESPONSES,{keyPath:'key'});};
+      req.onupgradeneeded=function(){var db=req.result;if(!db.objectStoreNames.contains(QUEUE))db.createObjectStore(QUEUE,{keyPath:'qid',autoIncrement:true});if(!db.objectStoreNames.contains(SYNC_QUEUE))db.createObjectStore(SYNC_QUEUE,{keyPath:'qid',autoIncrement:true});if(!db.objectStoreNames.contains(RESPONSES))db.createObjectStore(RESPONSES,{keyPath:'key'});if(!db.objectStoreNames.contains(DOCS))db.createObjectStore(DOCS,{keyPath:'id'});};
       req.onsuccess=function(){resolve(req.result);};req.onerror=function(){reject(req.error||new Error('بازکردن پایگاه‌داده محلی ناموفق بود'));};
     });
     return dbPromise;
@@ -53,6 +53,9 @@
   function removeQueue(item){var qid=typeof item==='object'&&item?item.qid:item;var name=(typeof item==='object'&&item&&item._queueStore)||QUEUE;return store('readwrite',name,function(s){return s.delete(qid);});}
   function getResponse(key){return openDB().then(function(db){return new Promise(function(resolve,reject){var tx=db.transaction(RESPONSES,'readonly'),req=tx.objectStore(RESPONSES).get(key);req.onsuccess=function(){resolve(req.result||null);};req.onerror=function(){reject(req.error);};});});}
   function saveResponse(key,value){return openDB().then(function(db){return new Promise(function(resolve,reject){var tx=db.transaction(RESPONSES,'readwrite');tx.objectStore(RESPONSES).put({key:key,value:value,updatedAt:Date.now()});tx.oncomplete=function(){resolve();};tx.onerror=function(){reject(tx.error);};});});}
+  function putPendingDocument(row){if(!row||!row.id)return Promise.reject(new Error('شناسه فایل برای صف ارسال مشخص نیست'));return store('readwrite',DOCS,function(s){return s.put(clone(row));});}
+  function allPendingDocuments(){return openDB().then(function(db){return new Promise(function(resolve,reject){var tx=db.transaction(DOCS,'readonly'),req=tx.objectStore(DOCS).getAll();req.onsuccess=function(){resolve(req.result||[]);};req.onerror=function(){reject(req.error||new Error('خواندن صف فایل‌های ارسالی ناموفق بود'));};});});}
+  function removePendingDocument(id){return store('readwrite',DOCS,function(s){return s.delete(String(id));});}
   function buildQuery(filters){var qs=[];(filters||[]).forEach(function(f){if(f.type==='eq')qs.push(encodeURIComponent(f.col)+'=eq.'+encodeURIComponent(f.val));if(f.type==='limit')qs.push('limit='+encodeURIComponent(f.val));if(f.type==='range'){qs.push('offset='+encodeURIComponent(f.from));qs.push('limit='+encodeURIComponent(Math.max(1,f.to-f.from+1)));}if(f.type==='order')qs.push('order='+encodeURIComponent(f.col)+'.'+(f.asc?'asc':'desc'));});return qs.length?'?'+qs.join('&'):'';}
   function clone(x){return x==null?x:JSON.parse(JSON.stringify(x));}
   function notify(text){try{console.info('[دستیار آفلاین]',text);}catch(e){}}
@@ -411,6 +414,7 @@ async function syncQueue(){if(syncRunning||!global.navigator.onLine)return;syncR
     setLocalOnly:function(v){forceLocal=!!v;global.isOffline=!!v;updateOfflineBadge();},
     isLocalOnly:function(){return forceLocal;},
     saveSnapshot:function(value){return saveResponse('__dastyar_full_snapshot__',value);},
+    putPendingDocument:putPendingDocument,pendingDocuments:allPendingDocuments,removePendingDocument:removePendingDocument,
     loadSnapshot:function(){return getResponse('__dastyar_full_snapshot__').then(function(x){return x?x.value:null;});},
     status:function(){return {online:!!global.navigator.onLine,pending:allQueue()};}
   };
@@ -981,7 +985,7 @@ button[onclick*="search" i]:before{font-family:"Font Awesome 6 Free";font-weight
 // Cache the app shell after the first online visit; no changes to the app appearance.
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   window.addEventListener('load', function () {
-    var swUrl = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/sw.js?v=54m' : './sw.js?v=54m';
+    var swUrl = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/sw.js?v=54n' : './sw.js?v=54n';
     var scope = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/' : './';
     var refreshing = false;
     // وقتی سرویس‌ورکر جدید کنترل را گرفت، یک‌بار رفرش اجباری
@@ -6633,6 +6637,7 @@ async function syncPendingSchoolDocumentDeletes(){
    setDocumentDeletedTombstone(item.id);
    cache.documents=(cache.documents||[]).filter(function(d){return String(d.id)!==String(item.id);});
    try{if(window.dastyarDocumentArchive)await window.dastyarDocumentArchive.delete(item.id);}catch(e){}
+   try{if(window.DastyarOffline&&DastyarOffline.removePendingDocument)await DastyarOffline.removePendingDocument(item.id);}catch(e){}
    done++;
   }catch(e){keep.push(item);console.warn('pending school document delete',item.id,e);}
  }
@@ -6648,10 +6653,11 @@ async function syncPendingSchoolDocuments(){
  if(__dastyarDocumentSyncPromise)return __dastyarDocumentSyncPromise;
  if(!user||!sb||!navigator.onLine||window.isOffline)return 0;
  __dastyarDocumentSyncPromise=(async function(){
-  let done=0;
-  const archived=window.dastyarDocumentArchive&&typeof window.dastyarDocumentArchive.all==='function'
-    ? await window.dastyarDocumentArchive.all()
-    : (cache.documents||[]).filter(function(d){return d&&d.pending_upload;}).map(function(d){return Object.assign({},d);});
+  let done=0, archivedRows=[];
+  try{if(window.DastyarOffline&&DastyarOffline.pendingDocuments)archivedRows=archivedRows.concat(await DastyarOffline.pendingDocuments());}catch(e){}
+  try{if(window.dastyarDocumentArchive&&window.dastyarDocumentArchive.all)archivedRows=archivedRows.concat(await window.dastyarDocumentArchive.all());}catch(e){}
+  (cache.documents||[]).filter(function(d){return d&&d.pending_upload;}).forEach(function(d){archivedRows.push(Object.assign({},d));});
+  const archived=Array.from(new Map(archivedRows.filter(function(d){return d&&d.id;}).map(function(d){return [String(d.id),d];})).values());
   const serverState=await sb.from('sa_documents').select('id,file_name').limit(6000);
   if(!serverState||serverState.error||!Array.isArray(serverState.data))throw new Error((serverState&&serverState.error&&serverState.error.message)||'بررسی نشانگرهای حذف سرور ناموفق بود؛ برای جلوگیری از بازگشت فایل، ارسال مجدد متوقف شد.');
   const remoteDeletedIds=new Set(serverState.data.filter(function(d){return d&&String(d.file_name||'').indexOf('__DASTYAR_DELETED__:')===0;}).map(function(d){return String(d.id);}));
@@ -6659,11 +6665,12 @@ async function syncPendingSchoolDocuments(){
     if((archived||[]).some(function(a){return a&&String(a.id)===deletedId;})){
       setDocumentDeletedTombstone(deletedId);
       try{if(window.dastyarDocumentArchive)await window.dastyarDocumentArchive.delete(deletedId);}catch(e){}
+      try{if(window.DastyarOffline&&DastyarOffline.removePendingDocument)await DastyarOffline.removePendingDocument(deletedId);}catch(e){}
       cache.documents=(cache.documents||[]).filter(function(d){return String(d.id)!==deletedId;});
     }
   }
-  const myDocClasses=new Set((user&&user.role==='teacher'&&typeof myClasses==='function'?myClasses():[]).map(function(c){return String(c.id);}));
-  for(const oldRow of (archived||[]).filter(function(x){return x&&x.pending_upload&&!isDocumentTombstoned(x.id)&&!remoteDeletedIds.has(String(x.id))&&(user.role==='admin'||(String(x.teacher_username||'')===String(user.username||'')&&myDocClasses.has(String(x.class_id||''))));})){
+  // صف محلی ممکن است فایل‌های چند معلم روی یک گوشی داشته باشد؛ مالکیت اصلی هر ردیف حفظ می‌شود.
+  for(const oldRow of (archived||[]).filter(function(x){return x&&x.pending_upload&&!isDocumentTombstoned(x.id)&&!remoteDeletedIds.has(String(x.id));})){
    try{
     const source=oldRow.local_archive_data_url||(String(oldRow.file_url||'').indexOf('data:')===0?oldRow.file_url:'');
     if(!source)throw new Error('نسخه محلی فایل برای ارسال مجدد پیدا نشد');
@@ -6692,13 +6699,17 @@ async function syncPendingSchoolDocuments(){
     if(!verifyRow||verifyRow.error||!Array.isArray(verifyRow.data)||!verifyRow.data.some(function(x){return String(x.id)===String(row.id)&&String(x.storage_path||'')===String(path);}))throw new Error((verifyRow&&verifyRow.error&&verifyRow.error.message)||'ثبت نهایی مشخصات فایل در سرور تأیید نشد.');
     row.pending_upload=false;row.sync_status='synced';
     if(window.dastyarDocumentArchive)await window.dastyarDocumentArchive.put(Object.assign({},row,{local_archive_data_url:source}));
+    if(window.DastyarOffline&&DastyarOffline.removePendingDocument)await DastyarOffline.removePendingDocument(row.id);
     cache.documents=cache.documents||[];
     const ix=cache.documents.findIndex(function(x){return String(x.id)===String(row.id);});
     if(ix>=0)cache.documents[ix]=Object.assign({},row,{local_archive_data_url:source});else cache.documents.unshift(Object.assign({},row,{local_archive_data_url:source}));
     done++;
    }catch(e){console.warn('pending document upload',oldRow&&oldRow.id,e);}
   }
-  if(done){try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){} }
+  if(done){
+   try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
+   try{__dastyarDashboardDocsRefreshAt=0;if(typeof refreshDashboardDocumentCache==='function')await refreshDashboardDocumentCache();}catch(e){}
+  }
   return done;
  })().finally(function(){__dastyarDocumentSyncPromise=null;});
  return __dastyarDocumentSyncPromise;
@@ -6768,6 +6779,7 @@ async function uploadSchoolDocument(){
      cache.documents=cache.documents.filter(function(x){return String(x.id)!==String(id);});
      cache.documents.unshift(Object.assign({},row));
      if(window.dastyarDocumentArchive)await window.dastyarDocumentArchive.put(Object.assign({},row));
+     if(window.DastyarOffline&&DastyarOffline.putPendingDocument)await DastyarOffline.putPendingDocument(row);
      if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));
     }catch(e){console.warn('pending document local save',e);}
     pendingCount++;
@@ -6795,7 +6807,12 @@ async function uploadSchoolDocument(){
     row.pending_upload=!!queued; row.sync_status=queued?'pending_upload':'synced';
     const archivedRow=Object.assign({},row);
     if(dataUrl)archivedRow.local_archive_data_url=dataUrl;
-    try{cache.documents=(cache.documents||[]).map(function(x){return String(x.id)===String(id)?Object.assign({},x,archivedRow):x;});if(window.dastyarDocumentArchive)await window.dastyarDocumentArchive.put(archivedRow);}catch(e){}
+    try{
+     cache.documents=(cache.documents||[]).map(function(x){return String(x.id)===String(id)?Object.assign({},x,archivedRow):x;});
+     if(window.dastyarDocumentArchive)await window.dastyarDocumentArchive.put(archivedRow);
+     if(queued&&window.DastyarOffline&&DastyarOffline.putPendingDocument)await DastyarOffline.putPendingDocument(archivedRow);
+     if(!queued&&window.DastyarOffline&&DastyarOffline.removePendingDocument)await DastyarOffline.removePendingDocument(id);
+    }catch(e){}
     okCount++;
    }else{
     try{if(!dataUrl)dataUrl=await readSchoolDocumentAsDataUrl(f);}catch(readErr){failCount++;lastError=f.name+': '+(readErr.message||readErr);continue;}
@@ -6804,6 +6821,7 @@ async function uploadSchoolDocument(){
      cache.documents=(cache.documents||[]).filter(function(x){return String(x.id)!==String(id);});
      cache.documents.unshift(Object.assign({},row));
      if(window.dastyarDocumentArchive) await window.dastyarDocumentArchive.put(Object.assign({},row));
+     if(window.DastyarOffline&&DastyarOffline.putPendingDocument)await DastyarOffline.putPendingDocument(row);
     }catch(e){}
     failCount++; lastError=serverError||storageError||lastError;
    }
@@ -6991,6 +7009,7 @@ async function deleteSchoolDocumentCore(id,path,isAdmin){
   cache.documents=(cache.documents||[]).filter(function(d){return String(d.id)!==String(id);});
   try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
   try{if(window.dastyarDocumentArchive)await window.dastyarDocumentArchive.delete(id);}catch(e){}
+  try{if(window.DastyarOffline&&DastyarOffline.removePendingDocument)await DastyarOffline.removePendingDocument(id);}catch(e){}
   try{if(typeof removePapersForDoc==='function')removePapersForDoc(id);}catch(e){}
   try{if(typeof window.removeNoticesForDoc==='function')window.removeNoticesForDoc(id);}catch(e){}
  }
@@ -8759,7 +8778,7 @@ window.addEventListener('afterprint',function(){const area=document.getElementBy
 (function(){
   // این نسخه همین فایل است — برای به‌روزرسانی واقعی باید فایل جدید را جایگزین کنید
     const CURRENT_VERSION = '2026.10.28.54';
-    const CURRENT_BUILD = '20261111m';
+    const CURRENT_BUILD = '20261111n';
     const VERSION_URL = 'https://reza-2202.github.io/dastyar-madrese/version.json?t=' + Date.now();
   const FALLBACK_APP_URL = 'https://reza-2202.github.io/dastyar-madrese/';
   const box = document.getElementById('dastyar-update-box');
