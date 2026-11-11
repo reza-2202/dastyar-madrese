@@ -981,7 +981,7 @@ button[onclick*="search" i]:before{font-family:"Font Awesome 6 Free";font-weight
 // Cache the app shell after the first online visit; no changes to the app appearance.
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   window.addEventListener('load', function () {
-    var swUrl = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/sw.js?v=54l' : './sw.js?v=54l';
+    var swUrl = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/sw.js?v=54m' : './sw.js?v=54m';
     var scope = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/' : './';
     var refreshing = false;
     // وقتی سرویس‌ورکر جدید کنترل را گرفت، یک‌بار رفرش اجباری
@@ -6543,6 +6543,44 @@ function isSafeSchoolStoragePath(path){
  const p=String(path||'');
  return !!p&&/^[A-Za-z0-9._/-]+$/.test(p)&&p.split('/').every(function(part){return !!part&&part!=='.'&&part!=='..';});
 }
+function readSchoolDocumentAsDataUrl(file){
+ return new Promise(function(resolve,reject){
+  const reader=new FileReader();
+  reader.onload=function(){resolve(String(reader.result||''));};
+  reader.onerror=function(){reject(reader.error||new Error('خواندن نسخه پشتیبان فایل ناموفق بود'));};
+  reader.readAsDataURL(file);
+ });
+}
+async function uploadSchoolStorageObjectReliable(path,file){
+ let base=String((typeof SB_URL!=='undefined'&&SB_URL)?SB_URL:(window.SB_URL||''));
+ while(base.endsWith('/'))base=base.slice(0,-1);
+ const key=(typeof SB_KEY!=='undefined'&&SB_KEY)?SB_KEY:(window.SB_KEY||'');
+ if(!base||!key)throw new Error('تنظیمات اتصال فضای ذخیره‌سازی کامل نیست.');
+ if(!navigator.onLine)throw new Error('اتصال اینترنت برقرار نیست.');
+ const encoded=String(path||'').split('/').map(encodeURIComponent).join('/');
+ const url=base+'/storage/v1/object/teacher-documents/'+encoded;
+ let lastError='خطای نامشخص در بارگذاری فایل';
+ for(let attempt=0;attempt<3;attempt++){
+  try{
+   const response=await fetch(url,{method:'POST',headers:{'apikey':key,'Authorization':'Bearer '+key,'x-upsert':'true','Content-Type':file.type||'application/octet-stream'},body:file,cache:'no-store'});
+   const raw=await response.text();
+   if(response.ok){
+    const folder=String(path).split('/').slice(0,-1).join('/');
+    const filename=String(path).split('/').pop();
+    const check=await sb.storage.from('teacher-documents').list(folder,{search:filename,limit:20});
+    if(!check||check.error||!Array.isArray(check.data))throw new Error((check&&check.error&&check.error.message)||'فایل ارسال شد اما تأیید وجود آن در سرور ناموفق بود.');
+    if(!check.data.some(function(item){return item&&String(item.name||'')===filename;}))throw new Error('سرور فایل را در فهرست ذخیره‌سازی تأیید نکرد.');
+    return base+'/storage/v1/object/public/teacher-documents/'+encoded;
+   }
+   let detail=raw;
+   try{const parsed=JSON.parse(raw);detail=parsed.message||parsed.error||parsed.statusCode||raw;}catch(e){}
+   lastError='HTTP '+response.status+': '+String(detail||'بارگذاری ناموفق بود').slice(0,350);
+   if(![408,425,429,500,502,503,504].includes(response.status))break;
+  }catch(e){lastError=e&&e.message?e.message:String(e);}
+  if(attempt<2)await new Promise(function(resolve){setTimeout(resolve,500*(attempt+1));});
+ }
+ throw new Error(lastError);
+}
 async function deleteSchoolDocumentRowFromServer(id){
  if(!sb||!navigator.onLine)throw new Error('برای حذف قطعی از سرور اتصال اینترنت لازم است.');
  const query=sb.from('sa_documents').delete().eq('id',String(id));
@@ -6566,17 +6604,18 @@ async function removeSchoolDocumentStorageObject(path){
  return true;
 }
 async function markSchoolDocumentServerDeleted(id){
- if(!sb||!navigator.onLine||window.isOffline)throw new Error('برای حذف قطعی مشخصات فایل، اتصال آنلاین لازم است.');
+ if(!sb||!navigator.onLine||window.isOffline)throw new Error('برای حذف قطعی فایل، اتصال آنلاین لازم است.');
  const rowId=String(id||'').trim();
  if(!rowId)throw new Error('شناسه فایل برای حذف مشخص نیست.');
- // حذف مستقیم از REST API؛ از صف آفلاین و کش داخلی عبور نمی‌کند.
- // این کار مانع می‌شود رکوردی که در صف محلی مانده، پس از حذف دوباره دیده شود.
- const table=sb.from('sa_documents');
- if(!table||typeof table.deleteRemote!=='function')throw new Error('مسیر مستقیم حذف فایل در ارتباط با سرور در دسترس نیست؛ برنامه را به‌روزرسانی کنید.');
- const del=await table.deleteRemote('id',rowId);
- if(!del||del.error||del.offline||del.verified!==true){
-  throw new Error((del&&del.error&&del.error.message)||'حذف مستقیم مشخصات فایل از جدول سرور تأیید نشد.');
- }
+ const prefix='__DASTYAR_DELETED__:';
+ const current=await sb.from('sa_documents').select('id,file_name').eq('id',rowId).limit(1);
+ if(!current||current.error||!Array.isArray(current.data)||!current.data.length)throw new Error((current&&current.error&&current.error.message)||'رکورد فایل در سرور پیدا نشد.');
+ const oldName=String(current.data[0].file_name||'file');
+ if(oldName.indexOf(prefix)===0)return true;
+ const update=await sb.from('sa_documents').update({file_name:prefix+oldName}).eq('id',rowId);
+ if(!update||update.error||update.offline)throw new Error((update&&update.error&&update.error.message)||'ثبت نشانگر حذف فایل در سرور ناموفق بود.');
+ const verify=await sb.from('sa_documents').select('id,file_name').eq('id',rowId).limit(1);
+ if(!verify||verify.error||!Array.isArray(verify.data)||!verify.data.length||String(verify.data[0].file_name||'').indexOf(prefix)!==0)throw new Error((verify&&verify.error&&verify.error.message)||'حذف فایل از دید همه پنل‌ها در سرور تأیید نشد.');
  return true;
 }
 async function syncPendingSchoolDocumentDeletes(){
@@ -6607,16 +6646,19 @@ async function syncPendingSchoolDocumentDeletes(){
 let __dastyarDocumentSyncPromise=null;
 async function syncPendingSchoolDocuments(){
  if(__dastyarDocumentSyncPromise)return __dastyarDocumentSyncPromise;
- if(!user||!sb||!navigator.onLine||window.isOffline||!window.dastyarDocumentArchive||typeof dastyarDocumentArchive.all!=='function')return 0;
+ if(!user||!sb||!navigator.onLine||window.isOffline)return 0;
  __dastyarDocumentSyncPromise=(async function(){
-  let done=0;const archived=await dastyarDocumentArchive.all();
+  let done=0;
+  const archived=window.dastyarDocumentArchive&&typeof window.dastyarDocumentArchive.all==='function'
+    ? await window.dastyarDocumentArchive.all()
+    : (cache.documents||[]).filter(function(d){return d&&d.pending_upload;}).map(function(d){return Object.assign({},d);});
   const serverState=await sb.from('sa_documents').select('id,file_name').limit(6000);
   if(!serverState||serverState.error||!Array.isArray(serverState.data))throw new Error((serverState&&serverState.error&&serverState.error.message)||'بررسی نشانگرهای حذف سرور ناموفق بود؛ برای جلوگیری از بازگشت فایل، ارسال مجدد متوقف شد.');
   const remoteDeletedIds=new Set(serverState.data.filter(function(d){return d&&String(d.file_name||'').indexOf('__DASTYAR_DELETED__:')===0;}).map(function(d){return String(d.id);}));
   for(const deletedId of remoteDeletedIds){
     if((archived||[]).some(function(a){return a&&String(a.id)===deletedId;})){
       setDocumentDeletedTombstone(deletedId);
-      try{await dastyarDocumentArchive.delete(deletedId);}catch(e){}
+      try{if(window.dastyarDocumentArchive)await window.dastyarDocumentArchive.delete(deletedId);}catch(e){}
       cache.documents=(cache.documents||[]).filter(function(d){return String(d.id)!==deletedId;});
     }
   }
@@ -6628,22 +6670,28 @@ async function syncPendingSchoolDocuments(){
     const blob=await (await fetch(source)).blob();
     const previousPath=String(oldRow.storage_path||'');
     const path=isSafeSchoolStoragePath(previousPath)?previousPath:String(oldRow.id)+'/'+safeSchoolStorageFileName(oldRow.file_name,oldRow.mime_type,oldRow.id);
-    const up=await sb.storage.from('teacher-documents').upload(path,blob,{upsert:true,contentType:oldRow.mime_type||blob.type||'application/octet-stream'});
-    if(!up||up.error||up.offline)throw new Error((up&&up.error&&up.error.message)||'بارگذاری مجدد در فضای ابری تأیید نشد');
-    const publicUrl=sb.storage.from('teacher-documents').getPublicUrl(path).data.publicUrl;
+    const publicUrl=await uploadSchoolStorageObjectReliable(path,blob);
     const row=Object.assign({},oldRow,{storage_path:path,file_url:publicUrl,pending_upload:false,sync_status:'synced'});
     delete row.local_archive_data_url;delete row.local_archive_saved_at;delete row.pending_upload;delete row.sync_status;
-    const existing=await sb.from('sa_documents').select('id').eq('id',row.id).limit(1);
+    const existing=await sb.from('sa_documents').select('id,storage_path').eq('id',row.id).limit(1);
     if(existing&&existing.error)throw new Error('بررسی رکورد فایل در سرور ناموفق بود: '+existing.error.message);
-    if(existing&&Array.isArray(existing.data)&&existing.data.some(function(x){return String(x.id)===String(row.id);})){
-      const upd=await sb.from('sa_documents').update(row).eq('id',row.id);
-      if(!upd||upd.error||upd.offline)throw new Error((upd&&upd.error&&upd.error.message)||'به‌روزرسانی رکورد فایل در سرور تأیید نشد');
+    const existingRow=existing&&Array.isArray(existing.data)?existing.data.find(function(x){return String(x.id)===String(row.id);}):null;
+    if(existingRow&&String(existingRow.storage_path||'')===String(path)){
+      // رکورد کامل قبلاً ثبت شده است؛ به‌دلیل سیاست محدودکننده UPDATE آن را دست‌کاری نمی‌کنیم.
     }else{
+      if(existingRow){
+        const table=sb.from('sa_documents');
+        if(!table||typeof table.deleteRemote!=='function')throw new Error('اصلاح رکورد قدیمی فایل در سرور در دسترس نیست.');
+        const removed=await table.deleteRemote('id',String(row.id));
+        if(!removed||removed.error||removed.verified!==true)throw new Error((removed&&removed.error&&removed.error.message)||'جایگزینی رکورد قدیمی فایل ناموفق بود.');
+      }
       const ins=await insertDocumentWithSchemaFallback(row);
       if(!ins||!ins.ok||ins.queued)throw new Error((ins&&ins.error)||'ثبت مشخصات فایل روی سرور تأیید نشد');
     }
+    const verifyRow=await sb.from('sa_documents').select('id,storage_path').eq('id',row.id).limit(1);
+    if(!verifyRow||verifyRow.error||!Array.isArray(verifyRow.data)||!verifyRow.data.some(function(x){return String(x.id)===String(row.id)&&String(x.storage_path||'')===String(path);}))throw new Error((verifyRow&&verifyRow.error&&verifyRow.error.message)||'ثبت نهایی مشخصات فایل در سرور تأیید نشد.');
     row.pending_upload=false;row.sync_status='synced';
-    await dastyarDocumentArchive.put(Object.assign({},row,{local_archive_data_url:source}));
+    if(window.dastyarDocumentArchive)await window.dastyarDocumentArchive.put(Object.assign({},row,{local_archive_data_url:source}));
     cache.documents=cache.documents||[];
     const ix=cache.documents.findIndex(function(x){return String(x.id)===String(row.id);});
     if(ix>=0)cache.documents[ix]=Object.assign({},row,{local_archive_data_url:source});else cache.documents.unshift(Object.assign({},row,{local_archive_data_url:source}));
@@ -6686,61 +6734,19 @@ async function uploadSchoolDocument(){
    const examName=examNameBase||title;
    toast('ارسال فایل '+(fi+1)+' از '+files.length+'…');
    let dataUrl='';
-   try{dataUrl=await new Promise(function(resolve,reject){const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=()=>reject(r.error||new Error('خواندن فایل ناموفق'));r.readAsDataURL(f);});}catch(e){failCount++; lastError=f.name+': '+(e.message||e); continue;}
    let pub='', usedCloud=false, storageError='';
    try{
-    try{ if(window.DastyarOffline&&DastyarOffline.setLocalOnly) DastyarOffline.setLocalOnly(false); }catch(e){}
+    try{if(window.DastyarOffline&&DastyarOffline.setLocalOnly)DastyarOffline.setLocalOnly(false);}catch(e){}
     window.isOffline=false;
-    if(navigator.onLine){
-     // تلاش ۱: API ذخیره‌سازی برنامه
-     if(sb&&sb.storage&&sb.storage.from){
-      try{
-       const up=await sb.storage.from('teacher-documents').upload(path,f,{upsert:true,contentType:f.type||'application/octet-stream'});
-       if(up&&!up.error&&!up.offline){
-         pub=sb.storage.from('teacher-documents').getPublicUrl(path).data.publicUrl;
-         usedCloud=true;
-       }else if(up&&up.offline&&navigator.onLine){
-         // نباید در حالت آنلاین offline فرض شود
-         storageError=(up&&up.error&&up.error.message)||'آپلود ابری در حالت آنلاین تأیید نشد';
-       }else storageError=(up&&up.error&&up.error.message)||'بارگذاری در فضای ابری تأیید نشد';
-      }catch(e1){ storageError=e1.message||String(e1); }
-     }
-     // تلاش ۲: REST مستقیم Storage
-     if(!usedCloud){
-      try{
-       var base=(typeof SB_URL!=='undefined'?SB_URL:(window.SB_URL||''));
-       var key=(typeof SB_KEY!=='undefined'?SB_KEY:(window.SB_KEY||''));
-       if(base&&key){
-        var sUrl=String(base).replace(/\/$/,'')+'/storage/v1/object/teacher-documents/'+path.split('/').map(encodeURIComponent).join('/');
-        var sResp=await fetch(sUrl,{
-          method:'POST',
-          headers:{
-            'apikey':key,
-            'Authorization':'Bearer '+key,
-            'x-upsert':'true',
-            'Content-Type':f.type||'application/octet-stream'
-          },
-          body:f
-        });
-        if(sResp.ok || sResp.status===200 || sResp.status===201){
-          pub=String(base).replace(/\/$/,'')+'/storage/v1/object/public/teacher-documents/'+path.split('/').map(encodeURIComponent).join('/');
-          usedCloud=true;
-          storageError='';
-        }else{
-          var sRaw=await sResp.text();
-          storageError=sRaw||('HTTP '+sResp.status);
-        }
-       }
-      }catch(e2){ storageError=e2.message||String(e2); }
-     }
-    }else storageError='اینترنت قطع است';
-   }catch(e){storageError=e.message||String(e);}
-   if(!pub) pub=dataUrl;
+    if(navigator.onLine){pub=await uploadSchoolStorageObjectReliable(path,f);usedCloud=!!pub;}
+    else storageError='اینترنت قطع است؛ فایل پس از اتصال دوباره ارسال خواهد شد.';
+   }catch(e){storageError=e&&e.message?e.message:String(e);}
+
    const row={id:id,file_name:f.name,title:title,storage_path:path,file_url:pub,mime_type:f.type||'application/octet-stream',file_size:f.size,teacher_name:user.full_name||user.username,teacher_username:user.username,exam_name:examName,exam_date:examDate,class_id:classId,class_name:cl.label,copies_count:Math.max(1,Number((document.getElementById('doc-copies')||{}).value)||1),papers_used:papersCount,print_sides:printSides,print_status:'pending',description:subjectName?(title+' | درس: '+subjectName):title,uploaded_at:new Date().toISOString()};
    try{
     cache.documents=cache.documents||[];
     cache.documents=cache.documents.filter(d=>String(d.id)!==String(id));
-    const localRow=Object.assign({},row,{file_url:pub||dataUrl,local_archive_data_url:dataUrl,local_archive_saved_at:new Date().toISOString()});
+    const localRow=Object.assign({},row,{file_url:pub||'',local_archive_saved_at:new Date().toISOString()});
     cache.documents.unshift(localRow);
     if(window.dastyarDocumentArchive) await window.dastyarDocumentArchive.put(localRow);
     try{
@@ -6755,29 +6761,17 @@ async function uploadSchoolDocument(){
     try{ if(window.DastyarOffline&&DastyarOffline.saveSnapshot) await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache))); }catch(e){}
    }catch(e){console.warn('local document archive',e);}
    if(!usedCloud){
-    // آنلاین هستیم: حداقل رکورد را در سرور برای مدیر ثبت کن
-    row.local_archive_data_url=dataUrl;
-    if(String(row.file_url||'').indexOf('data:')===0) row.file_url='';
+    try{dataUrl=await readSchoolDocumentAsDataUrl(f);}catch(readErr){failCount++;lastError=f.name+': '+(readErr.message||readErr);continue;}
+    row.pending_upload=true;row.sync_status='pending_upload';row.local_archive_data_url=dataUrl;
     try{
-      const insMeta=await insertDocumentWithSchemaFallback(Object.assign({},row,{pending_upload:false,sync_status:'meta_only'}));
-      if(insMeta&&insMeta.ok&&!insMeta.queued){
-        // رکورد متادیتا ثبت شده، اما فایل Storage هنوز بارگذاری نشده است؛ برای تلاش مجدد نگه‌دار.
-        row.pending_upload=true; row.sync_status='pending_upload';
-        pendingCount++;
-        try{
-          cache.documents=cache.documents||[];
-          cache.documents=cache.documents.filter(function(x){return String(x.id)!==String(id);});
-          cache.documents.unshift(Object.assign({},row,{local_archive_data_url:dataUrl,file_url:pub||''}));
-          if(window.dastyarDocumentArchive) await window.dastyarDocumentArchive.put(Object.assign({},row,{local_archive_data_url:dataUrl,pending_upload:true,sync_status:'pending_upload'}));
-        }catch(e){}
-        continue;
-      }
-      lastError=(insMeta&&insMeta.error)||storageError||lastError;
-    }catch(e){ lastError=e.message||String(e); }
-    // فقط اگر سرور واقعاً رد کرد، محلی نگه دار
-    row.pending_upload=true; row.sync_status='pending_upload';
-    try{cache.documents=cache.documents||[];cache.documents=cache.documents.filter(function(x){return String(x.id)!==String(id);});cache.documents.unshift(Object.assign({},row,{local_archive_data_url:dataUrl}));if(window.dastyarDocumentArchive)await window.dastyarDocumentArchive.put(Object.assign({},row,{local_archive_data_url:dataUrl}));}catch(e){}
-    failCount++; lastError=lastError||storageError||'ارسال به سرور ناموفق بود';
+     cache.documents=cache.documents||[];
+     cache.documents=cache.documents.filter(function(x){return String(x.id)!==String(id);});
+     cache.documents.unshift(Object.assign({},row));
+     if(window.dastyarDocumentArchive)await window.dastyarDocumentArchive.put(Object.assign({},row));
+     if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));
+    }catch(e){console.warn('pending document local save',e);}
+    pendingCount++;
+    lastError=storageError||'فایل در صف ارسال مجدد محلی قرار گرفت.';
     continue;
    }
    let serverOk=false, queued=false, serverError='';
@@ -6794,11 +6788,17 @@ async function uploadSchoolDocument(){
      if(!verify||verify.error||!Array.isArray(verify.data)||!verify.data.some(function(x){return String(x.id)===String(id)&&String(x.storage_path||'')===String(path);}))throw new Error((verify&&verify.error&&verify.error.message)||'رکورد فایل در فهرست سرور تأیید نشد');
     }catch(e){serverOk=false;serverError=e.message||String(e);}
    }
+   if(serverOk&&queued&&!dataUrl){
+    try{dataUrl=await readSchoolDocumentAsDataUrl(f);}catch(readErr){serverOk=false;serverError=readErr.message||String(readErr);}
+   }
    if(serverOk){
     row.pending_upload=!!queued; row.sync_status=queued?'pending_upload':'synced';
-    try{cache.documents=(cache.documents||[]).map(function(x){return String(x.id)===String(id)?Object.assign({},x,row,{local_archive_data_url:dataUrl}):x;});if(window.dastyarDocumentArchive)await window.dastyarDocumentArchive.put(Object.assign({},row,{local_archive_data_url:dataUrl}));}catch(e){}
+    const archivedRow=Object.assign({},row);
+    if(dataUrl)archivedRow.local_archive_data_url=dataUrl;
+    try{cache.documents=(cache.documents||[]).map(function(x){return String(x.id)===String(id)?Object.assign({},x,archivedRow):x;});if(window.dastyarDocumentArchive)await window.dastyarDocumentArchive.put(archivedRow);}catch(e){}
     okCount++;
    }else{
+    try{if(!dataUrl)dataUrl=await readSchoolDocumentAsDataUrl(f);}catch(readErr){failCount++;lastError=f.name+': '+(readErr.message||readErr);continue;}
     try{
      row.pending_upload=true; row.sync_status='pending_upload'; row.local_archive_data_url=dataUrl;
      cache.documents=(cache.documents||[]).filter(function(x){return String(x.id)!==String(id);});
@@ -6815,6 +6815,8 @@ async function uploadSchoolDocument(){
  else if(okCount||pendingCount) toast(okCount+' فایل ثبت شد؛ '+pendingCount+' فایل در انتظار بارگذاری Storage و '+failCount+' مورد ناموفق است. '+(lastError||''));
  else toast('ارسال به سرور انجام نشد. '+(lastError||'اتصال یا مجوز Storage/جدول را بررسی کنید'));
  try{await loadSchoolDocuments();}catch(e){}
+ try{__dastyarDashboardDocsRefreshAt=0;}catch(e){}
+ try{if(typeof refreshDashboardDocumentCache==='function')await refreshDashboardDocumentCache();}catch(e){}
  try{if(typeof refreshDash==='function')refreshDash();}catch(e){}
 }
 
@@ -8757,7 +8759,7 @@ window.addEventListener('afterprint',function(){const area=document.getElementBy
 (function(){
   // این نسخه همین فایل است — برای به‌روزرسانی واقعی باید فایل جدید را جایگزین کنید
     const CURRENT_VERSION = '2026.10.28.54';
-    const CURRENT_BUILD = '20261111l';
+    const CURRENT_BUILD = '20261111m';
     const VERSION_URL = 'https://reza-2202.github.io/dastyar-madrese/version.json?t=' + Date.now();
   const FALLBACK_APP_URL = 'https://reza-2202.github.io/dastyar-madrese/';
   const box = document.getElementById('dastyar-update-box');
