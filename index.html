@@ -981,7 +981,7 @@ button[onclick*="search" i]:before{font-family:"Font Awesome 6 Free";font-weight
 // Cache the app shell after the first online visit; no changes to the app appearance.
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   window.addEventListener('load', function () {
-    var swUrl = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/sw.js?v=54k' : './sw.js?v=54k';
+    var swUrl = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/sw.js?v=54l' : './sw.js?v=54l';
     var scope = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/' : './';
     var refreshing = false;
     // وقتی سرویس‌ورکر جدید کنترل را گرفت، یک‌بار رفرش اجباری
@@ -6569,13 +6569,14 @@ async function markSchoolDocumentServerDeleted(id){
  if(!sb||!navigator.onLine||window.isOffline)throw new Error('برای حذف قطعی مشخصات فایل، اتصال آنلاین لازم است.');
  const rowId=String(id||'').trim();
  if(!rowId)throw new Error('شناسه فایل برای حذف مشخص نیست.');
- // جدول sa_documents برای نقش anon مجوز DELETE دارد، اما مجوز UPDATE ندارد؛
- // بنابراین حذف واقعی رکورد انجام می‌شود و از نشانگر UPDATE استفاده نمی‌کنیم.
- const del=await sb.from('sa_documents').delete().eq('id',rowId);
- if(!del||del.error||del.offline)throw new Error((del&&del.error&&del.error.message)||'حذف مشخصات فایل از جدول سرور انجام نشد.');
- const verify=await sb.from('sa_documents').select('id').eq('id',rowId).limit(1);
- if(!verify||verify.error||verify.offline)throw new Error((verify&&verify.error&&verify.error.message)||'بررسی حذف مشخصات فایل از سرور ناموفق بود.');
- if(Array.isArray(verify.data)&&verify.data.some(function(x){return String(x.id)===rowId;}))throw new Error('رکورد فایل هنوز در جدول سرور وجود دارد؛ حذف تأیید نشد.');
+ // حذف مستقیم از REST API؛ از صف آفلاین و کش داخلی عبور نمی‌کند.
+ // این کار مانع می‌شود رکوردی که در صف محلی مانده، پس از حذف دوباره دیده شود.
+ const table=sb.from('sa_documents');
+ if(!table||typeof table.deleteRemote!=='function')throw new Error('مسیر مستقیم حذف فایل در ارتباط با سرور در دسترس نیست؛ برنامه را به‌روزرسانی کنید.');
+ const del=await table.deleteRemote('id',rowId);
+ if(!del||del.error||del.offline||del.verified!==true){
+  throw new Error((del&&del.error&&del.error.message)||'حذف مستقیم مشخصات فایل از جدول سرور تأیید نشد.');
+ }
  return true;
 }
 async function syncPendingSchoolDocumentDeletes(){
@@ -6959,8 +6960,15 @@ async function deleteSchoolDocument(id,path){
  if(!user){toast('ابتدا وارد شوید');return;}
  const row=(cache.documents||[]).find(function(d){return String(d.id)===String(id);});
  if(user.role!=='admin'){
-  const allowed=new Set((typeof myClasses==='function'?myClasses():[]).map(function(c){return String(c.id);}));
-  if(!row||String(row.teacher_username||'')!==String(user.username||'')||!allowed.has(String(row.class_id||''))){toast('فقط همان معلمِ ارسال‌کننده می‌تواند فایل خودش را حذف کند.');return;}
+  const classes=typeof myClasses==='function'?myClasses():[];
+  const allowed=new Set(classes.map(function(c){return String(c.id);}));
+  const identities=new Set([user.username,user.full_name].filter(Boolean).map(function(x){return String(x).trim();}));
+  classes.forEach(function(c){[c.teacher_name,c.teacher_user].filter(Boolean).forEach(function(x){identities.add(String(x).trim());});});
+  const ownerMatches=row&&(
+   identities.has(String(row.teacher_username||'').trim())||
+   identities.has(String(row.teacher_name||'').trim())
+  );
+  if(!row||!allowed.has(String(row.class_id||''))||!ownerMatches){toast('فقط معلمِ مالک فایل در کلاس خودش می‌تواند آن را حذف کند.');return;}
  }
  await deleteSchoolDocumentCore(id,path,user.role==='admin');
 }
@@ -8749,7 +8757,7 @@ window.addEventListener('afterprint',function(){const area=document.getElementBy
 (function(){
   // این نسخه همین فایل است — برای به‌روزرسانی واقعی باید فایل جدید را جایگزین کنید
     const CURRENT_VERSION = '2026.10.28.54';
-    const CURRENT_BUILD = '20261111k';
+    const CURRENT_BUILD = '20261111l';
     const VERSION_URL = 'https://reza-2202.github.io/dastyar-madrese/version.json?t=' + Date.now();
   const FALLBACK_APP_URL = 'https://reza-2202.github.io/dastyar-madrese/';
   const box = document.getElementById('dastyar-update-box');
