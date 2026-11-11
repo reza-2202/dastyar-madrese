@@ -2335,7 +2335,7 @@ async function flushPendingAttendanceToServer(){
     try{
       var _sbUrl=(typeof SB_URL!=='undefined'?SB_URL:(window.__DASTYAR_SUPABASE_URL||'')); var _sbKey=(typeof SB_KEY!=='undefined'?SB_KEY:(window.__DASTYAR_SUPABASE_ANON||''));
       var url=String(_sbUrl).replace(/\/$/,'')+'/rest/v1/sa_attendance?on_conflict=id';
-      var headers={'apikey':_sbKey,'Authorization':'Bearer '+_sbKey,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'};
+      var headers={'apikey':_sbKey,'Authorization':'Bearer '+_sbKey,'Content-Type':'application/json','Prefer':'return=minimal'};
       var response=await fetch(url,{method:'POST',headers:headers,body:JSON.stringify(rows)});
       if(!response.ok){
         var raw=await response.text();
@@ -6479,7 +6479,7 @@ async function insertDocumentWithSchemaFallback(initialRow){
   async function directUpsert(payload){
     var base=getSbBase(), key=getSbKey();
     if(!base||!key) throw new Error('تنظیمات سرور ناقص است');
-    var url=String(base).replace(/\/$/,'')+'/rest/v1/sa_documents?on_conflict=id';
+    var url=String(base).replace(/\/$/,'')+'/rest/v1/sa_documents';
     var resp=await fetch(url,{
       method:'POST',
       headers:{
@@ -6519,7 +6519,7 @@ async function insertDocumentWithSchemaFallback(initialRow){
   try{
     if(window.DastyarOffline&&DastyarOffline.setLocalOnly) DastyarOffline.setLocalOnly(false);
     window.isOffline=false;
-    var res=await sb.from('sa_documents').upsert([row]);
+    var res=await sb.from('sa_documents').insert([row]);
     if(res&&!res.error){
       if(res.offline) return {ok:true,queued:true,row:row};
       return {ok:true,queued:false,row:row};
@@ -8787,7 +8787,7 @@ window.addEventListener('afterprint',function(){const area=document.getElementBy
 (function(){
   // این نسخه همین فایل است — برای به‌روزرسانی واقعی باید فایل جدید را جایگزین کنید
     const CURRENT_VERSION = '2026.10.28.54';
-    const CURRENT_BUILD = '20261111o';
+    const CURRENT_BUILD = '20261111p';
     const VERSION_URL = 'https://reza-2202.github.io/dastyar-madrese/version.json?t=' + Date.now();
   const FALLBACK_APP_URL = 'https://reza-2202.github.io/dastyar-madrese/';
   const box = document.getElementById('dastyar-update-box');
