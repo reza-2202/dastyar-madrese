@@ -107,6 +107,31 @@
       api.upsert=function(rows){return {then:function(resolve,reject){run('POST',rows,{'Prefer':'resolution=merge-duplicates,return=representation'},true).then(resolve,reject);}};};
       api.update=function(obj){return {eq:function(col,val){filters.push({type:'eq',col:col,val:val});return {then:function(resolve,reject){run('PATCH',obj,{},true).then(resolve,reject);}};},then:function(resolve,reject){run('PATCH',obj,{},true).then(resolve,reject);}};};
       api.delete=function(){return {eq:function(col,val){filters.push({type:'eq',col:col,val:val});return {then:function(resolve,reject){run('DELETE',undefined,{},true).then(resolve,reject);}};}};};
+      // حذف مستقیم و قطعی از سرور؛ این مسیر نباید به صف آفلاین یا پاسخ کش‌شده واگذار شود.
+      api.deleteRemote=async function(col,val){
+        if(!col||val===undefined||val===null)return {data:null,error:{message:'شناسه حذف مشخص نیست'},status:0};
+        var query=encodeURIComponent(String(col))+'=eq.'+encodeURIComponent(String(val));
+        var deleteUrl=base+'/'+name+'?'+query+'&select='+encodeURIComponent(String(col));
+        try{
+          var response=await fetch(deleteUrl,{method:'DELETE',headers:Object.assign({},baseHeaders,{'Prefer':'return=representation'}),cache:'no-store'});
+          var raw=await response.text(),deleted=null;
+          try{deleted=raw?JSON.parse(raw):null;}catch(e){deleted=raw;}
+          if(!response.ok){
+            var body=deleted&&typeof deleted==='object'?deleted:null;
+            return {data:null,error:{message:String((body&&(body.message||body.error||body.hint||body.details))||raw||('HTTP '+response.status)),code:body&&body.code},status:response.status};
+          }
+          var verifyUrl=base+'/'+name+'?'+query+'&select='+encodeURIComponent(String(col));
+          var verify=await fetch(verifyUrl,{method:'GET',headers:baseHeaders,cache:'no-store'});
+          var verifyRaw=await verify.text(),remaining=null;
+          try{remaining=verifyRaw?JSON.parse(verifyRaw):null;}catch(e){remaining=verifyRaw;}
+          if(!verify.ok){
+            var vb=remaining&&typeof remaining==='object'?remaining:null;
+            return {data:null,error:{message:String((vb&&(vb.message||vb.error||vb.hint||vb.details))||verifyRaw||('HTTP '+verify.status))},status:verify.status};
+          }
+          if(Array.isArray(remaining)&&remaining.length)return {data:null,error:{message:'سرور هنوز رکورد فایل را حذف نکرده است؛ مجوز حذف جدول اسناد را بررسی کنید.'},status:409};
+          return {data:deleted,error:null,status:response.status,verified:true};
+        }catch(e){return {data:null,error:{message:e&&e.message?e.message:String(e)},status:0};}
+      };
       return api;
     }
     function storageApi(){
@@ -6533,11 +6558,8 @@ async function syncPendingSchoolDocumentDeletes(){
    const check=await sb.storage.from('teacher-documents').list(folder,{search:file,limit:100});
    if(!check||check.error)throw new Error((check&&check.error&&check.error.message)||'تأیید حذف فایل از Storage ناموفق بود');
    if((check.data||[]).some(function(x){return String(x.name)===file;}))throw new Error('فایل هنوز در Storage وجود دارد');
-   const del=await sb.from('sa_documents').delete().eq('id',String(item.id));
-   if(del&&del.error)throw new Error(del.error.message||'حذف مشخصات فایل ناموفق بود');
-   const rowCheck=await sb.from('sa_documents').select('id').eq('id',String(item.id)).limit(1);
-   if(!rowCheck||rowCheck.error)throw new Error((rowCheck&&rowCheck.error&&rowCheck.error.message)||'تأیید حذف مشخصات فایل ناموفق بود');
-   if(Array.isArray(rowCheck.data)&&rowCheck.data.some(function(x){return String(x.id)===String(item.id);}))throw new Error('رکورد فایل هنوز در فهرست سرور وجود دارد');
+   const del=await sb.from('sa_documents').deleteRemote('id',String(item.id));
+   if(!del||del.error||!del.verified)throw new Error((del&&del.error&&del.error.message)||'حذف مشخصات فایل از سرور تأیید نشد');
    done++;
   }catch(e){keep.push(item);console.warn('pending school document delete',item.id,e);}
  }
@@ -6939,11 +6961,8 @@ async function deleteSchoolDocumentCore(id,path,isAdmin){
   const verify=await sb.storage.from('teacher-documents').list(folder,{search:file,limit:100});
   if(!verify||verify.error)throw new Error((verify&&verify.error&&verify.error.message)||'بررسی حذف فایل از سرور ناموفق بود');
   if((verify.data||[]).some(function(x){return String(x.name)===file;}))throw new Error('فایل هنوز در Storage سرور وجود دارد؛ رکورد آن حذف نشد.');
-  const del=await sb.from('sa_documents').delete().eq('id',String(id));
-  if(del&&del.error)throw new Error(del.error.message||'حذف مشخصات فایل از فهرست سرور ناموفق بود');
-  const check=await sb.from('sa_documents').select('id').eq('id',String(id)).limit(1);
-  if(!check||check.error)throw new Error((check&&check.error&&check.error.message)||'تأیید حذف از فهرست سرور ناموفق بود');
-  if(Array.isArray(check.data)&&check.data.length)throw new Error('رکورد فایل هنوز در فهرست سرور وجود دارد.');
+  const del=await sb.from('sa_documents').deleteRemote('id',String(id));
+  if(!del||del.error||!del.verified)throw new Error((del&&del.error&&del.error.message)||'حذف مشخصات فایل از فهرست سرور تأیید نشد.');
   await finishLocalCleanup();
   toast('فایل و مشخصات آن با موفقیت از سرور حذف شد.');
   try{await loadSchoolDocuments();}catch(e){}
