@@ -939,7 +939,7 @@ button[onclick*="search" i]:before{font-family:"Font Awesome 6 Free";font-weight
 // Cache the app shell after the first online visit; no changes to the app appearance.
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   window.addEventListener('load', function () {
-    var swUrl = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/sw.js?v=54b' : './sw.js?v=54b';
+    var swUrl = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/sw.js?v=54c' : './sw.js?v=54b';
     var scope = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/' : './';
     var refreshing = false;
     // وقتی سرویس‌ورکر جدید کنترل را گرفت، یک‌بار رفرش اجباری
@@ -3432,18 +3432,15 @@ function refreshDash(){
   });
   // جلوگیری از صفر شدن لحظه‌ای هنگام همگام‌سازی
   if(studentsReady || present>0 || absentToday>0 || (cache.attendance||[]).length>0){
-    if(present>0 || absentToday>0 || attClassSet.size>0 || (cache.attendance||[]).some(function(a){return a&&String(a.date||'')===String(t);})){
+    var hasTodayAttendance=(cache.attendance||[]).some(function(a){return a&&String(a.date||'')===String(t);});
+    if(hasTodayAttendance){
       window.__dashAttStable.present=present;
       window.__dashAttStable.absent=absentToday;
       window.__dashAttStable.attClasses=attClassSet.size;
-    } else if(!studentsReady){
+    } else {
+      // پاسخ موقتِ بدون سوابق امروز نباید آمار معتبر همین روز را صفر کند.
       present=window.__dashAttStable.present;
       absentToday=window.__dashAttStable.absent;
-    } else {
-      // روز جاری واقعاً بدون ثبت
-      window.__dashAttStable.present=present;
-      window.__dashAttStable.absent=absentToday;
-      window.__dashAttStable.attClasses=attClassSet.size;
     }
   } else {
     present=window.__dashAttStable.present;
@@ -3466,7 +3463,9 @@ function refreshDash(){
     });
     if(user&&user.role==='teacher'){
       var teacherClassIds=new Set((typeof myClasses==='function'?myClasses():[]).map(function(c){return String(c.id);}));
-      docs=docs.filter(function(d){return teacherClassIds.has(String(d.class_id||''))&&String(d.teacher_username||'')===String(user.username||'');});
+      var teacherDocIdentities=new Set([user.username,user.full_name].filter(Boolean).map(function(x){return String(x).trim();}));
+      (typeof myClasses==='function'?myClasses():[]).forEach(function(c){[c.teacher_name,c.teacher_user].filter(Boolean).forEach(function(x){teacherDocIdentities.add(String(x).trim());});});
+      docs=docs.filter(function(d){return teacherClassIds.has(String(d.class_id||''))||teacherDocIdentities.has(String(d.teacher_username||'').trim())||teacherDocIdentities.has(String(d.teacher_name||'').trim());});
     }
     var elF=document.getElementById('st-f'); if(elF) elF.textContent=fa(docs.length);
     docClassNames=Array.from(new Set(docs.map(function(d){return String(d.class_name||((cache.classes||[]).find(function(c){return String(c.id)===String(d.class_id);})||{}).label||'کلاس نامشخص');}))).filter(Boolean);
@@ -3476,7 +3475,8 @@ function refreshDash(){
   // کلاس‌هایی که امروز حضور و غیاب ثبت کرده‌اند (پایدار)
   try{
     var elA=document.getElementById('st-a');
-    var attN=(typeof attClassSet!=='undefined'&&attClassSet&&attClassSet.size)?attClassSet.size:(window.__dashAttStable&&window.__dashAttStable.attClasses)||0;
+    var hasTodayAttendance=(cache.attendance||[]).some(function(a){return a&&String(a.date||'')===String(t);});
+    var attN=hasTodayAttendance?attClassSet.size:((window.__dashAttStable&&window.__dashAttStable.attClasses)||0);
     if(elA) elA.textContent=fa(attN);
   }catch(e){ var elA2=document.getElementById('st-a'); if(elA2&&window.__dashAttStable) elA2.textContent=fa(window.__dashAttStable.attClasses||0); }
   try{
@@ -3530,7 +3530,7 @@ function refreshDash(){
     }catch(e){console.warn('dashboard live refresh',e);}
     finally{busy=false;}
   }
-  setInterval(tick, 12000);
+  setInterval(tick, 60000);
   document.addEventListener('visibilitychange',function(){if(!document.hidden) tick();});
 })();
 
@@ -6500,7 +6500,7 @@ async function uploadSchoolDocument(){
  const subjectName=(document.getElementById('doc-subject-name')&&document.getElementById('doc-subject-name').value.trim())||'';
  let examDate=(document.getElementById('doc-exam-date')&&document.getElementById('doc-exam-date').value)||today();
  try{const jp=typeof parseJalali==='function'?parseJalali(examDate):null;if(jp&&typeof jalaliToGregorian==='function'){const gp=jalaliToGregorian(jp.jy,jp.jm,jp.jd);examDate=String(gp.gy)+'-'+String(gp.gm).padStart(2,'0')+'-'+String(gp.gd).padStart(2,'0');}}catch(e){}
- let okCount=0, failCount=0, lastError='';
+ let okCount=0, failCount=0, pendingCount=0, lastError='';
  toast('در حال ارسال '+files.length+' فایل…');
  for(let fi=0; fi<files.length; fi++){
   const f=files[fi];
@@ -6589,12 +6589,14 @@ async function uploadSchoolDocument(){
     try{
       const insMeta=await insertDocumentWithSchemaFallback(Object.assign({},row,{pending_upload:false,sync_status:'meta_only'}));
       if(insMeta&&insMeta.ok&&!insMeta.queued){
-        okCount++;
+        // رکورد متادیتا ثبت شده، اما فایل Storage هنوز بارگذاری نشده است؛ برای تلاش مجدد نگه‌دار.
+        row.pending_upload=true; row.sync_status='pending_upload';
+        pendingCount++;
         try{
           cache.documents=cache.documents||[];
           cache.documents=cache.documents.filter(function(x){return String(x.id)!==String(id);});
-          cache.documents.unshift(Object.assign({},row,{pending_upload:false,local_archive_data_url:dataUrl,file_url:pub||''}));
-          if(window.dastyarDocumentArchive) await window.dastyarDocumentArchive.put(Object.assign({},row,{local_archive_data_url:dataUrl}));
+          cache.documents.unshift(Object.assign({},row,{local_archive_data_url:dataUrl,file_url:pub||''}));
+          if(window.dastyarDocumentArchive) await window.dastyarDocumentArchive.put(Object.assign({},row,{local_archive_data_url:dataUrl,pending_upload:true,sync_status:'pending_upload'}));
         }catch(e){}
         continue;
       }
@@ -6631,8 +6633,8 @@ async function uploadSchoolDocument(){
  }
  try{input.value='';if(window.onDocFileSelected)window.onDocFileSelected(input);}catch(e){}
  ['doc-title','doc-exam-name','doc-subject-name'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
- if(okCount && !failCount) toast(okCount+' فایل برای مدیر در سرور ثبت شد.');
- else if(okCount && failCount) toast(okCount+' فایل ثبت شد؛ '+failCount+' مورد کامل نشد. '+(lastError||''));
+ if((okCount||pendingCount) && !failCount && !pendingCount) toast(okCount+' فایل برای مدیر در سرور ثبت شد.');
+ else if(okCount||pendingCount) toast(okCount+' فایل ثبت شد؛ '+pendingCount+' فایل در انتظار بارگذاری Storage و '+failCount+' مورد ناموفق است. '+(lastError||''));
  else toast('ارسال به سرور انجام نشد. '+(lastError||'اتصال یا مجوز Storage/جدول را بررسی کنید'));
  try{await loadSchoolDocuments();}catch(e){}
  try{if(typeof refreshDash==='function')refreshDash();}catch(e){}
@@ -6688,7 +6690,7 @@ async function loadSchoolDocuments(){
       cache.documents.forEach(function(ld){
         if(!ld||remoteDeletedIds.has(String(ld.id)))return;
         var i=data.findIndex(function(d){return String(d.id)===String(ld.id);});
-        if(i<0){data.push(ld);return;}
+        if(i<0){if(ld.pending_upload||ld._offline)data.push(ld);return;}
         var sr=data[i];
         if(ld.local_archive_data_url&&!sr.local_archive_data_url)sr.local_archive_data_url=ld.local_archive_data_url;
         if(ld.print_status==='ready_for_pickup'&&(!sr.print_status||sr.print_status==='pending'))Object.assign(sr,{print_status:ld.print_status,printed_at:ld.printed_at,papers_used:ld.papers_used,print_sides:ld.print_sides,printed_by:ld.printed_by});
@@ -6696,7 +6698,7 @@ async function loadSchoolDocuments(){
       });
       if(window.dastyarDocumentArchive&&typeof dastyarDocumentArchive.all==='function'){
         const archived=await dastyarDocumentArchive.all();
-        (archived||[]).forEach(function(a){if(!a||!a.id||remoteDeletedIds.has(String(a.id)))return;var i=data.findIndex(function(d){return String(d.id)===String(a.id);});if(i<0){data.push(a);return;}if(a.local_archive_data_url&&!data[i].local_archive_data_url)data[i].local_archive_data_url=a.local_archive_data_url;});
+        (archived||[]).forEach(function(a){if(!a||!a.id||remoteDeletedIds.has(String(a.id)))return;var i=data.findIndex(function(d){return String(d.id)===String(a.id);});if(i<0){if(a.pending_upload||a._offline)data.push(a);return;}if(a.local_archive_data_url&&!data[i].local_archive_data_url)data[i].local_archive_data_url=a.local_archive_data_url;});
       }
     }catch(e){console.warn('document local enrichment',e);}
   }
@@ -8588,6 +8590,7 @@ window.addEventListener('afterprint',function(){const area=document.getElementBy
 (function(){
   // این نسخه همین فایل است — برای به‌روزرسانی واقعی باید فایل جدید را جایگزین کنید
     const CURRENT_VERSION = '2026.10.28.54';
+    const CURRENT_BUILD = '20261111c';
     const VERSION_URL = 'https://reza-2202.github.io/dastyar-madrese/version.json?t=' + Date.now();
   const FALLBACK_APP_URL = 'https://reza-2202.github.io/dastyar-madrese/';
   const box = document.getElementById('dastyar-update-box');
@@ -8645,13 +8648,14 @@ window.addEventListener('afterprint',function(){const area=document.getElementBy
       .then(function(data) {
         if (!data || !data.version) throw new Error('invalid');
         const remoteVersion = String(data.version);
+        const remoteBuild = String(data.build || '');
         const remoteUrl = (typeof data.url === 'string' && data.url) ? data.url : FALLBACK_APP_URL;
-        if (remoteVersion !== CURRENT_VERSION) {
-          pendingSeenVersion=remoteVersion;
+        if (remoteVersion !== CURRENT_VERSION || (remoteBuild && remoteBuild !== CURRENT_BUILD)) {
+          pendingSeenVersion=remoteVersion + '_' + remoteBuild;
           try{if(localStorage.getItem(currentUpdateSeenKey(remoteVersion)))return;}catch(e){}
           show(
             'نسخه جدید آماده است',
-            'نسخه این فایل: ' + CURRENT_VERSION + ' | نسخه آنلاین: ' + remoteVersion + ' — برای دریافت نسخه جدید، دکمه «باز کردن نسخه آنلاین» را بزنید.',
+            'نسخه این فایل: ' + CURRENT_VERSION + ' (' + CURRENT_BUILD + ') | نسخه آنلاین: ' + remoteVersion + (remoteBuild ? ' (' + remoteBuild + ')' : '') + ' — برای دریافت نسخه جدید، دکمه «باز کردن نسخه آنلاین» را بزنید.',
             remoteUrl,
             true
           );
