@@ -985,7 +985,7 @@ button[onclick*="search" i]:before{font-family:"Font Awesome 6 Free";font-weight
 // Cache the app shell after the first online visit; no changes to the app appearance.
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   window.addEventListener('load', function () {
-    var swUrl = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/sw.js?v=54n' : './sw.js?v=54n';
+    var swUrl = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/sw.js?v=54o' : './sw.js?v=54o';
     var scope = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/' : './';
     var refreshing = false;
     // وقتی سرویس‌ورکر جدید کنترل را گرفت، یک‌بار رفرش اجباری
@@ -6543,6 +6543,15 @@ function safeSchoolStorageFileName(name,mime,id){
  const fallback=String(id||'file').replace(/[^A-Za-z0-9_-]/g,'').slice(0,36)||('file_'+Date.now());
  return (stem||('file_'+fallback))+ext;
 }
+function schoolDocumentMimeType(file){
+ const name=String(file&&file.name||'').toLowerCase();
+ const ext=(name.match(/\.([a-z0-9]{1,10})$/)||[])[1]||'';
+ const byExt={pdf:'application/pdf',doc:'application/msword',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',webp:'image/webp'};
+ const current=String(file&&file.type||'').toLowerCase().split(';')[0].trim();
+ const allowed=['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','image/jpeg','image/png','image/webp'];
+ if(allowed.includes(current))return current;
+ return byExt[ext]||current||'application/octet-stream';
+}
 function isSafeSchoolStoragePath(path){
  const p=String(path||'');
  return !!p&&/^[A-Za-z0-9._/-]+$/.test(p)&&p.split('/').every(function(part){return !!part&&part!=='.'&&part!=='..';});
@@ -6555,7 +6564,7 @@ function readSchoolDocumentAsDataUrl(file){
   reader.readAsDataURL(file);
  });
 }
-async function uploadSchoolStorageObjectReliable(path,file){
+async function uploadSchoolStorageObjectReliable(path,file,mimeOverride){
  let base=String((typeof SB_URL!=='undefined'&&SB_URL)?SB_URL:(window.SB_URL||''));
  while(base.endsWith('/'))base=base.slice(0,-1);
  const key=(typeof SB_KEY!=='undefined'&&SB_KEY)?SB_KEY:(window.SB_KEY||'');
@@ -6566,7 +6575,7 @@ async function uploadSchoolStorageObjectReliable(path,file){
  let lastError='خطای نامشخص در بارگذاری فایل';
  for(let attempt=0;attempt<3;attempt++){
   try{
-   const response=await fetch(url,{method:'POST',headers:{'apikey':key,'Authorization':'Bearer '+key,'x-upsert':'true','Content-Type':file.type||'application/octet-stream'},body:file,cache:'no-store'});
+   const response=await fetch(url,{method:'POST',headers:{'apikey':key,'Authorization':'Bearer '+key,'x-upsert':'true','Content-Type':mimeOverride||file.type||'application/octet-stream'},body:file,cache:'no-store'});
    const raw=await response.text();
    if(response.ok){
     const folder=String(path).split('/').slice(0,-1).join('/');
@@ -6677,7 +6686,7 @@ async function syncPendingSchoolDocuments(){
     const blob=await (await fetch(source)).blob();
     const previousPath=String(oldRow.storage_path||'');
     const path=isSafeSchoolStoragePath(previousPath)?previousPath:String(oldRow.id)+'/'+safeSchoolStorageFileName(oldRow.file_name,oldRow.mime_type,oldRow.id);
-    const publicUrl=await uploadSchoolStorageObjectReliable(path,blob);
+    const publicUrl=await uploadSchoolStorageObjectReliable(path,blob,oldRow.mime_type||blob.type||'application/octet-stream');
     const row=Object.assign({},oldRow,{storage_path:path,file_url:publicUrl,pending_upload:false,sync_status:'synced'});
     delete row.local_archive_data_url;delete row.local_archive_saved_at;delete row.pending_upload;delete row.sync_status;
     const existing=await sb.from('sa_documents').select('id,storage_path').eq('id',row.id).limit(1);
@@ -6739,7 +6748,7 @@ async function uploadSchoolDocument(){
    if(f.size>15*1024*1024){failCount++; lastError='حجم بیش از ۱۵ مگابایت: '+f.name; continue;}
    const id=(typeof uid==='function'?uid():('doc_'+Date.now()+'_'+fi+'_'+Math.random().toString(36).slice(2,7)));
    window.__lastUploadedDocumentId=String(id);
-   const safeName=safeSchoolStorageFileName(f.name,f.type,id);
+   const safeName=safeSchoolStorageFileName(f.name,schoolDocumentMimeType(f),id);
    const path=id+'/'+safeName;
    const title=titleBase||f.name;
    const examName=examNameBase||title;
@@ -6749,11 +6758,11 @@ async function uploadSchoolDocument(){
    try{
     try{if(window.DastyarOffline&&DastyarOffline.setLocalOnly)DastyarOffline.setLocalOnly(false);}catch(e){}
     window.isOffline=false;
-    if(navigator.onLine){pub=await uploadSchoolStorageObjectReliable(path,f);usedCloud=!!pub;}
+    if(navigator.onLine){pub=await uploadSchoolStorageObjectReliable(path,f,schoolDocumentMimeType(f));usedCloud=!!pub;}
     else storageError='اینترنت قطع است؛ فایل پس از اتصال دوباره ارسال خواهد شد.';
    }catch(e){storageError=e&&e.message?e.message:String(e);}
 
-   const row={id:id,file_name:f.name,title:title,storage_path:path,file_url:pub,mime_type:f.type||'application/octet-stream',file_size:f.size,teacher_name:user.full_name||user.username,teacher_username:user.username,exam_name:examName,exam_date:examDate,class_id:classId,class_name:cl.label,copies_count:Math.max(1,Number((document.getElementById('doc-copies')||{}).value)||1),papers_used:papersCount,print_sides:printSides,print_status:'pending',description:subjectName?(title+' | درس: '+subjectName):title,uploaded_at:new Date().toISOString()};
+   const row={id:id,file_name:f.name,title:title,storage_path:path,file_url:pub,mime_type:schoolDocumentMimeType(f),file_size:f.size,teacher_name:user.full_name||user.username,teacher_username:user.username,exam_name:examName,exam_date:examDate,class_id:classId,class_name:cl.label,copies_count:Math.max(1,Number((document.getElementById('doc-copies')||{}).value)||1),papers_used:papersCount,print_sides:printSides,print_status:'pending',description:subjectName?(title+' | درس: '+subjectName):title,uploaded_at:new Date().toISOString()};
    try{
     cache.documents=cache.documents||[];
     cache.documents=cache.documents.filter(d=>String(d.id)!==String(id));
@@ -8778,7 +8787,7 @@ window.addEventListener('afterprint',function(){const area=document.getElementBy
 (function(){
   // این نسخه همین فایل است — برای به‌روزرسانی واقعی باید فایل جدید را جایگزین کنید
     const CURRENT_VERSION = '2026.10.28.54';
-    const CURRENT_BUILD = '20261111n';
+    const CURRENT_BUILD = '20261111o';
     const VERSION_URL = 'https://reza-2202.github.io/dastyar-madrese/version.json?t=' + Date.now();
   const FALLBACK_APP_URL = 'https://reza-2202.github.io/dastyar-madrese/';
   const box = document.getElementById('dastyar-update-box');
