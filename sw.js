@@ -1,9 +1,25 @@
-const CACHE = 'dastyar-shell-v54-20261111q';
+const CACHE = 'dastyar-shell-v54-20261112r';
 const BASE = '/dastyar-madrese/';
+const SHELL = [
+  BASE,
+  BASE + 'index.html',
+  BASE + 'manifest.webmanifest',
+  BASE + 'icon-192.png',
+  BASE + 'icon-512.png',
+  BASE + 'apple-touch-icon.png'
+];
 
 self.addEventListener('install', function (e) {
-  // بلافاصله نسخه جدید فعال شود
-  e.waitUntil(self.skipWaiting());
+  // پوسته و آیکون‌های اصلی برنامه مانند نسخه سالم قبلی در کش آماده شوند.
+  e.waitUntil(
+    caches.open(CACHE).then(function (c) {
+      return Promise.all(SHELL.map(function (u) {
+        return c.add(u).catch(function () {});
+      }));
+    }).then(function () {
+      return self.skipWaiting();
+    })
+  );
 });
 
 self.addEventListener('activate', function (e) {
@@ -11,7 +27,6 @@ self.addEventListener('activate', function (e) {
     caches.keys().then(function (keys) {
       return Promise.all(
         keys.map(function (k) {
-          // همه کش‌های قدیمی برنامه پاک شوند
           if (k !== CACHE) return caches.delete(k);
         })
       );
@@ -44,13 +59,13 @@ self.addEventListener('fetch', function (e) {
   var isHTML =
     e.request.mode === 'navigate' ||
     (e.request.headers.get('accept') || '').indexOf('text/html') >= 0 ||
-    /index\.html$/i.test(url.pathname) ||
+    /index\\.html$/i.test(url.pathname) ||
     url.pathname === BASE ||
-    url.pathname === BASE.replace(/\/$/, '');
+    url.pathname === BASE.replace(/\\/$/, '');
 
-  var isVersion = /version\.json$/i.test(url.pathname) || /sw\.js$/i.test(url.pathname) || /manifest\.webmanifest$/i.test(url.pathname);
+  var isVersion = /version\\.json$/i.test(url.pathname) || /sw\\.js$/i.test(url.pathname) || /manifest\\.webmanifest$/i.test(url.pathname);
 
-  // HTML و version/sw همیشه از شبکه (بدون کش مرورگر)
+  // HTML و فایل‌های تشخیص نسخه همیشه تازه از شبکه دریافت شوند.
   if (isHTML || isVersion) {
     e.respondWith(
       fetch(e.request, { cache: 'no-store' }).then(function (res) {
@@ -64,7 +79,7 @@ self.addEventListener('fetch', function (e) {
     return;
   }
 
-  // بقیه فایل‌ها: شبکه اول، بعد کش
+  // سایر فایل‌ها: شبکه اول و کش برای حالت آفلاین.
   e.respondWith(
     fetch(e.request).then(function (res) {
       if (res && res.ok) {
