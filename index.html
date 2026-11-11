@@ -981,7 +981,7 @@ button[onclick*="search" i]:before{font-family:"Font Awesome 6 Free";font-weight
 // Cache the app shell after the first online visit; no changes to the app appearance.
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   window.addEventListener('load', function () {
-    var swUrl = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/sw.js?v=54h' : './sw.js?v=54h';
+    var swUrl = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/sw.js?v=54i' : './sw.js?v=54i';
     var scope = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/' : './';
     var refreshing = false;
     // وقتی سرویس‌ورکر جدید کنترل را گرفت، یک‌بار رفرش اجباری
@@ -6543,6 +6543,20 @@ function isSafeSchoolStoragePath(path){
  const p=String(path||'');
  return !!p&&/^[A-Za-z0-9._/-]+$/.test(p)&&p.split('/').every(function(part){return !!part&&part!=='.'&&part!=='..';});
 }
+async function deleteSchoolDocumentRowFromServer(id){
+ if(!sb||!navigator.onLine)throw new Error('برای حذف قطعی از سرور اتصال اینترنت لازم است.');
+ const query=sb.from('sa_documents').delete().eq('id',String(id));
+ // sb در این برنامه از supabase-js رسمی ساخته می‌شود؛ deleteRemote فقط در
+ // لایه سازگاری داخلی وجود دارد و روی کلاینت رسمی در دسترس نیست.
+ const result=(query&&typeof query.select==='function')?await query.select('id'):await query;
+ if(result&&result.error)throw new Error(result.error.message||'حذف مشخصات فایل از سرور ناموفق بود');
+ const check=await sb.from('sa_documents').select('id').eq('id',String(id)).limit(1);
+ if(!check||check.error)throw new Error((check&&check.error&&check.error.message)||'بررسی حذف مشخصات فایل ناموفق بود');
+ if(Array.isArray(check.data)&&check.data.length)throw new Error('رکورد فایل هنوز در فهرست سرور وجود دارد؛ حذف از جدول تأیید نشد.');
+ if(check.data&&!Array.isArray(check.data)&&String(check.data.id||'')===String(id))throw new Error('رکورد فایل هنوز در فهرست سرور وجود دارد؛ حذف از جدول تأیید نشد.');
+ return true;
+}
+
 async function syncPendingSchoolDocumentDeletes(){
  if(!user||!sb||!navigator.onLine)return 0;
  let queue=[];try{queue=JSON.parse(localStorage.getItem('dastyar_pending_document_deletes_v1')||'[]');}catch(e){queue=[];}
@@ -6558,8 +6572,7 @@ async function syncPendingSchoolDocumentDeletes(){
    const check=await sb.storage.from('teacher-documents').list(folder,{search:file,limit:100});
    if(!check||check.error)throw new Error((check&&check.error&&check.error.message)||'تأیید حذف فایل از Storage ناموفق بود');
    if((check.data||[]).some(function(x){return String(x.name)===file;}))throw new Error('فایل هنوز در Storage وجود دارد');
-   const del=await sb.from('sa_documents').deleteRemote('id',String(item.id));
-   if(!del||del.error||!del.verified)throw new Error((del&&del.error&&del.error.message)||'حذف مشخصات فایل از سرور تأیید نشد');
+   await deleteSchoolDocumentRowFromServer(item.id);
    done++;
   }catch(e){keep.push(item);console.warn('pending school document delete',item.id,e);}
  }
@@ -6961,8 +6974,7 @@ async function deleteSchoolDocumentCore(id,path,isAdmin){
   const verify=await sb.storage.from('teacher-documents').list(folder,{search:file,limit:100});
   if(!verify||verify.error)throw new Error((verify&&verify.error&&verify.error.message)||'بررسی حذف فایل از سرور ناموفق بود');
   if((verify.data||[]).some(function(x){return String(x.name)===file;}))throw new Error('فایل هنوز در Storage سرور وجود دارد؛ رکورد آن حذف نشد.');
-  const del=await sb.from('sa_documents').deleteRemote('id',String(id));
-  if(!del||del.error||!del.verified)throw new Error((del&&del.error&&del.error.message)||'حذف مشخصات فایل از فهرست سرور تأیید نشد.');
+  await deleteSchoolDocumentRowFromServer(id);
   await finishLocalCleanup();
   toast('فایل و مشخصات آن با موفقیت از سرور حذف شد.');
   try{await loadSchoolDocuments();}catch(e){}
@@ -8708,7 +8720,7 @@ window.addEventListener('afterprint',function(){const area=document.getElementBy
 (function(){
   // این نسخه همین فایل است — برای به‌روزرسانی واقعی باید فایل جدید را جایگزین کنید
     const CURRENT_VERSION = '2026.10.28.54';
-    const CURRENT_BUILD = '20261111h';
+    const CURRENT_BUILD = '20261111i';
     const VERSION_URL = 'https://reza-2202.github.io/dastyar-madrese/version.json?t=' + Date.now();
   const FALLBACK_APP_URL = 'https://reza-2202.github.io/dastyar-madrese/';
   const box = document.getElementById('dastyar-update-box');
