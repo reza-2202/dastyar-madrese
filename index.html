@@ -2335,7 +2335,7 @@ async function flushPendingAttendanceToServer(){
     try{
       var _sbUrl=(typeof SB_URL!=='undefined'?SB_URL:(window.__DASTYAR_SUPABASE_URL||'')); var _sbKey=(typeof SB_KEY!=='undefined'?SB_KEY:(window.__DASTYAR_SUPABASE_ANON||''));
       var url=String(_sbUrl).replace(/\/$/,'')+'/rest/v1/sa_attendance?on_conflict=id';
-      var headers={'apikey':_sbKey,'Authorization':'Bearer '+_sbKey,'Content-Type':'application/json','Prefer':'return=minimal'};
+      var headers={'apikey':_sbKey,'Authorization':'Bearer '+_sbKey,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'};
       var response=await fetch(url,{method:'POST',headers:headers,body:JSON.stringify(rows)});
       if(!response.ok){
         var raw=await response.text();
@@ -6486,7 +6486,7 @@ async function insertDocumentWithSchemaFallback(initialRow){
         'apikey':key,
         'Authorization':'Bearer '+key,
         'Content-Type':'application/json',
-        'Prefer':'resolution=merge-duplicates,return=minimal'
+        'Prefer':'return=minimal'
       },
       body:JSON.stringify([payload])
     });
