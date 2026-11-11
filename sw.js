@@ -1,4 +1,4 @@
-const CACHE = 'dastyar-shell-v54-20261111g';
+const CACHE = 'dastyar-shell-v54-20261111h';
 const BASE = '/dastyar-madrese/';
 
 self.addEventListener('install', function (e) {
