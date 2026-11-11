@@ -72,6 +72,7 @@
       if(label!==lastBadgeLabel || textNode.textContent!==' '+label){textNode.textContent=' '+label;lastBadgeLabel=label;}
       if(color!==lastBadgeColor){dot.style.background=color;lastBadgeColor=color;}
       el.setAttribute('aria-label',label);
+      try{ if(typeof updateOfflineExportCardAvailability==='function') updateOfflineExportCardAvailability(); }catch(e){}
       try{ if(typeof refreshSyncStatusPanel==='function') refreshSyncStatusPanel(); }catch(e){}
     }).catch(function(e){console.warn('وضعیت نشانگر اتصال به‌روزرسانی نشد',e);});
   }
@@ -333,9 +334,10 @@ async function syncQueue(){if(syncRunning||!global.navigator.onLine)return;syncR
       // پیش از ارسال هر مورد، اتصال واقعی به سرور را بررسی کن؛ صرفاً navigator.onLine کافی نیست.
       var liveClient=null;try{liveClient=(typeof sb!=='undefined'&&sb)?sb:global.sb||null;}catch(e){liveClient=global.sb||null;}
       if(!liveClient||typeof liveClient.from!=='function')throw new Error('کلاینت سرور هنوز آماده نیست');
-      forceLocal=false;global.isOffline=false;
       var probe=await Promise.race([liveClient.from('sa_users').select('id').limit(1),new Promise(function(_,reject){setTimeout(function(){reject(new Error('مهلت بررسی سرور تمام شد'))},10000)})]);
       if(!probe||probe.error)throw new Error(probe&&probe.error&&probe.error.message||'سرور پاسخ معتبر نداد');
+      // فقط پس از پاسخ موفق سرور، حالت آنلاین اعلام شود؛ خطای ثبت یک ردیف به معنی قطع اینترنت نیست.
+      forceLocal=false;global.isOffline=false;
       try{await compactQueue();await purgeQueueAlreadyOnServer();}catch(e){console.warn('پاک‌سازی مقدماتی صف انجام نشد؛ ادامه با حفظ صف:',e);}
       var items=await allQueue(), failedCount=0, firstFailure=null, sentCount=0;
       for(var i=0;i<items.length;i++){
@@ -361,7 +363,6 @@ async function syncQueue(){if(syncRunning||!global.navigator.onLine)return;syncR
       if(left.length===0){forceLocal=false;global.isOffline=false;notify('همگام‌سازی کامل شد؛ صف تغییرات خالی است.');}
       else if(sentCount>0)notify('تعداد '+sentCount+' مورد ارسال شد؛ '+left.length+' مورد در صف باقی ماند'+(firstFailure?'؛ خطای نخست: '+firstFailure.table+' / '+firstFailure.message:''));
       else notify('تعداد '+left.length+' مورد هنوز همگام نشده است'+(firstFailure?'؛ خطا: '+firstFailure.table+' / '+firstFailure.message:''));
-      if(failedCount){forceLocal=true;global.isOffline=true;}
       updateOfflineBadge();
     }catch(e){forceLocal=true;global.isOffline=true;console.warn('سرور در دسترس نیست؛ تغییرات در گوشی باقی می‌مانند.',e);}finally{syncRunning=false;updateOfflineBadge();}}
   global.supabase={createClient:createClient};global.DastyarOffline={
@@ -939,7 +940,7 @@ button[onclick*="search" i]:before{font-family:"Font Awesome 6 Free";font-weight
 // Cache the app shell after the first online visit; no changes to the app appearance.
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   window.addEventListener('load', function () {
-    var swUrl = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/sw.js?v=54d' : './sw.js?v=54d';
+    var swUrl = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/sw.js?v=54e' : './sw.js?v=54d';
     var scope = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/' : './';
     var refreshing = false;
     // وقتی سرویس‌ورکر جدید کنترل را گرفت، یک‌بار رفرش اجباری
@@ -6917,7 +6918,7 @@ async function refreshSyncStatusPanel(){
         count=(items&&items.length)||0;
       }
     }catch(e){ count=0; }
-    var online=!!(navigator.onLine && !(window.isOffline));
+    var online=!(typeof isAppOfflineNow==='function'?isAppOfflineNow():(!navigator.onLine||!!window.isOffline));
     if(!online){
       text.textContent=count?('حالت آفلاین — '+count+' مورد در صف انتظار برای ارسال به سرور'):'حالت آفلاین — موردی در صف نیست';
       text.style.color='#c2410c';
@@ -6983,7 +6984,7 @@ async function manualSyncNow(){
   }finally{
     try{
       var btn=document.getElementById('sync-now-btn');
-      if(btn){ btn.disabled=false; btn.textContent='همین حالا همگام‌سازی کن'; }
+      if(btn){ btn.textContent='همین حالا همگام‌سازی کن'; }
       await refreshSyncStatusPanel();
       if(window.DastyarOffline&&typeof DastyarOffline.updateBadge==='function') DastyarOffline.updateBadge();
     }catch(e){}
@@ -8470,28 +8471,21 @@ function deleteParentMeeting(id){if(!confirm('این گزارش حذف شود؟'
 setupAllDateDropdowns();
 // init بعد از لود DOM
 if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",function(){init();});}else{init();}
-var __dastyarServerProbeFailures=0;
+var __dastyarAutoSyncRunning=false;
 setInterval(async function(){
- if(!navigator.onLine||!sb)return;
+ if(__dastyarAutoSyncRunning||!navigator.onLine||!sb||!user)return;
+ __dastyarAutoSyncRunning=true;
+ var wasOffline=typeof isAppOfflineNow==='function'&&isAppOfflineNow();
  try{
-  const probe=await withTimeout(sb.from('sa_users').select('id').limit(1),5000,'server unavailable');
-  if(!probe||probe.error)throw new Error(probe&&probe.error?probe.error.message:'server unavailable');
-  __dastyarServerProbeFailures=0;
-  if(window.DastyarOffline&&window.DastyarOffline.isLocalOnly&&window.DastyarOffline.isLocalOnly()){
-   if(window.DastyarOffline.setLocalOnly)window.DastyarOffline.setLocalOnly(false);
-   if(window.DastyarOffline&&typeof window.DastyarOffline.sync==='function')await window.DastyarOffline.sync();
-   if(user)await reloadAll();
-  }else if(window.DastyarOffline&&typeof window.DastyarOffline.sync==='function'){
-   await window.DastyarOffline.sync();
-  }
- }catch(e){
-  __dastyarServerProbeFailures++;
-  // یک خطای گذرای شبکه نباید وضعیت آنلاین/آفلاین و دکمه‌ها را پی‌درپی عوض کند.
-  if(__dastyarServerProbeFailures>=2&&window.DastyarOffline&&window.DastyarOffline.setLocalOnly)window.DastyarOffline.setLocalOnly(true);
-  console.warn('بررسی اتصال سرور ناموفق بود؛ پس از دو خطای پیاپی حالت آفلاین فعال می‌شود.',e);
+  // فقط یک موتور، هم اتصال واقعی را می‌سنجد و هم صف را ارسال می‌کند.
+  if(window.DastyarOffline&&typeof window.DastyarOffline.sync==='function')await window.DastyarOffline.sync();
+  if(wasOffline&&!(typeof isAppOfflineNow==='function'&&isAppOfflineNow())&&typeof reloadAll==='function')await reloadAll();
+ }catch(e){console.warn('همگام‌سازی خودکار پس‌زمینه انجام نشد؛ صف حفظ می‌شود.',e);}
+ finally{
+  __dastyarAutoSyncRunning=false;
+  try{if(typeof refreshSyncStatusPanel==='function')refreshSyncStatusPanel();}catch(e){}
+  try{if(typeof updateOfflineExportCardAvailability==='function')updateOfflineExportCardAvailability();}catch(e){}
  }
- try{if(typeof refreshSyncStatusPanel==='function')refreshSyncStatusPanel();}catch(e){}
- try{if(typeof updateOfflineExportCardAvailability==='function')updateOfflineExportCardAvailability();}catch(e){}
 },45000);
 
 
@@ -8615,7 +8609,7 @@ window.addEventListener('afterprint',function(){const area=document.getElementBy
 (function(){
   // این نسخه همین فایل است — برای به‌روزرسانی واقعی باید فایل جدید را جایگزین کنید
     const CURRENT_VERSION = '2026.10.28.54';
-    const CURRENT_BUILD = '20261111d';
+    const CURRENT_BUILD = '20261111e';
     const VERSION_URL = 'https://reza-2202.github.io/dastyar-madrese/version.json?t=' + Date.now();
   const FALLBACK_APP_URL = 'https://reza-2202.github.io/dastyar-madrese/';
   const box = document.getElementById('dastyar-update-box');
@@ -9482,10 +9476,10 @@ function addWordButton(){var panel=byId('page-absentees');if(!panel||byId('absen
 var serverCheckRunning=false;
 async function serverFirstSync(){if(serverCheckRunning||!navigator.onLine)return false;var client=(typeof sb!=='undefined'&&sb)?sb:window.sb;if(!client||typeof client.from!=='function')return false;serverCheckRunning=true;try{var probe=await Promise.race([client.from('sa_users').select('id').limit(1),new Promise(function(_,reject){setTimeout(function(){reject(new Error('timeout'))},9000)})]);if(probe&&probe.error)throw new Error(probe.error.message||'server unavailable');if(window.DastyarOffline&&window.DastyarOffline.setLocalOnly)window.DastyarOffline.setLocalOnly(false);if(window.DastyarOffline&&window.DastyarOffline.sync)await window.DastyarOffline.sync();/* Optional server persistence: only succeeds if the existing sa_students table already supports custom_fields; never alters schema or discards local copies. */try{var specs=(window.cache&&cache.customStudentSpecs)||{};for(var sid of Object.keys(specs)){var pairs=objectToPairs(specs[sid]);var st=(cache.students||[]).find(function(x){return String(x.id)===String(sid)});if(!st||!pairs.length)continue;var remoteResult=await client.from('sa_students').update({custom_fields:pairsToObject(pairs)}).eq('id',sid);if(remoteResult&&remoteResult.error)console.warn('مشخصات سفارشی فقط محلی باقی ماندند؛ ستون سرور در دسترس نیست یا ذخیره نشد.',remoteResult.error);}}catch(customSyncError){console.warn('ارسال مشخصات سفارشی انجام نشد؛ نسخه محلی حفظ شد.',customSyncError)}if(typeof reloadAll==='function'&&typeof user!=='undefined'&&user){try{await reloadAll()}catch(e){console.warn('Remote refresh failed; local data retained',e)}}return true;}catch(e){if(window.DastyarOffline&&window.DastyarOffline.setLocalOnly)window.DastyarOffline.setLocalOnly(true);console.warn('Server-first probe failed; local data retained',e);return false;}finally{serverCheckRunning=false;}}
 var originalDoLogin=window.doLogin;if(typeof originalDoLogin==='function'){window.doLogin=async function(){var result=await originalDoLogin.apply(this,arguments);setTimeout(function(){serverFirstSync();},200);return result;};}
-function initAdditive(){addWordButton();if(typeof user!=='undefined'&&user&&navigator.onLine)setTimeout(serverFirstSync,500);}
+function initAdditive(){addWordButton();}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initAdditive);else initAdditive();
 var mo=new MutationObserver(function(){addWordButton();});if(document.documentElement)mo.observe(document.documentElement,{childList:true,subtree:true});
-window.addEventListener('online',function(){setTimeout(serverFirstSync,300)});document.addEventListener('change',function(ev){if(ev.target&&ev.target.id==='dastyar-manual-online'&&ev.target.checked){try{localStorage.setItem('dastyar_manual_offline','0')}catch(e){}setTimeout(serverFirstSync,900)}});
+/* Reconnection and manual online checks are handled by the single offline queue engine. */
 })();
 </script>
 
@@ -9556,10 +9550,7 @@ var mo=new MutationObserver(function(){if($('add-st-form'))createPanel($('add-st
     finally{running=false}
   }
   window.DastyarServerFirst={checkAndSync:serverFirstFlush};
-  window.addEventListener('online',function(){setTimeout(function(){serverFirstFlush('network-restored')},50)});
-  document.addEventListener('change',function(ev){if(ev.target&&ev.target.id==='dastyar-manual-online'&&ev.target.checked)setTimeout(function(){serverFirstFlush('manual-online-toggle')},0)});
-  function boot(){setTimeout(function(){serverFirstFlush('boot')},0)}
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
+  // Startup, reconnect and manual sync are owned by DastyarOffline to prevent competing probes.
 })();
 </script>
 <!-- Offline stability + queue recovery patch: preserve failed queue items, continue independent writes, no synthetic online events. Base source version: 2026.10.28.39. -->
