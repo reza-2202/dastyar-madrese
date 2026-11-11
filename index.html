@@ -53,7 +53,7 @@
   function removeQueue(item){var qid=typeof item==='object'&&item?item.qid:item;var name=(typeof item==='object'&&item&&item._queueStore)||QUEUE;return store('readwrite',name,function(s){return s.delete(qid);});}
   function getResponse(key){return openDB().then(function(db){return new Promise(function(resolve,reject){var tx=db.transaction(RESPONSES,'readonly'),req=tx.objectStore(RESPONSES).get(key);req.onsuccess=function(){resolve(req.result||null);};req.onerror=function(){reject(req.error);};});});}
   function saveResponse(key,value){return openDB().then(function(db){return new Promise(function(resolve,reject){var tx=db.transaction(RESPONSES,'readwrite');tx.objectStore(RESPONSES).put({key:key,value:value,updatedAt:Date.now()});tx.oncomplete=function(){resolve();};tx.onerror=function(){reject(tx.error);};});});}
-  function buildQuery(filters){var qs=[];(filters||[]).forEach(function(f){if(f.type==='eq')qs.push(encodeURIComponent(f.col)+'=eq.'+encodeURIComponent(f.val));if(f.type==='limit')qs.push('limit='+encodeURIComponent(f.val));if(f.type==='order')qs.push('order='+encodeURIComponent(f.col)+'.'+(f.asc?'asc':'desc'));});return qs.length?'?'+qs.join('&'):'';}
+  function buildQuery(filters){var qs=[];(filters||[]).forEach(function(f){if(f.type==='eq')qs.push(encodeURIComponent(f.col)+'=eq.'+encodeURIComponent(f.val));if(f.type==='limit')qs.push('limit='+encodeURIComponent(f.val));if(f.type==='range'){qs.push('offset='+encodeURIComponent(f.from));qs.push('limit='+encodeURIComponent(Math.max(1,f.to-f.from+1)));}if(f.type==='order')qs.push('order='+encodeURIComponent(f.col)+'.'+(f.asc?'asc':'desc'));});return qs.length?'?'+qs.join('&'):'';}
   function clone(x){return x==null?x:JSON.parse(JSON.stringify(x));}
   function notify(text){try{console.info('[دستیار آفلاین]',text);}catch(e){}}
   var lastBadgeLabel=null,lastBadgeColor=null;
@@ -86,7 +86,7 @@
     var baseHeaders={'apikey':key,'Authorization':'Bearer '+key,'Content-Type':'application/json','Prefer':'return=representation'};
     function table(name){
       var filters=[], api={_cols:'*',_maybeSingle:false};
-      api.select=function(cols){api._cols=cols||'*';return api;};api.eq=function(col,val){filters.push({type:'eq',col:col,val:val});return api;};api.limit=function(n){filters.push({type:'limit',val:n});return api;};api.order=function(col,opts){filters.push({type:'order',col:col,asc:!(opts&&opts.ascending===false)});return api;};api.maybeSingle=function(){api._maybeSingle=true;return api;};
+      api.select=function(cols){api._cols=cols||'*';return api;};api.eq=function(col,val){filters.push({type:'eq',col:col,val:val});return api;};api.limit=function(n){filters.push({type:'limit',val:n});return api;};api.range=function(from,to){from=Math.max(0,Number(from)||0);to=Math.max(from,Number(to)||from);filters.push({type:'range',from:from,to:to});return api;};api.order=function(col,opts){filters.push({type:'order',col:col,asc:!(opts&&opts.ascending===false)});return api;};api.maybeSingle=function(){api._maybeSingle=true;return api;};
       function makeUrl(method){var q=buildQuery(filters);if(method==='GET'&&api._cols)q+=(q?'&':'?')+'select='+encodeURIComponent(api._cols);return base+'/'+name+q;}
       function queueWrite(method,payload,headers){payload=clone(payload);if(method==='POST'&&payload!=null){if(Array.isArray(payload))payload.forEach(function(row){if(row&&typeof row==='object'&&(row.id==null||row.id===''))row.id=uid();});else if(typeof payload==='object'&&(payload.id==null||payload.id===''))payload.id=uid();}var item={table:name,method:method,payload:clone(payload),filters:clone(filters),url:makeUrl(method),headers:Object.assign({},baseHeaders,headers||{}),createdAt:Date.now()};return putQueue(item).then(function(){global.DastyarOffline.lastQueuedAt=Date.now();updateOfflineBadge();try{ if(typeof persistLocalSchoolCache==='function') persistLocalSchoolCache(); }catch(e){} notify('ذخیره شد؛ '+name+' پس از اتصال اینترنت همگام‌سازی می‌شود.');return {data:clone(payload),error:null,status:202,offline:true};}).catch(function(e){return {data:null,error:{message:'ذخیره آفلاین انجام نشد: '+e.message},status:0};});}
       async function run(method,payload,extraHeaders,allowQueue){var url=makeUrl(method),headers=Object.assign({},baseHeaders,extraHeaders||{}),isWrite=method!=='GET';
@@ -940,7 +940,7 @@ button[onclick*="search" i]:before{font-family:"Font Awesome 6 Free";font-weight
 // Cache the app shell after the first online visit; no changes to the app appearance.
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   window.addEventListener('load', function () {
-    var swUrl = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/sw.js?v=54f' : './sw.js?v=54f';
+    var swUrl = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/sw.js?v=54g' : './sw.js?v=54g';
     var scope = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/' : './';
     var refreshing = false;
     // وقتی سرویس‌ورکر جدید کنترل را گرفت، یک‌بار رفرش اجباری
@@ -3395,7 +3395,46 @@ function toggleEvaluationClassList(){
  }).join(''):'کلاسی برای این حساب تعریف نشده است.';
 }
 
+var __dastyarDashboardDocsRefreshAt=0;
+var __dastyarDashboardDocsRefreshPromise=null;
+async function refreshDashboardDocumentCache(){
+  if(!user||!sb||!navigator.onLine||window.isOffline)return 0;
+  if(__dastyarDashboardDocsRefreshPromise)return __dastyarDashboardDocsRefreshPromise;
+  if(Date.now()-__dastyarDashboardDocsRefreshAt<10000)return 0;
+  __dastyarDashboardDocsRefreshAt=Date.now();
+  __dastyarDashboardDocsRefreshPromise=(async function(){
+    const res=await sb.from('sa_documents').select('*').order('uploaded_at',{ascending:false}).limit(6000);
+    if(!res||res.error||!Array.isArray(res.data))throw new Error((res&&res.error&&res.error.message)||'دریافت فایل‌های داشبورد از سرور ناموفق بود');
+    const previous=new Map((cache.documents||[]).filter(function(d){return d&&d.id;}).map(function(d){return [String(d.id),d];}));
+    let rows=res.data.filter(function(d){return d&&String(d.file_name||'').indexOf('__DASTYAR_DELETED__:')!==0&&!isDocumentTombstoned(d.id);});
+    rows=rows.map(function(d){
+      const old=previous.get(String(d.id));
+      if(old&&old.local_archive_data_url&&!d.local_archive_data_url)d.local_archive_data_url=old.local_archive_data_url;
+      if(old&&old.print_status==='ready_for_pickup'&&(!d.print_status||d.print_status==='pending'))Object.assign(d,{print_status:old.print_status,printed_at:old.printed_at,papers_used:old.papers_used,print_sides:old.print_sides,printed_by:old.printed_by});
+      return d;
+    });
+    if(user.role==='teacher'){
+      const classes=typeof myClasses==='function'?myClasses():[];
+      const allowed=new Set(classes.map(function(c){return String(c.id);}));
+      const identities=new Set([user.username,user.full_name].filter(Boolean).map(function(x){return String(x).trim();}));
+      classes.forEach(function(c){[c.teacher_name,c.teacher_user].filter(Boolean).forEach(function(x){identities.add(String(x).trim());});});
+      rows=rows.filter(function(d){return allowed.has(String(d.class_id||''))||identities.has(String(d.teacher_username||'').trim())||identities.has(String(d.teacher_name||'').trim());});
+    }
+    cache.documents=rows;
+    try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
+    return rows.length;
+  })().then(function(n){
+    try{refreshDash();}catch(e){}
+    return n;
+  }).catch(function(e){
+    console.warn('dashboard document refresh',e);
+    return 0;
+  }).finally(function(){__dastyarDashboardDocsRefreshPromise=null;});
+  return __dastyarDashboardDocsRefreshPromise;
+}
+
 function refreshDash(){
+  try{ if(typeof refreshDashboardDocumentCache==='function') refreshDashboardDocumentCache(); }catch(e){}
   try{ if(typeof renderSmartReminders==='function') renderSmartReminders(); }catch(e){}
   var featureNotice=document.getElementById('teacher-feature-update');
   if(featureNotice){
@@ -8631,7 +8670,7 @@ window.addEventListener('afterprint',function(){const area=document.getElementBy
 (function(){
   // این نسخه همین فایل است — برای به‌روزرسانی واقعی باید فایل جدید را جایگزین کنید
     const CURRENT_VERSION = '2026.10.28.54';
-    const CURRENT_BUILD = '20261111f';
+    const CURRENT_BUILD = '20261111g';
     const VERSION_URL = 'https://reza-2202.github.io/dastyar-madrese/version.json?t=' + Date.now();
   const FALLBACK_APP_URL = 'https://reza-2202.github.io/dastyar-madrese/';
   const box = document.getElementById('dastyar-update-box');
