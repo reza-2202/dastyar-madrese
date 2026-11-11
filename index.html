@@ -149,7 +149,7 @@
             },
             remove:async function(paths){
               try{
-                var cleanPaths=(Array.isArray(paths)?paths:[paths]).map(function(p){return String(p||'').replace(/^\\/+/, '');}).filter(Boolean);
+                var cleanPaths=(Array.isArray(paths)?paths:[paths]).map(function(p){return String(p||'').replace(/^\/+/, '');}).filter(Boolean);
                 if(!cleanPaths.length)return {data:null,error:{message:'مسیر فایل برای حذف مشخص نیست'}};
                 var res=await fetch(storageBase+'/object/'+bucket,{method:'DELETE',headers:{'apikey':key,'Authorization':'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({prefixes:cleanPaths})});
                 var raw=await res.text(),body=null;try{body=raw?JSON.parse(raw):null;}catch(e){}
@@ -159,7 +159,7 @@
             },
             list:async function(folder,opts){
               try{
-                var options=opts||{},prefix=String(folder||'').replace(/^\\/+|\\/+$/g,'');
+                var options=opts||{},prefix=String(folder||'').replace(/^\/+|\/+$/g,'');
                 var payload={prefix:prefix,limit:Math.max(1,Math.min(1000,Number(options.limit)||100))};
                 if(options.search)payload.search=String(options.search);
                 if(options.offset!=null)payload.offset=Math.max(0,Number(options.offset)||0);
