@@ -59,11 +59,11 @@ self.addEventListener('fetch', function (e) {
   var isHTML =
     e.request.mode === 'navigate' ||
     (e.request.headers.get('accept') || '').indexOf('text/html') >= 0 ||
-    /index\\.html$/i.test(url.pathname) ||
+    /index\.html$/i.test(url.pathname) ||
     url.pathname === BASE ||
-    url.pathname === BASE.replace(/\\/$/, '');
+    url.pathname === BASE.replace(/\/$/, '');
 
-  var isVersion = /version\\.json$/i.test(url.pathname) || /sw\\.js$/i.test(url.pathname) || /manifest\\.webmanifest$/i.test(url.pathname);
+  var isVersion = /version\.json$/i.test(url.pathname) || /sw\.js$/i.test(url.pathname) || /manifest\.webmanifest$/i.test(url.pathname);
 
   // HTML و فایل‌های تشخیص نسخه همیشه تازه از شبکه دریافت شوند.
   if (isHTML || isVersion) {
