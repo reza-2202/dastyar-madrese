@@ -939,7 +939,7 @@ button[onclick*="search" i]:before{font-family:"Font Awesome 6 Free";font-weight
 // Cache the app shell after the first online visit; no changes to the app appearance.
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   window.addEventListener('load', function () {
-    var swUrl = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/sw.js?v=54c' : './sw.js?v=54b';
+    var swUrl = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/sw.js?v=54d' : './sw.js?v=54d';
     var scope = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/' : './';
     var refreshing = false;
     // وقتی سرویس‌ورکر جدید کنترل را گرفت، یک‌بار رفرش اجباری
@@ -2915,13 +2915,14 @@ function fillSelects(){
   onDateChange('at-date','at-weekday');
 }
 
-function toggleAttendanceClassList(){
+async function toggleAttendanceClassList(){
  var box=document.getElementById('attendance-class-list');if(!box)return;
  var opening=box.style.display==='none'||!box.style.display;box.style.display=opening?'block':'none';
  if(!opening)return;
+ if(navigator.onLine&&!window.isOffline&&typeof reloadAll==='function'){try{await reloadAll();}catch(e){console.warn('تازه‌سازی حضور داشبورد انجام نشد',e);}}
  var t=String(today()),classes=(typeof myClasses==='function'?myClasses():(cache.classes||[]));
  var byClass=new Map();
- (cache.attendance||[]).forEach(function(a){if(!a||String(a.date||'')!==t)return;var k=String(a.class_id||'');if(!k)return;byClass.set(k,(byClass.get(k)||0)+1);});
+ (cache.attendance||[]).forEach(function(a){if(!a||String(a.date||'')!==t||!String(a.status||'').trim())return;var k=String(a.class_id||'');if(!k)return;byClass.set(k,(byClass.get(k)||0)+1);});
  var el=document.getElementById('attendance-class-list-items');
  if(el)el.innerHTML=classes.length?classes.map(function(c){var n=byClass.get(String(c.id))||0,ok=n>0;var label=(c.label||c.id)+(c.teacher_name?' — '+c.teacher_name:'');return '<span style="display:inline-block;margin:4px;padding:7px 11px;border-radius:16px;background:'+(ok?'#dcfce7':'#fee2e2')+';color:'+(ok?'#166534':'#991b1b')+';border:1px solid '+(ok?'#86efac':'#fca5a5')+'">'+(ok?'✓ ':'✕ ')+escHtml(label)+(ok?' — '+fa(n)+' رکورد':' — ثبت نشده')+'</span>';}).join(''):'کلاسی برای این حساب تعریف نشده است.';
  var admBtn=document.getElementById('attendance-remind-admin');
@@ -3421,7 +3422,9 @@ function refreshDash(){
     if(!a||String(a.date||'')!==String(t)) return;
     var cid=String(a.class_id||'');
     if(classIdsDash.size && cid && !classIdsDash.has(cid)) return;
-    // اگر دانش‌آموزان بار شده‌اند، فقط همان‌ها؛ وگرنه از روی class_id حساب کن
+    // شمارش کلاس‌های دارای ثبت مستقل از کامل بودن فهرست دانش‌آموزان است.
+    if(String(a.status||'').trim()) attClassSet.add(cid||'_');
+    // آمار حاضر/غایب فقط برای دانش‌آموزان همین حساب محاسبه می‌شود.
     if(ids.size && a.student_id!=null && !ids.has(String(a.student_id))) return;
     var st=String(a.status||'').toLowerCase().trim();
     if(st==='present'||st==='حاضر'){ present++; attClassSet.add(cid||'_'); }
@@ -3530,7 +3533,7 @@ function refreshDash(){
     }catch(e){console.warn('dashboard live refresh',e);}
     finally{busy=false;}
   }
-  setInterval(tick, 60000);
+  setInterval(tick, 15000);
   document.addEventListener('visibilitychange',function(){if(!document.hidden) tick();});
 })();
 
@@ -6690,7 +6693,7 @@ async function loadSchoolDocuments(){
       cache.documents.forEach(function(ld){
         if(!ld||remoteDeletedIds.has(String(ld.id)))return;
         var i=data.findIndex(function(d){return String(d.id)===String(ld.id);});
-        if(i<0){if(ld.pending_upload||ld._offline)data.push(ld);return;}
+        if(i<0){data.push(ld);return;}
         var sr=data[i];
         if(ld.local_archive_data_url&&!sr.local_archive_data_url)sr.local_archive_data_url=ld.local_archive_data_url;
         if(ld.print_status==='ready_for_pickup'&&(!sr.print_status||sr.print_status==='pending'))Object.assign(sr,{print_status:ld.print_status,printed_at:ld.printed_at,papers_used:ld.papers_used,print_sides:ld.print_sides,printed_by:ld.printed_by});
@@ -6698,7 +6701,7 @@ async function loadSchoolDocuments(){
       });
       if(window.dastyarDocumentArchive&&typeof dastyarDocumentArchive.all==='function'){
         const archived=await dastyarDocumentArchive.all();
-        (archived||[]).forEach(function(a){if(!a||!a.id||remoteDeletedIds.has(String(a.id)))return;var i=data.findIndex(function(d){return String(d.id)===String(a.id);});if(i<0){if(a.pending_upload||a._offline)data.push(a);return;}if(a.local_archive_data_url&&!data[i].local_archive_data_url)data[i].local_archive_data_url=a.local_archive_data_url;});
+        (archived||[]).forEach(function(a){if(!a||!a.id||remoteDeletedIds.has(String(a.id)))return;var i=data.findIndex(function(d){return String(d.id)===String(a.id);});if(i<0){data.push(a);return;}if(a.local_archive_data_url&&!data[i].local_archive_data_url)data[i].local_archive_data_url=a.local_archive_data_url;});
       }
     }catch(e){console.warn('document local enrichment',e);}
   }
@@ -8467,7 +8470,29 @@ function deleteParentMeeting(id){if(!confirm('این گزارش حذف شود؟'
 setupAllDateDropdowns();
 // init بعد از لود DOM
 if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",function(){init();});}else{init();}
-setInterval(async function(){if(!navigator.onLine||!sb)return;try{if(window.DastyarOffline&&window.DastyarOffline.isLocalOnly&&window.DastyarOffline.isLocalOnly()){const probe=await withTimeout(sb.from('sa_users').select('id').limit(1),3500,'server unavailable');if(!probe||probe.error)throw new Error(probe&&probe.error?probe.error.message:'server unavailable');if(window.DastyarOffline.setLocalOnly)window.DastyarOffline.setLocalOnly(false);if(window.DastyarOffline)await window.DastyarOffline.sync();if(user&&!(window.DastyarOffline&&window.DastyarOffline.isLocalOnly&&window.DastyarOffline.isLocalOnly()))await reloadAll();}else if(window.DastyarOffline&&typeof window.DastyarOffline.sync==='function'){await window.DastyarOffline.sync();}}catch(e){if(window.DastyarOffline&&window.DastyarOffline.setLocalOnly)window.DastyarOffline.setLocalOnly(true);console.warn('سرور پاسخ نمی‌دهد؛ برنامه در حالت محلی می‌ماند و داده‌ها حفظ می‌شوند.',e);}},45000);
+var __dastyarServerProbeFailures=0;
+setInterval(async function(){
+ if(!navigator.onLine||!sb)return;
+ try{
+  const probe=await withTimeout(sb.from('sa_users').select('id').limit(1),5000,'server unavailable');
+  if(!probe||probe.error)throw new Error(probe&&probe.error?probe.error.message:'server unavailable');
+  __dastyarServerProbeFailures=0;
+  if(window.DastyarOffline&&window.DastyarOffline.isLocalOnly&&window.DastyarOffline.isLocalOnly()){
+   if(window.DastyarOffline.setLocalOnly)window.DastyarOffline.setLocalOnly(false);
+   if(window.DastyarOffline&&typeof window.DastyarOffline.sync==='function')await window.DastyarOffline.sync();
+   if(user)await reloadAll();
+  }else if(window.DastyarOffline&&typeof window.DastyarOffline.sync==='function'){
+   await window.DastyarOffline.sync();
+  }
+ }catch(e){
+  __dastyarServerProbeFailures++;
+  // یک خطای گذرای شبکه نباید وضعیت آنلاین/آفلاین و دکمه‌ها را پی‌درپی عوض کند.
+  if(__dastyarServerProbeFailures>=2&&window.DastyarOffline&&window.DastyarOffline.setLocalOnly)window.DastyarOffline.setLocalOnly(true);
+  console.warn('بررسی اتصال سرور ناموفق بود؛ پس از دو خطای پیاپی حالت آفلاین فعال می‌شود.',e);
+ }
+ try{if(typeof refreshSyncStatusPanel==='function')refreshSyncStatusPanel();}catch(e){}
+ try{if(typeof updateOfflineExportCardAvailability==='function')updateOfflineExportCardAvailability();}catch(e){}
+},45000);
 
 
 function fillPublicInviteClasses(){
@@ -8590,7 +8615,7 @@ window.addEventListener('afterprint',function(){const area=document.getElementBy
 (function(){
   // این نسخه همین فایل است — برای به‌روزرسانی واقعی باید فایل جدید را جایگزین کنید
     const CURRENT_VERSION = '2026.10.28.54';
-    const CURRENT_BUILD = '20261111c';
+    const CURRENT_BUILD = '20261111d';
     const VERSION_URL = 'https://reza-2202.github.io/dastyar-madrese/version.json?t=' + Date.now();
   const FALLBACK_APP_URL = 'https://reza-2202.github.io/dastyar-madrese/';
   const box = document.getElementById('dastyar-update-box');
