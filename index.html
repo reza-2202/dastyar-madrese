@@ -981,7 +981,7 @@ button[onclick*="search" i]:before{font-family:"Font Awesome 6 Free";font-weight
 // Cache the app shell after the first online visit; no changes to the app appearance.
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   window.addEventListener('load', function () {
-    var swUrl = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/sw.js?v=54i' : './sw.js?v=54i';
+    var swUrl = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/sw.js?v=54j' : './sw.js?v=54j';
     var scope = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/' : './';
     var refreshing = false;
     // وقتی سرویس‌ورکر جدید کنترل را گرفت، یک‌بار رفرش اجباری
@@ -6557,26 +6557,56 @@ async function deleteSchoolDocumentRowFromServer(id){
  return true;
 }
 
+async function removeSchoolDocumentStorageObject(path){
+ if(!sb||!sb.storage)throw new Error('اتصال فضای ذخیره‌سازی آماده نیست');
+ const cleanPath=String(path||'').replace(/^\/+/, '');
+ if(!cleanPath)throw new Error('مسیر فایل برای حذف مشخص نیست');
+ const parts=cleanPath.split('/'),file=parts.pop(),folder=parts.join('/');
+ const rm=await sb.storage.from('teacher-documents').remove([cleanPath]);
+ if(!rm||rm.error)throw new Error((rm&&rm.error&&rm.error.message)||'حذف فایل از فضای ذخیره‌سازی ناموفق بود');
+ const check=await sb.storage.from('teacher-documents').list(folder,{search:file,limit:100});
+ if(!check||check.error)throw new Error((check&&check.error&&check.error.message)||'بررسی حذف فایل از فضای ذخیره‌سازی ناموفق بود');
+ if((check.data||[]).some(function(x){return String(x.name)===file;}))throw new Error('فایل هنوز در فضای ذخیره‌سازی وجود دارد؛ حذف نهایی نشد.');
+ return true;
+}
+async function markSchoolDocumentServerDeleted(id,originalName){
+ if(!sb)throw new Error('اتصال پایگاه داده آماده نیست');
+ const current=await sb.from('sa_documents').select('id,file_name').eq('id',String(id)).limit(1);
+ if(!current||current.error)throw new Error((current&&current.error&&current.error.message)||'خواندن مشخصات فایل برای ثبت حذف ناموفق بود');
+ if(!Array.isArray(current.data)||!current.data.length)throw new Error('رکورد فایل در سرور پیدا نشد؛ نشانگر حذف ثبت نشد.');
+ const currentName=String(current.data[0].file_name||originalName||'file');
+ if(currentName.indexOf('__DASTYAR_DELETED__:')===0)return true;
+ const marker='__DASTYAR_DELETED__:'+currentName;
+ const upd=await sb.from('sa_documents').update({file_name:marker}).eq('id',String(id));
+ if(!upd||upd.error||upd.offline)throw new Error((upd&&upd.error&&upd.error.message)||'ثبت نشانگر حذف در سرور ناموفق بود');
+ const verify=await sb.from('sa_documents').select('id,file_name').eq('id',String(id)).limit(1);
+ if(!verify||verify.error)throw new Error((verify&&verify.error&&verify.error.message)||'تأیید نشانگر حذف در سرور ناموفق بود');
+ if(!Array.isArray(verify.data)||!verify.data.some(function(x){return String(x.id)===String(id)&&String(x.file_name||'').indexOf('__DASTYAR_DELETED__:')===0;}))throw new Error('نشانگر حذف در سرور ثبت نشد.');
+ return true;
+}
 async function syncPendingSchoolDocumentDeletes(){
  if(!user||!sb||!navigator.onLine)return 0;
  let queue=[];try{queue=JSON.parse(localStorage.getItem('dastyar_pending_document_deletes_v1')||'[]');}catch(e){queue=[];}
  if(!Array.isArray(queue)||!queue.length)return 0;
  let done=0,keep=[];
  for(const item of queue){
-  if(!item||!item.id||!item.path)continue;
+  if(!item||!item.id||!item.path){if(item)keep.push(item);continue;}
   if(user.role!=='admin'&&String(item.requested_by||'')!==String(user.username||'')){keep.push(item);continue;}
   try{
-   const parts=String(item.path).split('/'),file=parts.pop(),folder=parts.join('/');
-   const rm=await sb.storage.from('teacher-documents').remove([String(item.path)]);
-   if(rm&&rm.error)throw new Error(rm.error.message||'حذف فایل از Storage ناموفق بود');
-   const check=await sb.storage.from('teacher-documents').list(folder,{search:file,limit:100});
-   if(!check||check.error)throw new Error((check&&check.error&&check.error.message)||'تأیید حذف فایل از Storage ناموفق بود');
-   if((check.data||[]).some(function(x){return String(x.name)===file;}))throw new Error('فایل هنوز در Storage وجود دارد');
-   await deleteSchoolDocumentRowFromServer(item.id);
+   await removeSchoolDocumentStorageObject(item.path);
+   const old=(cache.documents||[]).find(function(d){return String(d.id)===String(item.id);});
+   await markSchoolDocumentServerDeleted(item.id,old&&old.file_name);
+   setDocumentDeletedTombstone(item.id);
+   cache.documents=(cache.documents||[]).filter(function(d){return String(d.id)!==String(item.id);});
+   try{if(window.dastyarDocumentArchive)await window.dastyarDocumentArchive.delete(item.id);}catch(e){}
    done++;
   }catch(e){keep.push(item);console.warn('pending school document delete',item.id,e);}
  }
  try{localStorage.setItem('dastyar_pending_document_deletes_v1',JSON.stringify(keep.slice(-500)));}catch(e){}
+ if(done){
+  try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
+  try{if(typeof refreshDash==='function')refreshDash();}catch(e){}
+ }
  return done;
 }
 let __dastyarDocumentSyncPromise=null;
@@ -6585,8 +6615,18 @@ async function syncPendingSchoolDocuments(){
  if(!user||!sb||!navigator.onLine||window.isOffline||!window.dastyarDocumentArchive||typeof dastyarDocumentArchive.all!=='function')return 0;
  __dastyarDocumentSyncPromise=(async function(){
   let done=0;const archived=await dastyarDocumentArchive.all();
+  const serverState=await sb.from('sa_documents').select('id,file_name').limit(6000);
+  if(!serverState||serverState.error||!Array.isArray(serverState.data))throw new Error((serverState&&serverState.error&&serverState.error.message)||'بررسی نشانگرهای حذف سرور ناموفق بود؛ برای جلوگیری از بازگشت فایل، ارسال مجدد متوقف شد.');
+  const remoteDeletedIds=new Set(serverState.data.filter(function(d){return d&&String(d.file_name||'').indexOf('__DASTYAR_DELETED__:')===0;}).map(function(d){return String(d.id);}));
+  for(const deletedId of remoteDeletedIds){
+    if((archived||[]).some(function(a){return a&&String(a.id)===deletedId;})){
+      setDocumentDeletedTombstone(deletedId);
+      try{await dastyarDocumentArchive.delete(deletedId);}catch(e){}
+      cache.documents=(cache.documents||[]).filter(function(d){return String(d.id)!==deletedId;});
+    }
+  }
   const myDocClasses=new Set((user&&user.role==='teacher'&&typeof myClasses==='function'?myClasses():[]).map(function(c){return String(c.id);}));
-  for(const oldRow of (archived||[]).filter(function(x){return x&&x.pending_upload&&!isDocumentTombstoned(x.id)&&(user.role==='admin'||(String(x.teacher_username||'')===String(user.username||'')&&myDocClasses.has(String(x.class_id||''))));})){
+  for(const oldRow of (archived||[]).filter(function(x){return x&&x.pending_upload&&!isDocumentTombstoned(x.id)&&!remoteDeletedIds.has(String(x.id))&&(user.role==='admin'||(String(x.teacher_username||'')===String(user.username||'')&&myDocClasses.has(String(x.class_id||''))));})){
    try{
     const source=oldRow.local_archive_data_url||(String(oldRow.file_url||'').indexOf('data:')===0?oldRow.file_url:'');
     if(!source)throw new Error('نسخه محلی فایل برای ارسال مجدد پیدا نشد');
@@ -6968,15 +7008,10 @@ async function deleteSchoolDocumentCore(id,path,isAdmin){
   return;
  }
  try{
-  const parts=String(path).split('/'),file=parts.pop(),folder=parts.join('/');
-  const rm=await sb.storage.from('teacher-documents').remove([String(path)]);
-  if(rm&&rm.error)throw new Error(rm.error.message||'حذف فایل از فضای سرور ناموفق بود');
-  const verify=await sb.storage.from('teacher-documents').list(folder,{search:file,limit:100});
-  if(!verify||verify.error)throw new Error((verify&&verify.error&&verify.error.message)||'بررسی حذف فایل از سرور ناموفق بود');
-  if((verify.data||[]).some(function(x){return String(x.name)===file;}))throw new Error('فایل هنوز در Storage سرور وجود دارد؛ رکورد آن حذف نشد.');
-  await deleteSchoolDocumentRowFromServer(id);
+  await removeSchoolDocumentStorageObject(path);
+  await markSchoolDocumentServerDeleted(id,known&&known.file_name);
   await finishLocalCleanup();
-  toast('فایل و مشخصات آن با موفقیت از سرور حذف شد.');
+  toast('فایل از فضای سرور حذف شد و نشانگر حذف ثبت شد؛ فایل دوباره همگام‌سازی نخواهد شد.');
   try{await loadSchoolDocuments();}catch(e){}
   try{if(typeof renderPaperStats==='function')renderPaperStats();}catch(e){}
   try{if(typeof renderTeacherNotices==='function')renderTeacherNotices();}catch(e){}
@@ -8720,7 +8755,7 @@ window.addEventListener('afterprint',function(){const area=document.getElementBy
 (function(){
   // این نسخه همین فایل است — برای به‌روزرسانی واقعی باید فایل جدید را جایگزین کنید
     const CURRENT_VERSION = '2026.10.28.54';
-    const CURRENT_BUILD = '20261111i';
+    const CURRENT_BUILD = '20261111j';
     const VERSION_URL = 'https://reza-2202.github.io/dastyar-madrese/version.json?t=' + Date.now();
   const FALLBACK_APP_URL = 'https://reza-2202.github.io/dastyar-madrese/';
   const box = document.getElementById('dastyar-update-box');
