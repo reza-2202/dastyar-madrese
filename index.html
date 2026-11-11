@@ -149,9 +149,25 @@
             },
             remove:async function(paths){
               try{
-                var res=await fetch(storageBase+'/object/'+bucket,{method:'DELETE',headers:{'apikey':key,'Authorization':'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({prefixes:paths})});
-                if(!res.ok){var t=await res.text();return {data:null,error:{message:t||('HTTP '+res.status)}};}
-                return {data:true,error:null};
+                var cleanPaths=(Array.isArray(paths)?paths:[paths]).map(function(p){return String(p||'').replace(/^\\/+/, '');}).filter(Boolean);
+                if(!cleanPaths.length)return {data:null,error:{message:'مسیر فایل برای حذف مشخص نیست'}};
+                var res=await fetch(storageBase+'/object/'+bucket,{method:'DELETE',headers:{'apikey':key,'Authorization':'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({prefixes:cleanPaths})});
+                var raw=await res.text(),body=null;try{body=raw?JSON.parse(raw):null;}catch(e){}
+                if(!res.ok)return {data:null,error:{message:(body&&(body.message||body.error))||raw||('HTTP '+res.status),status:res.status}};
+                return {data:body||true,error:null,status:res.status};
+              }catch(e){return {data:null,error:{message:e.message||String(e)}};}
+            },
+            list:async function(folder,opts){
+              try{
+                var options=opts||{},prefix=String(folder||'').replace(/^\\/+|\\/+$/g,'');
+                var payload={prefix:prefix,limit:Math.max(1,Math.min(1000,Number(options.limit)||100))};
+                if(options.search)payload.search=String(options.search);
+                if(options.offset!=null)payload.offset=Math.max(0,Number(options.offset)||0);
+                if(options.sortBy)payload.sortBy=options.sortBy;
+                var res=await fetch(storageBase+'/object/list/'+bucket,{method:'POST',headers:{'apikey':key,'Authorization':'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify(payload)});
+                var raw=await res.text(),body=null;try{body=raw?JSON.parse(raw):null;}catch(e){}
+                if(!res.ok)return {data:null,error:{message:(body&&(body.message||body.error))||raw||('HTTP '+res.status),status:res.status}};
+                return {data:Array.isArray(body)?body:[],error:null,status:res.status};
               }catch(e){return {data:null,error:{message:e.message||String(e)}};}
             }
           };
@@ -6519,6 +6535,9 @@ async function syncPendingSchoolDocumentDeletes(){
    if((check.data||[]).some(function(x){return String(x.name)===file;}))throw new Error('فایل هنوز در Storage وجود دارد');
    const del=await sb.from('sa_documents').delete().eq('id',String(item.id));
    if(del&&del.error)throw new Error(del.error.message||'حذف مشخصات فایل ناموفق بود');
+   const rowCheck=await sb.from('sa_documents').select('id').eq('id',String(item.id)).limit(1);
+   if(!rowCheck||rowCheck.error)throw new Error((rowCheck&&rowCheck.error&&rowCheck.error.message)||'تأیید حذف مشخصات فایل ناموفق بود');
+   if(Array.isArray(rowCheck.data)&&rowCheck.data.some(function(x){return String(x.id)===String(item.id);}))throw new Error('رکورد فایل هنوز در فهرست سرور وجود دارد');
    done++;
   }catch(e){keep.push(item);console.warn('pending school document delete',item.id,e);}
  }
@@ -6920,7 +6939,7 @@ async function deleteSchoolDocumentCore(id,path,isAdmin){
   const verify=await sb.storage.from('teacher-documents').list(folder,{search:file,limit:100});
   if(!verify||verify.error)throw new Error((verify&&verify.error&&verify.error.message)||'بررسی حذف فایل از سرور ناموفق بود');
   if((verify.data||[]).some(function(x){return String(x.name)===file;}))throw new Error('فایل هنوز در Storage سرور وجود دارد؛ رکورد آن حذف نشد.');
-  const del=await sb.from('sa_documents').delete().eq('id',String(id)).select('id');
+  const del=await sb.from('sa_documents').delete().eq('id',String(id));
   if(del&&del.error)throw new Error(del.error.message||'حذف مشخصات فایل از فهرست سرور ناموفق بود');
   const check=await sb.from('sa_documents').select('id').eq('id',String(id)).limit(1);
   if(!check||check.error)throw new Error((check&&check.error&&check.error.message)||'تأیید حذف از فهرست سرور ناموفق بود');
