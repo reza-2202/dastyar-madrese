@@ -6447,6 +6447,45 @@ async function insertDocumentWithSchemaFallback(initialRow){
 
 
 
+function safeSchoolStorageFileName(name,mime,id){
+ const raw=String(name||'file');
+ const match=raw.match(/\.([A-Za-z0-9]{1,10})$/);
+ let ext=match?'.'+match[1].toLowerCase():'';
+ if(!ext){
+  const mt=String(mime||'').toLowerCase();
+  ext=mt==='application/pdf'?'.pdf':mt==='image/jpeg'?'.jpg':mt==='image/png'?'.png':mt==='image/webp'?'.webp':mt==='image/gif'?'.gif':'';
+ }
+ const stem=raw.replace(/\.[^.]*$/,'').replace(/[^A-Za-z0-9_-]+/g,'_').replace(/_+/g,'_').replace(/^_+|_+$/g,'').slice(0,72);
+ const fallback=String(id||'file').replace(/[^A-Za-z0-9_-]/g,'').slice(0,36)||('file_'+Date.now());
+ return (stem||('file_'+fallback))+ext;
+}
+function isSafeSchoolStoragePath(path){
+ const p=String(path||'');
+ return !!p&&/^[A-Za-z0-9._/-]+$/.test(p)&&p.split('/').every(function(part){return !!part&&part!=='.'&&part!=='..';});
+}
+async function syncPendingSchoolDocumentDeletes(){
+ if(!user||!sb||!navigator.onLine)return 0;
+ let queue=[];try{queue=JSON.parse(localStorage.getItem('dastyar_pending_document_deletes_v1')||'[]');}catch(e){queue=[];}
+ if(!Array.isArray(queue)||!queue.length)return 0;
+ let done=0,keep=[];
+ for(const item of queue){
+  if(!item||!item.id||!item.path)continue;
+  if(user.role!=='admin'&&String(item.requested_by||'')!==String(user.username||'')){keep.push(item);continue;}
+  try{
+   const parts=String(item.path).split('/'),file=parts.pop(),folder=parts.join('/');
+   const rm=await sb.storage.from('teacher-documents').remove([String(item.path)]);
+   if(rm&&rm.error)throw new Error(rm.error.message||'حذف فایل از Storage ناموفق بود');
+   const check=await sb.storage.from('teacher-documents').list(folder,{search:file,limit:100});
+   if(!check||check.error)throw new Error((check&&check.error&&check.error.message)||'تأیید حذف فایل از Storage ناموفق بود');
+   if((check.data||[]).some(function(x){return String(x.name)===file;}))throw new Error('فایل هنوز در Storage وجود دارد');
+   const del=await sb.from('sa_documents').delete().eq('id',String(item.id));
+   if(del&&del.error)throw new Error(del.error.message||'حذف مشخصات فایل ناموفق بود');
+   done++;
+  }catch(e){keep.push(item);console.warn('pending school document delete',item.id,e);}
+ }
+ try{localStorage.setItem('dastyar_pending_document_deletes_v1',JSON.stringify(keep.slice(-500)));}catch(e){}
+ return done;
+}
 let __dastyarDocumentSyncPromise=null;
 async function syncPendingSchoolDocuments(){
  if(__dastyarDocumentSyncPromise)return __dastyarDocumentSyncPromise;
@@ -6459,7 +6498,8 @@ async function syncPendingSchoolDocuments(){
     const source=oldRow.local_archive_data_url||(String(oldRow.file_url||'').indexOf('data:')===0?oldRow.file_url:'');
     if(!source)throw new Error('نسخه محلی فایل برای ارسال مجدد پیدا نشد');
     const blob=await (await fetch(source)).blob();
-    const path=oldRow.storage_path||String(oldRow.id)+'/'+String(oldRow.file_name||'file');
+    const previousPath=String(oldRow.storage_path||'');
+    const path=isSafeSchoolStoragePath(previousPath)?previousPath:String(oldRow.id)+'/'+safeSchoolStorageFileName(oldRow.file_name,oldRow.mime_type,oldRow.id);
     const up=await sb.storage.from('teacher-documents').upload(path,blob,{upsert:true,contentType:oldRow.mime_type||blob.type||'application/octet-stream'});
     if(!up||up.error||up.offline)throw new Error((up&&up.error&&up.error.message)||'بارگذاری مجدد در فضای ابری تأیید نشد');
     const publicUrl=sb.storage.from('teacher-documents').getPublicUrl(path).data.publicUrl;
@@ -6487,7 +6527,7 @@ async function syncPendingSchoolDocuments(){
  })().finally(function(){__dastyarDocumentSyncPromise=null;});
  return __dastyarDocumentSyncPromise;
 }
-window.addEventListener('online',function(){setTimeout(function(){syncPendingSchoolDocuments().then(function(n){if(n&&document.getElementById('doc-list'))loadSchoolDocuments();}).catch(function(e){console.warn(e);});},1200);});
+window.addEventListener('online',function(){setTimeout(async function(){try{await syncPendingSchoolDocumentDeletes();}catch(e){}try{var n=await syncPendingSchoolDocuments();if(n&&document.getElementById('doc-list'))loadSchoolDocuments();}catch(e){console.warn(e);}},1200);});
 
 async function uploadSchoolDocument(){
  if(!user){toast('ابتدا وارد برنامه شوید');return;}
@@ -6512,7 +6552,7 @@ async function uploadSchoolDocument(){
    if(f.size>15*1024*1024){failCount++; lastError='حجم بیش از ۱۵ مگابایت: '+f.name; continue;}
    const id=(typeof uid==='function'?uid():('doc_'+Date.now()+'_'+fi+'_'+Math.random().toString(36).slice(2,7)));
    window.__lastUploadedDocumentId=String(id);
-   const safeName=(f.name||'file').replace(/[^\w.\-\u0600-\u06FF]/g,'_')||('file_'+Date.now());
+   const safeName=safeSchoolStorageFileName(f.name,f.type,id);
    const path=id+'/'+safeName;
    const title=titleBase||f.name;
    const examName=examNameBase||title;
@@ -6620,6 +6660,12 @@ async function uploadSchoolDocument(){
      else serverError=(ins&&ins.error)||'ثبت پایدار فایل در سرور تأیید نشد';
     }else serverError='اتصال سرور آماده نیست';
    }catch(e){serverError=e.message||String(e);}
+   if(serverOk&&!queued){
+    try{
+     const verify=await sb.from('sa_documents').select('id,storage_path').eq('id',id).limit(1);
+     if(!verify||verify.error||!Array.isArray(verify.data)||!verify.data.some(function(x){return String(x.id)===String(id)&&String(x.storage_path||'')===String(path);}))throw new Error((verify&&verify.error&&verify.error.message)||'رکورد فایل در فهرست سرور تأیید نشد');
+    }catch(e){serverOk=false;serverError=e.message||String(e);}
+   }
    if(serverOk){
     row.pending_upload=!!queued; row.sync_status=queued?'pending_upload':'synced';
     try{cache.documents=(cache.documents||[]).map(function(x){return String(x.id)===String(id)?Object.assign({},x,row,{local_archive_data_url:dataUrl}):x;});if(window.dastyarDocumentArchive)await window.dastyarDocumentArchive.put(Object.assign({},row,{local_archive_data_url:dataUrl}));}catch(e){}
@@ -6649,7 +6695,7 @@ async function loadSchoolDocuments(){
   const box=document.getElementById('doc-list');
   if(!box)return;
   box.innerHTML='در حال دریافت فهرست فایل‌ها از سرور…';
-  if(navigator.onLine&&!window.isOffline&&typeof syncPendingSchoolDocuments==='function')setTimeout(function(){syncPendingSchoolDocuments().then(function(n){if(n)loadSchoolDocuments();}).catch(function(e){console.warn(e);});},0);
+  if(navigator.onLine&&!window.isOffline){setTimeout(async function(){try{await syncPendingSchoolDocumentDeletes();}catch(e){}try{var n=await syncPendingSchoolDocuments();if(n)loadSchoolDocuments();}catch(e){console.warn(e);}},0);}
   let data=[],remoteDeletedIds=new Set(),serverLoaded=false,serverError='';
   try{
     if(typeof sb!=='undefined'&&sb){
@@ -6794,15 +6840,15 @@ async function deleteSchoolDocument(id,path){
 async function deleteSchoolDocumentCore(id,path,isAdmin){
  if(!confirm(isAdmin?'آیا فایل برای همیشه از فهرست و سرور حذف شود؟':'فایل برای همیشه حذف شود؟'))return;
  const known=(cache.documents||[]).find(function(d){return String(d.id)===String(id);});
- path=path|| (known&&known.storage_path) || '';
- // اگر storage_path نبود، از file_url مسیر را استخراج کن (فایل‌های قدیمی)
+ path=path||(known&&known.storage_path)||'';
  if(!path&&known&&known.file_url){
   try{
    var fu=String(known.file_url||'');
    var mm=fu.match(/\/object\/(?:public\/)?teacher-documents\/([^?&#]+)/i)||fu.match(/teacher-documents\/([^?&#]+)/i);
-   if(mm&&mm[1]) path=decodeURIComponent(mm[1]);
-  }catch(_e){}
+   if(mm&&mm[1])path=decodeURIComponent(mm[1]);
+  }catch(e){}
  }
+ if(!path){toast('مسیر فایل در اطلاعات موجود نیست؛ برای جلوگیری از باقی ماندن فایل در سرور، حذف انجام نشد.');return;}
  async function finishLocalCleanup(){
   setDocumentDeletedTombstone(id);
   cache.documents=(cache.documents||[]).filter(function(d){return String(d.id)!==String(id);});
@@ -6811,18 +6857,17 @@ async function deleteSchoolDocumentCore(id,path,isAdmin){
   try{if(typeof removePapersForDoc==='function')removePapersForDoc(id);}catch(e){}
   try{if(typeof window.removeNoticesForDoc==='function')window.removeNoticesForDoc(id);}catch(e){}
  }
- // حتی اگر isOffline گیر کرده باشد، در صورت وجود اینترنت واقعی حذف سرور را امتحان کن
- const canTryServer=!!(sb&&navigator.onLine);
- if(!canTryServer){
-  // حذف محلی فوری تا از فهرست مدیر/معلم برداشته شود؛ بعداً با اتصال همگام می‌شود
+ function savePendingDelete(){
+  let q=[];try{q=JSON.parse(localStorage.getItem('dastyar_pending_document_deletes_v1')||'[]');}catch(e){q=[];}
+  if(!Array.isArray(q))q=[];
+  q=q.filter(function(x){return String(x&&x.id)!==String(id);});
+  q.push({id:String(id),path:String(path),requested_by:String(user&&user.username||''),requested_role:String(user&&user.role||''),requested_at:new Date().toISOString()});
+  try{localStorage.setItem('dastyar_pending_document_deletes_v1',JSON.stringify(q.slice(-500)));return true;}catch(e){console.warn('document delete queue',e);return false;}
+ }
+ if(!navigator.onLine||!sb){
+  if(!savePendingDelete()){toast('حذف آفلاین در صف ذخیره نشد؛ اینترنت را وصل کنید و دوباره حذف کنید.');return;}
   await finishLocalCleanup();
-  try{
-   if(sb&&sb.from){
-    // صف آفلاین: نشانگر حذف برای همگام‌سازی بعدی
-    await sb.from('sa_documents').update({file_name:'__DASTYAR_DELETED__:'+String(id),file_url:''}).eq('id',id);
-   }
-  }catch(e){console.warn('offline document delete queue',e);}
-  toast('فایل از این دستگاه حذف شد. برای پاک شدن از سرور، با اینترنت دوباره وارد شوید یا همین حذف را وقتی آنلاین هستید یک‌بار تکرار کنید.');
+  toast('از این دستگاه حذف شد؛ حذف قطعی از سرور به‌محض اتصال اینترنت خودکار انجام می‌شود.');
   try{await loadSchoolDocuments();}catch(e){}
   try{if(typeof renderPaperStats==='function')renderPaperStats();}catch(e){}
   try{if(typeof renderTeacherNotices==='function')renderTeacherNotices();}catch(e){}
@@ -6830,51 +6875,26 @@ async function deleteSchoolDocumentCore(id,path,isAdmin){
   return;
  }
  try{
-  // حذف باینری از Storage — نبودن فایل در Storage مانع حذف رکورد نمی‌شود
-  if(path){
-   try{
-    const sr=await sb.storage.from('teacher-documents').remove([path]);
-    if(sr&&sr.error) console.warn('Storage remove warning',sr.error);
-   }catch(e){console.warn('Storage remove failed',e);}
-  }
-  const marker='__DASTYAR_DELETED__:'+String(id);
-  let serverOk=false, serverMsg='';
-  // ۱) نشانگر حذف روی رکورد
-  try{
-   const upd=await sb.from('sa_documents').update({file_name:marker,file_url:'',storage_path:null}).eq('id',id).select('id');
-   if(upd&&!upd.error&&!upd.offline){
-    if(Array.isArray(upd.data)&&upd.data.some(function(r){return String(r.id)===String(id);})) serverOk=true;
-    else {
-     const check=await sb.from('sa_documents').select('id,file_name').eq('id',id).limit(1);
-     if(check&&Array.isArray(check.data)&&(!check.data.length||check.data.some(function(r){return String(r.file_name||'').indexOf('__DASTYAR_DELETED__:')===0;}))) serverOk=true;
-     else if(check&&Array.isArray(check.data)&&!check.data.length) serverOk=true;
-    }
-   } else if(upd&&upd.error) serverMsg=upd.error.message||String(upd.error);
-  }catch(e){serverMsg=e&&e.message?e.message:String(e);}
-  // ۲) اگر به‌روزرسانی نشد، حذف کامل ردیف از جدول
-  if(!serverOk){
-   try{
-    const del=await sb.from('sa_documents').delete().eq('id',id);
-    if(del&&!del.error&&!del.offline) serverOk=true;
-    else if(del&&del.error) serverMsg=del.error.message||serverMsg;
-   }catch(e){serverMsg=(e&&e.message?e.message:String(e))||serverMsg;}
-  }
+  const parts=String(path).split('/'),file=parts.pop(),folder=parts.join('/');
+  const rm=await sb.storage.from('teacher-documents').remove([String(path)]);
+  if(rm&&rm.error)throw new Error(rm.error.message||'حذف فایل از فضای سرور ناموفق بود');
+  const verify=await sb.storage.from('teacher-documents').list(folder,{search:file,limit:100});
+  if(!verify||verify.error)throw new Error((verify&&verify.error&&verify.error.message)||'بررسی حذف فایل از سرور ناموفق بود');
+  if((verify.data||[]).some(function(x){return String(x.name)===file;}))throw new Error('فایل هنوز در Storage سرور وجود دارد؛ رکورد آن حذف نشد.');
+  const del=await sb.from('sa_documents').delete().eq('id',String(id)).select('id');
+  if(del&&del.error)throw new Error(del.error.message||'حذف مشخصات فایل از فهرست سرور ناموفق بود');
+  const check=await sb.from('sa_documents').select('id').eq('id',String(id)).limit(1);
+  if(!check||check.error)throw new Error((check&&check.error&&check.error.message)||'تأیید حذف از فهرست سرور ناموفق بود');
+  if(Array.isArray(check.data)&&check.data.length)throw new Error('رکورد فایل هنوز در فهرست سرور وجود دارد.');
   await finishLocalCleanup();
-  if(serverOk){
-   toast('فایل حذف شد و از سرور/فهرست همه دستگاه‌ها برداشته می‌شود.');
-  }else{
-   toast('فایل از این دستگاه حذف شد'+(serverMsg?('؛ همگام‌سازی سرور: '+serverMsg):'؛ در صورت نیاز با اینترنت دوباره حذف را بزنید.'));
-  }
+  toast('فایل و مشخصات آن با موفقیت از سرور حذف شد.');
   try{await loadSchoolDocuments();}catch(e){}
   try{if(typeof renderPaperStats==='function')renderPaperStats();}catch(e){}
   try{if(typeof renderTeacherNotices==='function')renderTeacherNotices();}catch(e){}
   try{if(typeof refreshDash==='function')refreshDash();}catch(e){}
  }catch(e){
   console.error('Document deletion',e);
-  // حتی در خطا، از فهرست محلی برداشته شود تا مدیر گیر نکند
-  try{await finishLocalCleanup();}catch(_e){}
-  toast('حذف محلی انجام شد؛ خطای سرور: '+(e.message||e));
-  try{await loadSchoolDocuments();}catch(_e){}
+  toast('حذف کامل نشد؛ فایل در فهرست باقی ماند تا دوباره تلاش شود. خطا: '+(e.message||e));
  }
 }
 
@@ -8477,8 +8497,10 @@ setInterval(async function(){
  __dastyarAutoSyncRunning=true;
  var wasOffline=typeof isAppOfflineNow==='function'&&isAppOfflineNow();
  try{
-  // فقط یک موتور، هم اتصال واقعی را می‌سنجد و هم صف را ارسال می‌کند.
+  // صف اصلی برنامه و عملیات فایل‌ها با اتصال اینترنت خودکار ارسال می‌شوند.
   if(window.DastyarOffline&&typeof window.DastyarOffline.sync==='function')await window.DastyarOffline.sync();
+  if(typeof syncPendingSchoolDocumentDeletes==='function')await syncPendingSchoolDocumentDeletes();
+  if(typeof syncPendingSchoolDocuments==='function')await syncPendingSchoolDocuments();
   if(wasOffline&&!(typeof isAppOfflineNow==='function'&&isAppOfflineNow())&&typeof reloadAll==='function')await reloadAll();
  }catch(e){console.warn('همگام‌سازی خودکار پس‌زمینه انجام نشد؛ صف حفظ می‌شود.',e);}
  finally{
