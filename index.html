@@ -325,6 +325,9 @@
   }
 
 async function syncQueue(){if(syncRunning||!global.navigator.onLine)return;syncRunning=true;try{
+      // وقتی صف خالی است هیچ بررسی یا تلاش همگام‌سازی انجام نده.
+      var queuedAtStart=await allQueue();
+      if(!queuedAtStart.length){updateOfflineBadge();return;}
       // پیش از ارسال هر مورد، اتصال واقعی به سرور را بررسی کن؛ صرفاً navigator.onLine کافی نیست.
       var liveClient=null;try{liveClient=(typeof sb!=='undefined'&&sb)?sb:global.sb||null;}catch(e){liveClient=global.sb||null;}
       if(!liveClient||typeof liveClient.from!=='function')throw new Error('کلاینت سرور هنوز آماده نیست');
@@ -356,7 +359,6 @@ async function syncQueue(){if(syncRunning||!global.navigator.onLine)return;syncR
       if(left.length===0){forceLocal=false;global.isOffline=false;notify('همگام‌سازی کامل شد؛ صف تغییرات خالی است.');}
       else if(sentCount>0)notify('تعداد '+sentCount+' مورد ارسال شد؛ '+left.length+' مورد در صف باقی ماند'+(firstFailure?'؛ خطای نخست: '+firstFailure.table+' / '+firstFailure.message:''));
       else notify('تعداد '+left.length+' مورد هنوز همگام نشده است'+(firstFailure?'؛ خطا: '+firstFailure.table+' / '+firstFailure.message:''));
-      if(failedCount){forceLocal=true;global.isOffline=true;}
       updateOfflineBadge();
     }catch(e){forceLocal=true;global.isOffline=true;console.warn('سرور در دسترس نیست؛ تغییرات در گوشی باقی می‌مانند.',e);}finally{syncRunning=false;updateOfflineBadge();}}
   global.supabase={createClient:createClient};global.DastyarOffline={
