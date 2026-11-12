@@ -5284,6 +5284,28 @@ function attendanceStudentCard(s,st){
  const clearButton=st?'<button class="btn btn-o btn-sm" style="margin-top:8px;border-color:#dc2626;color:#dc2626" onclick="clearAttendance(\''+s.id+'\')">🗑️ پاک کردن ثبت حضور و غیاب</button>':'';
  return '<div class="card" style="padding:12px"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px"><div class="name">'+name+'</div><div class="attb"><button class="ab '+(st==='present'?'p':'')+'" onclick="setAtt(\''+s.id+'\',\'present\')">حاضر</button><button class="ab '+(st==='unexcused'?'a':'')+'" onclick="setAtt(\''+s.id+'\',\'unexcused\')">غایب</button><button class="ab '+(st==='excused'?'p':'')+'" onclick="setAtt(\''+s.id+'\',\'excused\')">موجه</button><button class="ab '+(st==='late'?'l':'')+'" onclick="setAtt(\''+s.id+'\',\'late\')">تأخیر</button></div></div>'+(st&&st!=='present'?attendanceNotice(s.id,st):'')+clearButton+'</div>';
 }
+function refreshAttendanceDashboardNow(){
+  // حذف/ذخیره صریح حضور و غیاب، نقطه معتبر برای محاسبه مجدد است؛
+  // مانع حفظ اعداد قدیمی در حالتی می‌شود که آخرین رکورد امروز پاک شده باشد.
+  try{
+    var day=String(today());
+    window.__dashAttStable={present:0,absent:0,attClasses:0,day:day};
+  }catch(e){}
+  try{if(typeof refreshDash==='function')refreshDash();}catch(e){}
+  try{
+    var absentBox=document.getElementById('absent-dash-list');
+    if(absentBox&&absentBox.style.display==='block'&&typeof renderAbsentDashList==='function')renderAbsentDashList();
+  }catch(e){}
+  try{
+    var attendanceBox=document.getElementById('attendance-class-list');
+    if(attendanceBox&&attendanceBox.style.display==='block'&&typeof toggleAttendanceClassList==='function'){
+      attendanceBox.style.display='none';
+      var task=toggleAttendanceClassList();
+      if(task&&typeof task.catch==='function')task.catch(function(e){console.warn('تازه‌سازی فهرست کلاس‌های دارای حضور انجام نشد',e);});
+    }
+  }catch(e){}
+}
+
 async function clearAttendance(studentId){
  const classId=document.getElementById('at-class')?.value||'';
  const date=document.getElementById('at-date')?.value||today();
@@ -5317,7 +5339,7 @@ async function clearAttendance(studentId){
      }catch(e){ serverMsg=e.message||String(e); }
    }
    loadAttendanceUI();
-   try{refreshDash();}catch(e){}
+   try{refreshAttendanceDashboardNow();}catch(e){}
    if(serverOk) toast('ثبت حضور و غیاب پاک شد.');
    else toast('ثبت حضور و غیاب از این دستگاه پاک شد'+(serverMsg?('؛ همگام‌سازی سرور: '+serverMsg):'؛ در صورت آفلاین بودن پس از اتصال همگام می‌شود.'));
  }catch(e){toast('پاک کردن انجام نشد: '+(e&&e.message||e));}
@@ -5349,7 +5371,7 @@ async function deleteAttendanceRecord(id){
      }catch(e){ serverMsg=e.message||String(e); }
    }
    try{loadAttendanceUI();}catch(e){}
-   try{refreshDash();}catch(e){}
+   try{refreshAttendanceDashboardNow();}catch(e){}
    if(serverOk) toast('رکورد حضور و غیاب حذف شد.');
    else toast('رکورد از این دستگاه حذف شد'+(serverMsg?('؛ سرور: '+serverMsg):''));
  }catch(e){toast('حذف انجام نشد: '+(e&&e.message||e));}
@@ -5496,9 +5518,7 @@ async function saveAttendance(){
     try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){console.warn('ذخیره نسخه آفلاین حضور و غیاب ناموفق بود',e);}
     students.forEach(student=>{const sid=String(student.id),row=saved.find(r=>String(r.student_id)===sid);if(row){var st=String(row.status||'').trim().toLowerCase();if(st==='absent')st='unexcused';attState[sid]=st||row.status;}});
     loadAttendanceUI();
-    try{refreshDash();}catch(e){}
-    try{ if(document.getElementById("absent-dash-list")&&document.getElementById("absent-dash-list").style.display==="block"&&typeof renderAbsentDashList==="function") renderAbsentDashList(); }catch(e){}
-    try{ if(document.getElementById("attendance-class-list")&&document.getElementById("attendance-class-list").style.display==="block"&&typeof toggleAttendanceClassList==="function"){ /* list already open: rebuild */ var b=document.getElementById("attendance-class-list"); if(b){ b.style.display="none"; toggleAttendanceClassList(); } } }catch(e){}
+    try{refreshAttendanceDashboardNow();}catch(e){}
     if(navigator.onLine&&!window.isOffline)toast('حضور و غیاب کلاس '+(cache.classes||[]).find(c=>String(c.id)===classId)?.label+' با موفقیت در سرور ثبت و دوباره بررسی شد ('+saved.length+' دانش‌آموز). در پنل مدیر نیز قابل مشاهده است.');
     else toast('حضور و غیاب روی گوشی ذخیره و در صف همگام‌سازی قرار گرفت؛ پس از اتصال، ارسال به سرور انجام می‌شود.');
   }catch(error){
