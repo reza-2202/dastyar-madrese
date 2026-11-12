@@ -3494,7 +3494,56 @@ async function refreshDashboardDocumentCache(){
   return __dastyarDashboardDocsRefreshPromise;
 }
 
+var __dastyarDashboardRecordsRefreshAt=0;
+var __dastyarDashboardRecordsRefreshPromise=null;
+async function refreshDashboardEvaluationDisciplineCache(){
+  if(!user||!sb||!navigator.onLine||window.isOffline)return false;
+  if(__dastyarDashboardRecordsRefreshPromise)return __dastyarDashboardRecordsRefreshPromise;
+  if(Date.now()-__dastyarDashboardRecordsRefreshAt<12000)return false;
+  __dastyarDashboardRecordsRefreshAt=Date.now();
+  __dastyarDashboardRecordsRefreshPromise=(async function(){
+    const results=await Promise.all([
+      sb.from('sa_evaluations').select('*').order('created_at',{ascending:false}),
+      sb.from('sa_discipline').select('*').order('created_at',{ascending:false})
+    ]);
+    if(!results[0]||results[0].error||!Array.isArray(results[0].data))throw new Error((results[0]&&results[0].error&&results[0].error.message)||'دریافت ارزشیابی‌ها ناموفق بود');
+    if(!results[1]||results[1].error||!Array.isArray(results[1].data))throw new Error((results[1]&&results[1].error&&results[1].error.message)||'دریافت سوابق انضباطی ناموفق بود');
+    var evaluations=results[0].data.slice();
+    var discipline=results[1].data.slice();
+    // حفظ فقط نوشته‌های تأییدنشده در صف آفلاین؛ حذف‌های سرور دوباره بازسازی نمی‌شوند.
+    try{
+      var pending=window.DastyarOffline&&typeof window.DastyarOffline.pending==='function'?await window.DastyarOffline.pending():[];
+      (pending||[]).forEach(function(item){
+        if(!item||!['POST','PATCH','UPSERT'].includes(item.method))return;
+        var target=item.table==='sa_evaluations'?evaluations:(item.table==='sa_discipline'?discipline:null);
+        if(!target)return;
+        var rows=Array.isArray(item.payload)?item.payload:(item.payload?[item.payload]:[]);
+        rows.forEach(function(row){
+          if(!row)return;
+          var ix=row.id==null?-1:target.findIndex(function(old){return String(old.id)===String(row.id);});
+          if(ix>=0)target[ix]=Object.assign({},target[ix],row);else target.push(row);
+        });
+      });
+    }catch(queueError){console.warn('dashboard evaluation/discipline pending overlay',queueError);}
+    cache.evaluations=evaluations;
+    cache.discipline=discipline;
+    try{persistLocalSchoolCache();}catch(e){}
+    try{if(window.DastyarOffline&&window.DastyarOffline.saveSnapshot)await window.DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
+    return true;
+  })().then(function(ok){
+    if(ok){
+      try{refreshDash();}catch(e){}
+      try{var db=document.getElementById('discipline-dash-list');if(db&&db.style.display==='block')renderDisciplineDashList();}catch(e){}
+      try{var eb=document.getElementById('evaluation-class-list');if(eb&&eb.style.display==='block'){eb.style.display='none';toggleEvaluationClassList();}}catch(e){}
+    }
+    return ok;
+  }).catch(function(e){console.warn('dashboard evaluation/discipline refresh',e);return false;})
+    .finally(function(){__dastyarDashboardRecordsRefreshPromise=null;});
+  return __dastyarDashboardRecordsRefreshPromise;
+}
+
 function refreshDash(){
+  try{refreshDashboardEvaluationDisciplineCache();}catch(e){}
   try{ if(typeof refreshDashboardDocumentCache==='function') refreshDashboardDocumentCache(); }catch(e){}
   try{ if(typeof renderSmartReminders==='function') renderSmartReminders(); }catch(e){}
   if(navigator.onLine && sb && (!(cache.students||[]).length) && typeof ensureStudentsFromServer==='function'){
@@ -3543,8 +3592,12 @@ function refreshDash(){
     absentToday=window.__dashAttStable.absent;
   }
   document.getElementById('st-p').textContent=fa(present);
+  var evalClassIds=new Set((typeof myClasses==='function'?myClasses():(cache.classes||[])).map(function(c){return String(c.id);}));
   var evCount=(cache.evaluations||[]).filter(function(e){
-    if(!e||!ids.has(String(e.student_id))) return false;
+    if(!e)return false;
+    var belongs=user&&user.role==='admin' ? true :
+      (e.class_id!=null ? evalClassIds.has(String(e.class_id)) : ids.has(String(e.student_id)));
+    if(!belongs)return false;
     return typeof isEvaluationInCurrentWeek==='function'?isEvaluationInCurrentWeek(e):true;
   }).length;
   var evEl=document.getElementById('st-e');if(evEl)evEl.textContent=fa(evCount);
