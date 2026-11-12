@@ -12655,6 +12655,8 @@ window.sifCreateTeacherCode=async function(){
 window.sifSendSharedFiles=async function(){
  var token=teacherToken();if(!token){toastSafe('ابتدا کد اختصاصی معلم را فعال کنید.');return;}
  var input=document.getElementById('shared-inbox-file'),selected=input&&input.files?Array.from(input.files):[];
+ // Open the native picker synchronously from the user's tap; awaiting first can lose Android's user activation.
+ if(!selected.length&&!pendingItems.length){if(input){input.click();return;}toastSafe('انتخاب‌گر فایل در دسترس نیست.');return;}
  await window.sifRefreshPending();
  var jobs=pendingItems.map(function(x){return {file:x.file,id:x.id,source:'share',title:x.title||''};});
  selected.forEach(function(f){jobs.push({file:f,id:null,source:'file_picker',title:''});});
