@@ -2288,6 +2288,9 @@ function mergeLocalSchoolCacheIntoMemory(){
         var amap={};
         (cache.attendance||[]).forEach(function(r){ if(r&&r.id!=null) amap[String(r.id)]=r; });
         q.forEach(function(item){
+          var deleted=(item&&item.deleteStudentIds)||[];
+          if(item&&item.deleteAll) Object.keys(amap).forEach(function(k){var x=amap[k];if(x&&String(x.class_id)===String(item.class_id)&&String(x.date)===String(item.date))delete amap[k];});
+          else if(Array.isArray(deleted)&&deleted.length) Object.keys(amap).forEach(function(k){var x=amap[k];if(x&&String(x.class_id)===String(item.class_id)&&String(x.date)===String(item.date)&&deleted.map(String).includes(String(x.student_id)))delete amap[k];});
           (item.rows||[]).forEach(function(r){
             if(!r||r.id==null) return;
             amap[String(r.id)]=Object.assign({},amap[String(r.id)]||{},r,{_offline:true});
@@ -2314,45 +2317,40 @@ function removePendingAttendanceRows(classId,date,studentId){
 function mergePendingAttendanceIntoCache(){ try{ mergeLocalSchoolCacheIntoMemory(); }catch(e){} }
 
 async function flushPendingAttendanceToServer(){
-  try{ window.flushPendingAttendanceToServer=flushPendingAttendanceToServer; }catch(e){}
-  if(!navigator.onLine||!(typeof SB_URL!=='undefined'?SB_URL:window.SB_URL)) return {ok:false,msg:'آفلاین'};
-  var q=[];
-  try{ q=JSON.parse(localStorage.getItem('dastyar_pending_attendance_v1')||'[]')||[]; }catch(e){ q=[]; }
-  if(!Array.isArray(q)||!q.length) return {ok:true,msg:'صف خالی',count:0};
-  var remain=[];
-  var sent=0;
+  try{window.flushPendingAttendanceToServer=flushPendingAttendanceToServer;}catch(e){}
+  if(!navigator.onLine||!(typeof SB_URL!=='undefined'?SB_URL:window.SB_URL))return {ok:false,msg:'آفلاین'};
+  var q=[];try{q=JSON.parse(localStorage.getItem('dastyar_pending_attendance_v1')||'[]')||[];}catch(e){q=[];}
+  if(!Array.isArray(q)||!q.length)return {ok:true,msg:'صف خالی',count:0};
+  var remain=[],sent=0;
   for(var i=0;i<q.length;i++){
-    var item=q[i];
-    var rows=item&&item.rows;
-    if(!rows||!rows.length) continue;
+    var item=q[i]||{},rows=Array.isArray(item.rows)?item.rows:[],deleteIds=Array.isArray(item.deleteStudentIds)?item.deleteStudentIds:[];
+    if(!rows.length&&!deleteIds.length&&!item.deleteAll)continue;
     try{
-      var _sbUrl=(typeof SB_URL!=='undefined'?SB_URL:(window.__DASTYAR_SUPABASE_URL||'')); var _sbKey=(typeof SB_KEY!=='undefined'?SB_KEY:(window.__DASTYAR_SUPABASE_ANON||''));
-      var url=String(_sbUrl).replace(/\/$/,'')+'/rest/v1/sa_attendance?on_conflict=id';
+      var _sbUrl=(typeof SB_URL!=='undefined'?SB_URL:(window.__DASTYAR_SUPABASE_URL||''));var _sbKey=(typeof SB_KEY!=='undefined'?SB_KEY:(window.__DASTYAR_SUPABASE_ANON||''));
+      var base=String(_sbUrl).replace(/\/$/,'')+'/rest/v1/sa_attendance';
       var headers={'apikey':_sbKey,'Authorization':'Bearer '+_sbKey,'Content-Type':'application/json','Prefer':'return=minimal'};
-      var response=await fetch(url,{method:'POST',headers:headers,body:JSON.stringify(rows)});
-      if(!response.ok){
-        var raw=await response.text();
-        remain.push(item);
-        console.warn('flush attendance failed', raw);
-      }else{
-        sent+=rows.length;
-        // mark offline flags clear in cache
-        try{
-          var ids={}; rows.forEach(function(r){ids[String(r.id)]=1;});
-          (cache.attendance||[]).forEach(function(r){ if(r&&ids[String(r.id)]){ delete r._offline; delete r._savedAt; } });
-        }catch(e){}
+      if(item.deleteAll){
+        var du=base+'?class_id=eq.'+encodeURIComponent(String(item.class_id))+'&date=eq.'+encodeURIComponent(String(item.date));
+        var dr=await fetch(du,{method:'DELETE',headers:headers});if(!dr.ok)throw new Error(await dr.text());
+      }else if(deleteIds.length){
+        var filter='in.('+deleteIds.map(function(id){return '"'+String(id).replace(/"/g,'\\"')+'"';}).join(',')+')';
+        var du=base+'?class_id=eq.'+encodeURIComponent(String(item.class_id))+'&date=eq.'+encodeURIComponent(String(item.date))+'&student_id='+encodeURIComponent(filter);
+        var dr=await fetch(du,{method:'DELETE',headers:headers});if(!dr.ok)throw new Error(await dr.text());
       }
-    }catch(e){ remain.push(item); console.warn(e); }
+      if(rows.length){
+        var response=await fetch(base+'?on_conflict=id',{method:'POST',headers:headers,body:JSON.stringify(rows)});
+        if(!response.ok)throw new Error(await response.text());
+        sent+=rows.length;
+        try{var ids={};rows.forEach(function(r){ids[String(r.id)]=1;});(cache.attendance||[]).forEach(function(r){if(r&&ids[String(r.id)]){delete r._offline;delete r._savedAt;}});}catch(e){}
+      }
+    }catch(e){remain.push(item);console.warn('flush attendance failed',e);}
   }
-  try{ localStorage.setItem('dastyar_pending_attendance_v1', JSON.stringify(remain)); }catch(e){}
-  try{
-    localStorage.setItem('dastyar_school_snapshot_v1', JSON.stringify({
-      users:cache.users,classes:cache.classes,students:cache.students,attendance:cache.attendance,
-      scores:cache.scores,competencies:cache.competencies,activities:cache.activities,
-      evaluations:cache.evaluations,discipline:cache.discipline,finance:cache.finance,
-      documents:cache.documents||[]
-    }));
-  }catch(e){}
+  try{localStorage.setItem('dastyar_pending_attendance_v1',JSON.stringify(remain));}catch(e){}
+  try{localStorage.setItem('dastyar_school_snapshot_v1',JSON.stringify({
+    users:cache.users,classes:cache.classes,students:cache.students,attendance:cache.attendance,
+    scores:cache.scores,competencies:cache.competencies,activities:cache.activities,
+    evaluations:cache.evaluations,discipline:cache.discipline,finance:cache.finance,documents:cache.documents||[]
+  }));}catch(e){}
   return {ok:remain.length===0,msg:sent+' رکورد ارسال شد؛ باقی‌مانده: '+remain.length,count:sent,left:remain.length};
 }
 
@@ -3610,6 +3608,9 @@ async function refreshTodayAttendanceFromServer(){
     var q=JSON.parse(localStorage.getItem('dastyar_pending_attendance_v1')||'[]')||[];
     if(Array.isArray(q))q.forEach(function(item){
       if(!item||String(item.date)!==day)return;
+      var deleted=(item.deleteStudentIds||[]).map(String);
+      if(item.deleteAll)Object.keys(byId).forEach(function(k){var x=byId[k];if(x&&String(x.class_id)===String(item.class_id)&&String(x.date)===day)delete byId[k];});
+      else if(deleted.length)Object.keys(byId).forEach(function(k){var x=byId[k];if(x&&String(x.class_id)===String(item.class_id)&&String(x.date)===day&&deleted.includes(String(x.student_id)))delete byId[k];});
       (item.rows||[]).forEach(function(r){if(r&&r.id!=null)byId[String(r.id)]=Object.assign({},r,{_offline:true});});
     });
   }catch(e){}
@@ -5480,7 +5481,6 @@ async function saveAttendance(){
     const weekday=String(document.getElementById('at-weekday')?.value||weekdayNow());
     if(!classId){toast('ابتدا کلاس را انتخاب کنید');return;}
     if(!user){toast('ابتدا وارد برنامه شوید');return;}
-    // آفلاین هم مجاز است؛ فقط کاربر لازم است. sb در حالت آفلاین هم صف محلی دارد.
     if(user.role==='teacher'&&!myClasses().some(c=>String(c.id)===classId)){
       toast('شما مجاز به ثبت حضور و غیاب این کلاس نیستید');return;
     }
@@ -5488,70 +5488,68 @@ async function saveAttendance(){
     if(!students.length){toast('فهرست دانش‌آموزان این کلاس بارگذاری نشده است؛ ابتدا صفحه را تازه‌سازی کنید');return;}
     const allowed=['present','absent','unexcused','excused','late'];
     const recorder=(user.full_name||user.username||'کاربر');
-    // فقط وضعیت‌هایی که صریحاً انتخاب شده‌اند ذخیره می‌شوند؛ خالی هرگز به «حاضر» تبدیل نمی‌شود.
-    const missing=students.filter(student=>{
-      const picked=String(attState[String(student.id)]||'').trim();
-      return !allowed.includes(picked);
-    });
-    if(missing.length){
-      toast('برای '+missing.length+' دانش‌آموز هنوز وضعیت انتخاب نشده. ابتدا «همه حاضر» را بزنید، سپس غایب/موجه/تأخیر را تغییر دهید و ذخیره کنید.');
-      return;
-    }
-    const rows=students.map(student=>{
+    // وضعیت انتخاب‌شده = ثبت/به‌روزرسانی؛ وضعیت خالی = حذف رکورد همان دانش‌آموز از سرور.
+    const rows=[],deleteStudentIds=[];
+    students.forEach(function(student){
       const sid=String(student.id),picked=String(attState[sid]||'').trim();
+      if(!picked){deleteStudentIds.push(sid);return;}
+      if(!allowed.includes(picked))return;
       const status=picked==='absent'?'unexcused':picked;
-      return {id:classId+'_'+date+'_'+sid,student_id:sid,class_id:classId,date:date,status:status,recorded_by:recorder+' | '+weekday+' '+date};
+      rows.push({id:classId+'_'+date+'_'+sid,student_id:sid,class_id:classId,date:date,status:status,recorded_by:recorder+' | '+weekday+' '+date});
     });
-    let saved=null;
+    const invalid=students.filter(function(student){
+      const picked=String(attState[String(student.id)]||'').trim();
+      return picked&&!allowed.includes(picked);
+    });
+    if(invalid.length){toast('وضعیت انتخاب‌شده برای '+invalid.length+' دانش‌آموز معتبر نیست؛ دوباره انتخاب کنید.');return;}
+    let saved=[];
     if(navigator.onLine&&!window.isOffline){
-      // upsert پایدار با همان شناسه یکتا؛ وضعیت غایب/موجه/تأخیر بازنویسی می‌شود و داده در صورت خطا از بین نمی‌رود.
-      const url=String(SB_URL).replace(/\/$/,'')+'/rest/v1/sa_attendance?on_conflict=id';
-      const headers={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=representation'};
-      let response=await fetch(url,{method:'POST',headers:headers,body:JSON.stringify(rows)});
-      let raw=await response.text(),body=null;try{body=raw?JSON.parse(raw):null;}catch(e){}
-      if(!response.ok)throw new Error((body&&(body.message||body.details||body.hint))||raw||('HTTP '+response.status));
-      if(!Array.isArray(body)||body.length!==rows.length)throw new Error('سرور همه رکوردها را تأیید نکرد؛ انتظار '+rows.length+' و پاسخ '+(Array.isArray(body)?body.length:0)+' رکورد بود.');
-      // اگر سرور وضعیت را برنگرداند، با PATCH تکی وضعیت‌های غیرحاضر را قطعی می‌کنیم (بدون حذف گروهی).
-      const statusById={};rows.forEach(function(r){statusById[String(r.id)]=r.status;});
-      const mismatched=(Array.isArray(body)?body:[]).filter(function(r){return r&&statusById[String(r.id)]&&String(r.status)!==String(statusById[String(r.id)]);});
-      for(var mi=0;mi<mismatched.length;mi++){
-        var mr=mismatched[mi];
-        var patchUrl=String(SB_URL).replace(/\/$/,'')+'/rest/v1/sa_attendance?id=eq.'+encodeURIComponent(String(mr.id));
-        var pr=await fetch(patchUrl,{method:'PATCH',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify({status:statusById[String(mr.id)],recorded_by:rows.find(function(x){return String(x.id)===String(mr.id);})?.recorded_by})});
-        if(pr.ok){var pt=await pr.text();try{var pd=pt?JSON.parse(pt):null;if(Array.isArray(pd)&&pd[0]){var ix=body.findIndex(function(x){return String(x.id)===String(mr.id);});if(ix>=0)body[ix]=pd[0];}}catch(e){}}
+      const base=String(SB_URL).replace(/\/$/,'')+'/rest/v1/sa_attendance';
+      const headers={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Accept':'application/json','Prefer':'resolution=merge-duplicates,return=representation'};
+      // اول وضعیت‌های انتخاب‌شده ثبت می‌شوند.
+      if(rows.length){
+        const response=await fetch(base+'?on_conflict=id',{method:'POST',headers:headers,body:JSON.stringify(rows)});
+        const raw=await response.text();let body=null;try{body=raw?JSON.parse(raw):null;}catch(e){}
+        if(!response.ok)throw new Error((body&&(body.message||body.details||body.hint))||raw||('HTTP '+response.status));
       }
-      // خواندن مجدد از سرور؛ فقط پس از تأیید واقعی، پیام موفقیت نمایش داده می‌شود.
-      const verifyUrl=String(SB_URL).replace(/\/$/,'')+'/rest/v1/sa_attendance?select=*&class_id=eq.'+encodeURIComponent(classId)+'&date=eq.'+encodeURIComponent(date);
+      // سپس هر وضعیت خالی به‌طور واقعی از همان کلاس و همان تاریخ حذف می‌شود.
+      if(deleteStudentIds.length){
+        const filter='in.('+deleteStudentIds.map(function(id){return '"'+String(id).replace(/"/g,'\\"')+'"';}).join(',')+')';
+        const delUrl=base+'?class_id=eq.'+encodeURIComponent(classId)+'&date=eq.'+encodeURIComponent(date)+'&student_id='+encodeURIComponent(filter);
+        const delResponse=await fetch(delUrl,{method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Prefer':'return=minimal'}});
+        const delRaw=await delResponse.text();
+        if(!delResponse.ok)throw new Error(delRaw||('حذف وضعیت‌های خالی از سرور ناموفق بود؛ HTTP '+delResponse.status));
+      }
+      // تأیید نهایی: فقط رکوردهای باقی‌مانده در سرور مبنای داشبورد هستند.
+      const verifyUrl=base+'?select=*&class_id=eq.'+encodeURIComponent(classId)+'&date=eq.'+encodeURIComponent(date);
       const verifyResponse=await fetch(verifyUrl,{method:'GET',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Accept':'application/json'}});
       const verifyRaw=await verifyResponse.text();let verifyData=null;try{verifyData=verifyRaw?JSON.parse(verifyRaw):null;}catch(e){}
       if(!verifyResponse.ok)throw new Error((verifyData&&(verifyData.message||verifyData.details||verifyData.hint))||verifyRaw||('HTTP '+verifyResponse.status));
-      const verified=Array.isArray(verifyData)?verifyData:[];
-      const verifiedIds=new Set(verified.map(r=>String(r.student_id)));
-      const missing=rows.filter(r=>!verifiedIds.has(String(r.student_id)));
-      if(missing.length)throw new Error('تأیید نهایی سرور ناقص است؛ '+missing.length+' دانش‌آموز در خواندن مجدد پیدا نشد.');
-      saved=verified;
+      if(!Array.isArray(verifyData))throw new Error('پاسخ بررسی نهایی حضور و غیاب معتبر نیست.');
+      const verifiedByStudent={};verifyData.forEach(function(r){verifiedByStudent[String(r.student_id)]=r;});
+      const missingRows=rows.filter(function(r){return !verifiedByStudent[String(r.student_id)]||String(verifiedByStudent[String(r.student_id)].status)!==String(r.status);});
+      const undeleted=deleteStudentIds.filter(function(id){return !!verifiedByStudent[id];});
+      if(missingRows.length||undeleted.length)throw new Error('سرور تغییرات را کامل تأیید نکرد؛ ثبت‌نشده: '+missingRows.length+'، حذف‌نشده: '+undeleted.length+'.');
+      saved=verifyData;
+      removePendingAttendanceRows(classId,date,null);
     }else{
-      // حالت آفلاین / قطع سرور: اول حافظه محلی و صف، بعداً همگام‌سازی
-      saved=rows.map(r=>Object.assign({},r,{_offline:true,_savedAt:Date.now()}));
-      try{
-        if(sb&&typeof sb.from==='function'){
-          const queued=await sb.from('sa_attendance').upsert(rows);
-          if(queued&&queued.error) console.warn('صف آفلاین حضور:', queued.error.message||queued.error);
-        }
-      }catch(qe){ console.warn('صف آفلاین حضور:', qe); }
-      // صف جداگانه هم در localStorage برای اطمینان از ماندگاری
+      // در حالت آفلاین، ثبت‌ها و حذف‌ها هر دو برای همگام‌سازی بعدی نگهداری می‌شوند.
+      saved=rows.map(function(r){return Object.assign({},r,{_offline:true,_savedAt:Date.now()});});
       try{
         var qKey='dastyar_pending_attendance_v1';
-        var q=[]; try{ q=JSON.parse(localStorage.getItem(qKey)||'[]')||[]; }catch(e){ q=[]; }
-        if(!Array.isArray(q)) q=[];
-        // جایگزینی همان کلاس+تاریخ
-        q=q.filter(function(x){return !(x&&String(x.class_id)===String(classId)&&String(x.date)===String(date));});
-        q.push({class_id:classId,date:date,rows:rows,savedAt:Date.now()});
-        localStorage.setItem(qKey, JSON.stringify(q));
-      }catch(e){ console.warn(e); }
+        var q=[];try{q=JSON.parse(localStorage.getItem(qKey)||'[]')||[];}catch(e){q=[];}
+        if(!Array.isArray(q))q=[];
+        q=q.filter(function(x){return !(x&&String(x.class_id)===classId&&String(x.date)===date);});
+        q.push({class_id:classId,date:date,rows:rows,deleteStudentIds:deleteStudentIds,savedAt:Date.now()});
+        localStorage.setItem(qKey,JSON.stringify(q));
+      }catch(e){throw new Error('ذخیره تغییرات در صف آفلاین انجام نشد: '+(e.message||e));}
     }
-    if(navigator.onLine&&!window.isOffline)removePendingAttendanceRows(classId,date,null);
-    cache.attendance=(cache.attendance||[]).filter(a=>!(String(a.class_id)===classId&&String(a.date)===date)).concat(saved);
+    cache.attendance=(cache.attendance||[]).filter(function(a){return !(String(a.class_id)===classId&&String(a.date)===date);}).concat(saved);
+    students.forEach(function(student){
+      const sid=String(student.id),row=saved.find(function(r){return String(r.student_id)===sid;});
+      if(row){var st=String(row.status||'').trim().toLowerCase();if(st==='absent')st='unexcused';attState[sid]=st||row.status;}
+      else attState[sid]='';
+    });
     try{
       localStorage.setItem('dastyar_school_snapshot_v1',JSON.stringify({
         users:cache.users,classes:cache.classes,students:cache.students,attendance:cache.attendance,
@@ -5561,11 +5559,10 @@ async function saveAttendance(){
       }));
     }catch(e){console.warn('ذخیره نسخه محلی حضور و غیاب ناموفق بود',e);}
     try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){console.warn('ذخیره نسخه آفلاین حضور و غیاب ناموفق بود',e);}
-    students.forEach(student=>{const sid=String(student.id),row=saved.find(r=>String(r.student_id)===sid);if(row){var st=String(row.status||'').trim().toLowerCase();if(st==='absent')st='unexcused';attState[sid]=st||row.status;}});
     loadAttendanceUI();
     try{refreshAttendanceDashboardNow();}catch(e){}
-    if(navigator.onLine&&!window.isOffline)toast('حضور و غیاب کلاس '+(cache.classes||[]).find(c=>String(c.id)===classId)?.label+' با موفقیت در سرور ثبت و دوباره بررسی شد ('+saved.length+' دانش‌آموز). در پنل مدیر نیز قابل مشاهده است.');
-    else toast('حضور و غیاب روی گوشی ذخیره و در صف همگام‌سازی قرار گرفت؛ پس از اتصال، ارسال به سرور انجام می‌شود.');
+    if(navigator.onLine&&!window.isOffline)toast('ذخیره آنلاین انجام شد: '+rows.length+' وضعیت ثبت/به‌روزرسانی و '+deleteStudentIds.length+' وضعیت پاک شد. داشبورد مدیر و معلم به‌روز شد.');
+    else toast('تغییرات حضور و غیاب روی گوشی ذخیره و برای همگام‌سازی بعدی ثبت شد؛ وضعیت‌های خالی نیز در صف حذف قرار گرفتند.');
   }catch(error){
     console.error('saveAttendance failed',error);
     toast('ذخیره حضور و غیاب ناموفق بود: '+(error&&error.message||String(error)));
