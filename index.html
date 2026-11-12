@@ -1216,6 +1216,9 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
  <div id="shared-manager-bootstrap">
   <div class="fg"><label>کد راه‌اندازی یک‌باره مدیر</label><input id="shared-manager-bootstrap-code" type="password" autocomplete="off" placeholder="کد راه‌اندازی محرمانه" /></div>
   <button type="button" class="btn btn-p btn-sm" onclick="sifBootstrapManager()">فعال‌سازی دسترسی مدیر</button>
+  <div class="fg" style="margin-top:10px"><label>ورود با کد مدیرِ قبلاً دریافت‌شده (برای دستگاه دیگر)</label><input id="shared-manager-existing-token" type="password" autocomplete="off" placeholder="کد محرمانه مدیر" /></div>
+  <button type="button" class="btn btn-o btn-sm" onclick="sifUseExistingManagerToken()">تأیید و ورود با کد مدیر</button>
+  <div id="shared-manager-token-result" style="display:none;margin-top:10px;padding:10px;border:1px dashed #8b5cf6;border-radius:10px;background:#fff"></div>
  </div>
  <div id="shared-manager-controls" style="display:none">
   <div class="fg"><label>انتخاب معلم برای ساخت کد اختصاصی</label><select id="shared-manager-teacher-select"><option value="">انتخاب معلم</option></select></div>
@@ -12592,10 +12595,31 @@ window.sifBootstrapManager=async function(){
   var data=await apiJson({action:'bootstrap',code:code});
   localStorage.setItem(MANAGER_KEY,data.manager_token);
   if(input)input.value='';
+  var backup=document.getElementById('shared-manager-token-result');
+  if(backup){
+   backup.style.display='block';backup.replaceChildren();
+   var note=document.createElement('div');note.textContent='این کد محرمانه مدیر را در جای امن نگهداری کنید؛ برای فعال‌سازی مدیر در دستگاه دیگر لازم می‌شود. آن را به معلمان ندهید.';backup.appendChild(note);
+   var tokenBox=document.createElement('textarea');tokenBox.readOnly=true;tokenBox.dir='ltr';tokenBox.rows=3;tokenBox.style.cssText='width:100%;margin:7px 0;padding:8px;box-sizing:border-box;font-family:monospace;word-break:break-all';tokenBox.value=data.manager_token;backup.appendChild(tokenBox);
+   var copyBtn=document.createElement('button');copyBtn.type='button';copyBtn.className='btn btn-p btn-sm';copyBtn.textContent='کپی کد محرمانه مدیر';copyBtn.onclick=function(){if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(data.manager_token).then(function(){toastSafe('کد مدیر کپی شد.');}).catch(function(){tokenBox.select();toastSafe('کد را دستی کپی کنید.');});else{tokenBox.select();toastSafe('کد را دستی کپی کنید.');}};backup.appendChild(copyBtn);
+  }
   var setup=document.getElementById('shared-manager-bootstrap'),controls=document.getElementById('shared-manager-controls');
   if(setup)setup.style.display='none';if(controls)controls.style.display='block';
   status('shared-inbox-manager-status','دسترسی مدیر فعال شد. کد محرمانه در همین مرورگر نگهداری می‌شود؛ آن را در اختیار معلمان قرار ندهید.');
   sifPopulateTeacherSelect();
+ }catch(e){status('shared-inbox-manager-status',e.message||e);}
+};
+window.sifUseExistingManagerToken=async function(){
+ var input=document.getElementById('shared-manager-existing-token'),code=String(input&&input.value||'').trim();
+ if(code.length<32){toastSafe('کد مدیر معتبر نیست.');return;}
+ status('shared-inbox-manager-status','در حال بررسی کد مدیر…');
+ try{
+  await apiJson({action:'list',token:code});
+  localStorage.setItem(MANAGER_KEY,code);
+  if(input)input.value='';
+  var setup=document.getElementById('shared-manager-bootstrap'),controls=document.getElementById('shared-manager-controls');
+  if(setup)setup.style.display='none';if(controls)controls.style.display='block';
+  status('shared-inbox-manager-status','کد مدیر تأیید شد و این دستگاه فعال شد.');
+  sifPopulateTeacherSelect();window.sifLoadSharedFiles();
  }catch(e){status('shared-inbox-manager-status',e.message||e);}
 };
 function sifPopulateTeacherSelect(){
