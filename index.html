@@ -12752,7 +12752,7 @@ window.refreshSharedInboxPanels=function(){
   if(setupM)setupM.style.display=mt?'none':'block';if(controlsM)controlsM.style.display=mt?'block':'none';
   if(mt){sifPopulateTeacherSelect();window.sifLoadSharedFiles();}
  }
- try{if(new URLSearchParams(location.search).has('shared')){setTimeout(function(){toastSafe('فایل اشتراک‌گذاری‌شده دریافت شد؛ برای ارسال، کد اختصاصی معلم را فعال کنید.');},500);}}catch(e){}
+ try{var shareState=new URLSearchParams(location.search).get('shared');if(shareState){setTimeout(function(){toastSafe(shareState==='1'?'فایل اشتراک‌گذاری‌شده دریافت شد؛ برای ارسال، کد اختصاصی معلم را فعال کنید.':'دریافت فایل اشتراک‌گذاری‌شده ناموفق بود؛ دوباره تلاش کنید.');},500);var cleanUrl=new URL(location.href);cleanUrl.searchParams.delete('shared');history.replaceState(null,'',cleanUrl.href);}}catch(e){}
 };
 document.addEventListener('DOMContentLoaded',function(){if(window.user)window.refreshSharedInboxPanels();});
 })();
