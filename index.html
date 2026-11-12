@@ -3594,11 +3594,17 @@ function refreshDash(){
   document.getElementById('st-p').textContent=fa(present);
   var evalClassIds=new Set((typeof myClasses==='function'?myClasses():(cache.classes||[])).map(function(c){return String(c.id);}));
   var evCount=(cache.evaluations||[]).filter(function(e){
-    if(!e)return false;
+    if(!e||String(e.recorded_by||'').indexOf('| خلاصه خودکار پرسش‌وپاسخ')>=0)return false;
     var belongs=user&&user.role==='admin' ? true :
       (e.class_id!=null ? evalClassIds.has(String(e.class_id)) : ids.has(String(e.student_id)));
     if(!belongs)return false;
     return typeof isEvaluationInCurrentWeek==='function'?isEvaluationInCurrentWeek(e):true;
+  }).length;
+  evCount+=(cache.activities||[]).filter(function(a){
+    if(!a||a.type!=='qa')return false;
+    var belongs=user&&user.role==='admin' ? true : evalClassIds.has(String(a.class_id));
+    if(!belongs)return false;
+    return typeof isEvaluationInCurrentWeek==='function'?isEvaluationInCurrentWeek(a):String(a.date||'')===String(today());
   }).length;
   var evEl=document.getElementById('st-e');if(evEl)evEl.textContent=fa(evCount);
   // فایل‌های در انتظار چاپ/تحویل (هنوز دکمه آماده تحویل نخورده)
@@ -6038,12 +6044,12 @@ async function saveAct(){
     if(type==='qa'&&scoreValue!==null&&(!Number.isFinite(scoreValue)||scoreValue<0||scoreValue>20)){toast('نمره باید بین ۰ تا ۲۰ باشد');return;}
     var row={student_id:document.getElementById('ac-st').value,class_id:classId,type:type,subject:subject,weekday:document.getElementById('ac-wd').value,date:document.getElementById('ac-dt').value,level:(type==='qa'&&qaLevelFromScore(scoreValue))||document.getElementById('ac-lv').value,notes:document.getElementById('ac-nt').value.trim(),recorded_by:user.full_name};
     if(type==='qa')row.score=scoreValue;
-    if(editingId){delete row.recorded_by;var res=await sb.from('sa_activities').update(row).eq('id',editingId);if(res.error){toast('خطا در ویرایش: '+res.error.message);return;}await reloadAll();cache.activities=applyQaTombstones(cache.activities);document.getElementById('ac-form').innerHTML='';window.editingActivityId='';await loadActivities();toast('فقط همین پرسش و پاسخ ویرایش شد');return;}
+    if(editingId){var previousActivity=(cache.activities||[]).find(function(a){return String(a.id)===editingId;});var syncQa=type==='qa'||(previousActivity&&previousActivity.type==='qa');delete row.recorded_by;var res=await sb.from('sa_activities').update(row).eq('id',editingId);if(res.error){toast('خطا در ویرایش: '+res.error.message);return;}await reloadAll();cache.activities=applyQaTombstones(cache.activities);if(syncQa){await buildClosedMonthQaEvaluations();try{refreshDash();}catch(e){}}document.getElementById('ac-form').innerHTML='';window.editingActivityId='';await loadActivities();try{refreshDash();}catch(e){}toast('فقط همین پرسش و پاسخ ویرایش شد');return;}
     row.id=uid();rows.push(row);
   }
   var result=await sb.from('sa_activities').insert(rows);
   if(result.error){toast('خطا در ثبت: '+result.error.message+' — اگر ستون‌های جدید را اضافه نکرده‌اید، ابتدا دستور SQL همراه فایل را اجرا کنید.');return;}
-  await reloadAll();cache.activities=applyQaTombstones(cache.activities);document.getElementById('ac-form').innerHTML='';window.editingActivityId='';await loadActivities();toast(rows.length>1?fa(rows.length)+' پرسش و پاسخ ثبت شد':'ثبت آنلاین شد');
+  await reloadAll();cache.activities=applyQaTombstones(cache.activities);if(rows.some(function(r){return r&&r.type==='qa';})){await buildClosedMonthQaEvaluations();try{refreshDash();}catch(e){}}document.getElementById('ac-form').innerHTML='';window.editingActivityId='';await loadActivities();try{refreshDash();}catch(e){}toast(rows.length>1?fa(rows.length)+' پرسش و پاسخ ثبت شد':'ثبت آنلاین شد');
 }
 async function deleteQaActivity(id){
   var row=cache.activities.find(function(a){return String(a.id)===String(id)&&a.type==='qa';});if(!row){toast('فقط رکورد پرسش و پاسخ قابل حذف است');return;}
@@ -6052,7 +6058,8 @@ async function deleteQaActivity(id){
   var result=await sb.from('sa_activities').delete().eq('id',String(id));if(result.error){toast('حذف انجام نشد: '+result.error.message);return;}
   setQaDeletedId(id);cache.activities=(cache.activities||[]).filter(function(a){return String(a.id)!==String(id);});
   try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
-  await loadActivities();toast(result.offline?'حذف در صف همگام‌سازی قرار گرفت':'فقط همان پرسش و پاسخ حذف شد');
+  await loadActivities();await buildClosedMonthQaEvaluations();try{refreshDash();}catch(e){}
+  toast(result.offline?'حذف در صف همگام‌سازی قرار گرفت':'فقط همان پرسش و پاسخ حذف شد');
 }
 function renderQaPerformance(list){
   var rows=(list||[]).filter(function(a){return a.type==='qa';});var groups={desired:[],progress:[],attention:[]};var by={};
@@ -6173,16 +6180,48 @@ function syncEvFilterDate(){
 }
 function stableQaUuid(seed){function h(str,init){var x=init>>>0;for(var i=0;i<str.length;i++){x^=str.charCodeAt(i);x=Math.imul(x,16777619)>>>0;}return ('00000000'+x.toString(16)).slice(-8);}var a=h(seed,2166136261),b=h(seed+'#1',2246822519),c=h(seed+'#2',3266489917),d=h(seed+'#3',668265263);var hex=(a+b+c+d).slice(0,32).split('');hex[12]='5';hex[16]=((parseInt(hex[16],16)&3)|8).toString(16);var z=hex.join('');return z.slice(0,8)+'-'+z.slice(8,12)+'-'+z.slice(12,16)+'-'+z.slice(16,20)+'-'+z.slice(20);}
 async function buildClosedMonthQaEvaluations(){
-  var todayParts=parseJalali(today());if(!todayParts)return;
-  var currentKey=todayParts.jy*12+todayParts.jm;var months=JALALI_MONTHS.slice();var groups={};
-  (cache.activities||[]).filter(function(a){return a&&a.type==='qa'&&a.date;}).forEach(function(a){var d=parseJalali(a.date);if(!d||d.jm<1||d.jm>12)return; /* همه ماه‌ها از جمله ماه جاری برای خلاصه ارزشیابی */var key=[a.class_id,a.student_id,a.subject,d.jy,d.jm].join('|');(groups[key]||(groups[key]=[])).push({row:a,date:d});});
-  var payload=[],fingerprintUpdates={};var fingerprints={};try{fingerprints=JSON.parse(localStorage.getItem('dastyar_qa_month_summary_fingerprint_v1')||'{}')||{};}catch(e){fingerprints={};}
-  Object.keys(groups).forEach(function(key){var arr=groups[key];if(arr.length<1)return;arr.sort(function(a,b){return String(a.row.date).localeCompare(String(b.row.date));});var first=arr[0],last=arr[arr.length-1],sum=0;arr.forEach(function(x){sum+=scoreToNum(x.row.level,x.row.score);});var avg=Math.round((sum/arr.length)*10)/10;var m=months[first.date.jm-1];var seed='qa-month|'+first.row.class_id+'|'+first.row.student_id+'|'+first.row.subject+'|'+first.date.jy+'|'+first.date.jm;var fp=arr.length+'|'+last.row.date+'|'+avg;if(fingerprints[seed]===fp)return;fingerprintUpdates[seed]=fp;payload.push({id:stableQaUuid(seed),student_id:first.row.student_id,class_id:first.row.class_id,month:m,subject:first.row.subject,weekday:last.row.weekday||'',date:last.row.date,score:avg,level:scoreLv(avg),notes:'خلاصه خودکار پرسش‌وپاسخ‌های ماه '+m+' '+first.date.jy+' — تعداد ثبت: '+arr.length+' — میانگین عملکرد: '+avg+' از ۲۰',recorded_by:(user&&user.full_name?user.full_name:'سامانه')+' | خلاصه خودکار پرسش‌وپاسخ'});});
-  if(!payload.length)return;
-  var res=await sb.from('sa_evaluations').upsert(payload);if(res&&res.error){console.warn('ساخت خلاصه ماهانه QA انجام نشد',res.error);return;}
-  try{localStorage.setItem('dastyar_qa_month_summary_fingerprint_v1',JSON.stringify(Object.assign(fingerprints,fingerprintUpdates)));}catch(e){}
-  payload.forEach(function(row){var i=(cache.evaluations||[]).findIndex(function(e){return String(e.id)===String(row.id);});if(i>=0)cache.evaluations[i]=Object.assign({},cache.evaluations[i],row);else cache.evaluations.push(row);});
+  var months=JALALI_MONTHS.slice(),groups={},fingerprints={},currentFingerprints={};
+  (cache.activities||[]).filter(function(a){return a&&a.type==='qa'&&a.date;}).forEach(function(a){
+    var d=parseJalali(a.date);if(!d||d.jm<1||d.jm>12)return;
+    var key=[a.class_id,a.student_id,a.subject,d.jy,d.jm].join('|');
+    (groups[key]||(groups[key]=[])).push({row:a,date:d});
+  });
+  try{fingerprints=JSON.parse(localStorage.getItem('dastyar_qa_month_summary_fingerprint_v1')||'{}')||{};}catch(e){fingerprints={};}
+  var existingAuto=(cache.evaluations||[]).filter(function(e){return e&&String(e.recorded_by||'').indexOf('| خلاصه خودکار پرسش‌وپاسخ')>=0;});
+  var existingById=new Map(existingAuto.map(function(e){return [String(e.id),e];}));
+  var payload=[],currentIds=new Set(),syncedRows=[];
+  Object.keys(groups).forEach(function(key){
+    var arr=groups[key];if(!arr.length)return;
+    arr.sort(function(a,b){return String(a.row.date).localeCompare(String(b.row.date));});
+    var first=arr[0],last=arr[arr.length-1],sum=0;
+    arr.forEach(function(x){sum+=scoreToNum(x.row.level,x.row.score);});
+    var avg=Math.round((sum/arr.length)*10)/10,m=months[first.date.jm-1];
+    var seed='qa-month|'+first.row.class_id+'|'+first.row.student_id+'|'+first.row.subject+'|'+first.date.jy+'|'+first.date.jm;
+    var id=stableQaUuid(seed),fp=arr.length+'|'+last.row.date+'|'+avg;
+    currentIds.add(String(id));currentFingerprints[seed]=fp;
+    var row={id:id,student_id:first.row.student_id,class_id:first.row.class_id,month:m,subject:first.row.subject,weekday:last.row.weekday||'',date:last.row.date,score:avg,level:scoreLv(avg),notes:'خلاصه خودکار پرسش‌وپاسخ‌های ماه '+m+' '+first.date.jy+' — تعداد ثبت: '+arr.length+' — میانگین عملکرد: '+avg+' از ۲۰',recorded_by:(user&&user.full_name?user.full_name:'سامانه')+' | خلاصه خودکار پرسش‌وپاسخ'};
+    var old=existingById.get(String(id));
+    if(fingerprints[seed]!==fp||!old)payload.push(row);
+    syncedRows.push(Object.assign({},old||{},row));
+  });
+  var stale=existingAuto.filter(function(e){return !currentIds.has(String(e.id));});
+  if(payload.length){
+    var up=await sb.from('sa_evaluations').upsert(payload);
+    if(up&&up.error){console.warn('به‌روزرسانی خلاصه پرسش‌وپاسخ در ارزشیابی ناموفق بود',up.error);return false;}
+  }
+  for(var i=0;i<stale.length;i++){
+    var del=await sb.from('sa_evaluations').delete().eq('id',String(stale[i].id));
+    if(del&&del.error){console.warn('حذف خلاصه منسوخ پرسش‌وپاسخ از ارزشیابی ناموفق بود',del.error);return false;}
+  }
+  var nextFingerprints={};
+  Object.keys(fingerprints).forEach(function(k){if(k.indexOf('qa-month|')!==0)nextFingerprints[k]=fingerprints[k];});
+  Object.assign(nextFingerprints,currentFingerprints);
+  try{localStorage.setItem('dastyar_qa_month_summary_fingerprint_v1',JSON.stringify(nextFingerprints));}catch(e){}
+  cache.evaluations=(cache.evaluations||[]).filter(function(e){return !(e&&String(e.recorded_by||'').indexOf('| خلاصه خودکار پرسش‌وپاسخ')>=0);}).concat(syncedRows);
+  try{persistLocalSchoolCache();}catch(e){}
   try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
+  try{refreshDash();}catch(e){}
+  return true;
 }
 async function loadEvals(){
   await reloadAll();
