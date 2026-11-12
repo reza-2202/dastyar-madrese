@@ -42,5 +42,29 @@
   ],
   "launch_handler": {
     "client_mode": "navigate-existing"
+  },
+  "share_target": {
+    "action": "/dastyar-madrese/?share-target=1",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "files",
+          "accept": [
+            "application/pdf",
+            ".pdf",
+            "application/msword",
+            ".doc",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ".docx",
+            "image/*"
+          ]
+        }
+      ]
+    }
   }
 }
