@@ -985,41 +985,14 @@ button[onclick*="search" i]:before{font-family:"Font Awesome 6 Free";font-weight
 // Cache the app shell after the first online visit; no changes to the app appearance.
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   window.addEventListener('load', function () {
-    var swUrl = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/sw.js?v=54u' : './sw.js?v=54u';
+    var swUrl = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/sw.js' : './sw.js';
     var scope = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/' : './';
-    var refreshing = false;
-    // وقتی سرویس‌ورکر جدید کنترل را گرفت، یک‌بار رفرش اجباری
-    navigator.serviceWorker.addEventListener('controllerchange', function () {
-      if (refreshing) return;
-      refreshing = true;
-      try { location.reload(); } catch (e) {}
-    });
-    navigator.serviceWorker.register(swUrl, { scope: scope }).then(function (reg) {
-      try { console.info('[PWA] service worker ok', reg.scope); } catch (e) {}
-      try { reg.update(); } catch (e) {}
-      // اگر نسخه منتظر فعال‌سازی است، فوراً فعال کن
-      if (reg.waiting) {
-        try { reg.waiting.postMessage({ type: 'SKIP_WAITING' }); } catch (e) {}
-      }
-      reg.addEventListener('updatefound', function () {
-        var nw = reg.installing;
-        if (!nw) return;
-        nw.addEventListener('statechange', function () {
-          if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-            try { nw.postMessage({ type: 'SKIP_WAITING' }); } catch (e) {}
-          }
-        });
-      });
+    navigator.serviceWorker.register(swUrl, { scope: scope }).then(function(reg){
+      try{ console.info('[PWA] service worker ok', reg.scope); }catch(e){}
       return navigator.serviceWorker.ready;
-    }).then(function () {
-      try { window.__dastyarSwReady = true; } catch (e) {}
-      // هر بار باز شدن برنامه، به‌روزرسانی SW را چک کن
-      try {
-        setInterval(function () {
-          navigator.serviceWorker.getRegistration().then(function (r) { if (r) r.update(); }).catch(function () {});
-        }, 60 * 1000);
-      } catch (e) {}
-    }).catch(function (e) { console.warn('ثبت حالت آفلاین/نصب انجام نشد', e); });
+    }).then(function(){
+      try{ window.__dastyarSwReady = true; }catch(e){}
+    }).catch(function(e){ console.warn('ثبت حالت آفلاین/نصب انجام نشد', e); });
   });
 }
 </script>
