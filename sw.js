@@ -1,4 +1,4 @@
-const CACHE = 'dastyar-shell-v56-20261112-shared';
+const CACHE = 'dastyar-shell-v57-20261112-share-refresh';
 const BASE = '/dastyar-madrese/';
 const SHELL = [
   BASE,
