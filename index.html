@@ -1121,11 +1121,6 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <p style="font-size:.78rem;color:#92400e;margin-bottom:8px">این پیام‌ها فقط برای حساب کاربری شما ارسال شده‌اند.</p>
 <div id="teacher-notice-list"></div>
 </div>
-<div id="teacher-feature-update" class="card" style="display:none;border:1px solid #93c5fd;background:#eff6ff">
- <div class="ct">🆕 به‌روزرسانی دستیار مدرسه</div>
- <div style="font-size:.82rem;line-height:1.9;color:#1e3a8a">در این نسخه: ثبت گروهی پرسش‌وپاسخ برای چند دانش‌آموز با درس و تاریخ مشترک، ثبت خودکار ارزشیابی توصیفی بر اساس نمره، نمایش رنگی وضعیت پیشنهادی دانش‌آموزان و مشاهده کلاس‌های دارای حضور و غیاب ثبت‌شده اضافه شده است.</div>
- <button type="button" class="btn btn-p btn-sm" style="margin-top:8px" onclick="dismissTeacherFeatureUpdate()">متوجه شدم</button>
-</div>
 <div id="teacher-today-schedule" class="card" style="display:none;border:1px solid #93c5fd;background:#f0f9ff">
  <div class="ct">📚 برنامه امروز کلاس شما</div>
  <div id="teacher-today-schedule-content" style="font-size:.84rem;line-height:1.9"></div>
@@ -3114,15 +3109,6 @@ function renderAbsentDashList(){
 }
 
 
-function dismissTeacherFeatureUpdate(){
-  try{
-    var u=window.user||user;
-    if(u&&u.username) localStorage.setItem('dastyar_feature_seen_v54_'+String(u.username),'1');
-  }catch(e){}
-  var el=document.getElementById('teacher-feature-update');
-  if(el) el.style.display='none';
-  if(typeof toast==='function') toast('پیام به‌روزرسانی بسته شد');
-}
 function loadAdminUrgentMessages(){ try{ return JSON.parse(localStorage.getItem('dastyar_admin_urgent_v1')||'[]')||[]; }catch(e){ return []; } }
 function saveAdminUrgentMessages(arr){ try{ localStorage.setItem('dastyar_admin_urgent_v1', JSON.stringify(arr||[])); }catch(e){} }
 function setupAdminUrgentPanel(){
@@ -3473,14 +3459,6 @@ async function refreshDashboardDocumentCache(){
 function refreshDash(){
   try{ if(typeof refreshDashboardDocumentCache==='function') refreshDashboardDocumentCache(); }catch(e){}
   try{ if(typeof renderSmartReminders==='function') renderSmartReminders(); }catch(e){}
-  var featureNotice=document.getElementById('teacher-feature-update');
-  if(featureNotice){
-    try{
-      var seenKey='dastyar_feature_seen_v54_'+(user&&user.username?String(user.username):'');
-      var seen=false; try{ seen=!!localStorage.getItem(seenKey); }catch(e){}
-      featureNotice.style.display=(user&&user.role==='teacher'&&!seen)?'block':'none';
-    }catch(e){ featureNotice.style.display='none'; }
-  }
   if(navigator.onLine && sb && (!(cache.students||[]).length) && typeof ensureStudentsFromServer==='function'){
     ensureStudentsFromServer().then(function(n){ if(n>0){ try{ refreshDash(); }catch(e){} } });
   }
