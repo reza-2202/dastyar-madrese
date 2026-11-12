@@ -1193,6 +1193,41 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <div style="font-weight:700;color:#0284c7;font-size:1rem;margin-top:2px">رضا فلاحتکار</div>
 <button class="btn btn-o btn-sm" onclick="go('about')" style="margin-top:10px">درباره برنامه</button>
 </div>
+
+<div class="card no-print" id="shared-inbox-teacher-card" style="display:none;border:1px solid #93c5fd;background:#f0f9ff">
+ <div class="ct">📨 ارسال مستقیم فایل به مدیر</div>
+ <p class="meta" style="line-height:1.8">فایل را از شاد، ایتا، گالری یا هر برنامه‌ای با گزینه «اشتراک‌گذاری» مستقیماً به دستیار مدرسه بفرستید؛ یا از اینجا انتخاب کنید. فایل اصلی در بخش جداگانه و خصوصی مدیر ثبت می‌شود.</p>
+ <div id="shared-teacher-code-setup">
+  <div class="fg"><label>کد اختصاصی ارسال معلم</label><input id="shared-teacher-code" type="password" autocomplete="off" placeholder="کدی که مدیر در اختیار شما گذاشته است" /></div>
+  <button type="button" class="btn btn-p btn-sm" onclick="sifSaveTeacherCode()">فعال‌سازی کد معلم</button>
+ </div>
+ <div id="shared-teacher-controls" style="display:none">
+  <div class="fg"><label>عنوان یا توضیح فایل (اختیاری)</label><input id="shared-inbox-title" placeholder="مثلاً آزمون ریاضی کلاس سوم" /></div>
+  <div class="fg"><label>انتخاب فایل از گوشی یا رایانه</label><input id="shared-inbox-file" type="file" multiple accept=".pdf,.doc,.docx,image/jpeg,image/png,image/webp" /></div>
+  <div id="shared-pending-info" class="meta" style="margin:8px 0;color:#1d4ed8">فایل اشتراک‌گذاری‌شده‌ای در انتظار نیست.</div>
+  <button type="button" class="btn btn-p" id="shared-inbox-send-btn" onclick="sifSendSharedFiles()">ارسال امن فایل به مدیر</button>
+  <button type="button" class="btn btn-o btn-sm" style="margin-top:7px" onclick="sifRefreshPending()">بررسی فایل‌های اشتراک‌گذاری‌شده</button>
+  <p id="shared-inbox-teacher-status" class="meta" role="status" style="margin-top:8px"></p>
+ </div>
+</div>
+<div class="card no-print" id="shared-inbox-manager-card" style="display:none;border:1px solid #c4b5fd;background:#faf5ff">
+ <div class="ct">📥 فایل‌های دریافتی از معلمان</div>
+ <p class="meta" style="line-height:1.8">این بخش مستقل از «ارسال برگه و فایل» است. فایل‌ها با نام معلم، کلاس و زمان دریافت ثبت می‌شوند و در فضای خصوصی جداگانه نگهداری می‌شوند.</p>
+ <div id="shared-manager-bootstrap">
+  <div class="fg"><label>کد راه‌اندازی یک‌باره مدیر</label><input id="shared-manager-bootstrap-code" type="password" autocomplete="off" placeholder="کد راه‌اندازی محرمانه" /></div>
+  <button type="button" class="btn btn-p btn-sm" onclick="sifBootstrapManager()">فعال‌سازی دسترسی مدیر</button>
+ </div>
+ <div id="shared-manager-controls" style="display:none">
+  <div class="fg"><label>انتخاب معلم برای ساخت کد اختصاصی</label><select id="shared-manager-teacher-select"><option value="">انتخاب معلم</option></select></div>
+  <button type="button" class="btn btn-o btn-sm" onclick="sifCreateTeacherCode()">ساخت کد ارسال برای معلم</button>
+  <div id="shared-manager-teacher-code-result" style="display:none;margin-top:8px;padding:10px;border:1px dashed #8b5cf6;border-radius:10px;background:#fff;direction:rtl"></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 8px">
+   <button type="button" class="btn btn-p btn-sm" onclick="sifLoadSharedFiles()">🔄 دریافت فهرست فایل‌ها</button>
+  </div>
+  <div id="shared-manager-files-list" class="meta">برای مشاهده فایل‌های دریافتی، دکمه دریافت فهرست را بزنید.</div>
+  <p id="shared-inbox-manager-status" class="meta" role="status" style="margin-top:8px"></p>
+ </div>
+</div>
 </div>
 <div class="page" id="page-teacheraccounts">
 <div class="card">
@@ -2676,7 +2711,7 @@ async function doLogin(){
       try{ var mt=document.getElementById('monthly-report-tile'); if(mt) mt.style.display='flex'; }catch(e){}
       try{ if(typeof renderTeacherAdminList==='function') renderTeacherAdminList(); }catch(e){}
     }
-    if(typeof go==='function') go('dashboard');
+    if(typeof go==='function') go('dashboard'); try{if(window.refreshSharedInboxPanels)window.refreshSharedInboxPanels();}catch(e){}
     try{ if(typeof loadSchoolDocuments==='function') loadSchoolDocuments(); }catch(e){}
     try{ updateOfflineBadgeSafe(); }catch(e){}
   }catch(e){
@@ -12485,6 +12520,217 @@ try{
    var current=activePage();
    if(current&&current!=='dashboard'){try{originalGo.call(window,'dashboard');}catch(e){console.warn('بازگشت به صفحه اصلی ناموفق بود',e);}}
  });
+})();
+</script>
+
+
+<script id="dastyar-isolated-shared-inbox">
+(function(){
+'use strict';
+var API=(window.__DASTYAR_SUPABASE_URL||'https://ulaxykeiusmihfvuxnxy.supabase.co')+'/functions/v1/teacher-shared-inbox';
+var ANON=window.__DASTYAR_SUPABASE_ANON||'';
+var MANAGER_KEY='dastyar_shared_inbox_manager_token_v1';
+var TEACHER_KEY_PREFIX='dastyar_shared_inbox_teacher_token_v1_';
+var pendingItems=[];
+function currentUser(){return window.user||null;}
+function teacherKey(u){return TEACHER_KEY_PREFIX+String(u&&u.username||'').trim();}
+function managerToken(){try{return localStorage.getItem(MANAGER_KEY)||'';}catch(e){return '';}}
+function teacherToken(){var u=currentUser();try{return u?localStorage.getItem(teacherKey(u))||'':'';}catch(e){return '';}}
+function status(id,msg){var el=document.getElementById(id);if(el)el.textContent=String(msg||'');}
+function toastSafe(msg){try{if(typeof toast==='function')toast(msg);else alert(msg);}catch(e){}}
+function headers(){return {'apikey':ANON,'Authorization':'Bearer '+ANON};}
+async function apiJson(body){
+ var h=headers();h['Content-Type']='application/json';
+ var res=await fetch(API,{method:'POST',headers:h,body:JSON.stringify(body),cache:'no-store'});
+ var data={};try{data=await res.json();}catch(e){}
+ if(!res.ok||!data.ok)throw new Error(data.error||('خطای سرور ('+res.status+')'));
+ return data;
+}
+function openPendingDB(){
+ return new Promise(function(resolve,reject){
+  if(!window.indexedDB){reject(new Error('ذخیره‌سازی فایل اشتراکی در این مرورگر پشتیبانی نمی‌شود.'));return;}
+  var req=indexedDB.open('dastyar_shared_inbox_pending',1);
+  req.onupgradeneeded=function(){var db=req.result;if(!db.objectStoreNames.contains('items'))db.createObjectStore('items',{keyPath:'id'});};
+  req.onsuccess=function(){resolve(req.result);};
+  req.onerror=function(){reject(req.error||new Error('بازکردن فضای موقت فایل ناموفق بود.'));};
+ });
+}
+async function readPending(){
+ var db=await openPendingDB();
+ try{return await new Promise(function(resolve,reject){var tx=db.transaction('items','readonly'),r=tx.objectStore('items').getAll();r.onsuccess=function(){resolve(r.result||[]);};r.onerror=function(){reject(r.error);};});}
+ finally{db.close();}
+}
+async function removePending(id){
+ var db=await openPendingDB();
+ try{await new Promise(function(resolve,reject){var tx=db.transaction('items','readwrite');tx.objectStore('items').delete(id);tx.oncomplete=resolve;tx.onerror=function(){reject(tx.error);};});}
+ finally{db.close();}
+}
+window.sifRefreshPending=async function(){
+ try{
+  pendingItems=await readPending();
+  var box=document.getElementById('shared-pending-info');
+  if(box)box.textContent=pendingItems.length?'تعداد '+pendingItems.length+' فایل از برنامه‌های دیگر دریافت شده و آماده ارسال است: '+pendingItems.map(function(x){return x.file&&x.file.name||'فایل';}).join('، '):'فایل اشتراک‌گذاری‌شده‌ای در انتظار نیست.';
+  return pendingItems;
+ }catch(e){status('shared-inbox-teacher-status',e.message||e);return [];}
+};
+window.sifSaveTeacherCode=function(){
+ var u=currentUser(),input=document.getElementById('shared-teacher-code'),code=String(input&&input.value||'').trim();
+ if(!u||u.role!=='teacher'){toastSafe('این قسمت فقط برای حساب معلم است.');return;}
+ if(code.length<32){toastSafe('کد اختصاصی معلم معتبر نیست.');return;}
+ try{localStorage.setItem(teacherKey(u),code);}catch(e){toastSafe('ذخیره کد در این دستگاه ممکن نشد.');return;}
+ if(input)input.value='';
+ var setup=document.getElementById('shared-teacher-code-setup'),controls=document.getElementById('shared-teacher-controls');
+ if(setup)setup.style.display='none';if(controls)controls.style.display='block';
+ toastSafe('کد اختصاصی این معلم فعال شد.');
+ window.sifRefreshPending();
+};
+window.sifBootstrapManager=async function(){
+ var input=document.getElementById('shared-manager-bootstrap-code'),code=String(input&&input.value||'').trim();
+ if(code.length<32){toastSafe('کد راه‌اندازی معتبر نیست.');return;}
+ status('shared-inbox-manager-status','در حال فعال‌سازی امن دسترسی مدیر…');
+ try{
+  var data=await apiJson({action:'bootstrap',code:code});
+  localStorage.setItem(MANAGER_KEY,data.manager_token);
+  if(input)input.value='';
+  var setup=document.getElementById('shared-manager-bootstrap'),controls=document.getElementById('shared-manager-controls');
+  if(setup)setup.style.display='none';if(controls)controls.style.display='block';
+  status('shared-inbox-manager-status','دسترسی مدیر فعال شد. کد محرمانه در همین مرورگر نگهداری می‌شود؛ آن را در اختیار معلمان قرار ندهید.');
+  sifPopulateTeacherSelect();
+ }catch(e){status('shared-inbox-manager-status',e.message||e);}
+};
+function sifPopulateTeacherSelect(){
+ var sel=document.getElementById('shared-manager-teacher-select');if(!sel)return;
+ var users=[];try{users=(typeof cache!=='undefined'&&cache.users)||[];}catch(e){}
+ var current=sel.value;sel.innerHTML='<option value="">انتخاب معلم</option>';
+ users.filter(function(x){return x&&x.role==='teacher';}).forEach(function(t){
+  var o=document.createElement('option');o.value=String(t.username||'');o.textContent=String(t.full_name||t.username||'معلم');sel.appendChild(o);
+ });
+ if(current)sel.value=current;
+}
+window.sifCreateTeacherCode=async function(){
+ if(!managerToken()){toastSafe('ابتدا دسترسی مدیر را فعال کنید.');return;}
+ var sel=document.getElementById('shared-manager-teacher-select'),username=String(sel&&sel.value||'');
+ var users=[];try{users=(typeof cache!=='undefined'&&cache.users)||[];}catch(e){}
+ var t=users.find(function(x){return String(x&&x.username||'')===username;});
+ if(!t){toastSafe('معلم انتخاب‌شده پیدا نشد.');return;}
+ var ids=Array.isArray(t.class_ids)?t.class_ids.map(String):[];
+ var classes=[];try{classes=(typeof cache!=='undefined'&&cache.classes)||[];}catch(e){}
+ var names=classes.filter(function(c){return ids.includes(String(c.id));}).map(function(c){return String(c.label||c.name||c.class_name||c.id);});
+ if(!ids.length){toastSafe('برای این معلم کلاسی در اطلاعات برنامه ثبت نشده است.');return;}
+ status('shared-inbox-manager-status','در حال ساخت کد اختصاصی…');
+ try{
+  var data=await apiJson({action:'create_teacher_token',token:managerToken(),teacher_username:username,teacher_name:String(t.full_name||t.username||username),class_ids:ids,class_names:names});
+  var box=document.getElementById('shared-manager-teacher-code-result');if(!box)return;
+  box.style.display='block';box.replaceChildren();
+  var label=document.createElement('div');label.textContent='کد اختصاصی معلم '+String(t.full_name||username)+' (فقط یک‌بار نمایش داده می‌شود):';box.appendChild(label);
+  var code=document.createElement('div');code.dir='ltr';code.style.cssText='font-family:monospace;word-break:break-all;padding:8px;margin:7px 0;background:#f8fafc;border-radius:8px';code.textContent=data.teacher_token;box.appendChild(code);
+  var copy=document.createElement('button');copy.type='button';copy.className='btn btn-p btn-sm';copy.textContent='کپی کد معلم';copy.onclick=function(){if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(data.teacher_token).then(function(){toastSafe('کد کپی شد.');}).catch(function(){toastSafe('کپی خودکار انجام نشد؛ کد را دستی انتخاب کنید.');});else toastSafe('کد را دستی انتخاب کنید.');};box.appendChild(copy);
+  status('shared-inbox-manager-status','کد ساخته شد. آن را فقط به همان معلم بدهید؛ با ساخت کد جدید برای این معلم، کد قبلی غیرفعال می‌شود.');
+ }catch(e){status('shared-inbox-manager-status',e.message||e);}
+};
+window.sifSendSharedFiles=async function(){
+ var token=teacherToken();if(!token){toastSafe('ابتدا کد اختصاصی معلم را فعال کنید.');return;}
+ var input=document.getElementById('shared-inbox-file'),selected=input&&input.files?Array.from(input.files):[];
+ await window.sifRefreshPending();
+ var jobs=pendingItems.map(function(x){return {file:x.file,id:x.id,source:'share',title:x.title||''};});
+ selected.forEach(function(f){jobs.push({file:f,id:null,source:'file_picker',title:''});});
+ if(!jobs.length){toastSafe('ابتدا از یک برنامه فایل را اشتراک‌گذاری کنید یا از اینجا انتخاب کنید.');return;}
+ var title=String((document.getElementById('shared-inbox-title')||{}).value||'').trim();
+ var btn=document.getElementById('shared-inbox-send-btn');if(btn)btn.disabled=true;
+ var sent=0,failed=[];
+ try{
+  for(var i=0;i<jobs.length;i++){
+   var job=jobs[i],f=job.file;
+   if(!f||!f.size||f.size>15*1024*1024){failed.push((f&&f.name||'فایل')+': حجم یا فایل نامعتبر');continue;}
+   var fd=new FormData();fd.append('token',token);fd.append('file',f,f.name||'shared-file');fd.append('title',title||job.title||'');fd.append('source',job.source);
+   try{
+    var h=headers();
+    var res=await fetch(API,{method:'POST',headers:h,body:fd,cache:'no-store'}),data={};try{data=await res.json();}catch(e){}
+    if(!res.ok||!data.ok)throw new Error(data.error||('خطای سرور '+res.status));
+    if(job.id)await removePending(job.id);
+    sent++;
+   }catch(e){failed.push((f.name||'فایل')+': '+(e.message||e));}
+  }
+ }finally{if(btn)btn.disabled=false;}
+ if(input)input.value='';
+ await window.sifRefreshPending();
+ status('shared-inbox-teacher-status',sent+' فایل با موفقیت به مدیر رسید.'+(failed.length?' موارد ناموفق: '+failed.join(' | '):''));
+ if(sent)toastSafe(sent+' فایل برای مدیر ارسال شد.');
+};
+function safeText(value){return String(value==null?'':value);}
+function formatDate(value){try{return new Date(value).toLocaleString('fa-IR');}catch(e){return safeText(value);}}
+function fileSize(n){n=Number(n)||0;return n<1024? n+' بایت':n<1048576?(n/1024).toFixed(1)+' کیلوبایت':(n/1048576).toFixed(2)+' مگابایت';}
+async function signedFetch(url){var r=await fetch(url,{cache:'no-store'});if(!r.ok)throw new Error('دریافت فایل از فضای خصوصی انجام نشد.');return await r.blob();}
+window.sifDownloadSharedFile=async function(url,name){
+ try{var blob=await signedFetch(url),obj=URL.createObjectURL(blob),a=document.createElement('a');a.href=obj;a.download=name||'shared-file';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(obj);},30000);}
+ catch(e){window.open(url,'_blank','noopener');}
+};
+window.sifPrintSharedFile=function(url){if(url)window.open(url,'_blank','noopener');};
+window.sifOpenSharedEditor=async function(item){
+ if(!item||!item.signed_url)return;
+ if(!(item.mime_type==='application/pdf'||String(item.mime_type||'').indexOf('image/')===0)){toastSafe('ویرایشگر فعلی برنامه برای PDF و تصویر طراحی شده است؛ فایل Word را می‌توانید دانلود یا چاپ کنید.');return;}
+ try{
+  var blob=await signedFetch(item.signed_url);
+  var f=new File([blob],item.file_name||'shared-file.pdf',{type:item.mime_type||blob.type||'application/pdf'});
+  var input=document.getElementById('sfe-input');if(!input)throw new Error('ورودی ویرایشگر فعلی پیدا نشد.');
+  var dt=new DataTransfer();dt.items.add(f);input.files=dt.files;
+  if(typeof window.openSchoolFileEditor==='function')window.openSchoolFileEditor();
+  input.dispatchEvent(new Event('change',{bubbles:true}));
+  try{await apiJson({action:'set_status',token:managerToken(),id:item.id,status:'opened'});}catch(e){}
+ }catch(e){toastSafe(e.message||e);}
+};
+window.sifDeleteSharedFile=async function(id){
+ if(!managerToken()||!confirm('این فایل اشتراکی و نسخه ذخیره‌شده آن برای همیشه حذف شود؟'))return;
+ try{await apiJson({action:'delete',token:managerToken(),id:id});toastSafe('فایل اشتراکی حذف شد.');await window.sifLoadSharedFiles();}
+ catch(e){status('shared-inbox-manager-status',e.message||e);}
+};
+window.sifMarkSharedPrinted=async function(id){
+ try{await apiJson({action:'set_status',token:managerToken(),id:id,status:'printed'});await window.sifLoadSharedFiles();}
+ catch(e){status('shared-inbox-manager-status',e.message||e);}
+};
+window.sifLoadSharedFiles=async function(){
+ var box=document.getElementById('shared-manager-files-list');if(!box)return;
+ if(!managerToken()){box.textContent='ابتدا دسترسی مدیر را فعال کنید.';return;}
+ box.textContent='در حال دریافت فایل‌های دریافتی…';
+ try{
+  var data=await apiJson({action:'list',token:managerToken()});box.replaceChildren();
+  if(!data.files||!data.files.length){box.textContent='هنوز فایلی از معلمان دریافت نشده است.';return;}
+  data.files.forEach(function(item){
+   var card=document.createElement('div');card.style.cssText='border:1px solid #ddd6fe;background:#fff;border-radius:10px;padding:10px;margin:8px 0';
+   var title=document.createElement('b');title.textContent=item.title||item.file_name;card.appendChild(title);
+   var meta=document.createElement('div');meta.className='meta';meta.style.cssText='line-height:1.9;margin:5px 0';meta.textContent='معلم: '+safeText(item.teacher_name)+' | کلاس: '+(Array.isArray(item.class_names)?item.class_names.join('، '):'')+' | زمان: '+formatDate(item.created_at)+' | حجم: '+fileSize(item.file_size)+' | وضعیت: '+(item.status==='printed'?'چاپ‌شده':item.status==='opened'?'بازشده':'دریافت‌شده');card.appendChild(meta);
+   var actions=document.createElement('div');actions.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
+   function button(label,fn,cls){var b=document.createElement('button');b.type='button';b.className=cls||'btn btn-o btn-sm';b.textContent=label;b.onclick=fn;actions.appendChild(b);}
+   if(item.signed_url){
+    if(item.mime_type==='application/pdf'||String(item.mime_type||'').indexOf('image/')===0)button('ویرایش با ویرایشگر فعلی',function(){window.sifOpenSharedEditor(item);},'btn btn-p btn-sm');
+    button('دانلود',function(){window.sifDownloadSharedFile(item.signed_url,item.file_name);});
+    button('بازکردن برای چاپ',function(){window.sifPrintSharedFile(item.signed_url);});
+   }
+   button('ثبت چاپ شد',function(){window.sifMarkSharedPrinted(item.id);});
+   button('حذف فایل',function(){window.sifDeleteSharedFile(item.id);},'btn btn-o btn-sm');
+   card.appendChild(actions);box.appendChild(card);
+  });
+  status('shared-inbox-manager-status','تعداد '+data.files.length+' فایل دریافتی نمایش داده شد.');
+ }catch(e){box.textContent=e.message||'دریافت فهرست ناموفق بود.';}
+};
+window.refreshSharedInboxPanels=function(){
+ var u=currentUser();if(!u)return;
+ var teacher=document.getElementById('shared-inbox-teacher-card'),manager=document.getElementById('shared-inbox-manager-card');
+ if(teacher)teacher.style.display=u.role==='teacher'?'block':'none';
+ if(manager)manager.style.display=(u.role==='admin'||u.role==='manager')?'block':'none';
+ if(u.role==='teacher'){
+  var token=teacherToken(),setup=document.getElementById('shared-teacher-code-setup'),controls=document.getElementById('shared-teacher-controls');
+  if(setup)setup.style.display=token?'none':'block';if(controls)controls.style.display=token?'block':'none';
+  if(token)window.sifRefreshPending();
+ }
+ if(u.role==='admin'||u.role==='manager'){
+  var mt=managerToken(),setupM=document.getElementById('shared-manager-bootstrap'),controlsM=document.getElementById('shared-manager-controls');
+  if(setupM)setupM.style.display=mt?'none':'block';if(controlsM)controlsM.style.display=mt?'block':'none';
+  if(mt){sifPopulateTeacherSelect();window.sifLoadSharedFiles();}
+ }
+ try{if(new URLSearchParams(location.search).has('shared')){setTimeout(function(){toastSafe('فایل اشتراک‌گذاری‌شده دریافت شد؛ برای ارسال، کد اختصاصی معلم را فعال کنید.');},500);}}catch(e){}
+};
+document.addEventListener('DOMContentLoaded',function(){if(window.user)window.refreshSharedInboxPanels();});
 })();
 </script>
 </body>
