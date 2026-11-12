@@ -5163,17 +5163,22 @@ async function saveDiscipline(){
  const inviteTime=feedback==='دعوت اولیا'?(document.getElementById('di-invite-time')?.value||'').trim():'';
  if(!classId||!studentId){toast('ابتدا کلاس و دانش‌آموز را انتخاب کنید');return;}
  if(!details){toast('شرح مورد انضباطی را بنویسید');return;}
+ if(!sb){toast('اتصال پایگاه‌داده در دسترس نیست؛ ثبت انجام نشد');return;}
  const row={id:uid(),student_id:studentId,class_id:classId,date,weekday,category,feedback,details,invite_date:inviteDate||null,invite_time:inviteTime||null,created_by:user.full_name||user.username,created_role:user.role,status:'pending',approved_by:null,approved_at:null,decision_text:null};
- const {error}=await sb.from('sa_discipline').insert(row);
- if(error){toast('ثبت انجام نشد؛ ابتدا دستور SQL بخش موارد انضباطی را در Supabase اجرا کنید: '+error.message);return;}
+ const result=await sb.from('sa_discipline').insert(row);
+ if(result&&result.error){toast('ثبت انجام نشد: '+result.error.message);return;}
+ // در حالت آفلاین، صف ثبت را پذیرفته اما reloadAll ممکن است نسخه کش‌شده قدیمی را برگرداند.
+ if(!(result&&result.offline)) await reloadAll();
+ if(!(cache.discipline||[]).some(function(r){return String(r.id)===String(row.id);})) cache.discipline=(cache.discipline||[]).concat([row]);
+ try{persistLocalSchoolCache();}catch(e){}
  document.getElementById('di-details').value='';document.getElementById('di-feedback').value='';document.getElementById('di-category').value='انضباطی';
  const inviteDateInput=document.getElementById('di-invite-date');if(inviteDateInput)inviteDateInput.value='';const inviteTimeInput=document.getElementById('di-invite-time');if(inviteTimeInput)inviteTimeInput.value='';toggleDisciplineInviteFields();
- await reloadAll();renderDisciplineList();
+ renderDisciplineList();
  // Refresh the currently open dossier immediately so the saved category and feedback appear without reopening the student.
  const dossier=document.getElementById('print-student-dossier');
  if(dossier) openStudentDossier(studentId);
- try{ persistLocalSchoolCache(); }catch(e){}
- toast('مورد انضباطی و بازخورد آنلاین ثبت شد و در پرونده دانش‌آموز قرار گرفت');
+ try{refreshDash();}catch(e){}
+ toast(result&&result.offline?'مورد انضباطی در گوشی ذخیره شد و پس از اتصال اینترنت همگام‌سازی می‌شود.':'مورد انضباطی آنلاین ثبت شد و در پرونده دانش‌آموز قرار گرفت');
 }
 function isParentInviteFeedback(value){return String(value||'').replace(/[\u200c\s]/g,'').trim()==='دعوتاولیا';}
 let selectedDisciplineInvites=new Set();
@@ -6078,11 +6083,21 @@ async function saveEv(){
     score,level,notes:document.getElementById('ev-nt').value.trim(),
     recorded_by:user.full_name
   };
-  let {error}=await sb.from('sa_evaluations').insert(row);
-  if(error){toast('خطا: '+error.message);return;}
-  // update scores table for report card
-  await sb.from('sa_scores').upsert({id:studentId+'_'+subject,student_id:studentId,subject,score,level});
-  await reloadAll();document.getElementById('ev-form').innerHTML='';loadEvals();toast('ارزشیابی آنلاین ذخیره شد');
+  if(!row.student_id||!row.class_id){toast('ابتدا کلاس و دانش‌آموز را انتخاب کنید');return;}
+  if(!sb){toast('اتصال پایگاه‌داده در دسترس نیست؛ ثبت انجام نشد');return;}
+  const result=await sb.from('sa_evaluations').insert(row);
+  if(result&&result.error){toast('ثبت ارزشیابی انجام نشد: '+result.error.message);return;}
+  // ثبت نمره کارنامه نیز از همان مسیر آنلاین/صف آفلاین انجام می‌شود.
+  const scoreResult=await sb.from('sa_scores').upsert({id:studentId+'_'+subject,student_id:studentId,subject,score,level});
+  if(!(result&&result.offline)) await reloadAll();
+  if(!(cache.evaluations||[]).some(function(r){return String(r.id)===String(row.id);})) cache.evaluations=(cache.evaluations||[]).concat([row]);
+  try{persistLocalSchoolCache();}catch(e){}
+  document.getElementById('ev-form').innerHTML='';
+  await loadEvals();
+  try{refreshDash();}catch(e){}
+  if(scoreResult&&scoreResult.error)toast('ارزشیابی ذخیره شد، اما نمره کارنامه به‌روزرسانی نشد: '+scoreResult.error.message);
+  else if(result&&result.offline)toast('ارزشیابی در گوشی ذخیره شد و پس از اتصال اینترنت همگام‌سازی می‌شود.');
+  else toast('ارزشیابی آنلاین ذخیره شد');
 }
 function toggleEvDateFilter(){
   const mode=document.getElementById('ev-filter-mode')?.value||'date';
