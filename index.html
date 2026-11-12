@@ -11995,74 +11995,159 @@ window.sfeOpenFromUrl=async function(url,name){
 
 <script id="dastyar-pwa-install">
 (function(){
-  var deferred=null, bar, btn, closeBtn;
+  'use strict';
+  var deferredPrompt = null;
+  var bar = null;
+  var btn = null;
+  var closeBtn = null;
+  var installAccepted = false;
+  var promptBusy = false;
+  var acceptanceNoticeShown = false;
+
   function isStandalone(){
-    return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || !!navigator.standalone;
+    return !!(
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+      (window.matchMedia && window.matchMedia('(display-mode: fullscreen)').matches) ||
+      navigator.standalone
+    );
   }
+
+  function notify(message){
+    if(typeof window.toast === 'function') window.toast(message);
+    else if(typeof window.alert === 'function') window.alert(message);
+  }
+
   function hide(){
     if(bar) bar.classList.remove('show');
     try{ sessionStorage.setItem('dastyar_install_hide','1'); }catch(e){}
   }
+
   function show(){
-    if(isStandalone()) return;
-    try{ if(sessionStorage.getItem('dastyar_install_hide')==='1') return; }catch(e){}
+    if(isStandalone() || installAccepted) return;
+    try{
+      if(sessionStorage.getItem('dastyar_install_hide') === '1') return;
+    }catch(e){}
     if(bar) bar.classList.add('show');
   }
-  window.addEventListener('beforeinstallprompt', function(e){
-    e.preventDefault();
-    deferred=e;
-    try{ sessionStorage.removeItem('dastyar_install_hide'); }catch(err){}
+
+  function acceptedNotice(){
+    if(acceptanceNoticeShown) return;
+    acceptanceNoticeShown = true;
+    notify('Chrome درخواست نصب را پذیرفت. در اندروید ساخت و ثبت WebAPK ممکن است کمی زمان ببرد؛ این پیام به‌تنهایی تأیید نصب نهایی نیست. اگر آیکون در فهرست برنامه‌ها ظاهر نشد، نصب کامل نشده است.');
+  }
+
+  window.addEventListener('beforeinstallprompt', function(event){
+    if(isStandalone()) return;
+    event.preventDefault();
+    deferredPrompt = event;
+    installAccepted = false;
+    try{ sessionStorage.removeItem('dastyar_install_hide'); }catch(e){}
     show();
   });
+
   window.addEventListener('appinstalled', function(){
-    deferred=null;
+    deferredPrompt = null;
+    installAccepted = true;
     hide();
-    if(typeof toast==='function') toast('درخواست نصب پذیرفته شد؛ ساخت و ثبت برنامه در فهرست گوشی ممکن است کمی زمان ببرد. اگر آیکون برنامه ظاهر نشد، نصب کامل نشده است.');
+    acceptedNotice();
   });
+
+  function manualInstructions(){
+    var ua = navigator.userAgent || '';
+    var isIOS = /iphone|ipad|ipod/i.test(ua);
+    var isAndroid = /android/i.test(ua);
+    var isChrome = /chrome|crios|crmo/i.test(ua) && !/edg|opr|opera|samsungbrowser/i.test(ua);
+
+    if(isStandalone()){
+      notify('برنامه در حالت مستقل اجرا شده است.');
+    }else if(isIOS){
+      notify('در آیفون، صفحه را با Safari باز کنید؛ سپس Share و Add to Home Screen را انتخاب کنید.');
+    }else if(isAndroid && !isChrome){
+      notify('برای نصب مستقل، همین نشانی را در Google Chrome باز کنید و از منوی ⋮ گزینه Install app یا نصب برنامه را بزنید.');
+    }else if(isAndroid){
+      notify('از منوی ⋮ مرورگر Chrome گزینه Install app یا نصب برنامه را انتخاب کنید. «افزودن به صفحه اصلی» ممکن است فقط میان‌بر بسازد.');
+    }else{
+      notify('در Chrome یا Edge از منوی مرورگر، گزینه Install app را انتخاب کنید.');
+    }
+  }
+
   function doInstall(){
-    if(deferred){
-      var promptEvent=deferred;
-      deferred=null;
-      promptEvent.prompt();
-      Promise.resolve(promptEvent.userChoice).then(function(choice){
-        if(choice && choice.outcome==='accepted'){
-          hide();
-        }else if(choice && choice.outcome==='dismissed'){
-          if(typeof toast==='function') toast('درخواست نصب لغو شد؛ هنوز برنامه‌ای نصب نشده است.');
-        }
-      }).catch(function(){
-        if(typeof toast==='function') toast('درخواست نصب کامل نشد؛ لطفاً از منوی Chrome وضعیت نصب را بررسی کنید.');
-      });
+    if(promptBusy) return;
+    if(isStandalone()){
+      notify('برنامه در حالت مستقل اجرا شده است.');
       return;
     }
-    var ua=navigator.userAgent||'';
-    var isIOS=/iphone|ipad|ipod/i.test(ua);
-    var isAndroid=/android/i.test(ua);
-    var msg='';
-    if(isStandalone()){
-      msg='برنامه هم‌اکنون به‌صورت مستقل اجرا شده است.';
-    }else if(isIOS){
-      msg='در آیفون: دکمه Share را بزنید و Add to Home Screen را انتخاب کنید.';
-    }else if(isAndroid){
-      msg='Chrome برای این صفحه دکمه نصب مستقیم را در اختیار سایت نگذاشته است. گزینه «افزودن به صفحه اصلی» فقط میان‌بر می‌سازد و نصب مستقل را تأیید نمی‌کند.';
-    }else{
-      msg='در کامپیوتر Chrome/Edge، امکان نصب را از منوی مرورگر بررسی کنید.';
+
+    if(!deferredPrompt){
+      manualInstructions();
+      return;
     }
-    if(typeof toast==='function') toast(msg); else alert(msg);
+
+    var promptEvent = deferredPrompt;
+    deferredPrompt = null;
+    promptBusy = true;
+
+    try{
+      // این فراخوانی باید مستقیم در کلیک کاربر انجام شود.
+      var promptResult = promptEvent.prompt();
+      Promise.resolve(promptResult).then(function(){
+        return promptEvent.userChoice;
+      }).then(function(choice){
+        if(choice && choice.outcome === 'accepted'){
+          installAccepted = true;
+          hide();
+          acceptedNotice();
+        }else{
+          if(typeof window.toast === 'function') window.toast('درخواست نصب لغو شد؛ هنوز برنامه‌ای نصب نشده است.');
+          show();
+        }
+      }).catch(function(){
+        if(typeof window.toast === 'function') window.toast('Chrome نتوانست درخواست نصب را کامل کند. از منوی Chrome وضعیت نصب را بررسی کنید.');
+        show();
+      }).then(function(){
+        promptBusy = false;
+      });
+    }catch(error){
+      promptBusy = false;
+      if(typeof window.toast === 'function') window.toast('شروع نصب با خطا روبه‌رو شد. از منوی Chrome گزینه نصب برنامه را بررسی کنید.');
+      show();
+    }
   }
+
   function ready(){
-    bar=document.getElementById('dastyar-install-bar');
-    btn=bar ? bar.querySelector('#dastyar-install-btn') : null;
-    closeBtn=bar ? bar.querySelector('#dastyar-install-close') : null;
+    bar = document.getElementById('dastyar-install-bar');
+    btn = bar ? bar.querySelector('#dastyar-install-btn') : null;
+    closeBtn = bar ? bar.querySelector('#dastyar-install-close') : null;
+
     if(closeBtn) closeBtn.addEventListener('click', hide);
-    if(btn) btn.addEventListener('click', function(e){ e.preventDefault(); doInstall(); });
-    if(deferred) show();
-    // اگر رویداد beforeinstallprompt در این مرورگر ارسال نشد، راهنمای نصب همچنان نمایش داده شود.
-    setTimeout(function(){ if(!isStandalone()) show(); }, 2500);
+    if(btn) btn.addEventListener('click', function(event){
+      event.preventDefault();
+      doInstall();
+    });
+
+    if(deferredPrompt) show();
+    if(!isStandalone() && !installAccepted){
+      window.setTimeout(function(){
+        if(!isStandalone() && !installAccepted) show();
+      }, 2500);
+    }
   }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', ready);
-  else ready();
-  window.dastyarInstallApp=doInstall;
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', ready, {once:true});
+  }else{
+    ready();
+  }
+
+  window.dastyarInstallApp = doInstall;
+  window.__dastyarPwaInstallState = function(){
+    return {
+      standalone: isStandalone(),
+      installPromptAvailable: !!deferredPrompt,
+      installAccepted: installAccepted,
+      promptInProgress: promptBusy
+    };
+  };
 })();
 </script>
 
