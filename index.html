@@ -12033,7 +12033,7 @@ window.sfeOpenFromUrl=async function(url,name){
   function show(){
     if(isStandalone()) return;
     try{ if(sessionStorage.getItem('dastyar_install_hide')==='1') return; }catch(e){}
-    if(bar) bar.classList.add('show');
+    if(bar && deferred) bar.classList.add('show');
   }
   window.addEventListener('beforeinstallprompt', function(e){
     e.preventDefault();
@@ -12044,45 +12044,46 @@ window.sfeOpenFromUrl=async function(url,name){
   window.addEventListener('appinstalled', function(){
     deferred=null;
     hide();
-    if(typeof toast==='function') toast('اپلیکیشن نصب شد. از لیست برنامه‌ها باز کنید.');
+    if(typeof toast==='function') toast('نصب مستقل برنامه تأیید شد. اکنون می‌توانید آن را از فهرست برنامه‌ها باز کنید.');
   });
   function doInstall(){
     if(deferred){
-      deferred.prompt();
-      deferred.userChoice.then(function(choice){
-        deferred=null;
-        if(choice && choice.outcome==='accepted') hide();
-      }).catch(function(){});
+      var promptEvent=deferred;
+      deferred=null;
+      promptEvent.prompt();
+      Promise.resolve(promptEvent.userChoice).then(function(choice){
+        if(choice && choice.outcome==='accepted'){
+          hide();
+        }else if(choice && choice.outcome==='dismissed'){
+          if(typeof toast==='function') toast('درخواست نصب لغو شد؛ هنوز برنامه‌ای نصب نشده است.');
+        }
+      }).catch(function(){
+        if(typeof toast==='function') toast('درخواست نصب کامل نشد؛ لطفاً از منوی Chrome وضعیت نصب را بررسی کنید.');
+      });
       return;
     }
     var ua=navigator.userAgent||'';
     var isIOS=/iphone|ipad|ipod/i.test(ua);
     var isAndroid=/android/i.test(ua);
-    var isChrome=/chrome|crios|crmo/i.test(ua) && !/edg|opr|opera/i.test(ua);
     var msg='';
     if(isStandalone()){
-      msg='برنامه هم‌اکنون به‌صورت نصب‌شده باز است.';
+      msg='برنامه هم‌اکنون به‌صورت مستقل اجرا شده است.';
     }else if(isIOS){
       msg='در آیفون: دکمه Share را بزنید و Add to Home Screen را انتخاب کنید.';
-    }else if(isAndroid && !isChrome){
-      msg='لطفاً لینک را با Google Chrome باز کنید، سپس دکمه «نصب اپلیکیشن» را بزنید.';
     }else if(isAndroid){
-      msg='منوی ⋮ بالای Chrome را باز کنید و گزینه Install app یا نصب برنامه را بزنید.';
+      msg='Chrome برای این صفحه دکمه نصب مستقیم را در اختیار سایت نگذاشته است. گزینه «افزودن به صفحه اصلی» فقط میان‌بر می‌سازد و نصب مستقل را تأیید نمی‌کند.';
     }else{
-      msg='در کامپیوتر Chrome/Edge روی آیکون نصب در نوار آدرس بزنید.';
+      msg='در کامپیوتر Chrome/Edge، امکان نصب را از منوی مرورگر بررسی کنید.';
     }
     if(typeof toast==='function') toast(msg); else alert(msg);
   }
   function ready(){
     bar=document.getElementById('dastyar-install-bar');
-    // Find controls only inside the real install dialog.
     btn=bar ? bar.querySelector('#dastyar-install-btn') : null;
     closeBtn=bar ? bar.querySelector('#dastyar-install-close') : null;
     if(closeBtn) closeBtn.addEventListener('click', hide);
     if(btn) btn.addEventListener('click', function(e){ e.preventDefault(); doInstall(); });
     if(deferred) show();
-    // نمایش راهنما حتی قبل از رویداد نصب، تا کاربر بداند چه کند
-    setTimeout(function(){ if(!isStandalone()) show(); }, 2500);
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', ready);
   else ready();
