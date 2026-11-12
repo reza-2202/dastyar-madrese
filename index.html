@@ -8760,7 +8760,7 @@ window.addEventListener('afterprint',function(){const area=document.getElementBy
 (function(){
   // این نسخه همین فایل است — برای به‌روزرسانی واقعی باید فایل جدید را جایگزین کنید
     const CURRENT_VERSION = '2026.10.28.54';
-    const CURRENT_BUILD = '20261112u';
+    const CURRENT_BUILD = '20261112v';
     const VERSION_URL = 'https://reza-2202.github.io/dastyar-madrese/version.json?t=' + Date.now();
   const FALLBACK_APP_URL = 'https://reza-2202.github.io/dastyar-madrese/';
   const box = document.getElementById('dastyar-update-box');
@@ -12006,7 +12006,7 @@ window.sfeOpenFromUrl=async function(url,name){
   function show(){
     if(isStandalone()) return;
     try{ if(sessionStorage.getItem('dastyar_install_hide')==='1') return; }catch(e){}
-    if(bar && deferred) bar.classList.add('show');
+    if(bar) bar.classList.add('show');
   }
   window.addEventListener('beforeinstallprompt', function(e){
     e.preventDefault();
@@ -12057,6 +12057,8 @@ window.sfeOpenFromUrl=async function(url,name){
     if(closeBtn) closeBtn.addEventListener('click', hide);
     if(btn) btn.addEventListener('click', function(e){ e.preventDefault(); doInstall(); });
     if(deferred) show();
+    // اگر رویداد beforeinstallprompt در این مرورگر ارسال نشد، راهنمای نصب همچنان نمایش داده شود.
+    setTimeout(function(){ if(!isStandalone()) show(); }, 2500);
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', ready);
   else ready();
