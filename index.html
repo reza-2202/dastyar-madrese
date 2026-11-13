@@ -3165,11 +3165,14 @@ function setupAdminUrgentPanel(){
   }
   // اگر پنل از قبل باز است، فهرست را تازه کن
   if(box.style.display==='block') renderAdminUrgentList();
-  // تعداد پیام‌های ارسال‌شده روی کارت
+  // تعداد پیام‌های فعال و کلاس‌های هنوز ثبت‌نکرده حضور و غیاب
   try{
-    var n=(loadAdminUrgentMessages()||[]).length;
-    var el=document.getElementById('st-urg');
-    if(el) el.textContent=(typeof fa==='function'?fa(n):String(n));
+    var todayKey=String(typeof today==='function'?today():'');
+    var n=activeAdminUrgentMessages().reduce(function(total,m){
+      if(m.kind==='attendance_reminder')return total+(m.class_ids||[]).filter(function(cid){return !(cache.attendance||[]).some(function(a){return String(a.class_id)===String(cid)&&String(a.date||'')===todayKey&&!a._offline;});}).length;
+      return total+1;
+    },0);
+    var el=document.getElementById('st-urg');if(el)el.textContent=typeof fa==='function'?fa(n):String(n);
   }catch(e){}
 }
 function toggleAdminUrgentPanel(){
@@ -3185,6 +3188,22 @@ function toggleAdminUrgentPanel(){
   }
 }
 function renderAdminUrgentList(){
+  var el=document.getElementById('adm-urg-list');if(!el)return;
+  var todayKey=String(typeof today==='function'?today():'');
+  var items=activeAdminUrgentMessages().slice().sort(function(a,b){return (b.at||0)-(a.at||0);});
+  if(!items.length){el.innerHTML='<div class="meta">پیام فعال یا یادآوریِ در انتظار انجام وجود ندارد.</div>';return;}
+  el.innerHTML=items.map(function(m){
+    var ids=(m.class_ids||[]).map(String);
+    if(m.kind==='attendance_reminder')ids=ids.filter(function(cid){return !(cache.attendance||[]).some(function(a){return String(a.class_id)===cid&&String(a.date||'')===todayKey&&!a._offline;});});
+    var labels=ids.map(function(cid){var c=(cache.classes||[]).find(function(x){return String(x.id)===cid;});return c?(c.label||cid):cid;});
+    var targets=labels.join('، ')||'همه کلاس‌ها',teachers=(m.teacher_usernames||[]).join('، ');
+    var readInfo=(m.read_by&&m.read_by.length)?('✓ مشاهده‌شده توسط: '+m.read_by.join('، ')):'وضعیت مشاهده روی دستگاه مدیر ثبت نشده است';
+    var audio=m.audio?('<div style="margin:6px 0"><audio controls src="'+String(m.audio).replace(/"/g,'')+'" style="max-width:100%"></audio></div>'):'';
+    var expiry=m.expires_at?('<div class="meta">اعتبار تا: '+new Date(m.expires_at).toLocaleString('fa-IR')+'</div>'):'';
+    return '<article style="background:#fff;border:1px solid #ddd6fe;border-radius:10px;padding:10px;margin:8px 0"><div style="font-weight:700">'+String(m.text||'(پیام صوتی)').replace(/</g,'&lt;')+'</div><div class="meta">کلاس‌های باقی‌مانده: '+targets+'</div><div class="meta">معلمان: '+teachers+'</div><div class="meta">'+readInfo+'</div>'+expiry+audio+'<button type="button" class="btn btn-o btn-sm" style="margin-top:6px" onclick="deleteAdminUrgentMessage(\\''+String(m.id)+'\\')">حذف پیام</button></article>';
+  }).join('');
+}
+
   var el=document.getElementById('adm-urg-list'); if(!el) return;
   var items=loadAdminUrgentMessages().slice().sort(function(a,b){return (b.at||0)-(a.at||0);});
   if(!items.length){ el.innerHTML='<div class="meta">هنوز پیام ضروری ارسال نشده است.</div>'; return; }
@@ -3230,7 +3249,35 @@ function teachersForClasses(classList){
   });
   return teacherUsers;
 }
-function sendAdminUrgentMessage(){
+async function sendAdminUrgentMessage(){
+  if(!user||user.role!=='admin'){if(typeof toast==='function')toast('فقط مدیر');return;}
+  var text=String((document.getElementById('adm-urg-text')||{}).value||'').trim(),audio=window.__admUrgAudioData||'';
+  if(!text&&!audio){if(typeof toast==='function')toast('متن یا صدا وارد کنید');return;}
+  var sel=document.getElementById('adm-urg-classes'),selected=[];
+  if(sel)Array.prototype.forEach.call(sel.selectedOptions||[],function(o){selected.push(String(o.value));});
+  var classes=cache.classes||[],targets=selected.length?classes.filter(function(c){return selected.indexOf(String(c.id))>=0;}):classes.slice();
+  if(!targets.length){if(typeof toast==='function')toast('کلاسی نیست');return;}
+  var teacherUsers=teachersForClasses(targets),at=Date.now(),expiresAt=new Date(at+72*60*60*1000).toISOString();
+  var msg={id:'urg_'+at,text:text,audio:audio||'',class_ids:targets.map(function(c){return String(c.id);}),class_labels:targets.map(function(c){return c.label||c.id;}),teacher_usernames:teacherUsers,read_by:[],at:at,from:user.full_name||user.username||'مدیر',kind:'urgent',expires_at:expiresAt};
+  var arr=loadAdminUrgentMessages();arr.push(msg);saveAdminUrgentMessages(arr);
+  var all={};try{all=JSON.parse(localStorage.getItem('dastyar_teacher_notices_v1')||'{}')||{};}catch(e){}
+  var serverSent=0,serverFailed=0;
+  for(var i=0;i<teacherUsers.length;i++){
+    var uname=String(teacherUsers[i]),teacherClasses=targets.filter(function(c){return teachersForClasses([c]).indexOf(uname)>=0;}),noticeId='notice_'+msg.id+'_'+uname;
+    var localNotice={id:noticeId,message:text||'پیام صوتی مدیر',read:false,at:at,kind:'urgent',audio:audio||'',title:'پیام ضروری مدیریت',class_ids:teacherClasses.map(function(c){return String(c.id);}),expires_at:expiresAt};
+    if(!all[uname])all[uname]=[];all[uname].unshift(localNotice);
+    if(sb&&navigator.onLine&&!window.isOffline){
+      var payload={id:noticeId,recipient_username:uname,kind:'urgent',title:'پیام ضروری مدیریت',body:text||'پیام صوتی مدیر',class_ids:localNotice.class_ids,class_labels:teacherClasses.map(function(c){return c.label||c.id;}),at:at,expires_at:expiresAt,from:msg.from};
+      try{var ins=await sb.from('sa_messages').insert({id:noticeId,sender_name:msg.from,sender_username:user.username,sender_role:'admin',message_text:DASTYAR_TEACHER_NOTICE_PREFIX+JSON.stringify(payload),audio_url:audio||null});if(ins&&!ins.error)serverSent++;else{serverFailed++;console.warn('ارسال ابلاغیه به سرور ناموفق بود',ins&&ins.error);}}catch(e){serverFailed++;console.warn(e);}
+    }
+  }
+  try{localStorage.setItem('dastyar_teacher_notices_v1',JSON.stringify(all));}catch(e){}
+  try{document.getElementById('adm-urg-text').value='';}catch(e){}
+  window.__admUrgAudioData='';try{var a=document.getElementById('adm-urg-audio');if(a){a.removeAttribute('src');a.style.display='none';}}catch(e){}
+  renderAdminUrgentList();try{await refreshAdminUrgentDashboardCount();}catch(e){}
+  if(typeof toast==='function')toast(serverSent===teacherUsers.length&&teacherUsers.length?'پیام به '+serverSent+' معلم ارسال شد':(serverSent?'پیام آنلاین برای '+serverSent+' معلم ثبت شد؛ '+serverFailed+' مورد ناموفق بود':'پیام فقط در این دستگاه ذخیره شد؛ برای ارسال بین دستگاه‌ها اتصال آنلاین لازم است'));
+}
+
   if(!user||user.role!=='admin'){ if(typeof toast==='function') toast('فقط مدیر'); return; }
   var text=String((document.getElementById('adm-urg-text')||{}).value||'').trim();
   var audio=window.__admUrgAudioData||'';
@@ -3271,7 +3318,34 @@ function deleteAdminUrgentMessage(id){
   renderAdminUrgentList();
   if(typeof toast==='function') toast('پیام حذف شد');
 }
-function sendAttendanceReminderToMissing(){
+async function sendAttendanceReminderToMissing(){
+  if(!user||user.role!=='admin'){if(typeof toast==='function')toast('فقط مدیر');return;}
+  if(sb&&navigator.onLine&&!window.isOffline){try{await reloadAll();}catch(e){console.warn('refresh before attendance reminder',e);}}
+  var tday=String(typeof today==='function'?today():''),byClass={};
+  (cache.attendance||[]).forEach(function(a){if(a&&String(a.date||'')===tday&&!a._offline)byClass[String(a.class_id)]=1;});
+  var missing=(cache.classes||[]).filter(function(c){return !byClass[String(c.id)];});
+  if(!missing.length){if(typeof toast==='function')toast('همه کلاس‌ها امروز حضور ثبت کرده‌اند');await refreshAdminUrgentDashboardCount();return;}
+  var text='همکار گرامی، لطفاً حضور و غیاب امروز کلاس خود را در سامانه ثبت فرمایید. با سپاس — مدیریت مدرسه';
+  var teacherUsers=teachersForClasses(missing),at=Date.now(),expiresAt=new Date(at+24*60*60*1000).toISOString();
+  var msg={id:'attrem_'+at,text:text,audio:'',class_ids:missing.map(function(c){return String(c.id);}),class_labels:missing.map(function(c){return c.label||c.id;}),teacher_usernames:teacherUsers,read_by:[],at:at,from:user.full_name||'مدیر',kind:'attendance_reminder',date_key:tday,expires_at:expiresAt};
+  var arr=loadAdminUrgentMessages();arr.push(msg);saveAdminUrgentMessages(arr);
+  var all={};try{all=JSON.parse(localStorage.getItem('dastyar_teacher_notices_v1')||'{}')||{};}catch(e){}
+  var serverSent=0,serverFailed=0;
+  for(var i=0;i<teacherUsers.length;i++){
+    var uname=String(teacherUsers[i]),teacherClasses=missing.filter(function(c){return teachersForClasses([c]).indexOf(uname)>=0;}),noticeId='notice_'+msg.id+'_'+uname;
+    var localNotice={id:noticeId,message:text,read:false,at:at,kind:'attendance_reminder',title:'یادآوری حضور و غیاب',class_ids:teacherClasses.map(function(c){return String(c.id);}),class_labels:teacherClasses.map(function(c){return c.label||c.id;}),date_key:tday,expires_at:expiresAt};
+    if(!all[uname])all[uname]=[];all[uname].unshift(localNotice);
+    if(sb&&navigator.onLine&&!window.isOffline){
+      var payload={id:noticeId,recipient_username:uname,kind:'attendance_reminder',title:'یادآوری حضور و غیاب',body:text,class_ids:localNotice.class_ids,class_labels:localNotice.class_labels,date_key:tday,at:at,expires_at:expiresAt,from:msg.from};
+      try{var ins=await sb.from('sa_messages').insert({id:noticeId,sender_name:msg.from,sender_username:user.username,sender_role:'admin',message_text:DASTYAR_TEACHER_NOTICE_PREFIX+JSON.stringify(payload),audio_url:null});if(ins&&!ins.error)serverSent++;else{serverFailed++;console.warn('ارسال یادآوری حضور و غیاب ناموفق بود',ins&&ins.error);}}catch(e){serverFailed++;console.warn(e);}
+    }
+  }
+  try{localStorage.setItem('dastyar_teacher_notices_v1',JSON.stringify(all));}catch(e){}
+  try{renderAdminUrgentList();}catch(e){}
+  await refreshAdminUrgentDashboardCount();
+  if(typeof toast==='function')toast(serverSent===teacherUsers.length&&teacherUsers.length?'یادآوری برای '+serverSent+' معلم ارسال شد':(serverSent?'یادآوری آنلاین برای '+serverSent+' معلم ثبت شد؛ '+serverFailed+' مورد ناموفق بود':'یادآوری فقط در این دستگاه ذخیره شد؛ برای ارسال بین دستگاه‌ها اتصال آنلاین لازم است'));
+}
+
   if(!user||user.role!=='admin'){ if(typeof toast==='function') toast('فقط مدیر'); return; }
   var tday=String(typeof today==='function'?today():'');
   var byClass={};
@@ -5016,6 +5090,7 @@ function openStudentDossier(id){
  const comps=cache.competencies.filter(x=>x.student_id===id);
  const contacts=(cache.parent_contacts||[]).filter(x=>String(x.student_id)===String(id)).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
  const fins=(cache.finance||[]).filter(x=>String(x.student_id)===String(id)).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+ const meetings=(typeof localRead==='function'?localRead('dastyar_parent_meetings_v1'):[]).filter(x=>String(x.class_id)===String(s.class_id)).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
  const statusLabel={present:'حاضر',unexcused:'غایب',absent:'غایب',excused:'غایب موجه',late:'تأخیر'};
  const levelLabel={excellent:'خیلی خوب',good:'خوب',acceptable:'قابل قبول',needs:'نیاز به تلاش'};
  const section=(title,rows,html)=>'<section class="card dossier-section"><div class="ct">'+title+' ('+fa(rows.length)+')</div>'+(rows.length?html:'<div class="empty">سابقه‌ای ثبت نشده است</div>')+'</section>';
@@ -5034,10 +5109,19 @@ function openStudentDossier(id){
  const examHtml=exams.map(a=>'<div style="padding:8px;border-bottom:1px solid #e2e8f0"><b>'+escHtml(a.exam_name||a.name||a.subject||'آزمون')+'</b><div class="meta">'+escHtml(a.weekday||'')+' '+escHtml(a.date||'')+' | درس: '+escHtml(a.subject||a.lesson||'')+' | نمره: '+(a.score==null||a.score===''?'—':escHtml(a.score))+' | '+escHtml(levelLabel[a.level]||a.level||'')+'</div>'+(a.notes||a.desc_text||a.description?'<div>'+escHtml(a.notes||a.desc_text||a.description||'')+'</div>':'')+'</div>').join('');
  const contactHtml=contacts.map(c=>'<div style="padding:8px;border-bottom:1px solid #e2e8f0"><b>'+escHtml({call:'تماس',message:'پیام',inperson:'حضوری',other:'سایر'}[c.contact_type]||c.contact_type||'تماس')+'</b> — '+escHtml(c.date||'')+' | '+(c.phone?escHtml(c.phone):'')+'<div class="meta">موضوع: '+escHtml(c.subject||'')+' | نتیجه: '+escHtml(c.result||'')+(c.follow_up_date?(' | پیگیری: '+escHtml(c.follow_up_date)):'')+'</div>'+(c.notes?'<div>'+escHtml(c.notes)+'</div>':'')+'<small>ثبت‌کننده: '+escHtml(c.recorded_by||'')+'</small></div>').join('');
  const finHtml=fins.map(f=>'<div style="padding:8px;border-bottom:1px solid #e2e8f0"><b>'+escHtml(f.topic||f.title||'مالی')+'</b> — '+escHtml(f.date||'')+' | مبلغ: '+escHtml(String(f.amount!=null?f.amount:'—'))+'<div class="meta">'+(f.notes?escHtml(f.notes):'')+'</div></div>').join('');
+ const meetingHtml=meetings.map(m=>'<div style="padding:8px;border-bottom:1px solid #e2e8f0"><b>جلسه انجمن اولیا و مربیان</b> — '+escHtml(m.date||'')+' | '+escHtml(m.day||'')+'<div class="meta">تعداد اولیای حاضر: '+escHtml(m.count==null?'—':m.count)+'</div>'+(m.summary?'<div style="white-space:pre-wrap">'+escHtml(m.summary)+'</div>':'')+'</div>').join('');
+ const progressRows=(typeof subjectsFor==='function'?subjectsFor(s.class_id):[]).map(function(subject){
+   var vals=[];
+   scores.filter(function(x){return String(x.subject||'')===String(subject);}).forEach(function(x){var v=typeof scoreToNum==='function'?scoreToNum(x.level,x.score):Number(x.score);if(Number.isFinite(v))vals.push(v);});
+   evs.filter(function(x){return String(x.subject||'')===String(subject);}).forEach(function(x){var v=typeof scoreToNum==='function'?scoreToNum(x.level,x.score):Number(x.score);if(Number.isFinite(v))vals.push(v);});
+   acts.concat(exams).filter(function(x){return (x.type==='qa'||x.type==='exam')&&(String(x.subject||'')===String(subject)||String(x.lesson||'')===String(subject));}).forEach(function(x){var v=typeof scoreToNum==='function'?scoreToNum(x.level,x.score):Number(x.score);if(Number.isFinite(v))vals.push(v);});
+   return {subject:subject,average:vals.length?Math.round(vals.reduce(function(a,b){return a+b;},0)/vals.length*10)/10:null,count:vals.length};
+ }).filter(function(x){return x.count>0;});
+ const progressHtml=progressRows.map(function(x){return '<div style="padding:7px 0;border-bottom:1px solid #e2e8f0"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+escHtml(x.subject)+'</b><span>'+escHtml(x.average)+'/۲۰</span></div><div style="height:9px;background:#e2e8f0;border-radius:99px;overflow:hidden;margin-top:5px"><div style="height:100%;width:'+Math.max(0,Math.min(100,x.average*5))+'%;background:#2563eb;border-radius:99px"></div></div><small class="meta">بر پایه '+escHtml(x.count)+' ثبت نمره، ارزشیابی، پرسش و آزمون</small></div>';}).join('');
  const scoreHtml=scores.map(x=>'<div class="meta" style="padding:6px;border-bottom:1px solid #e2e8f0">'+escHtml(x.subject||'درس')+' — '+(x.score==null?'—':escHtml(x.score))+' | '+escHtml(levelLabel[x.level]||x.level||'')+'</div>').join('');
  const compHtml=comps.map(x=>'<div class="meta" style="padding:6px;border-bottom:1px solid #e2e8f0">'+escHtml(x.name||'شایستگی')+' — '+escHtml(levelLabel[x.level]||x.level||'')+'</div>').join('');
  const box=document.getElementById('sf-dossier');
- box.innerHTML='<div id="print-student-dossier"><section class="card"><div class="ct" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'+(s.photo?('<img class="student-dossier-photo" src="'+String(s.photo).replace(/"/g,'')+'" alt="" style="width:64px;height:64px;border-radius:10px;object-fit:cover;border:1px solid #94a3b8;flex-shrink:0"/>'):'')+'<span>📁 پرونده دانش‌آموز: '+escHtml((s.first_name||'')+' '+(s.last_name||''))+'</span></div><div class="meta">کلاس: '+escHtml(cl?.label||'')+' | کد: '+escHtml(s.code||'—')+' | نام پدر: '+escHtml(s.father_name||'—')+'</div><div class="meta">تلفن شاد: '+escHtml(s.shad_phone||'—')+' | تماس اضطراری ۱: '+escHtml(s.emergency_phone_1||'—')+' | ۲: '+escHtml(s.emergency_phone_2||'—')+' | ۳: '+escHtml(s.emergency_phone_3||'—')+'</div><button class="btn btn-p btn-sm no-print" style="margin-top:10px" onclick="printStudentDossier()">🖨️ چاپ پرونده دانش‌آموز</button> <button class="btn btn-o btn-sm no-print" style="margin-top:10px" onclick="exportStudentDossierWord()">📄 خروجی Word پرونده</button></section>'+section('حضور و غیاب',att,attHtml)+section('موارد انضباطی',dis,disHtml)+section('ارزشیابی‌های درسی',evs,evHtml)+section('سوابق پیگیری غیبت مدیر',absenceFollowups,followupHtml)+section('پرسش و فعالیت‌های روزانه',acts,actHtml)+section('آزمون‌ها',exams,examHtml)+section('تماس با اولیا',contacts,contactHtml)+section('سوابق مالی',fins,finHtml)+section('نمرات کارنامه',scores,scoreHtml)+section('شایستگی‌ها',comps,compHtml)+'</div>';
+ box.innerHTML='<div id="print-student-dossier"><section class="card"><div class="ct" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'+(s.photo?('<img class="student-dossier-photo" src="'+String(s.photo).replace(/"/g,'')+'" alt="" style="width:64px;height:64px;border-radius:10px;object-fit:cover;border:1px solid #94a3b8;flex-shrink:0"/>'):'')+'<span>📁 پرونده دانش‌آموز: '+escHtml((s.first_name||'')+' '+(s.last_name||''))+'</span></div><div class="meta">کلاس: '+escHtml(cl?.label||'')+' | کد: '+escHtml(s.code||'—')+' | نام پدر: '+escHtml(s.father_name||'—')+'</div><div class="meta">تلفن شاد: '+escHtml(s.shad_phone||'—')+' | تماس اضطراری ۱: '+escHtml(s.emergency_phone_1||'—')+' | ۲: '+escHtml(s.emergency_phone_2||'—')+' | ۳: '+escHtml(s.emergency_phone_3||'—')+'</div><button class="btn btn-p btn-sm no-print" style="margin-top:10px" onclick="printStudentDossier()">🖨️ چاپ پرونده دانش‌آموز</button> <button class="btn btn-o btn-sm no-print" style="margin-top:10px" onclick="exportStudentDossierWord()">📄 خروجی Word پرونده</button></section>'+section('حضور و غیاب',att,attHtml)+section('موارد انضباطی',dis,disHtml)+section('ارزشیابی‌های درسی',evs,evHtml)+section('سوابق پیگیری غیبت مدیر',absenceFollowups,followupHtml)+section('پرسش و فعالیت‌های روزانه',acts,actHtml)+section('آزمون‌ها',exams,examHtml)+section('تماس با اولیا',contacts,contactHtml)+section('سوابق مالی',fins,finHtml)+section('جلسات انجمن اولیا و مربیان',meetings,meetingHtml)+section('نمودار پیشرفت تحصیلی',progressRows,progressHtml)+section('نمرات کارنامه',scores,scoreHtml)+section('شایستگی‌ها',comps,compHtml)+'</div>';
  try{ injectParentDossierLink(s.id); }catch(e){}
  try{ injectCustomFieldsUI(s.id); }catch(e){}
 }
@@ -5415,6 +5499,7 @@ function refreshAttendanceDashboardNow(){
   // مانع حفظ اعداد قدیمی در حالتی می‌شود که آخرین رکورد امروز پاک شده باشد.
   try{window.__dastyarAttendanceAuthoritative=true;}catch(e){}
   try{if(typeof refreshDash==='function')refreshDash();}catch(e){}
+  try{if(user&&user.role==='admin')refreshAdminUrgentDashboardCount();}catch(e){}
   try{
     var absentBox=document.getElementById('absent-dash-list');
     if(absentBox&&absentBox.style.display==='block'&&typeof renderAbsentDashList==='function')renderAbsentDashList();
@@ -5641,6 +5726,8 @@ async function saveAttendance(){
     try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){console.warn('ذخیره نسخه آفلاین حضور و غیاب ناموفق بود',e);}
     loadAttendanceUI();
     try{refreshAttendanceDashboardNow();}catch(e){}
+    try{if(user&&user.role==='teacher'&&typeof renderTeacherNotices==='function')renderTeacherNotices();}catch(e){}
+    try{if(user&&user.role==='admin')refreshAdminUrgentDashboardCount();}catch(e){}
     if(navigator.onLine&&!window.isOffline)toast('ذخیره آنلاین انجام شد: '+rows.length+' وضعیت ثبت/به‌روزرسانی و '+deleteStudentIds.length+' وضعیت پاک شد. داشبورد مدیر و معلم به‌روز شد.');
     else toast('تغییرات حضور و غیاب روی گوشی ذخیره و برای همگام‌سازی بعدی ثبت شد؛ وضعیت‌های خالی نیز در صف حذف قرار گرفتند.');
   }catch(error){
@@ -7332,12 +7419,46 @@ async function deleteSchoolDocumentCore(id,path,isAdmin){
  }
 }
 
-async function loadSchoolMessages(){
+var DASTYAR_TEACHER_NOTICE_PREFIX='[[DASTYAR_TEACHER_NOTICE_V1]]';
+function decodeDastyarTeacherNotice(row){
+  if(!row||String(row.sender_role||'')!=='admin')return null;
+  var raw=String(row.message_text||'');
+  if(raw.indexOf(DASTYAR_TEACHER_NOTICE_PREFIX)!==0)return null;
+  try{var p=JSON.parse(raw.slice(DASTYAR_TEACHER_NOTICE_PREFIX.length))||{};return Object.assign({},p,{id:String(row.id||p.id||''),audio:row.audio_url||p.audio||'',at:(row.created_at?Date.parse(row.created_at):0)||Number(p.at)||0});}catch(e){return null;}
+}
+function isDastyarTeacherNoticeRow(row){return !!decodeDastyarTeacherNotice(row);}
+function activeAdminUrgentMessages(){
+  var todayKey=String(typeof today==='function'?today():'');
+  return (loadAdminUrgentMessages()||[]).filter(function(m){
+    if(!m)return false;
+    if(m.expires_at&&Date.now()>=Date.parse(m.expires_at))return false;
+    if(m.kind==='attendance_reminder'){
+      if(String(m.date_key||'')!==todayKey)return false;
+      return (m.class_ids||[]).some(function(cid){return !(cache.attendance||[]).some(function(a){return String(a.class_id)===String(cid)&&String(a.date||'')===todayKey&&!a._offline;});});
+    }
+    return true;
+  });
+}
+async function refreshAdminUrgentDashboardCount(){
+  if(!user||user.role!=='admin')return;
+  var todayKey=String(typeof today==='function'?today():'');
+  if(sb&&navigator.onLine&&!window.isOffline){
+    try{var res=await sb.from('sa_attendance').select('id,student_id,class_id,date,status').eq('date',todayKey).limit(3000);if(res&&!res.error&&Array.isArray(res.data))cache.attendance=(cache.attendance||[]).filter(function(a){return String(a.date||'')!==todayKey;}).concat(res.data);}catch(e){console.warn('attendance reminder dashboard refresh',e);}
+  }
+  var active=activeAdminUrgentMessages();
+  var count=active.reduce(function(total,m){
+    if(m.kind==='attendance_reminder')return total+(m.class_ids||[]).filter(function(cid){return !(cache.attendance||[]).some(function(a){return String(a.class_id)===String(cid)&&String(a.date||'')===todayKey&&!a._offline;});}).length;
+    return total+1;
+  },0);
+  var el=document.getElementById('st-urg');if(el)el.textContent=typeof fa==='function'?fa(count):String(count);
+  var panel=document.getElementById('admin-urgent-messages');if(panel&&panel.style.display==='block')renderAdminUrgentList();
+}
+\nasync function loadSchoolMessages(){
  const box=document.getElementById('chat-list');if(!box||!sb||!user)return;box.innerHTML='در حال دریافت پیام‌ها...';
  const {data,error}=await sb.from('sa_messages').select('*').order('created_at',{ascending:true}).limit(200);
  if(error){box.textContent='خطا در دریافت پیام‌ها: '+error.message;return;}
- if(!data||!data.length){box.textContent='هنوز پیامی ثبت نشده است.';return;}
- box.innerHTML=data.map(m=>{const canDelete=user.role==='admin'||m.sender_username===user.username;return '<div class="card" style="margin:8px 0"><b>'+escHtml(m.sender_name||m.sender_username||'کاربر')+'</b><small> — '+escHtml(m.created_at?new Date(m.created_at).toLocaleString('fa-IR'):'')+'</small><p style="white-space:pre-wrap">'+escHtml(m.message_text||'')+'</p>'+(m.audio_url?'<audio controls src="'+escHtml(m.audio_url)+'" style="width:100%"></audio>':'')+(canDelete?'<button class="btn btn-o btn-sm" style="margin-top:8px;color:#b91c1c" onclick="deleteSchoolMessage(\''+String(m.id).replace(/'/g,'')+'\')">🗑️ حذف پیام</button>':'')+'</div>';}).join('');box.scrollTop=box.scrollHeight;
+ var visibleData=(data||[]).filter(function(m){return !isDastyarTeacherNoticeRow(m);});\n if(!visibleData.length){box.textContent='هنوز پیامی ثبت نشده است.';return;}
+ box.innerHTML=visibleData.map(m=>{const canDelete=user.role==='admin'||m.sender_username===user.username;return '<div class="card" style="margin:8px 0"><b>'+escHtml(m.sender_name||m.sender_username||'کاربر')+'</b><small> — '+escHtml(m.created_at?new Date(m.created_at).toLocaleString('fa-IR'):'')+'</small><p style="white-space:pre-wrap">'+escHtml(m.message_text||'')+'</p>'+(m.audio_url?'<audio controls src="'+escHtml(m.audio_url)+'" style="width:100%"></audio>':'')+(canDelete?'<button class="btn btn-o btn-sm" style="margin-top:8px;color:#b91c1c" onclick="deleteSchoolMessage(\''+String(m.id).replace(/'/g,'')+'\')">🗑️ حذف پیام</button>':'')+'</div>';}).join('');box.scrollTop=box.scrollHeight;
 }
 async function deleteSchoolMessage(id){
  if(!user||!sb){toast('ابتدا وارد شوید');return;}
@@ -8935,7 +9056,8 @@ setInterval(async function(){
   if(window.DastyarOffline&&typeof window.DastyarOffline.sync==='function')await window.DastyarOffline.sync();
   if(typeof syncPendingSchoolDocumentDeletes==='function')await syncPendingSchoolDocumentDeletes();
   if(typeof syncPendingSchoolDocuments==='function')await syncPendingSchoolDocuments();
-  if(wasOffline&&!(typeof isAppOfflineNow==='function'&&isAppOfflineNow())&&typeof reloadAll==='function')await reloadAll();
+  if(wasOffline&&!(typeof isAppOfflineNow==='function'&&isAppOfflineNow())&&typeof reloadAll==='function'){await reloadAll();try{if(user&&user.role==='teacher'&&typeof renderTeacherNotices==='function')renderTeacherNotices();}catch(e){}}
+  if(user&&user.role==='admin')try{await refreshAdminUrgentDashboardCount();}catch(e){}
  }catch(e){console.warn('همگام‌سازی خودکار پس‌زمینه انجام نشد؛ صف حفظ می‌شود.',e);}
  finally{
   __dastyarAutoSyncRunning=false;
@@ -9264,7 +9386,54 @@ window.addEventListener('afterprint',function(){const area=document.getElementBy
    try{ renderTeacherNotices(); }catch(e){}
    toast('گزارش و پیام معلم حذف شد');
  };
- window.renderTeacherNotices=function(){
+ window.renderTeacherNotices=async function(){
+   const box=document.getElementById('teacher-notice-list'),inbox=document.getElementById('teacher-notice-inbox');
+   let u=null;try{u=window.user||user;}catch(e){}
+   if(!box||!u||u.role!=='teacher'){if(box)box.innerHTML='';if(inbox)inbox.style.display='none';return;}
+   const perf=rows().filter(r=>r.sent&&r.teacher_username===u.username).map(r=>({id:r.id,kind:'perf',title:r.title||r.category,category:r.category,date:r.date||'',body:r.notice||'',read:(Array.isArray(r.read_by)?r.read_by.includes(String(u.username)):(!!r.read&&String(r.teacher_username)===String(u.username))),at:r.created_at?Date.parse(r.created_at):0}));
+   let localItems=[],serverItems=[];
+   try{const all=JSON.parse(localStorage.getItem('dastyar_teacher_notices_v1')||'{}')||{};localItems=(all[u.username]||[]).map(n=>({id:n.id,kind:n.kind||'print',title:n.title||(n.kind==='urgent'||n.kind==='attendance_reminder'?'پیام مدیریت':'اعلام چاپ برگه'),category:n.kind==='urgent'?'پیام ضروری':(n.kind==='attendance_reminder'?'یادآوری حضور':'اسناد و چاپ'),date:'',body:n.message||'',read:!!n.read,at:n.at||0,audio:n.audio||'',class_ids:n.class_ids||[],date_key:n.date_key||'',expires_at:n.expires_at||''}));}catch(e){}
+   if(sb&&navigator.onLine&&!window.isOffline){try{const res=await sb.from('sa_messages').select('*').eq('sender_role','admin').order('created_at',{ascending:false}).limit(300);if(res&&!res.error&&Array.isArray(res.data))serverItems=res.data.map(decodeDastyarTeacherNotice).filter(function(n){return n&&String(n.recipient_username||'')===String(u.username);});}catch(e){console.warn('دریافت ابلاغیه‌های معلم از سرور ناموفق بود',e);}}
+   const ackIds=new Set();try{(JSON.parse(localStorage.getItem('dastyar_teacher_notice_acks_v1')||'[]')||[]).forEach(function(id){ackIds.add(String(id));});}catch(e){}
+   const todayKey=String(typeof today==='function'?today():'');
+   function keepNotice(n){
+     if(!n)return false;
+     if(n.expires_at&&Date.now()>=Date.parse(n.expires_at))return false;
+     if(n.kind==='attendance_reminder'){
+       if(String(n.date_key||'')!==todayKey)return false;
+       var ids=(n.class_ids||[]).map(String);
+       var remaining=ids.filter(function(cid){return !(cache.attendance||[]).some(function(a){return String(a.class_id)===cid&&String(a.date||'')===todayKey&&!a._offline;});});
+       if(!remaining.length)return false;
+       n.class_ids=remaining;
+       n.class_labels=remaining.map(function(cid){var c=(cache.classes||[]).find(function(x){return String(x.id)===cid;});return c?(c.label||cid):cid;});
+     }
+     return true;
+   }
+   const byId=new Map();
+   perf.concat(localItems,serverItems).filter(keepNotice).forEach(function(n){var key=String(n.id||('notice_'+n.at+'_'+n.kind));n.read=!!n.read||ackIds.has(key);byId.set(key,n);});
+   const data=Array.from(byId.values()).sort(function(a,b){return (b.at||0)-(a.at||0);});
+   if(inbox)inbox.style.display='block';
+   if(!data.length){box.innerHTML='<p style="font-size:.82rem;color:#92400e">ابلاغیه یا تذکر جدیدی برای شما ثبت نشده است.</p>';return;}
+   box.innerHTML=data.map(r=>'<article style="background:#fff;border:1px solid #fde68a;border-radius:10px;padding:10px;margin:8px 0">'+
+    '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>'+esc(r.title||'پیام مدیریت')+'</b><small>'+esc(r.date||'')+'</small></div>'+
+    '<div style="font-size:.76rem;color:#92400e;margin:4px 0">'+esc(r.category||'')+' · از طرف مدیریت'+(r.class_labels&&r.class_labels.length?' · کلاس '+esc(r.class_labels.join('، ')):'')+'</div>'+
+    '<p style="white-space:pre-wrap;margin:6px 0">'+esc(r.body)+'</p>'+(r.audio?('<div style="margin:6px 0"><audio controls src="'+String(r.audio).replace(/"/g,'')+'" style="max-width:100%"></audio></div>'):'')+
+    (!r.read?(r.kind==='perf'?'<button class="btn btn-p btn-sm" onclick="ackTeacherNotice(\\''+String(r.id).replace(/'/g,'')+'\\')">متوجه شدم / تأیید مشاهده</button>':'<button class="btn btn-p btn-sm" onclick="ackPrintNotice(\\''+String(r.id).replace(/'/g,'')+'\\')">متوجه شدم</button>'):'<small style="color:#047857">✓ مشاهده‌شده</small>')+
+    '</article>').join('');
+ };
+ window.ackPrintNotice=async function(id){
+   try{
+     let u=null;try{u=window.user||user;}catch(e){}
+     if(!u||u.role!=='teacher')return;
+     const key='dastyar_teacher_notices_v1',all=JSON.parse(localStorage.getItem(key)||'{}')||{},list=all[u.username]||[];
+     list.forEach(function(n){if(String(n.id)===String(id))n.read=true;});all[u.username]=list;localStorage.setItem(key,JSON.stringify(all));
+     const ackKey='dastyar_teacher_notice_acks_v1';let acks=[];try{acks=JSON.parse(localStorage.getItem(ackKey)||'[]')||[];}catch(e){}
+     if(!Array.isArray(acks))acks=[];if(acks.indexOf(String(id))<0)acks.push(String(id));localStorage.setItem(ackKey,JSON.stringify(acks.slice(-500)));
+     try{var urg=JSON.parse(localStorage.getItem('dastyar_admin_urgent_v1')||'[]')||[];var uname=String(u.username||'');urg.forEach(function(m){if(String(m.id)===String(id)||String(id).indexOf('notice_'+String(m.id)+'_'+uname)===0){if(!Array.isArray(m.read_by))m.read_by=[];if(m.read_by.indexOf(uname)<0)m.read_by.push(uname);}});localStorage.setItem('dastyar_admin_urgent_v1',JSON.stringify(urg));}catch(e2){}
+     renderTeacherNotices();if(typeof toast==='function')toast('مشاهده ثبت شد');
+   }catch(e){}
+ };
+ \n window.ackTeacherNotice=function(
    const box=document.getElementById('teacher-notice-list');
    const inbox=document.getElementById('teacher-notice-inbox');
    let u=null; try{ u=window.user||user; }catch(e){ try{u=user;}catch(_){u=null;} }
@@ -12609,7 +12778,8 @@ window.generateParentPortalLink=async function(classId,studentId){
       competencies:(cache.competencies||[]).filter(x=>String(x.student_id)===String(st.id)),
       discipline:(cache.discipline||[]).filter(x=>String(x.student_id)===String(st.id)),
       parent_contacts:(cache.parent_contacts||[]).filter(x=>String(x.student_id)===String(st.id)),
-      finance:(cache.finance||[]).filter(x=>String(x.student_id)===String(st.id))
+      finance:(cache.finance||[]).filter(x=>String(x.student_id)===String(st.id)),
+      parent_meetings:(typeof localRead==='function'?localRead('dastyar_parent_meetings_v1'):[]).filter(function(m){return String(m.class_id)===String(classId);}).map(function(m){return {date:m.date||'',day:m.day||'',count:m.count==null?null:m.count,summary:m.summary||'',created_at:m.created_at||''};})
     };
     const salt=randomBytes(16), iv=randomBytes(12), key=await deriveParentKey(secret,salt);
     const plain=await compressBytes(new TextEncoder().encode(JSON.stringify(payload)));
