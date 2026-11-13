@@ -7366,6 +7366,7 @@ function activeAdminUrgentMessages(){
   return (loadAdminUrgentMessages()||[]).filter(function(m){
     if(!m)return false;
     if(m.expires_at&&Date.now()>=Date.parse(m.expires_at))return false;
+    if(m.kind==='urgent'&&!m.expires_at&&m.at&&Date.now()-Number(m.at)>=72*60*60*1000)return false;
     if(m.kind==='attendance_reminder'){
       if(String(m.date_key||'')!==todayKey)return false;
       return (m.class_ids||[]).some(function(cid){return !(cache.attendance||[]).some(function(a){return String(a.class_id)===String(cid)&&String(a.date||'')===todayKey&&!a._offline;});});
@@ -9330,12 +9331,13 @@ window.addEventListener('afterprint',function(){const area=document.getElementBy
    const perf=rows().filter(r=>r.sent&&r.teacher_username===u.username).map(r=>({id:r.id,kind:'perf',title:r.title||r.category,category:r.category,date:r.date||'',body:r.notice||'',read:(Array.isArray(r.read_by)?r.read_by.includes(String(u.username)):(!!r.read&&String(r.teacher_username)===String(u.username))),at:r.created_at?Date.parse(r.created_at):0}));
    let localItems=[],serverItems=[];
    try{const all=JSON.parse(localStorage.getItem('dastyar_teacher_notices_v1')||'{}')||{};localItems=(all[u.username]||[]).map(n=>({id:n.id,kind:n.kind||'print',title:n.title||(n.kind==='urgent'||n.kind==='attendance_reminder'?'پیام مدیریت':'اعلام چاپ برگه'),category:n.kind==='urgent'?'پیام ضروری':(n.kind==='attendance_reminder'?'یادآوری حضور':'اسناد و چاپ'),date:'',body:n.message||'',read:!!n.read,at:n.at||0,audio:n.audio||'',class_ids:n.class_ids||[],date_key:n.date_key||'',expires_at:n.expires_at||''}));}catch(e){}
-   if(sb&&navigator.onLine&&!window.isOffline){try{const res=await sb.from('sa_messages').select('*').eq('sender_role','admin').order('created_at',{ascending:false}).limit(300);if(res&&!res.error&&Array.isArray(res.data))serverItems=res.data.map(decodeDastyarTeacherNotice).filter(function(n){return n&&String(n.recipient_username||'')===String(u.username);});}catch(e){console.warn('دریافت ابلاغیه‌های معلم از سرور ناموفق بود',e);}}
+   if(sb&&navigator.onLine&&!window.isOffline){try{const res=await sb.from('sa_messages').select('*').eq('sender_role','admin').like('message_text',DASTYAR_TEACHER_NOTICE_PREFIX+'%').order('created_at',{ascending:false}).limit(300);if(res&&!res.error&&Array.isArray(res.data))serverItems=res.data.map(decodeDastyarTeacherNotice).filter(function(n){return n&&String(n.recipient_username||'')===String(u.username);});}catch(e){console.warn('دریافت ابلاغیه‌های معلم از سرور ناموفق بود',e);}}
    const ackIds=new Set();try{(JSON.parse(localStorage.getItem('dastyar_teacher_notice_acks_v1')||'[]')||[]).forEach(function(id){ackIds.add(String(id));});}catch(e){}
    const todayKey=String(typeof today==='function'?today():'');
    function keepNotice(n){
      if(!n)return false;
      if(n.expires_at&&Date.now()>=Date.parse(n.expires_at))return false;
+     if(n.kind==='urgent'&&!n.expires_at&&n.at&&Date.now()-Number(n.at)>=72*60*60*1000)return false;
      if(n.kind==='attendance_reminder'){
        if(String(n.date_key||'')!==todayKey)return false;
        var ids=(n.class_ids||[]).map(String);
