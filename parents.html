@@ -186,81 +186,32 @@ button{width:100%;margin-top:14px;padding:12px;border:0;border-radius:12px;backg
     }
   }
   function renderPayload(p){
-    $("login-card").style.display="none";
-    $("view-card").style.display="block";
-    var st=p.student||{};
-    $("v-title").textContent=((st.first_name||"")+" "+(st.last_name||"")).trim()||"پرونده دانش‌آموز";
-    var updated=p.updated_at||"";
-    try{
-      if(updated){
-        var d=new Date(updated);
-        if(!isNaN(d.getTime())) updated=d.toLocaleString("fa-IR");
-      }
-    }catch(e){}
+    $("login-card").style.display="none"; $("view-card").style.display="block";
+    var st=p.student||{}; $("v-title").textContent=((st.first_name||"")+" "+(st.last_name||"")).trim()||"پرونده دانش‌آموز";
+    var updated=p.updated_at||""; try{if(updated){var d=new Date(updated);if(!isNaN(d.getTime()))updated=d.toLocaleString("fa-IR");}}catch(e){}
     $("v-sub").textContent=(pkg.class_name||"")+(updated?(" | آخرین به‌روزرسانی: "+updated):"");
-
-    function faDigits(s){
-      return String(s==null?"":s).replace(/\d/g,function(d){return "۰۱۲۳۴۵۶۷۸۹"[d];});
-    }
-    function trStatus(v){
-      var s=String(v||"").toLowerCase().trim();
-      var map={
-        present:"حاضر", absent:"غایب", excused:"غایب موجه", late:"تأخیر",
-        "absent_excused":"غایب موجه", "absent_unexcused":"غایب غیرموجه",
-        "unexcused":"غایب غیرموجه", "motevajjeh":"غایب موجه",
-        "حاضر":"حاضر", "غایب":"غایب", "موجه":"غایب موجه", "تاخیر":"تأخیر", "تأخیر":"تأخیر"
-      };
-      return map[s]||map[String(v||"").trim()]||(v?String(v):"—");
-    }
-    function trLevel(v){
-      var s=String(v||"").toLowerCase().trim();
-      var map={
-        "very good":"خیلی خوب", "very_good":"خیلی خوب", "excellent":"عالی",
-        "good":"خوب", "acceptable":"قابل قبول", "need effort":"نیاز به تلاش",
-        "needs effort":"نیاز به تلاش", "needs_effort":"نیاز به تلاش",
-        "need_effort":"نیاز به تلاش", "poor":"نیاز به تلاش", "weak":"نیاز به تلاش",
-        "fair":"قابل قبول", "average":"قابل قبول",
-        "خیلی خوب":"خیلی خوب", "خوب":"خوب", "قابل قبول":"قابل قبول", "نیاز به تلاش":"نیاز به تلاش", "عالی":"عالی"
-      };
-      if(map[s]) return map[s];
-      if(map[String(v||"").trim()]) return map[String(v||"").trim()];
-      return v?String(v):"—";
-    }
-    function trSubject(v){
-      var s=String(v||"").trim();
-      var map={
-        Math:"ریاضی", Mathematics:"ریاضی", math:"ریاضی",
-        Science:"علوم", science:"علوم",
-        Persian:"فارسی", Farsi:"فارسی", "persian":"فارسی",
-        Quran:"قرآن", quran:"قرآن",
-        Social:"مطالعات اجتماعی", sport:"تربیت بدنی", Sport:"تربیت بدنی", PE:"تربیت بدنی",
-        Art:"هنر", art:"هنر", English:"انگلیسی", english:"انگلیسی"
-      };
-      return map[s]||s||"—";
-    }
-    function list(title, arr, fmt){
-      arr=arr||[];
-      var h="<div class=\"section\"><h3>"+title+" ("+faDigits(arr.length)+")</h3>";
-      if(!arr.length) return h+"<div class=\"item\">موردی ثبت نشده است</div></div>";
-      return h+arr.slice(0,40).map(fmt).join("")+"</div>";
-    }
+    function esc(v){return String(v==null?"":v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
+    function faDigits(v){return String(v==null?"":v).replace(/[0-9]/g,function(d){return "۰۱۲۳۴۵۶۷۸۹"[Number(d)];});}
+    function trStatus(v){var s=String(v||"").toLowerCase().trim();var m={present:"حاضر",absent:"غایب",excused:"غایب موجه",late:"تأخیر",absent_excused:"غایب موجه",absent_unexcused:"غایب غیرموجه",unexcused:"غایب غیرموجه",motevajjeh:"غایب موجه","حاضر":"حاضر","غایب":"غایب","موجه":"غایب موجه","تاخیر":"تأخیر","تأخیر":"تأخیر"};return m[s]||m[String(v||"").trim()]||(v?String(v):"—");}
+    function trLevel(v){var s=String(v||"").toLowerCase().trim();var m={"very good":"خیلی خوب",very_good:"خیلی خوب",excellent:"عالی",good:"خوب",acceptable:"قابل قبول","need effort":"نیاز به تلاش","needs effort":"نیاز به تلاش",needs_effort:"نیاز به تلاش",need_effort:"نیاز به تلاش",poor:"نیاز به تلاش",weak:"نیاز به تلاش",fair:"قابل قبول",average:"قابل قبول","خیلی خوب":"خیلی خوب","خوب":"خوب","قابل قبول":"قابل قبول","نیاز به تلاش":"نیاز به تلاش","عالی":"عالی"};return m[s]||m[String(v||"").trim()]||(v?String(v):"—");}
+    function trSubject(v){var s=String(v||"").trim();var m={Math:"ریاضی",Mathematics:"ریاضی",math:"ریاضی",Science:"علوم",science:"علوم",Persian:"فارسی",Farsi:"فارسی",persian:"فارسی",Quran:"قرآن",quran:"قرآن",Social:"مطالعات اجتماعی",sport:"تربیت بدنی",Sport:"تربیت بدنی",PE:"تربیت بدنی",Art:"هنر",art:"هنر",English:"انگلیسی",english:"انگلیسی"};return m[s]||s||"—";}
+    function arr(v){return Array.isArray(v)?v:[];}
+    function list(title,rows,fmt){rows=arr(rows);var h="<div class=\"section\"><h3>"+title+" ("+faDigits(rows.length)+")</h3>";if(!rows.length)return h+"<div class=\"item\">موردی ثبت نشده است</div></div>";return h+rows.map(fmt).join("")+"</div>";}
+    function dateSort(rows){return arr(rows).slice().sort(function(a,b){return String(b.date||b.created_at||"").localeCompare(String(a.date||a.created_at||""));});}
     var html="";
-    html+=list("حضور و غیاب", p.attendance, function(a){
-      return "<div class=\"item\">"+faDigits(a.date||"")+" — "+trStatus(a.status)+(a.note?(" — "+a.note):"")+"</div>";
-    });
-    html+=list("پرسش و پاسخ / فعالیت", p.activities, function(a){
-      return "<div class=\"item\">"+faDigits(a.date||"")+" — "+trSubject(a.subject||a.lesson||"")+" — "+trLevel(a.level||a.score||a.result||"")+"</div>";
-    });
-    html+=list("ارزشیابی", p.evaluations, function(a){
-      return "<div class=\"item\">"+faDigits(a.month||a.date||"")+" — "+trSubject(a.subject||"")+" — "+trLevel(a.level||a.score||"")+"</div>";
-    });
-    html+=list("نمرات", p.scores, function(a){
-      return "<div class=\"item\">"+trSubject(a.subject||"")+" — "+trLevel(a.level||a.score||"")+"</div>";
-    });
-    html+=list("انضباط", p.discipline, function(a){
-      var cat=a.feedback||a.category||a.topic||"";
-      return "<div class=\"item\">"+faDigits(a.date||"")+" — "+String(cat||"—")+"</div>";
-    });
+    html+=list("حضور و غیاب",dateSort(p.attendance),function(a){return "<div class=\"item\">"+faDigits(esc(a.date||""))+" — "+esc(trStatus(a.status))+(a.note?(" — "+esc(a.note)):"")+"</div>";});
+    html+=list("پرسش و پاسخ / فعالیت",dateSort(p.activities),function(a){return "<div class=\"item\">"+faDigits(esc(a.date||""))+" — "+esc(trSubject(a.subject||a.lesson||""))+" — "+esc(trLevel(a.level||a.score||a.result||""))+(a.notes?(" — "+esc(a.notes)):"")+"</div>";});
+    html+=list("ارزشیابی",dateSort(p.evaluations),function(a){return "<div class=\"item\">"+faDigits(esc(a.month||a.date||""))+" — "+esc(trSubject(a.subject||""))+" — "+esc(trLevel(a.level||a.score||""))+(a.notes?(" — "+esc(a.notes)):"")+"</div>";});
+    html+=list("نمرات",dateSort(p.scores),function(a){return "<div class=\"item\">"+esc(trSubject(a.subject||""))+" — نمره: "+esc(a.score==null?"—":a.score)+" — "+esc(trLevel(a.level||""))+(a.notes?(" — "+esc(a.notes)):"")+"</div>";});
+    var progressMap=Object.create(null);
+    arr(p.scores).concat(arr(p.evaluations)).forEach(function(r){var raw=r&&r.score;if(raw==null||raw==="")return;var value=Number(String(raw).replace(/[۰-۹]/g,function(d){return "۰۱۲۳۴۵۶۷۸۹".indexOf(d);}).replace(/,/g,""));if(!Number.isFinite(value))return;var subject=trSubject(r.subject||r.lesson||"سایر");if(!progressMap[subject])progressMap[subject]={sum:0,count:0};progressMap[subject].sum+=value;progressMap[subject].count++;});
+    var progress=Object.keys(progressMap).map(function(subject){return {subject:subject,avg:progressMap[subject].sum/progressMap[subject].count,count:progressMap[subject].count};});
+    var scale=progress.some(function(x){return x.avg>20;})?100:20;
+    html+=list("نمودار پیشرفت تحصیلی",progress,function(x){var pct=Math.max(0,Math.min(100,x.avg/scale*100));return "<div class=\"item\" style=\"display:grid;grid-template-columns:minmax(70px,1fr) 2fr auto;gap:7px;align-items:center\"><b>"+esc(x.subject)+"</b><div style=\"height:10px;background:#e2e8f0;border-radius:9px;overflow:hidden\"><div style=\"height:100%;width:"+pct.toFixed(1)+"%;background:#2563eb\"></div></div><span>"+faDigits(x.avg.toFixed(1))+" از "+faDigits(scale)+"</span></div>";});
+    html+=list("شایستگی‌ها",dateSort(p.competencies),function(a){return "<div class=\"item\">"+esc(a.name||a.title||"شایستگی")+" — "+esc(trLevel(a.level||a.result||a.score||""))+(a.notes?(" — "+esc(a.notes)):"")+"</div>";});
+    html+=list("انضباط",dateSort(p.discipline),function(a){return "<div class=\"item\">"+faDigits(esc(a.date||""))+" — "+esc(a.feedback||a.category||a.topic||"—")+(a.details?(" — "+esc(a.details)):"")+(a.decision_text?(" — "+esc(a.decision_text)):"")+"</div>";});
+    html+=list("سوابق مالی",dateSort(p.finance),function(a){var amount=a.amount==null?"—":faDigits(a.amount);return "<div class=\"item\"><b>"+esc(a.topic||a.title||"مالی")+"</b> — "+faDigits(esc(a.date||""))+" — مبلغ: "+esc(amount)+(a.notes?(" — "+esc(a.notes)):"")+(a.status?(" — وضعیت: "+esc(a.status)):"")+"</div>";});
+    html+=list("ارتباط و پیگیری با اولیا",dateSort(p.parent_contacts),function(a){var types={call:"تماس",message:"پیام",inperson:"حضوری",other:"سایر"};return "<div class=\"item\"><b>"+esc(types[a.contact_type]||a.contact_type||"ارتباط")+"</b> — "+faDigits(esc(a.date||""))+(a.phone?(" — "+esc(a.phone)):"")+(a.subject?(" — موضوع: "+esc(a.subject)):"")+(a.result?(" — نتیجه: "+esc(a.result)):"")+(a.follow_up_date?(" — پیگیری: "+faDigits(esc(a.follow_up_date))):"")+(a.notes?(" — "+esc(a.notes)):"")+"</div>";});
     $("v-body").innerHTML=html;
   }
 $("btn-login").onclick=function(e){ e.preventDefault(); doLogin(); };
