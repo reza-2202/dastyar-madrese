@@ -5763,8 +5763,17 @@ function qaStudentPerformance(studentId,subject,classId){var arr=(cache.activiti
 function autoQaLevelFromInput(inputId,levelId){var input=document.getElementById(inputId),level=document.getElementById(levelId);if(!input||!level)return;var v=qaLevelFromScore(input.value);if(v)level.value=v;}
 function toggleActEntryMode(){var mode=document.getElementById('ac-mode')?.value||'single';var ty=document.getElementById('ac-ty')?.value||'qa';var group=document.getElementById('ac-group-wrap'),single=document.getElementById('ac-single-wrap');if(group)group.style.display=(mode==='group'&&ty==='qa')?'block':'none';if(single)single.style.display=(mode==='group'&&ty==='qa')?'none':'block';var score=document.getElementById('ac-score-wrap');if(score)score.style.display=ty==='qa'?'block':'none';}
 function qaAutoScoreId(studentId,subject){return 'qaavg_'+encodeURIComponent(String(studentId))+'_'+encodeURIComponent(String(subject));}
+function qaActivityFingerprint(studentId,subject){
+ var rows=(cache.activities||[]).filter(function(a){return a&&a.type==='qa'&&String(a.student_id)===String(studentId)&&String(a.subject)===String(subject);}).map(function(a){return [String(a.id||''),String(a.score==null?'':a.score),String(a.level||''),String(a.date||'')];}).sort(function(a,b){return a[0].localeCompare(b[0]);});
+ var raw=JSON.stringify(rows),hash=2166136261;for(var i=0;i<raw.length;i++){hash^=raw.charCodeAt(i);hash=Math.imul(hash,16777619);}return ('00000000'+(hash>>>0).toString(16)).slice(-8);
+}
+function qaManualScoreId(studentId,subject,fingerprint){return 'qamanual_'+encodeURIComponent(String(studentId))+'_'+encodeURIComponent(String(subject))+'_'+String(fingerprint||qaActivityFingerprint(studentId,subject));}
 function isQaAutoScoreRow(row){return !!(row&&String(row.id||'').indexOf('qaavg_')===0);}
-function getReportScoreRow(studentId,subject){var rows=(cache.scores||[]).filter(function(x){return String(x.student_id)===String(studentId)&&String(x.subject)===String(subject);});return rows.find(isQaAutoScoreRow)||rows.find(function(x){return !isQaAutoScoreRow(x);})||{};}
+function isQaManualOverrideRow(row){return !!(row&&String(row.id||'').indexOf('qamanual_')===0);}
+function getReportScoreRow(studentId,subject){
+ var rows=(cache.scores||[]).filter(function(x){return String(x.student_id)===String(studentId)&&String(x.subject)===String(subject);});
+ return rows.find(isQaManualOverrideRow)||rows.find(isQaAutoScoreRow)||rows.find(function(x){return !isQaAutoScoreRow(x)&&!isQaManualOverrideRow(x);})||{};
+}
 async function syncQaReportCardAverages(studentIds){
  var selected=Array.isArray(studentIds)?new Set(studentIds.filter(function(x){return x!=null&&String(x)!=='';}).map(String)):null;if(selected&&selected.size===0)return 0;
  var activities=(cache.activities||[]).filter(function(a){return a&&a.type==='qa'&&a.student_id!=null&&a.subject!=null&&String(a.subject).trim()!==''&&(!selected||selected.has(String(a.student_id)));});
@@ -5775,12 +5784,16 @@ async function syncQaReportCardAverages(studentIds){
  });
  var nextRows=[];grouped.forEach(function(item){if(!item.count)return;var avg=Math.round((item.sum/item.count)*10)/10;nextRows.push({id:qaAutoScoreId(item.student_id,item.subject),student_id:item.student_id,subject:item.subject,score:avg,level:scoreLv(avg),updated_at:new Date().toISOString()});});
  var oldAuto=(cache.scores||[]).filter(function(x){return isQaAutoScoreRow(x)&&(!selected||selected.has(String(x.student_id)));});
- var nextIds=new Set(nextRows.map(function(x){return String(x.id);})),staleIds=oldAuto.filter(function(x){return !nextIds.has(String(x.id));}).map(function(x){return String(x.id);}),byId=new Map(nextRows.map(function(x){return [String(x.id),x];}));
- cache.scores=(cache.scores||[]).filter(function(x){return !(isQaAutoScoreRow(x)&&(!selected||selected.has(String(x.student_id)))&&staleIds.includes(String(x.id)));}).map(function(x){var u=byId.get(String(x.id));return u?Object.assign({},x,u):x;});
+ var oldOverrides=(cache.scores||[]).filter(function(x){return isQaManualOverrideRow(x)&&(!selected||selected.has(String(x.student_id)));});
+ var nextIds=new Set(nextRows.map(function(x){return String(x.id);}));
+ var validOverrideIds=new Set(nextRows.map(function(x){return qaManualScoreId(x.student_id,x.subject,qaActivityFingerprint(x.student_id,x.subject));}));
+ var staleIds=oldAuto.filter(function(x){return !nextIds.has(String(x.id));}).concat(oldOverrides.filter(function(x){return !validOverrideIds.has(String(x.id));})).map(function(x){return String(x.id);});
+ var staleSet=new Set(staleIds),byId=new Map(nextRows.map(function(x){return [String(x.id),x];}));
+ cache.scores=(cache.scores||[]).filter(function(x){return !staleSet.has(String(x.id));}).map(function(x){var u=byId.get(String(x.id));return u?Object.assign({},x,u):x;});
  var present=new Set(cache.scores.map(function(x){return String(x.id);}));nextRows.forEach(function(x){if(!present.has(String(x.id)))cache.scores.push(x);});
  try{persistLocalSchoolCache();}catch(e){}try{if(window.DastyarOffline&&window.DastyarOffline.saveSnapshot)await window.DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
  if(sb&&navigator.onLine&&!window.isOffline){if(nextRows.length){var up=await sb.from('sa_scores').upsert(nextRows);if(up&&up.error)throw up.error;}if(staleIds.length){var del=await sb.from('sa_scores').delete().in('id',staleIds);if(del&&del.error)throw del.error;}}
- else if(sb&&staleIds.length){var qd=await sb.from('sa_scores').delete().in('id',staleIds);if(qd&&qd.error)console.warn('صف حذف میانگین خودکار کارنامه',qd.error);}
+ else if(sb&&staleIds.length){var qd=await sb.from('sa_scores').delete().in('id',staleIds);if(qd&&qd.error)console.warn('صف حذف میانگین/ویرایش خودکار کارنامه',qd.error);}
  return nextRows.length;
 }
 
@@ -6407,18 +6420,13 @@ function printEvals(){
 }
 
 /* REPORT */
+function renderReportStudentsList(){
+ const classId=document.getElementById('rp-class').value,students=sortStudentsByLastName(cache.students.filter(function(st){return st.class_id===classId;}));printSet.clear();const box=document.getElementById('rp-list');
+ if(!students.length){box.innerHTML='<div class="empty">دانش‌آموزی نیست</div>';return;}
+ box.innerHTML=students.map(function(st){const filled=new Set(cache.scores.filter(function(x){return String(x.student_id)===String(st.id);}).map(function(x){return String(x.subject);})).size;return '<div class="card" style="padding:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap"><div style="flex:1" onclick="openScore(\''+st.id+'\')"><div class="name">'+st.first_name+' '+st.last_name+'</div><div class="meta">'+(filled?fa(filled)+' درس':'بدون نمره')+'</div></div><label style="font-size:.75rem"><input type="checkbox" onchange="togP(\''+st.id+'\',this.checked)"/> PDF</label><button class="btn btn-p btn-sm" onclick="openScore(\''+st.id+'\')">ثبت نمره</button></div></div>';}).join('');
+}
 async function loadReportStudents(){
-  await reloadAll();
-  try{await syncQaReportCardAverages();}catch(syncErr){console.warn('همگام‌سازی میانگین پرسش‌وپاسخ با کارنامه ناموفق بود',syncErr);}
-  const classId=document.getElementById('rp-class').value;
-  const students=sortStudentsByLastName(cache.students.filter(s=>s.class_id===classId));
-  printSet.clear();
-  const box=document.getElementById('rp-list');
-  if(!students.length){box.innerHTML='<div class="empty">دانش‌آموزی نیست</div>';return;}
-  box.innerHTML=students.map(s=>{
-    const filled=cache.scores.filter(x=>x.student_id===s.id).length;
-    return '<div class="card" style="padding:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap"><div style="flex:1" onclick="openScore(\''+s.id+'\')"><div class="name">'+s.first_name+' '+s.last_name+'</div><div class="meta">'+(filled?fa(filled)+' درس':'بدون نمره')+'</div></div><label style="font-size:.75rem"><input type="checkbox" onchange="togP(\''+s.id+'\',this.checked)"/> PDF</label><button class="btn btn-p btn-sm" onclick="openScore(\''+s.id+'\')">ثبت نمره</button></div></div>';
-  }).join('');
+ await reloadAll();try{await syncQaReportCardAverages();}catch(syncErr){console.warn('همگام‌سازی میانگین پرسش‌وپاسخ با کارنامه ناموفق بود',syncErr);}renderReportStudentsList();
 }
 function togP(id,c){if(c)printSet.add(id);else printSet.delete(id);}
 function openScore(sid){
@@ -6440,14 +6448,15 @@ function openScore(sid){
 function al(sub){const v=parseFloat(document.getElementById('sc-'+sub).value);if(!isNaN(v))document.getElementById('lv-'+sub).value=scoreLv(v);}
 async function saveScores(){
  if(!editSid)return;const sid=String(editSid),student=(cache.students||[]).find(function(x){return String(x.id)===sid;});if(!student){toast('دانش‌آموز پیدا نشد');return;}
- const subs=subjectsFor(student.class_id)||[],oldRows=(cache.scores||[]).filter(function(x){return String(x.student_id)===sid;}),oldManualIds=oldRows.filter(function(x){return !isQaAutoScoreRow(x);}).map(function(x){return String(x.id);}),oldAuto=oldRows.filter(isQaAutoScoreRow),manualRows=[],autoUpdates=[];
- for(const sub of subs){const input=document.getElementById('sc-'+sub),levelEl=document.getElementById('lv-'+sub);if(!input||!levelEl)continue;const raw=String(input.value||'').trim(),level=String(levelEl.value||'').trim();if(raw===''&&!level)continue;const score=raw===''?null:parseFloat(raw);if(score!=null&&(!Number.isFinite(score)||score<0||score>20)){toast('نمره «'+sub+'» معتبر نیست');return;}const finalLevel=level||(score!=null?scoreLv(score):null);manualRows.push({id:sid+'_'+sub,student_id:sid,subject:sub,score:score,level:finalLevel});const auto=oldAuto.find(function(x){return String(x.subject)===String(sub);});if(auto)autoUpdates.push(Object.assign({},auto,{score:score,level:finalLevel,updated_at:new Date().toISOString()}));}
+ const subs=subjectsFor(student.class_id)||[],oldRows=(cache.scores||[]).filter(function(x){return String(x.student_id)===sid;}),oldManualIds=oldRows.filter(function(x){return !isQaAutoScoreRow(x)&&!isQaManualOverrideRow(x);}).map(function(x){return String(x.id);}),oldAuto=oldRows.filter(isQaAutoScoreRow),oldOverrides=oldRows.filter(isQaManualOverrideRow),manualRows=[],overrideRows=[];
+ for(const sub of subs){const input=document.getElementById('sc-'+sub),levelEl=document.getElementById('lv-'+sub);if(!input||!levelEl)continue;const raw=String(input.value||'').trim(),level=String(levelEl.value||'').trim();if(raw===''&&!level)continue;const score=raw===''?null:parseFloat(raw);if(score!=null&&(!Number.isFinite(score)||score<0||score>20)){toast('نمره «'+sub+'» معتبر نیست');return;}const finalLevel=level||(score!=null?scoreLv(score):null);manualRows.push({id:sid+'_'+sub,student_id:sid,subject:sub,score:score,level:finalLevel});if(oldAuto.some(function(x){return String(x.subject)===String(sub);})||oldOverrides.some(function(x){return String(x.subject)===String(sub);}))overrideRows.push({id:qaManualScoreId(sid,sub,qaActivityFingerprint(sid,sub)),student_id:sid,subject:sub,score:score,level:finalLevel,updated_at:new Date().toISOString()});}
  const compRows=[];(COMPS||[]).forEach(function(c){const el=document.getElementById('cp-'+c);if(!el)return;const lv=String(el.value||'').trim();if(lv)compRows.push({id:sid+'_'+c,student_id:sid,name:c,level:lv});});
- const keptAuto=oldAuto.map(function(old){return autoUpdates.find(function(x){return String(x.id)===String(old.id);})||old;});cache.scores=(cache.scores||[]).filter(function(x){return String(x.student_id)!==sid;}).concat(keptAuto,manualRows);cache.competencies=(cache.competencies||[]).filter(function(x){return String(x.student_id)!==sid;}).concat(compRows);
+ const newOverrideIds=new Set(overrideRows.map(function(x){return String(x.id);})),keptOverrides=oldOverrides.filter(function(x){return !newOverrideIds.has(String(x.id));});
+ cache.scores=(cache.scores||[]).filter(function(x){return String(x.student_id)!==sid;}).concat(oldAuto,keptOverrides,manualRows,overrideRows);cache.competencies=(cache.competencies||[]).filter(function(x){return String(x.student_id)!==sid;}).concat(compRows);
  try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
  try{localStorage.setItem('dastyar_school_snapshot_v1',JSON.stringify({users:cache.users,classes:cache.classes,students:cache.students,attendance:cache.attendance,scores:cache.scores,competencies:cache.competencies,activities:cache.activities,evaluations:cache.evaluations,discipline:cache.discipline,finance:cache.finance,documents:cache.documents||[]}));}catch(e){}
- if(navigator.onLine&&sb){try{const newIds=new Set(manualRows.map(function(x){return String(x.id);})),removed=oldManualIds.filter(function(id){return !newIds.has(id);});if(removed.length){const del=await sb.from('sa_scores').delete().in('id',removed);if(del&&del.error)throw del.error;}const upRows=manualRows.concat(autoUpdates);if(upRows.length){const up=await sb.from('sa_scores').upsert(upRows);if(up&&up.error)throw up.error;}try{await sb.from('sa_competencies').delete().eq('student_id',sid);}catch(e){}if(compRows.length){const up2=await sb.from('sa_competencies').upsert(compRows);if(up2&&up2.error)console.warn(up2.error);}}catch(e){console.warn('ذخیره کارنامه',e);toast('ذخیره محلی انجام شد؛ همگام‌سازی سرور کامل نشد: '+(e.message||e));}}
- try{document.getElementById('rp-edit').innerHTML='';}catch(e){}try{if(typeof loadReportStudents==='function')loadReportStudents();}catch(e){}try{persistLocalSchoolCache();}catch(e){}
+ if(navigator.onLine&&sb){try{const newIds=new Set(manualRows.map(function(x){return String(x.id);})),removed=oldManualIds.filter(function(id){return !newIds.has(id);});if(removed.length){const del=await sb.from('sa_scores').delete().in('id',removed);if(del&&del.error)throw del.error;}const upRows=manualRows.concat(overrideRows);if(upRows.length){const up=await sb.from('sa_scores').upsert(upRows);if(up&&up.error)throw up.error;}try{await sb.from('sa_competencies').delete().eq('student_id',sid);}catch(e){}if(compRows.length){const up2=await sb.from('sa_competencies').upsert(compRows);if(up2&&up2.error)console.warn(up2.error);}}catch(e){console.warn('ذخیره کارنامه',e);toast('ذخیره محلی انجام شد؛ همگام‌سازی سرور کامل نشد: '+(e.message||e));}}
+ try{document.getElementById('rp-edit').innerHTML='';}catch(e){}try{renderReportStudentsList();}catch(e){}try{persistLocalSchoolCache();}catch(e){}
  toast(manualRows.length?'کارنامه ذخیره شد':'نمرات دستی کارنامه پاک شد؛ میانگین پرسش‌های ثبت‌شده حفظ می‌شود');
 }
 function buildReport(sid){
