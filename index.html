@@ -1474,6 +1474,7 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <div class="fg"><label>تاریخ حضور</label><div data-jdate="iv-date" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"></div><input id="iv-date" type="hidden" value=""/></div>
 <div class="fg"><label>روز حضور</label><select id="iv-day"><option>شنبه</option><option>یکشنبه</option><option>دوشنبه</option><option>سه‌شنبه</option><option>چهارشنبه</option><option>پنجشنبه</option><option>جمعه</option></select></div>
 <div class="fg"><label>ساعت حضور</label><input id="iv-time" placeholder="مثلاً 10:30"/></div>
+<label class="no-print" style="display:flex;align-items:center;gap:8px;margin:8px 0;font-size:.85rem"><input id="iv-include-photo" type="checkbox"/> نمایش عکس دانش‌آموز در دعوتنامه چاپی (اختیاری)</label>
 <div class="doc-actions"><button class="btn btn-p" onclick="addInviteToBatch()">➕ افزودن دعوتنامه</button><button class="btn btn-s" onclick="printInviteBatch()">🖨️ چاپ دعوتنامه‌های فهرست</button><button class="btn btn-o" onclick="clearInviteBatch()">پاک‌کردن فهرست چاپ</button></div>
 <div id="iv-batch-list" style="margin-top:10px"></div>
 </div>
@@ -2733,6 +2734,7 @@ async function doLogin(){
         if(typeof loadSchoolDocuments==='function') await loadSchoolDocuments();
         if(typeof ensureStudentsFromServer==='function') await ensureStudentsFromServer();
         /* ensureClass4BStudents disabled — no auto student injection */
+        try{if(typeof refreshStudentPhotosFromServer==='function')await refreshStudentPhotosFromServer(true);}catch(photoSyncError){console.warn('student photos sync skipped',photoSyncError);}
         if(typeof refreshDash==='function') refreshDash();
         if(user&&user.role==='teacher'&&typeof renderTeacherTodaySchedule==='function') renderTeacherTodaySchedule();
         if(typeof fillTeacherSelect==='function') fillTeacherSelect();
@@ -3727,101 +3729,18 @@ function toggleStudentRoster(){
 
 
 
-function loadStudentPhotosMap(){
-  try{ return JSON.parse(localStorage.getItem('dastyar_student_photos_v1')||'{}')||{}; }catch(e){ return {}; }
-}
-function saveStudentPhotoLocal(id, dataUrl){
-  var m=loadStudentPhotosMap();
-  id=String(id||'');
-  if(!id) return;
-  if(dataUrl) m[id]=dataUrl; else delete m[id];
-  try{ localStorage.setItem('dastyar_student_photos_v1', JSON.stringify(m)); }catch(e){ console.warn('photo local save', e); }
-}
-function applyStudentPhotosFromLocal(){
-  var m=loadStudentPhotosMap();
-  (cache.students||[]).forEach(function(s){
-    if(!s) return;
-    var ph=m[String(s.id)];
-    if(ph) s.photo=ph;
-  });
-}
-
-
-function studentAvatarHtml(s, size){
-  size = size || 36;
-  try{ if(typeof applyStudentPhotosFromLocal==='function') applyStudentPhotosFromLocal(); }catch(e){}
-  var ph = (s && s.photo) ? String(s.photo) : '';
-  if(ph){
-    return '<img src="'+ph.replace(/"/g,'')+'" alt="" style="width:'+size+'px;height:'+size+'px;border-radius:50%;object-fit:cover;border:1px solid #cbd5e1;flex-shrink:0;vertical-align:middle"/>';
-  }
-  return '<span style="width:'+size+'px;height:'+size+'px;border-radius:50%;background:#e2e8f0;display:inline-flex;align-items:center;justify-content:center;font-size:'+Math.max(12,Math.round(size*0.45))+'px;flex-shrink:0">👤</span>';
-}
-function studentNameWithPhoto(s, size){
-  var name = (((s&&s.first_name)||'')+' '+((s&&s.last_name)||'')).trim() || '—';
-  var esc = (typeof escHtml==='function') ? escHtml : function(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
-  return '<span style="display:inline-flex;align-items:center;gap:8px">'+studentAvatarHtml(s, size||36)+'<span>'+esc(name)+'</span></span>';
-}
-
-async function setStudentPhoto(studentId, input){
-  try{
-    var file=input&&input.files&&input.files[0];
-    if(!file) return;
-    if(!file.type||file.type.indexOf('image/')!==0){ if(typeof toast==='function') toast('فقط فایل تصویری'); return; }
-    var dataUrl=await new Promise(function(resolve,reject){
-      var reader=new FileReader();
-      reader.onload=function(){
-        var img=new Image();
-        img.onload=function(){
-          try{
-            var max=240,w=img.width,h=img.height;
-            if(w>max||h>max){ var r=Math.min(max/w,max/h); w=Math.round(w*r); h=Math.round(h*r); }
-            var canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h;
-            canvas.getContext('2d').drawImage(img,0,0,w,h);
-            resolve(canvas.toDataURL('image/jpeg',0.75));
-          }catch(e){ resolve(String(reader.result||'')); }
-        };
-        img.onerror=function(){ resolve(String(reader.result||'')); };
-        img.src=String(reader.result||'');
-      };
-      reader.onerror=reject;
-      reader.readAsDataURL(file);
-    });
-    var st=(cache.students||[]).find(function(s){return String(s.id)===String(studentId);});
-    if(!st){ if(typeof toast==='function') toast('دانش‌آموز پیدا نشد'); return; }
-    st.photo=dataUrl;
-    try{ saveStudentPhotoLocal(studentId, dataUrl); }catch(e){}
-    try{ if(window.DastyarOffline&&DastyarOffline.saveSnapshot) await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache))); }catch(e){}
-    try{
-      var snap={users:cache.users,classes:cache.classes,students:cache.students,attendance:cache.attendance,scores:cache.scores,competencies:cache.competencies,activities:cache.activities,evaluations:cache.evaluations,discipline:cache.discipline,finance:cache.finance,documents:cache.documents||[]};
-      localStorage.setItem('dastyar_school_snapshot_v1', JSON.stringify(snap));
-    }catch(e){}
-    if(navigator.onLine&&sb){
-      try{ await sb.from('sa_students').update({photo:dataUrl}).eq('id', studentId); }catch(e){ console.warn('server photo column optional', e); }
-    }
-    try{ renderStudents(); }catch(e){}
-    if(typeof toast==='function') toast('عکس ذخیره شد');
-  }catch(e){ console.error(e); if(typeof toast==='function') toast('ذخیره عکس ناموفق بود'); }
-}
-async function removeStudentPhoto(studentId){
-  try{
-    var st=(cache.students||[]).find(function(s){return String(s.id)===String(studentId);});
-    if(!st) return;
-    st.photo=null;
-    try{ saveStudentPhotoLocal(studentId, null); }catch(e){}
-    try{ if(window.DastyarOffline&&DastyarOffline.saveSnapshot) await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache))); }catch(e){}
-    try{
-      var snap={users:cache.users,classes:cache.classes,students:cache.students,attendance:cache.attendance,scores:cache.scores,competencies:cache.competencies,activities:cache.activities,evaluations:cache.evaluations,discipline:cache.discipline,finance:cache.finance,documents:cache.documents||[]};
-      localStorage.setItem('dastyar_school_snapshot_v1', JSON.stringify(snap));
-    }catch(e){}
-    if(navigator.onLine&&sb){
-      try{ await sb.from('sa_students').update({photo:null}).eq('id', studentId); }catch(e){}
-    }
-    try{ renderStudents(); }catch(e){}
-    if(typeof toast==='function') toast('عکس حذف شد');
-  }catch(e){}
-}
-
-
+function loadStudentPhotosMap(){try{return JSON.parse(localStorage.getItem('dastyar_student_photos_v1')||'{}')||{};}catch(e){return {};}}
+function saveStudentPhotoLocal(id,dataUrl){var m=loadStudentPhotosMap();id=String(id||'');if(!id)return;if(dataUrl)m[id]=dataUrl;else delete m[id];try{localStorage.setItem('dastyar_student_photos_v1',JSON.stringify(m));}catch(e){console.warn('photo local save',e);}}
+function applyStudentPhotosFromLocal(){var m=loadStudentPhotosMap();(cache.students||[]).forEach(function(s){if(s&&!s.photo&&m[String(s.id)])s.photo=m[String(s.id)];});}
+var studentPhotoSessionToken='';
+async function ensureStudentPhotoSession(){if(studentPhotoSessionToken)return studentPhotoSessionToken;if(!navigator.onLine||!sb||!user||!window.__dastyarSessionPassword)return '';var result=await sb.rpc('issue_sa_student_photo_token',{p_username:String(user.username||user.full_name||''),p_password:String(window.__dastyarSessionPassword||'')});if(result&&result.error)throw new Error(result.error.message||'دریافت دسترسی عکس ناموفق بود');studentPhotoSessionToken=String(result&&result.data||'');if(studentPhotoSessionToken.length<48)throw new Error('نشست عکس معتبر دریافت نشد');return studentPhotoSessionToken;}
+async function studentPhotoJson(action,extra){var token=await ensureStudentPhotoSession();if(!token)throw new Error('برای همگام‌سازی عکس‌ها اتصال اینترنت لازم است');var res=await fetch(SB_URL+'/functions/v1/student-photos',{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(Object.assign({action:action,token:token},extra||{}))});var data={};try{data=await res.json();}catch(e){}if(!res.ok||!data.ok)throw new Error(data.error||('خطای سرور عکس: '+res.status));return data;}
+async function studentPhotoUpload(studentId,blob){var token=await ensureStudentPhotoSession();if(!token)throw new Error('نشست عکس فعال نیست');var form=new FormData();form.append('token',token);form.append('student_id',String(studentId));form.append('file',blob,'student-photo.jpg');var res=await fetch(SB_URL+'/functions/v1/student-photos',{method:'POST',headers:{'apikey':SB_KEY},body:form});var data={};try{data=await res.json();}catch(e){}if(!res.ok||!data.ok)throw new Error(data.error||('بارگذاری عکس ناموفق بود: '+res.status));return data;}
+async function refreshStudentPhotosFromServer(migrateLocal){if(!navigator.onLine||!user||!sb)return false;try{await ensureStudentPhotoSession();var result=await studentPhotoJson('list');var serverMap={};(result.photos||[]).forEach(function(p){serverMap[String(p.student_id)]=p;});var localMap=loadStudentPhotosMap(),allowed=new Set((typeof myStudents==='function'?myStudents():[]).map(function(s){return String(s.id);}));var migrated=0;if(migrateLocal){for(var id of Object.keys(localMap)){if(!allowed.has(String(id))||serverMap[String(id)]||!String(localMap[id]||'').startsWith('data:image/jpeg'))continue;try{var blob=await fetch(localMap[id]).then(function(r){return r.blob();});if(blob.type!=='image/jpeg'||!blob.size||blob.size>256*1024)continue;var uploaded=await studentPhotoUpload(id,blob);if(uploaded.signed_url)serverMap[String(id)]={student_id:String(id),signed_url:uploaded.signed_url,photo_path:uploaded.photo_path};migrated++;}catch(e){console.warn('انتقال عکس محلی دانش‌آموز '+id,e);}}} (cache.students||[]).forEach(function(s){if(!s)return;var remote=serverMap[String(s.id)];if(remote&&remote.signed_url){s.photo=remote.signed_url;s.photo_path=remote.photo_path||'';}else if(!s.photo&&localMap[String(s.id)])s.photo=localMap[String(s.id)];});if(typeof renderStudents==='function')try{renderStudents();}catch(e){}if(migrated&&typeof toast==='function')toast('تعداد '+migrated+' عکس قبلی به فضای امن سرور منتقل شد.');return true;}catch(e){console.warn('همگام‌سازی عکس دانش‌آموزان:',e);return false;}}
+function studentAvatarHtml(s,size){size=size||36;var ph=(s&&s.photo)?String(s.photo):'';if(ph)return '<img src="'+ph.replace(/"/g,'')+'" alt="" loading="lazy" style="width:'+size+'px;height:'+size+'px;border-radius:50%;object-fit:cover;border:1px solid #cbd5e1;flex-shrink:0;vertical-align:middle"/>';return '<span style="width:'+size+'px;height:'+size+'px;border-radius:50%;background:#e2e8f0;display:inline-flex;align-items:center;justify-content:center;font-size:'+Math.max(12,Math.round(size*.45))+'px;flex-shrink:0">👤</span>';}
+function studentNameWithPhoto(s,size){var name=(((s&&s.first_name)||'')+' '+((s&&s.last_name)||'')).trim()||'—';var esc=(typeof escHtml==='function')?escHtml:function(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};return '<span style="display:inline-flex;align-items:center;gap:8px">'+studentAvatarHtml(s,size||36)+'<span>'+esc(name)+'</span></span>';}
+async function setStudentPhoto(studentId,input){try{var file=input&&input.files&&input.files[0];if(!file)return;if(!file.type||file.type.indexOf('image/')!==0){if(typeof toast==='function')toast('فقط فایل تصویری مجاز است');return;}var dataUrl=await new Promise(function(resolve,reject){var reader=new FileReader();reader.onload=function(){var img=new Image();img.onload=function(){try{var max=240,w=img.width,h=img.height;if(w>max||h>max){var ratio=Math.min(max/w,max/h);w=Math.round(w*ratio);h=Math.round(h*ratio);}var canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;var ctx=canvas.getContext('2d');if(!ctx)throw new Error('پردازش تصویر ممکن نیست');ctx.drawImage(img,0,0,w,h);resolve(canvas.toDataURL('image/jpeg',0.72));}catch(e){reject(e);}};img.onerror=function(){reject(new Error('خواندن تصویر ناموفق بود'));};img.src=String(reader.result||'');};reader.onerror=reject;reader.readAsDataURL(file);});var st=(cache.students||[]).find(function(s){return String(s.id)===String(studentId);});if(!st){if(typeof toast==='function')toast('دانش‌آموز پیدا نشد');return;}var blob=await fetch(dataUrl).then(function(r){return r.blob();});if(blob.type!=='image/jpeg'||blob.size>256*1024)throw new Error('حجم عکس پس از فشرده‌سازی هنوز بیش از حد مجاز است');if(navigator.onLine&&sb){try{var uploaded=await studentPhotoUpload(studentId,blob);saveStudentPhotoLocal(studentId,dataUrl);st.photo=uploaded.signed_url||dataUrl;st.photo_path=uploaded.photo_path||'';if(typeof toast==='function')toast('عکس با موفقیت در سرور امن ذخیره شد.');}catch(serverError){st.photo=dataUrl;saveStudentPhotoLocal(studentId,dataUrl);if(typeof toast==='function')toast('عکس فعلاً فقط روی همین گوشی نگه داشته شد؛ ارسال به سرور انجام نشد: '+serverError.message);}}else{st.photo=dataUrl;saveStudentPhotoLocal(studentId,dataUrl);if(typeof toast==='function')toast('عکس فعلاً روی همین گوشی ذخیره شد و پس از اتصال و ورود دوباره منتقل می‌شود.');}try{renderStudents();}catch(e){}}catch(e){console.error(e);if(typeof toast==='function')toast('ذخیره عکس ناموفق بود: '+(e.message||e));}finally{try{if(input)input.value='';}catch(e){}}}
+async function removeStudentPhoto(studentId){try{var st=(cache.students||[]).find(function(s){return String(s.id)===String(studentId);});if(!st)return;if(!navigator.onLine||!sb){if(typeof toast==='function')toast('برای حذف کامل عکس از سرور، ابتدا اتصال اینترنت را برقرار کنید.');return;}await studentPhotoJson('delete',{student_id:String(studentId)});saveStudentPhotoLocal(studentId,null);st.photo=null;st.photo_path='';try{renderStudents();}catch(e){}if(typeof toast==='function')toast('عکس از سرور و حافظه محلی حذف شد.');}catch(e){console.error(e);if(typeof toast==='function')toast('حذف عکس انجام نشد: '+(e.message||e));}}
 function sortStudentsByLastName(list){
   return (list||[]).slice().sort(function(a,b){
     var al=String((a&&a.last_name)||'').trim();
@@ -5361,19 +5280,19 @@ function printInviteFromDiscipline(id){
  if(!st||!cl){toast('اطلاعات دانش‌آموز یا کلاس این درخواست پیدا نشد');return;}
  if(!rec.invite_date||!rec.invite_time){toast('برای چاپ مستقیم، ابتدا تاریخ و ساعت حضور را در درخواست معلم ثبت کنید؛ یا گزینه ویرایش / صدور دعوتنامه را بزنید.');prepareInviteFromDiscipline(id);return;}
  const cat=rec.category||'انضباطی';
- inviteBatch=[{id:uid(),class_id:rec.class_id,class_label:cl.label,student_id:rec.student_id,student_name:(st.first_name||'')+' '+(st.last_name||''),topic:(cat==='درسی'?'تحصیلی':cat==='سایر'?'سایر':'انضباطی'),date:rec.invite_date,day:rec.weekday||'',time:rec.invite_time}];
+ inviteBatch=[{id:uid(),class_id:rec.class_id,class_label:cl.label,student_id:rec.student_id,student_name:(st.first_name||'')+' '+(st.last_name||''),topic:(cat==='درسی'?'تحصیلی':cat==='سایر'?'سایر':'انضباطی'),date:rec.invite_date,day:rec.weekday||'',time:rec.invite_time,include_photo:!!(document.getElementById('iv-include-photo')&&document.getElementById('iv-include-photo').checked)}];
  renderInviteBatch();
  printInviteBatch();
 }
 function fillInviteClasses(){const el=document.getElementById('iv-class');if(!el)return;const old=el.value;const cs=user?.role==='admin'?cache.classes:myClasses();el.innerHTML=cs.map(c=>'<option value="'+escHtml(c.id)+'">'+escHtml(c.label)+'</option>').join('');if(old)el.value=old;fillInviteStudents();}
 function fillInviteStudents(){const cls=document.getElementById('iv-class')?.value;const el=document.getElementById('iv-student');if(!el)return;let sts=cache.students.filter(st=>st.class_id===cls);const invited=cache.discipline.filter(d=>d.class_id===cls&&isParentInviteFeedback(d.feedback)).map(d=>d.student_id);sts.sort((a,b)=>{const ai=invited.includes(a.id)?0:1,bi=invited.includes(b.id)?0:1;return ai-bi});el.innerHTML=sts.map(st=>'<option value="'+escHtml(st.id)+'">'+escHtml((st.first_name||'')+' '+(st.last_name||''))+(invited.includes(st.id)?' — بازخورد دعوت اولیا':'')+'</option>').join('')||'<option value="">دانش‌آموزی نیست</option>';}
-function addInviteToBatch(){if(!user||user.role!=='admin'){toast('صدور دعوتنامه فقط در پنل مدیر مجاز است');return;}const clsId=document.getElementById('iv-class').value,studentId=document.getElementById('iv-student').value;const st=cache.students.find(x=>x.id===studentId),cl=cache.classes.find(x=>x.id===clsId);if(!st||!cl){toast('کلاس و دانش‌آموز را انتخاب کنید');return;}const rec={id:uid(),class_id:clsId,class_label:cl.label,student_id:studentId,student_name:(st.first_name||'')+' '+(st.last_name||''),topic:document.getElementById('iv-topic').value,date:document.getElementById('iv-date').value.trim(),day:document.getElementById('iv-day').value,time:document.getElementById('iv-time').value.trim()};if(!rec.date||!rec.time){toast('تاریخ و ساعت حضور را وارد کنید');return;}inviteBatch.push(rec);persistInviteBatch();renderInviteBatch();try{renderParentInvitationSummary();}catch(e){}toast('دعوتنامه به فهرست چاپ افزوده شد');}
+function addInviteToBatch(){if(!user||user.role!=='admin'){toast('صدور دعوتنامه فقط در پنل مدیر مجاز است');return;}const clsId=document.getElementById('iv-class').value,studentId=document.getElementById('iv-student').value;const st=cache.students.find(x=>x.id===studentId),cl=cache.classes.find(x=>x.id===clsId);if(!st||!cl){toast('کلاس و دانش‌آموز را انتخاب کنید');return;}const rec={id:uid(),class_id:clsId,class_label:cl.label,student_id:studentId,student_name:(st.first_name||'')+' '+(st.last_name||''),topic:document.getElementById('iv-topic').value,date:document.getElementById('iv-date').value.trim(),day:document.getElementById('iv-day').value,time:document.getElementById('iv-time').value.trim(),include_photo:!!(document.getElementById('iv-include-photo')&&document.getElementById('iv-include-photo').checked)};if(!rec.date||!rec.time){toast('تاریخ و ساعت حضور را وارد کنید');return;}inviteBatch.push(rec);persistInviteBatch();renderInviteBatch();try{renderParentInvitationSummary();}catch(e){}toast('دعوتنامه به فهرست چاپ افزوده شد');}
 function renderInviteBatch(){const box=document.getElementById('iv-batch-list');if(!box)return;box.innerHTML=inviteBatch.length?'<b>دعوتنامه‌های آماده چاپ: '+fa(inviteBatch.length)+'</b><div class="no-print" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0"><label style="display:flex;align-items:center;gap:5px"><input type="checkbox" onchange="selectAllInviteBatch(this.checked)"> انتخاب همه</label><button class="btn btn-p btn-sm" onclick="printSelectedInviteBatch()">🖨️ چاپ دعوتنامه‌های انتخاب‌شده (۲ عدد در A4)</button></div>'+inviteBatch.map((r,i)=>'<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:6px;border-bottom:1px solid #ddd"><label style="display:flex;gap:7px;align-items:center;flex:1"><input class="invite-batch-check" type="checkbox" value="'+escHtml(r.id)+'"> <span>'+fa(i+1)+'. '+escHtml(r.student_name)+' — '+escHtml(r.class_label)+' — '+escHtml(r.topic)+' — '+escHtml(r.date)+'</span></label><button class="btn btn-o btn-sm" data-id="'+escHtml(r.id)+'" onclick="removeInviteFromBatch(this.dataset.id)">حذف</button></div>').join(''):'<div class="empty">فهرست چاپ خالی است.</div>';}
 function selectAllInviteBatch(checked){document.querySelectorAll('.invite-batch-check').forEach(el=>el.checked=checked);}
 function printSelectedInviteBatch(){const ids=Array.from(document.querySelectorAll('.invite-batch-check:checked')).map(el=>el.value);if(!ids.length){toast('ابتدا دعوتنامه‌های موردنظر را انتخاب کنید');return;}printInviteBatch(ids);}
 function removeInviteFromBatch(id){inviteBatch=inviteBatch.filter(r=>r.id!==id);persistInviteBatch();renderInviteBatch();try{renderParentInvitationSummary();}catch(e){}}
 function clearInviteBatch(){inviteBatch=[];persistInviteBatch();renderInviteBatch();try{renderParentInvitationSummary();}catch(e){}}
-function printInviteBatch(selectedIds){if(!user||user.role!=='admin'){toast('چاپ دعوتنامه فقط در پنل مدیر مجاز است');return;}const source=Array.isArray(selectedIds)?inviteBatch.filter(r=>selectedIds.includes(r.id)):inviteBatch;if(!source.length){toast('ابتدا یک یا چند دعوتنامه اضافه یا انتخاب کنید');return;}try{var issued=JSON.parse(localStorage.getItem('dastyar_parent_invites_issued_v1')||'[]');if(!Array.isArray(issued))issued=[];source.forEach(function(r){if(!issued.some(function(x){return String(x.id)===String(r.id);}))issued.push(Object.assign({},r,{issued_at:new Date().toISOString()}));});localStorage.setItem('dastyar_parent_invites_issued_v1',JSON.stringify(issued.slice(-1000)));}catch(e){}try{renderParentInvitationSummary();}catch(e){}const area=document.getElementById('print-area');area.innerHTML=source.map((r,i)=>'<section class="invite-print" style="direction:rtl;box-sizing:border-box;border:1px solid #777;padding:5mm 6mm;margin:0 0 2mm;min-height:135mm;height:135mm;max-height:135mm;overflow:hidden;page-break-inside:avoid;break-inside:avoid;'+((i%2===1&&i<source.length-1)?'page-break-after:always;break-after:page;':'')+'font-family:Tahoma,Arial,sans-serif;color:#000;font-size:10pt;line-height:1.6"><div style="text-align:center;font-weight:bold;font-size:8pt">بسمه تعالی</div><h3 style="text-align:center;font-size:9pt;margin:1mm 0">دعوتنامه حضوری اولیا</h3><div style="text-align:center;font-weight:bold">مدرسه شهید فتح الله فلاح‌پور</div><p style="margin:1mm 0">اولیای محترم دانش‌آموز: <b>'+escHtml(r.student_name)+'</b> <span style="float:left">تاریخ: '+escHtml(today())+'</span></p><p style="margin:1mm 0">با سلام و احترام،</p><p style="line-height:1.3;margin:1mm 0;text-align:justify">جهت پیگیری وضعیت تحصیلی / انضباطی / تربیتی فرزندتان، از شما دعوت می‌شود روز <b>'+escHtml(r.day)+'</b> مورخ <b>'+escHtml(r.date)+'</b> ساعت <b>'+escHtml(r.time)+'</b> در دفتر مدرسه حضور یابید.</p><p style="margin:1mm 0">موضوع: '+['تحصیلی','انضباطی','مشاوره','سایر'].map(t=>(t===r.topic?'☑ ':'☐ ')+t).join('　')+'</p><p style="text-align:left;margin:1mm 0">با تشکر، مدیریت مدرسه شهید فتح الله فلاح پور</p><small>کلاس: '+escHtml(r.class_label)+'</small></section>').join('');area.style.display='block';setTimeout(()=>window.print(),350);}
+function printInviteBatch(selectedIds){if(!user||user.role!=='admin'){toast('چاپ دعوتنامه فقط در پنل مدیر مجاز است');return;}const source=Array.isArray(selectedIds)?inviteBatch.filter(r=>selectedIds.includes(r.id)):inviteBatch;if(!source.length){toast('ابتدا یک یا چند دعوتنامه اضافه یا انتخاب کنید');return;}try{var issued=JSON.parse(localStorage.getItem('dastyar_parent_invites_issued_v1')||'[]');if(!Array.isArray(issued))issued=[];source.forEach(function(r){if(!issued.some(function(x){return String(x.id)===String(r.id);}))issued.push(Object.assign({},r,{issued_at:new Date().toISOString()}));});localStorage.setItem('dastyar_parent_invites_issued_v1',JSON.stringify(issued.slice(-1000)));}catch(e){}try{renderParentInvitationSummary();}catch(e){}const area=document.getElementById('print-area');area.innerHTML=source.map((r,i)=>'<section class="invite-print" style="direction:rtl;box-sizing:border-box;border:1px solid #777;padding:5mm 6mm;margin:0 0 2mm;min-height:135mm;height:135mm;max-height:135mm;overflow:hidden;page-break-inside:avoid;break-inside:avoid;'+((i%2===1&&i<source.length-1)?'page-break-after:always;break-after:page;':'')+'font-family:Tahoma,Arial,sans-serif;color:#000;font-size:10pt;line-height:1.6"><div style="text-align:center;font-weight:bold;font-size:8pt">بسمه تعالی</div><h3 style="text-align:center;font-size:9pt;margin:1mm 0">دعوتنامه حضوری اولیا</h3><div style="text-align:center;font-weight:bold">مدرسه شهید فتح الله فلاح‌پور</div>'+(r.include_photo&&((cache.students||[]).find(function(x){return String(x.id)===String(r.student_id);})||{}).photo?'<div style="text-align:center;margin:1mm 0"><img src="'+String(((cache.students||[]).find(function(x){return String(x.id)===String(r.student_id);})||{}).photo).replace(/"/g,'')+'" style="width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid #aaa"/></div>':'')+'<p style="margin:1mm 0">اولیای محترم دانش‌آموز: <b>'+escHtml(r.student_name)+'</b> <span style="float:left">تاریخ: '+escHtml(today())+'</span></p><p style="margin:1mm 0">با سلام و احترام،</p><p style="line-height:1.3;margin:1mm 0;text-align:justify">جهت پیگیری وضعیت تحصیلی / انضباطی / تربیتی فرزندتان، از شما دعوت می‌شود روز <b>'+escHtml(r.day)+'</b> مورخ <b>'+escHtml(r.date)+'</b> ساعت <b>'+escHtml(r.time)+'</b> در دفتر مدرسه حضور یابید.</p><p style="margin:1mm 0">موضوع: '+['تحصیلی','انضباطی','مشاوره','سایر'].map(t=>(t===r.topic?'☑ ':'☐ ')+t).join('　')+'</p><p style="text-align:left;margin:1mm 0">با تشکر، مدیریت مدرسه شهید فتح الله فلاح پور</p><small>کلاس: '+escHtml(r.class_label)+'</small></section>').join('');area.style.display='block';setTimeout(()=>window.print(),350);}
 async function approveDiscipline(id){
  if(!user||user.role!=='admin'){toast('تأیید فقط در اختیار مدیر است');return;}
  const {error}=await sb.from('sa_discipline').update({status:'approved',approved_by:user.full_name||user.username,approved_at:new Date().toISOString(),decision_text:'موارد انضباطی رسیدگی شد و ورود دانش‌آموز به کلاس بلامانع است.'}).eq('id',id);
