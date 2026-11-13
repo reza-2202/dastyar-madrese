@@ -246,10 +246,13 @@ button{width:100%;margin-top:14px;padding:12px;border:0;border-radius:12px;backg
     }
     var html="";
     html+=list("حضور و غیاب", p.attendance, function(a){
-      return "<div class=\"item\">"+faDigits(a.date||"")+" — "+trStatus(a.status)+(a.note?(" — "+a.note):"")+"</div>";
+      return "<div class=\"item\">"+faDigits(a.weekday||"")+" "+faDigits(a.date||"")+" — "+trStatus(a.status)+(a.note?(" — "+safe(a.note)):"")+"</div>";
     });
-    html+=list("پرسش و پاسخ / فعالیت", p.activities, function(a){
-      return "<div class=\"item\">"+faDigits(a.date||"")+" — "+trSubject(a.subject||a.lesson||"")+" — "+trLevel(a.level||a.score||a.result||"")+"</div>";
+    html+=list("پرسش و پاسخ / فعالیت روزانه", p.activities, function(a){
+      return "<div class=\"item\">"+faDigits(a.date||"")+" — "+trSubject(a.subject||a.lesson||"")+" — "+trLevel(a.level||a.score||a.result||"")+(a.notes?("<div>"+safe(a.notes)+"</div>"):"")+"</div>";
+    });
+    html+=list("آزمون‌ها", p.exams, function(a){
+      return "<div class=\"item\">"+faDigits(a.date||"")+" — "+safe(a.exam_name||a.name||a.subject||"آزمون")+" — "+trLevel(a.level||a.score||"")+(a.notes?("<div>"+safe(a.notes)+"</div>"):"")+"</div>";
     });
     html+=list("ارزشیابی", p.evaluations, function(a){
       return "<div class=\"item\">"+faDigits(a.month||a.date||"")+" — "+trSubject(a.subject||"")+" — "+trLevel(a.level||a.score||"")+"</div>";
@@ -257,10 +260,54 @@ button{width:100%;margin-top:14px;padding:12px;border:0;border-radius:12px;backg
     html+=list("نمرات", p.scores, function(a){
       return "<div class=\"item\">"+trSubject(a.subject||"")+" — "+trLevel(a.level||a.score||"")+"</div>";
     });
-    html+=list("انضباط", p.discipline, function(a){
-      var cat=a.feedback||a.category||a.topic||"";
-      return "<div class=\"item\">"+faDigits(a.date||"")+" — "+String(cat||"—")+"</div>";
+    function safe(v){
+      return String(v==null?"":v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+    }
+    html+=list("انضباط",p.discipline,function(a){
+      var cat=a.category||a.feedback||a.topic||"انضباطی";
+      var detail=a.details||a.decision_text||a.feedback||"";
+      return "<div class=\"item\">"+faDigits(a.date||"")+" — "+safe(cat)+(detail?(" — "+safe(detail)):"")+"</div>";
     });
+    html+=list("شایستگی‌ها",p.competencies,function(a){
+      return "<div class=\"item\">"+safe(a.name||"شایستگی")+" — "+safe(trLevel(a.level))+"</div>";
+    });
+    html+=list("تماس با اولیا",p.parent_contacts,function(a){
+      var kinds={call:"تماس",message:"پیام",inperson:"حضوری",other:"سایر"};
+      return "<div class=\"item\">"+faDigits(a.date||"")+" — "+safe(kinds[a.contact_type]||a.contact_type||"تماس")+(a.phone?(" — "+safe(a.phone)):"")+(a.subject?(" — موضوع: "+safe(a.subject)):"")+(a.result?(" — نتیجه: "+safe(a.result)):"")+(a.follow_up_date?(" — پیگیری: "+faDigits(a.follow_up_date)):"")+(a.notes?("<div>"+safe(a.notes)+"</div>"):"")+"</div>";
+    });
+    html+=list("امور مالی",p.finance,function(a){
+      var status={pending:"در انتظار پرداخت",paid:"پرداخت‌شده",approved:"تأییدشده",rejected:"ردشده"};
+      return "<div class=\"item\">"+faDigits(a.date||"")+" — "+safe(a.topic||"مورد مالی")+" — مبلغ: "+faDigits(a.amount==null?"—":a.amount)+(a.status?(" — "+safe(status[a.status]||a.status)):"")+(a.notes?("<div>"+safe(a.notes)+"</div>"):"")+"</div>";
+    });
+    html+=list("جلسات انجمن اولیا و مربیان",p.parent_meetings,function(a){
+      return "<div class=\"item\">"+faDigits(a.date||"")+" — "+safe(a.day||"")+" — تعداد اولیای حاضر: "+faDigits(a.count==null?"—":a.count)+(a.summary?("<div>"+safe(a.summary)+"</div>"):"")+"</div>";
+    });
+    var progress={};
+    function progressValue(a){
+      if(a.score!==undefined&&a.score!==null&&String(a.score).trim()!==""){
+        var n=Number(a.score);if(Number.isFinite(n))return n;
+      }
+      var lv=String(a.level||"").toLowerCase().trim();
+      var levels={excellent:19,"very good":19,very_good:19,good:16,acceptable:12,needs:7,needs_effort:7,need_effort:7,poor:7,weak:7,"خیلی خوب":19,"خوب":16,"قابل قبول":12,"نیاز به تلاش":7};
+      return Object.prototype.hasOwnProperty.call(levels,lv)?levels[lv]:null;
+    }
+    var progressSources=(p.scores||[]).concat(p.evaluations||[],p.activities||[],p.exams||[]);
+    progressSources.forEach(function(a){
+      var subject=String(a.subject||a.lesson||"").trim(),value=progressValue(a);
+      if(!subject||value===null||!Number.isFinite(value))return;
+      if(!progress[subject])progress[subject]={sum:0,count:0};
+      progress[subject].sum+=value;progress[subject].count++;
+    });
+    var progressRows=Object.keys(progress).sort().map(function(subject){
+      return {subject:subject,average:Math.round(progress[subject].sum/progress[subject].count*10)/10,count:progress[subject].count};
+    });
+    html+="<div class=\"section\"><h3>نمودار پیشرفت تحصیلی ("+faDigits(progressRows.length)+")</h3>";
+    if(!progressRows.length)html+="<div class=\"item\">برای ترسیم نمودار هنوز نمره یا ارزشیابی عددی ثبت نشده است.</div>";
+    else html+=progressRows.map(function(a){
+      var width=Math.max(0,Math.min(100,a.average*5));
+      return "<div class=\"item\"><div style=\"display:flex;justify-content:space-between;gap:8px\"><b>"+safe(trSubject(a.subject))+"</b><span>"+faDigits(a.average)+"/۲۰</span></div><div style=\"height:9px;background:#e2e8f0;border-radius:99px;overflow:hidden;margin-top:6px\"><div style=\"height:100%;width:"+width+"%;background:#0284c7;border-radius:99px\"></div></div><small>بر پایه "+faDigits(a.count)+" ثبت</small></div>";
+    }).join("");
+    html+="</div>";
     $("v-body").innerHTML=html;
   }
 $("btn-login").onclick=function(e){ e.preventDefault(); doLogin(); };
