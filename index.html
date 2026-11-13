@@ -5066,6 +5066,10 @@ function printStudentDossier(){
  const style=`@page{size:A4 portrait;margin:7mm}
  *{box-sizing:border-box}
  body{font-family:Tahoma,Arial,sans-serif;color:#111;direction:rtl;font-size:10pt;line-height:1.6;margin:0}
+ /* Preserve the complete inline progress-chart appearance in the print window. */
+ *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+ [style*="background:#2563eb"]{background:#2563eb!important;border:1px solid #1d4ed8!important}
+ [style*="background:#e2e8f0"]{background:#e2e8f0!important;border:1px solid #cbd5e1}
  .card{border:1px solid #bbb;border-radius:3px;padding:3mm;margin:0 0 3mm;break-inside:avoid}
  .ct{font-size:12pt;font-weight:bold;margin-bottom:2mm;break-after:avoid}
  .meta,small{font-size:9pt;line-height:1.5}
