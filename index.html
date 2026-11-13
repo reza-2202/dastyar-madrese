@@ -6489,7 +6489,7 @@ function buildReport(sid){
   const examLevel=examAvg==null?'':(examAvg>=18?'excellent':examAvg>=14?'good':examAvg>=10?'acceptable':'needs');
   const examBlock=examN?('<div class="st">میانگین آزمون‌ها</div><table class="rt"><tbody><tr><td>تعداد</td><td>'+fa(examN)+'</td><td>'+(examLevel&&typeof lvl==='function'?lvl(examLevel):'')+'</td></tr><tr><td>میانگین</td><td colspan="2">'+(examAvg!=null?examAvg:'—')+'</td></tr></tbody></table>'):'';
   const disRows=(cache.discipline||[]).filter(function(d){return String(d.student_id)===String(sid);}).sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''));});
-  const disRecent=disRows.slice(0,3).map(function(d){return '<tr><td>'+escHtml(d.date||'—')+'</td><td>'+escHtml(d.category||'انضباطی')+'</td><td>'+escHtml(((d.details||'')+(d.feedback?' — '+d.feedback:''))||'ثبت نشده')+'</td><td>'+escHtml(d.status==='approved'?'رسیدگی شده':'در انتظار رسیدگی')+'</td></tr>';}).join('');
+  const disRecent=disRows.map(function(d){return '<tr><td>'+escHtml(d.date||'—')+'</td><td>'+escHtml(d.category||'انضباطی')+'</td><td>'+escHtml(((d.details||'')+(d.feedback?' — '+d.feedback:''))||'ثبت نشده')+'</td><td>'+escHtml(d.status==='approved'?'رسیدگی شده':'در انتظار رسیدگی')+'</td></tr>';}).join('');
   const disBlock=disRows.length?('<div class="st">سوابق انضباطی (مستقل از نمره درسی)</div><table class="rt"><thead><tr><th>تاریخ</th><th>موضوع</th><th>شرح / اقدام</th><th>وضعیت</th></tr></thead><tbody>'+disRecent+'</tbody></table><div style="font-size:8pt">تعداد کل موارد: '+fa(disRows.length)+(disRows.length>3?' — جزئیات سایر موارد در پرونده دانش‌آموز':'')+'</div>'):'';
   const printComps=(window.__reportPrintComps||[]).slice(0,3);
   let crPrint='';
