@@ -3761,11 +3761,15 @@ function cropStudentPhoto(file){return new Promise(function(resolve,reject){
   modal.querySelector('#studentPhotoCropApply').onclick=function(){try{
    var sourceSize=stageSize/(scale*zoom),sx=(0-left)/(scale*zoom),sy=(0-top)/(scale*zoom);
    sx=Math.max(0,Math.min(img.naturalWidth-sourceSize,sx));sy=Math.max(0,Math.min(img.naturalHeight-sourceSize,sy));sourceSize=Math.min(sourceSize,img.naturalWidth-sx,img.naturalHeight-sy);
-   var canvas=document.createElement('canvas');canvas.width=240;canvas.height=240;var ctx=canvas.getContext('2d');if(!ctx)throw new Error('پردازش تصویر ممکن نیست');
-   ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(img,sx,sy,sourceSize,sourceSize,0,0,240,240);
-   var quality=.55,data=canvas.toDataURL('image/jpeg',quality);
-   while(data.length>330000&&quality>.32){quality-=.08;data=canvas.toDataURL('image/jpeg',quality);}
-   if(data.length>330000){canvas.width=180;canvas.height=180;ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(img,sx,sy,sourceSize,sourceSize,0,0,180,180);data=canvas.toDataURL('image/jpeg',.42);}
+   var canvas=document.createElement('canvas');var ctx=canvas.getContext('2d');if(!ctx)throw new Error('پردازش تصویر ممکن نیست');
+   var outputSize=200,quality=.58,data='';
+   function renderCompressed(){canvas.width=outputSize;canvas.height=outputSize;ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(img,sx,sy,sourceSize,sourceSize,0,0,outputSize,outputSize);data=canvas.toDataURL('image/jpeg',quality);}
+   renderCompressed();
+   while(data.length>80000&&quality>.30){quality=Math.max(.30,quality-.07);renderCompressed();}
+   if(data.length>80000){outputSize=180;quality=.38;renderCompressed();}
+   if(data.length>80000){outputSize=160;quality=.32;renderCompressed();}
+   var outputBlob=await fetch(data).then(function(r){return r.blob();});
+   if(outputBlob.size>60*1024)throw new Error('حجم عکس را نتوانستم به کمتر از ۶۰ کیلوبایت برسانم؛ لطفاً کادر را کمی نزدیک‌تر تنظیم کن');
    modal.remove();resolve(data);
   }catch(e){reject(e);}};
  }catch(e){reject(e);}};
