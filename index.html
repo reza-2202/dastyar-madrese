@@ -3200,7 +3200,7 @@ function renderAdminUrgentList(){
     var readInfo=(m.read_by&&m.read_by.length)?('✓ مشاهده‌شده توسط: '+m.read_by.join('، ')):'وضعیت مشاهده روی دستگاه مدیر ثبت نشده است';
     var audio=m.audio?('<div style="margin:6px 0"><audio controls src="'+String(m.audio).replace(/"/g,'')+'" style="max-width:100%"></audio></div>'):'';
     var expiry=m.expires_at?('<div class="meta">اعتبار تا: '+new Date(m.expires_at).toLocaleString('fa-IR')+'</div>'):'';
-    return '<article style="background:#fff;border:1px solid #ddd6fe;border-radius:10px;padding:10px;margin:8px 0"><div style="font-weight:700">'+String(m.text||'(پیام صوتی)').replace(/</g,'&lt;')+'</div><div class="meta">کلاس‌های باقی‌مانده: '+targets+'</div><div class="meta">معلمان: '+teachers+'</div><div class="meta">'+readInfo+'</div>'+expiry+audio+'<button type="button" class="btn btn-o btn-sm" style="margin-top:6px" onclick="deleteAdminUrgentMessage(\''+String(m.id)+'\')">حذف پیام</button></article>';
+    return '<article style="background:#fff;border:1px solid #ddd6fe;border-radius:10px;padding:10px;margin:8px 0"><div style="font-weight:700">'+String(m.text||'(پیام صوتی)').replace(/</g,'&lt;')+'</div><div class="meta">کلاس‌های باقی‌مانده: '+targets+'</div><div class="meta">معلمان: '+teachers+'</div><div class="meta">'+readInfo+'</div>'+expiry+audio+'<button type="button" class="btn btn-o btn-sm" style="margin-top:6px" data-id="'+escHtml(String(m.id))+'" onclick="deleteAdminUrgentMessage(this.dataset.id)"حذف پیام</button></article>';
   }).join('');
 }
 window.__admUrgRecorder=null; window.__admUrgChunks=[]; window.__admUrgAudioData='';
@@ -7393,7 +7393,8 @@ async function loadSchoolMessages(){
  const box=document.getElementById('chat-list');if(!box||!sb||!user)return;box.innerHTML='در حال دریافت پیام‌ها...';
  const {data,error}=await sb.from('sa_messages').select('*').order('created_at',{ascending:true}).limit(200);
  if(error){box.textContent='خطا در دریافت پیام‌ها: '+error.message;return;}
- var visibleData=(data||[]).filter(function(m){return !isDastyarTeacherNoticeRow(m);});\n if(!visibleData.length){box.textContent='هنوز پیامی ثبت نشده است.';return;}
+ var visibleData=(data||[]).filter(function(m){return !isDastyarTeacherNoticeRow(m);});
+ if(!visibleData.length){box.textContent='هنوز پیامی ثبت نشده است.';return;}
  box.innerHTML=visibleData.map(m=>{const canDelete=user.role==='admin'||m.sender_username===user.username;return '<div class="card" style="margin:8px 0"><b>'+escHtml(m.sender_name||m.sender_username||'کاربر')+'</b><small> — '+escHtml(m.created_at?new Date(m.created_at).toLocaleString('fa-IR'):'')+'</small><p style="white-space:pre-wrap">'+escHtml(m.message_text||'')+'</p>'+(m.audio_url?'<audio controls src="'+escHtml(m.audio_url)+'" style="width:100%"></audio>':'')+(canDelete?'<button class="btn btn-o btn-sm" style="margin-top:8px;color:#b91c1c" onclick="deleteSchoolMessage(\''+String(m.id).replace(/'/g,'')+'\')">🗑️ حذف پیام</button>':'')+'</div>';}).join('');box.scrollTop=box.scrollHeight;
 }
 async function deleteSchoolMessage(id){
@@ -9354,7 +9355,10 @@ window.addEventListener('afterprint',function(){const area=document.getElementBy
     '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>'+esc(r.title||'پیام مدیریت')+'</b><small>'+esc(r.date||'')+'</small></div>'+
     '<div style="font-size:.76rem;color:#92400e;margin:4px 0">'+esc(r.category||'')+' · از طرف مدیریت'+(r.class_labels&&r.class_labels.length?' · کلاس '+esc(r.class_labels.join('، ')):'')+'</div>'+
     '<p style="white-space:pre-wrap;margin:6px 0">'+esc(r.body)+'</p>'+(r.audio?('<div style="margin:6px 0"><audio controls src="'+String(r.audio).replace(/"/g,'')+'" style="max-width:100%"></audio></div>'):'')+
-    (!r.read?(r.kind==='perf'?'<button class="btn btn-p btn-sm" onclick="ackTeacherNotice(\''+String(r.id).replace(/'/g,'')+'\')">متوجه شدم / تأیید مشاهده</button>':'<button class="btn btn-p btn-sm" onclick="ackPrintNotice(\''+String(r.id).replace(/'/g,'')+'\')">متوجه شدم</button>'):'<small style="color:#047857">✓ مشاهده‌شده</small>')+
+    (!r.read?(r.kind==='perf'
+      ?'<button class="btn btn-p btn-sm" data-id="'+esc(String(r.id))+'" onclick="ackTeacherNotice(this.dataset.id)">متوجه شدم / تأیید مشاهده</button>'
+      :'<button class="btn btn-p btn-sm" data-id="'+esc(String(r.id))+'" onclick="ackPrintNotice(this.dataset.id)">متوجه شدم</button>'
+      ):'<small style="color:#047857">✓ مشاهده‌شده</small>')+
     '</article>').join('');
  };
  window.ackPrintNotice=async function(id){
