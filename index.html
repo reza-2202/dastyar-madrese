@@ -9418,7 +9418,7 @@ window.addEventListener('afterprint',function(){const area=document.getElementBy
     '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>'+esc(r.title||'پیام مدیریت')+'</b><small>'+esc(r.date||'')+'</small></div>'+
     '<div style="font-size:.76rem;color:#92400e;margin:4px 0">'+esc(r.category||'')+' · از طرف مدیریت'+(r.class_labels&&r.class_labels.length?' · کلاس '+esc(r.class_labels.join('، ')):'')+'</div>'+
     '<p style="white-space:pre-wrap;margin:6px 0">'+esc(r.body)+'</p>'+(r.audio?('<div style="margin:6px 0"><audio controls src="'+String(r.audio).replace(/"/g,'')+'" style="max-width:100%"></audio></div>'):'')+
-    (!r.read?(r.kind==='perf'?'<button class="btn btn-p btn-sm" onclick="ackTeacherNotice(\\''+String(r.id).replace(/'/g,'')+'\\')">متوجه شدم / تأیید مشاهده</button>':'<button class="btn btn-p btn-sm" onclick="ackPrintNotice(\\''+String(r.id).replace(/'/g,'')+'\\')">متوجه شدم</button>'):'<small style="color:#047857">✓ مشاهده‌شده</small>')+
+    (!r.read?(r.kind==='perf'?'<button class="btn btn-p btn-sm" onclick="ackTeacherNotice(\''+String(r.id).replace(/'/g,'')+'\')">متوجه شدم / تأیید مشاهده</button>':'<button class="btn btn-p btn-sm" onclick="ackPrintNotice(\''+String(r.id).replace(/'/g,'')+'\')">متوجه شدم</button>'):'<small style="color:#047857">✓ مشاهده‌شده</small>')+
     '</article>').join('');
  };
  window.ackPrintNotice=async function(id){
@@ -9433,64 +9433,7 @@ window.addEventListener('afterprint',function(){const area=document.getElementBy
      renderTeacherNotices();if(typeof toast==='function')toast('مشاهده ثبت شد');
    }catch(e){}
  };
- \n window.ackTeacherNotice=function(
-   const box=document.getElementById('teacher-notice-list');
-   const inbox=document.getElementById('teacher-notice-inbox');
-   let u=null; try{ u=window.user||user; }catch(e){ try{u=user;}catch(_){u=null;} }
-   if(!box||!u||u.role!=='teacher'){ if(box) box.innerHTML=''; if(inbox) inbox.style.display='none'; return; }
-   const perf=rows().filter(r=>r.sent&&r.teacher_username===u.username).map(r=>({
-     id:r.id, kind:'perf', title:r.title||r.category, category:r.category, date:r.date||'',
-     body:r.notice||'', read:(Array.isArray(r.read_by)?r.read_by.includes(String(u.username)):(!!r.read&&String(r.teacher_username)===String(u.username))), at:r.created_at?Date.parse(r.created_at):0
-   }));
-   let printItems=[];
-   try{
-     const all=JSON.parse(localStorage.getItem('dastyar_teacher_notices_v1')||'{}')||{};
-     printItems=(all[u.username]||[]).map(n=>({
-       id:n.id, kind:(n.kind||'print'), title:n.title||(n.kind==='urgent'||n.kind==='attendance_reminder'?'پیام مدیریت':'اعلام چاپ برگه'), category:(n.kind==='urgent'?'پیام ضروری':(n.kind==='attendance_reminder'?'یادآوری حضور':'اسناد و چاپ')), date:'',
-       body:n.message||'', read:!!n.read, at:n.at||0, audio:n.audio||''
-     }));
-   }catch(e){}
-   const data=perf.concat(printItems).sort(function(a,b){return (b.at||0)-(a.at||0);});
-   if(inbox) inbox.style.display='block';
-   if(!data.length){
-     box.innerHTML='<p style="font-size:.82rem;color:#92400e">ابلاغیه یا تذکر جدیدی برای شما ثبت نشده است.</p>';
-     return;
-   }
-   box.innerHTML=data.map(r=>'<article style="background:#fff;border:1px solid #fde68a;border-radius:10px;padding:10px;margin:8px 0">'+
-    '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>'+esc(r.title||'پیام مدیریت')+'</b><small>'+esc(r.date||'')+'</small></div>'+
-    '<div style="font-size:.76rem;color:#92400e;margin:4px 0">'+esc(r.category||'')+' · از طرف مدیریت</div>'+
-    '<p style="white-space:pre-wrap;margin:6px 0">'+esc(r.body)+'</p>'+(r.audio?('<div style="margin:6px 0"><audio controls src="'+String(r.audio).replace(/"/g,'')+'" style="max-width:100%"></audio></div>'):'')+
-    (!r.read?(r.kind==='perf'
-      ?'<button class="btn btn-p btn-sm" onclick="ackTeacherNotice(\''+r.id+'\')">متوجه شدم / تأیید مشاهده</button>'
-      :'<button class="btn btn-p btn-sm" onclick="ackPrintNotice(\''+String(r.id).replace(/'/g,'')+'\')">متوجه شدم</button>')
-      :'<small style="color:#047857">✓ مشاهده‌شده</small>')+
-    '</article>').join('');
- };
- window.ackPrintNotice=function(id){
-   try{
-     let u=null; try{ u=window.user||user; }catch(e){}
-     if(!u||u.role!=='teacher')return;
-     const key='dastyar_teacher_notices_v1';
-     const all=JSON.parse(localStorage.getItem(key)||'{}')||{};
-     const list=all[u.username]||[];
-     list.forEach(function(n){ if(String(n.id)===String(id)) n.read=true; });
-     all[u.username]=list;
-     localStorage.setItem(key, JSON.stringify(all));
-     // ثبت مشاهده برای پیام‌های ضروری مدیر
-     try{
-       var urg=JSON.parse(localStorage.getItem('dastyar_admin_urgent_v1')||'[]')||[];
-       var uname=String(u.username||'');
-       urg.forEach(function(m){
-         if(String(m.id)!==String(id)) return;
-         if(!Array.isArray(m.read_by)) m.read_by=[];
-         if(m.read_by.indexOf(uname)<0) m.read_by.push(uname);
-       });
-       localStorage.setItem('dastyar_admin_urgent_v1', JSON.stringify(urg));
-     }catch(e2){}
-     renderTeacherNotices();
-     if(typeof toast==='function') toast('مشاهده ثبت شد');
-   }catch(e){}
- };
+ 
  window.ackTeacherNotice=function(id){
    if(!user||user.role!=='teacher')return;
    const a=rows();const r=a.find(x=>String(x.id)===String(id)&&String(x.teacher_username)===String(user.username)&&x.sent);
