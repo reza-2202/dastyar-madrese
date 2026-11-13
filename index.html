@@ -3758,7 +3758,7 @@ function cropStudentPhoto(file){return new Promise(function(resolve,reject){
   stage.addEventListener('pointermove',function(e){if(!drag)return;left+=e.clientX-lastX;top+=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;clamp();draw();});
   stage.addEventListener('pointerup',function(){drag=false;});stage.addEventListener('pointercancel',function(){drag=false;});
   modal.querySelector('#studentPhotoCropCancel').onclick=function(){modal.remove();resolve(null);};
-  modal.querySelector('#studentPhotoCropApply').onclick=function(){try{
+  modal.querySelector('#studentPhotoCropApply').onclick=async function(){try{
    var sourceSize=stageSize/(scale*zoom),sx=(0-left)/(scale*zoom),sy=(0-top)/(scale*zoom);
    sx=Math.max(0,Math.min(img.naturalWidth-sourceSize,sx));sy=Math.max(0,Math.min(img.naturalHeight-sourceSize,sy));sourceSize=Math.min(sourceSize,img.naturalWidth-sx,img.naturalHeight-sy);
    var canvas=document.createElement('canvas');var ctx=canvas.getContext('2d');if(!ctx)throw new Error('پردازش تصویر ممکن نیست');
