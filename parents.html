@@ -246,10 +246,13 @@ button{width:100%;margin-top:14px;padding:12px;border:0;border-radius:12px;backg
     }
     var html="";
     html+=list("حضور و غیاب", p.attendance, function(a){
-      return "<div class=\"item\">"+faDigits(a.date||"")+" — "+trStatus(a.status)+(a.note?(" — "+a.note):"")+"</div>";
+      return "<div class=\"item\">"+faDigits(a.weekday||"")+" "+faDigits(a.date||"")+" — "+trStatus(a.status)+(a.note?(" — "+safe(a.note)):"")+"</div>";
     });
-    html+=list("پرسش و پاسخ / فعالیت", p.activities, function(a){
-      return "<div class=\"item\">"+faDigits(a.date||"")+" — "+trSubject(a.subject||a.lesson||"")+" — "+trLevel(a.level||a.score||a.result||"")+"</div>";
+    html+=list("پرسش و پاسخ / فعالیت روزانه", p.activities, function(a){
+      return "<div class=\"item\">"+faDigits(a.date||"")+" — "+trSubject(a.subject||a.lesson||"")+" — "+trLevel(a.level||a.score||a.result||"")+(a.notes?("<div>"+safe(a.notes)+"</div>"):"")+"</div>";
+    });
+    html+=list("آزمون‌ها", p.exams, function(a){
+      return "<div class=\"item\">"+faDigits(a.date||"")+" — "+safe(a.exam_name||a.name||a.subject||"آزمون")+" — "+trLevel(a.level||a.score||"")+(a.notes?("<div>"+safe(a.notes)+"</div>"):"")+"</div>";
     });
     html+=list("ارزشیابی", p.evaluations, function(a){
       return "<div class=\"item\">"+faDigits(a.month||a.date||"")+" — "+trSubject(a.subject||"")+" — "+trLevel(a.level||a.score||"")+"</div>";
@@ -288,7 +291,7 @@ button{width:100%;margin-top:14px;padding:12px;border:0;border-radius:12px;backg
       var levels={excellent:19,"very good":19,very_good:19,good:16,acceptable:12,needs:7,needs_effort:7,need_effort:7,poor:7,weak:7,"خیلی خوب":19,"خوب":16,"قابل قبول":12,"نیاز به تلاش":7};
       return Object.prototype.hasOwnProperty.call(levels,lv)?levels[lv]:null;
     }
-    var progressSources=(p.scores||[]).concat(p.evaluations||[],(p.activities||[]).filter(function(a){return a.type==="qa"||a.type==="exam";}));
+    var progressSources=(p.scores||[]).concat(p.evaluations||[],p.activities||[],p.exams||[]);
     progressSources.forEach(function(a){
       var subject=String(a.subject||a.lesson||"").trim(),value=progressValue(a);
       if(!subject||value===null||!Number.isFinite(value))return;
