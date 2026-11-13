@@ -3760,16 +3760,42 @@ function cropStudentPhoto(file){return new Promise(function(resolve,reject){
   view.src=String(reader.result||'');setRatio('portrait');
   slider.oninput=function(){var oldZoom=zoom,cx=stageSize/2,cy=stageSize/2,rx=(cx-imageLeft)/(img.naturalWidth*baseScale*oldZoom),ry=(cy-imageTop)/(img.naturalHeight*baseScale*oldZoom);zoom=Number(slider.value)||1;imageLeft=cx-rx*img.naturalWidth*baseScale*zoom;imageTop=cy-ry*img.naturalHeight*baseScale*zoom;clampImage();draw();};
   modal.querySelector('#studentPhotoSquare').onclick=function(){setRatio('square');};modal.querySelector('#studentPhotoPortrait').onclick=function(){setRatio('portrait');};
-  stage.addEventListener('pointerdown',function(e){var t=e.target.closest('[data-h]');var inside=e.target===box||box.contains(e.target);pointerMode=t?'resize':(inside?'moveCrop':'moveImage');activeHandle=t?t.getAttribute('data-h'):'';lastX=e.clientX;lastY=e.clientY;try{stage.setPointerCapture(e.pointerId);}catch(x){};e.preventDefault();});
-  stage.addEventListener('pointermove',function(e){if(!pointerMode)return;var dx=e.clientX-lastX,dy=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;var scaleUI=stage.getBoundingClientRect().width/stageSize;dx/=scaleUI;dy/=scaleUI;
-   if(pointerMode==='moveImage'){imageLeft+=dx;imageTop+=dy;clampImage();}
-   else if(pointerMode==='moveCrop'){cropX+=dx;cropY+=dy;clampCrop();}
-   else {var min=72,west=activeHandle.indexOf('w')>=0,north=activeHandle.indexOf('n')>=0,anchorX=west?cropX+cropW:cropX,anchorY=north?cropY+cropH:cropY,px=anchorX+(west?dx:-dx),py=anchorY+(north?dy:-dy),newW=Math.max(min,Math.abs(px-anchorX)),newH=Math.max(min,Math.abs(py-anchorY)),targetRatio=ratio==='square'?1:0.75;
-    if(Math.abs(dx)>=Math.abs(dy)){newH=newW/targetRatio;}else{newW=newH*targetRatio;}
-    var maxW=west?anchorX:stageSize-anchorX,maxH=north?anchorY:stageSize-anchorY,fit=Math.min(1,maxW/newW,maxH/newH);newW*=fit;newH*=fit;
-    cropW=newW;cropH=newH;cropX=west?anchorX-newW:anchorX;cropY=north?anchorY-newH:anchorY;clampCrop();}
-   draw();});
-  function stop(){pointerMode='';activeHandle='';}stage.addEventListener('pointerup',stop);stage.addEventListener('pointercancel',stop);
+  var resizeStart=null;
+  stage.addEventListener('pointerdown',function(e){
+   var t=e.target.closest('[data-h]'),inside=e.target===box||box.contains(e.target);
+   pointerMode=t?'resize':(inside?'moveCrop':'moveImage');
+   activeHandle=t?t.getAttribute('data-h'):'';
+   lastX=e.clientX;lastY=e.clientY;
+   if(pointerMode==='resize')resizeStart={x:e.clientX,y:e.clientY,left:cropX,top:cropY,w:cropW,h:cropH,ratio:ratio};
+   else resizeStart={x:e.clientX,y:e.clientY,left:imageLeft,top:imageTop,cropX:cropX,cropY:cropY};
+   try{stage.setPointerCapture(e.pointerId);}catch(x){}
+   e.preventDefault();
+  });
+  stage.addEventListener('pointermove',function(e){
+   if(!pointerMode||!resizeStart)return;
+   var scaleUI=stage.getBoundingClientRect().width/stageSize;
+   var dx=(e.clientX-resizeStart.x)/scaleUI,dy=(e.clientY-resizeStart.y)/scaleUI;
+   if(pointerMode==='moveImage'){imageLeft=resizeStart.left+dx;imageTop=resizeStart.top+dy;clampImage();}
+   else if(pointerMode==='moveCrop'){cropX=resizeStart.cropX+dx;cropY=resizeStart.cropY+dy;clampCrop();}
+   else {
+    var west=activeHandle.indexOf('w')>=0,north=activeHandle.indexOf('n')>=0;
+    var anchorX=west?resizeStart.left+resizeStart.w:resizeStart.left;
+    var anchorY=north?resizeStart.top+resizeStart.h:resizeStart.top;
+    var targetRatio=resizeStart.ratio==='square'?1:0.75;
+    var maxW=west?anchorX:stageSize-anchorX,maxH=north?anchorY:stageSize-anchorY;
+    var proposedW=resizeStart.w+(west?-dx:dx),proposedH=resizeStart.h+(north?-dy:dy);
+    var newW=Math.abs(dx)>=Math.abs(dy)?proposedW:proposedH*targetRatio;
+    var maxAllowedW=Math.min(maxW,maxH*targetRatio);
+    var minAllowedW=Math.min(72,maxAllowedW);
+    newW=Math.max(minAllowedW,Math.min(maxAllowedW,newW));
+    var newH=newW/targetRatio;
+    cropW=newW;cropH=newH;
+    cropX=west?anchorX-newW:anchorX;
+    cropY=north?anchorY-newH:anchorY;
+   }
+   draw();
+  });
+  function stop(){pointerMode='';activeHandle='';resizeStart=null;}stage.addEventListener('pointerup',stop);stage.addEventListener('pointercancel',stop);
   modal.querySelector('#studentPhotoCropCancel').onclick=function(){modal.remove();resolve(null);};
   modal.querySelector('#studentPhotoCropApply').onclick=async function(){try{
    var factor=baseScale*zoom,sx=(cropX-imageLeft)/factor,sy=(cropY-imageTop)/factor,sw=cropW/factor,sh=cropH/factor;
