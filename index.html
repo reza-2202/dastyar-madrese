@@ -5036,8 +5036,25 @@ function openStudentDossier(id){
  const finHtml=fins.map(f=>'<div style="padding:8px;border-bottom:1px solid #e2e8f0"><b>'+escHtml(f.topic||f.title||'مالی')+'</b> — '+escHtml(f.date||'')+' | مبلغ: '+escHtml(String(f.amount!=null?f.amount:'—'))+'<div class="meta">'+(f.notes?escHtml(f.notes):'')+'</div></div>').join('');
  const scoreHtml=scores.map(x=>'<div class="meta" style="padding:6px;border-bottom:1px solid #e2e8f0">'+escHtml(x.subject||'درس')+' — '+(x.score==null?'—':escHtml(x.score))+' | '+escHtml(levelLabel[x.level]||x.level||'')+'</div>').join('');
  const compHtml=comps.map(x=>'<div class="meta" style="padding:6px;border-bottom:1px solid #e2e8f0">'+escHtml(x.name||'شایستگی')+' — '+escHtml(levelLabel[x.level]||x.level||'')+'</div>').join('');
+ const progressMap=new Map();
+ [...scores,...evs].forEach(function(r){
+   const raw=r&&r.score;
+   if(raw==null||raw==='')return;
+   const value=Number(String(raw).replace(/[۰-۹]/g,function(d){return '۰۱۲۳۴۵۶۷۸۹'.indexOf(d);}).replace(/,/g,''));
+   if(!Number.isFinite(value))return;
+   const subject=String(r.subject||r.lesson||'سایر');
+   const entry=progressMap.get(subject)||{sum:0,count:0};
+   entry.sum+=value;entry.count++;progressMap.set(subject,entry);
+ });
+ const progressValues=Array.from(progressMap.entries()).map(function(pair){return {subject:pair[0],avg:pair[1].sum/pair[1].count,count:pair[1].count};});
+ const progressMax=progressValues.some(x=>x.avg>20)?100:20;
+ const progressHtml=progressValues.length?progressValues.map(function(x){
+   const pct=Math.max(0,Math.min(100,(x.avg/progressMax)*100));
+   return '<div style="display:grid;grid-template-columns:minmax(75px,1fr) 3fr auto;gap:8px;align-items:center;padding:6px 2px;border-bottom:1px solid #e2e8f0;break-inside:avoid"><b>'+escHtml(x.subject)+'</b><div style="height:10px;background:#e2e8f0;border-radius:99px;overflow:hidden"><div style="height:100%;width:'+pct.toFixed(1)+'%;background:#2563eb;border-radius:99px"></div></div><span>'+escHtml(x.avg.toFixed(1))+' از '+progressMax+' <small>('+x.count+')</small></span></div>';
+ }).join(''):'<div class="empty">برای رسم نمودار، هنوز نمره عددی ثبت نشده است.</div>';
+
  const box=document.getElementById('sf-dossier');
- box.innerHTML='<div id="print-student-dossier"><section class="card"><div class="ct" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'+(s.photo?('<img class="student-dossier-photo" src="'+String(s.photo).replace(/"/g,'')+'" alt="" style="width:64px;height:64px;border-radius:10px;object-fit:cover;border:1px solid #94a3b8;flex-shrink:0"/>'):'')+'<span>📁 پرونده دانش‌آموز: '+escHtml((s.first_name||'')+' '+(s.last_name||''))+'</span></div><div class="meta">کلاس: '+escHtml(cl?.label||'')+' | کد: '+escHtml(s.code||'—')+' | نام پدر: '+escHtml(s.father_name||'—')+'</div><div class="meta">تلفن شاد: '+escHtml(s.shad_phone||'—')+' | تماس اضطراری ۱: '+escHtml(s.emergency_phone_1||'—')+' | ۲: '+escHtml(s.emergency_phone_2||'—')+' | ۳: '+escHtml(s.emergency_phone_3||'—')+'</div><button class="btn btn-p btn-sm no-print" style="margin-top:10px" onclick="printStudentDossier()">🖨️ چاپ پرونده دانش‌آموز</button> <button class="btn btn-o btn-sm no-print" style="margin-top:10px" onclick="exportStudentDossierWord()">📄 خروجی Word پرونده</button></section>'+section('حضور و غیاب',att,attHtml)+section('موارد انضباطی',dis,disHtml)+section('ارزشیابی‌های درسی',evs,evHtml)+section('سوابق پیگیری غیبت مدیر',absenceFollowups,followupHtml)+section('پرسش و فعالیت‌های روزانه',acts,actHtml)+section('آزمون‌ها',exams,examHtml)+section('تماس با اولیا',contacts,contactHtml)+section('سوابق مالی',fins,finHtml)+section('نمرات کارنامه',scores,scoreHtml)+section('شایستگی‌ها',comps,compHtml)+'</div>';
+ box.innerHTML='<div id="print-student-dossier"><section class="card"><div class="ct" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'+(s.photo?('<img class="student-dossier-photo" src="'+String(s.photo).replace(/"/g,'')+'" alt="" style="width:64px;height:64px;border-radius:10px;object-fit:cover;border:1px solid #94a3b8;flex-shrink:0"/>'):'')+'<span>📁 پرونده دانش‌آموز: '+escHtml((s.first_name||'')+' '+(s.last_name||''))+'</span></div><div class="meta">کلاس: '+escHtml(cl?.label||'')+' | کد: '+escHtml(s.code||'—')+' | نام پدر: '+escHtml(s.father_name||'—')+'</div><div class="meta">تلفن شاد: '+escHtml(s.shad_phone||'—')+' | تماس اضطراری ۱: '+escHtml(s.emergency_phone_1||'—')+' | ۲: '+escHtml(s.emergency_phone_2||'—')+' | ۳: '+escHtml(s.emergency_phone_3||'—')+'</div><button class="btn btn-p btn-sm no-print" style="margin-top:10px" onclick="printStudentDossier()">🖨️ چاپ پرونده دانش‌آموز</button> <button class="btn btn-o btn-sm no-print" style="margin-top:10px" onclick="exportStudentDossierWord()">📄 خروجی Word پرونده</button></section>'+section('حضور و غیاب',att,attHtml)+section('موارد انضباطی',dis,disHtml)+section('ارزشیابی‌های درسی',evs,evHtml)+section('سوابق پیگیری غیبت مدیر',absenceFollowups,followupHtml)+section('پرسش و فعالیت‌های روزانه',acts,actHtml)+section('آزمون‌ها',exams,examHtml)+section('تماس با اولیا',contacts,contactHtml)+section('سوابق مالی',fins,finHtml)+section('نمودار پیشرفت تحصیلی',progressValues,progressHtml)+section('نمرات کارنامه',scores,scoreHtml)+section('شایستگی‌ها',comps,compHtml)+'</div>';
  try{ injectParentDossierLink(s.id); }catch(e){}
  try{ injectCustomFieldsUI(s.id); }catch(e){}
 }
@@ -5049,6 +5066,10 @@ function printStudentDossier(){
  const style=`@page{size:A4 portrait;margin:7mm}
  *{box-sizing:border-box}
  body{font-family:Tahoma,Arial,sans-serif;color:#111;direction:rtl;font-size:10pt;line-height:1.6;margin:0}
+ /* Preserve the complete inline progress-chart appearance in the print window. */
+ *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+ [style*="background:#2563eb"]{background:#2563eb!important;border:1px solid #1d4ed8!important}
+ [style*="background:#e2e8f0"]{background:#e2e8f0!important;border:1px solid #cbd5e1}
  .card{border:1px solid #bbb;border-radius:3px;padding:3mm;margin:0 0 3mm;break-inside:avoid}
  .ct{font-size:12pt;font-weight:bold;margin-bottom:2mm;break-after:avoid}
  .meta,small{font-size:9pt;line-height:1.5}
