@@ -3448,9 +3448,14 @@ async function exportOfflineTeacherPack(){
     var map={sa_students:'students',sa_attendance:'attendance',sa_scores:'scores',sa_competencies:'competencies',sa_activities:'activities',sa_evaluations:'evaluations',sa_discipline:'discipline',sa_finance:'finance',sa_documents:'documents',sa_parent_contacts:'parent_contacts'};
     safeQueue.forEach(function(item){var target=map[item.table];if(!target||item.method==='DELETE')return;var rows=Array.isArray(item.payload)?item.payload:(item.payload?[item.payload]:[]);rows.forEach(function(row){if(row&&belongs(row))cachePack[target].push(row);});});
     pendingAtt.forEach(function(item){(item.rows||[]).forEach(function(row){if(row)cachePack.attendance.push(Object.assign({},row,{_offline:true}));});});
-    (snap.documents||[]).forEach(function(doc){
-      if(!doc||!(doc.pending_upload||doc.sync_status==='pending_upload')||!belongs(doc))return;
-      if(!cachePack.documents.some(function(x){return x&&String(x.id)===String(doc.id);}))cachePack.documents.push(doc);
+    var archivedDocs=[];
+    try{if(window.dastyarDocumentArchive&&typeof dastyarDocumentArchive.all==='function')archivedDocs=archivedDocs.concat(await dastyarDocumentArchive.all());}catch(e){}
+    try{if(window.DastyarOffline&&typeof DastyarOffline.pendingDocuments==='function')archivedDocs=archivedDocs.concat(await DastyarOffline.pendingDocuments());}catch(e){}
+    archivedDocs=archivedDocs.concat(snap.documents||[]);
+    var archivedDocIds={};
+    archivedDocs.forEach(function(doc){
+      if(!doc||!(doc.pending_upload||doc.sync_status==='pending_upload')||!belongs(doc)||doc.id==null)return;
+      var id=String(doc.id);if(archivedDocIds[id])return;archivedDocIds[id]=1;cachePack.documents.push(doc);
     });
     var pack={type:'dastyar_offline_teacher_pack',format_version:2,version:'2026.10.28.54',offline_only:true,exported_at:new Date().toISOString(),
       teacher:{username:u.username||'',full_name:u.full_name||'',role:u.role||'',class_ids:classIds},school:'دبستان شهید فتح‌الله فلاح‌پور',
