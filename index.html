@@ -3491,7 +3491,7 @@ async function exportOfflineTeacherPack(){
     var portableQueue=queue.map(function(item){var copy=JSON.parse(JSON.stringify(item));delete copy.qid;delete copy._queueStore;return copy;});
     var pack={
       type:'dastyar_offline_teacher_pack',version:'2026.10.28.54',offline_only:true,exported_at:new Date().toISOString(),
-      teacher:{username:u.username||'',full_name:u.full_name||'',role:u.role||'',class_ids:Array.isArray(u.class_ids)?u.class_ids:[]},
+      teacher:{username:u.username||'',full_name:u.full_name||'',role:u.role||'',class_ids:Array.from(new Set((Array.isArray(u.class_ids)?u.class_ids:[]).concat(u.role==='teacher'&&typeof myClasses==='function'?myClasses().map(function(cls){return cls&&cls.id!=null?String(cls.id):null;}):[]).filter(function(id){return id!=null&&String(id).trim()!=='';}).map(function(id){return String(id);})))},
       school:'دبستان شهید فتح‌الله فلاح‌پور',queue:portableQueue,cache:byTable,attendance_queue:pendingAttendance,pending_documents:pendingDocs
     };
     var blob=new Blob([JSON.stringify(pack)],{type:'application/json;charset=utf-8'});
@@ -3544,10 +3544,22 @@ async function importOfflineTeacherPack(ev){
     var packTeacherName=String(pack.teacher.username||'').trim().toLowerCase();
     var trustedTeacher=(Array.isArray(cache.users)?cache.users:[]).find(function(row){return row&&row.role==='teacher'&&String(row.username||'').trim().toLowerCase()===packTeacherName;});
     if(!trustedTeacher)throw new Error('این معلم در فهرست معلمان همین مدرسه شناسایی نشد؛ ابتدا فهرست معلمان را همگام کنید.');
-    var teacherClassIds=new Set((Array.isArray(trustedTeacher.class_ids)?trustedTeacher.class_ids:[]).map(function(id){return String(id);}));
-    var declaredClassIds=new Set((Array.isArray(pack.teacher.class_ids)?pack.teacher.class_ids:[]).map(function(id){return String(id);}));
+    var teacherClassIds=new Set((Array.isArray(trustedTeacher.class_ids)?trustedTeacher.class_ids:[]).map(function(id){return String(id).trim();}).filter(Boolean));
+    // Match the same exact teacher identity fallback already used by myClasses().
+    // This supports legitimate classes (including اول ب) whose user.class_ids is empty,
+    // without granting access to classes assigned to a different teacher.
+    var trustedUsername=String(trustedTeacher.username||'').trim().toLowerCase();
+    var trustedFullName=String(trustedTeacher.full_name||'').trim().toLowerCase();
+    (Array.isArray(cache.classes)?cache.classes:[]).forEach(function(cls){
+      if(!cls||cls.id==null)return;
+      var classTeacherUser=String(cls.teacher_user||'').trim().toLowerCase();
+      var classTeacherName=String(cls.teacher_name||'').trim().toLowerCase();
+      if((trustedUsername&&classTeacherUser===trustedUsername)||(trustedFullName&&classTeacherName===trustedFullName))
+        teacherClassIds.add(String(cls.id).trim());
+    });
+    var declaredClassIds=new Set((Array.isArray(pack.teacher.class_ids)?pack.teacher.class_ids:[]).map(function(id){return String(id).trim();}).filter(Boolean));
     if(!teacherClassIds.size||!declaredClassIds.size||Array.from(declaredClassIds).some(function(id){return !teacherClassIds.has(id);}))
-      throw new Error('کلاس‌های بسته با کلاس‌های ثبت‌شده برای این معلم مطابقت ندارد.');
+      throw new Error('کلاس‌های بسته با کلاس‌های ثبت‌شده برای این معلم مطابقت ندارد. ابتدا فهرست کلاس‌ها و معلمان را همگام کنید.');
     function belongsToTeacherClass(row){return !row||row.class_id==null||teacherClassIds.has(String(row.class_id));}
     if(Object.keys(c).some(function(key){return Array.isArray(c[key])&&c[key].some(function(row){return !belongsToTeacherClass(row);});}))throw new Error('بسته شامل اطلاعاتی خارج از کلاس‌های ثبت‌شده برای این معلم است.');
     if(q.some(function(item){var payload=item&&item.payload,rows=Array.isArray(payload)?payload:(payload?[payload]:[]);return rows.some(function(row){return !belongsToTeacherClass(row);})||(item.filters||[]).some(function(f){return f&&f.type==='eq'&&f.col==='class_id'&&!teacherClassIds.has(String(f.val));});}))throw new Error('صف عملیات بسته شامل داده‌ای خارج از کلاس‌های ثبت‌شده برای این معلم است.');
