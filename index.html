@@ -449,7 +449,7 @@ async function syncQueue(){if(syncRunning||!global.navigator.onLine)return;syncR
     return {added:added,skipped:skipped,total:normalized.length,markerSaved:markerSaved};
   }
   global.supabase={createClient:createClient};global.DastyarOffline={
-    sync:syncQueue,pending:allQueue,importPending:importPendingQueue,dbName:DB_NAME,lastQueuedAt:0,compactQueue:compactQueue,purgeQueueAlreadyOnServer:purgeQueueAlreadyOnServer,
+    sync:syncQueue,pending:allQueue,importPending:importPendingQueue,dbName:DB_NAME,lastQueuedAt:0,compactQueue:compactQueue,purgeQueueAlreadyOnServer:purgeQueueAlreadyOnServer,updateBadge:updateOfflineBadge,
     setLocalOnly:function(v){forceLocal=!!v;global.isOffline=!!v;updateOfflineBadge();},
     isLocalOnly:function(){return forceLocal;},
     saveSnapshot:function(value){return saveResponse('__dastyar_full_snapshot__',value);},
@@ -3481,6 +3481,11 @@ async function importOfflineTeacherPack(ev){
     if(!pack.teacher||pack.teacher.role!=='teacher')throw new Error('مشخصات معلم در بسته معتبر نیست.');
     var c=pack.cache||{},q=Array.isArray(pack.queue)?pack.queue:[];
     var tableMap={sa_attendance:'attendance',sa_scores:'scores',sa_competencies:'competencies',sa_activities:'activities',sa_evaluations:'evaluations',sa_discipline:'discipline',sa_documents:'documents',sa_students:'students',sa_finance:'finance'};
+    var queueResult={added:0,skipped:0,total:q.length};
+    if(q.length){
+      if(!window.DastyarOffline||typeof DastyarOffline.importPending!=='function')throw new Error('امکان انتقال امن صف عملیات در این نسخه آماده نیست.');
+      queueResult=await DastyarOffline.importPending(q);
+    }
     Object.keys(tableMap).forEach(function(table){var key=tableMap[table];if(Array.isArray(c[key]))cache[key]=mergeById(cache[key],c[key]);});
     function matchesFilters(row,filters){return(filters||[]).every(function(f){return !f||f.type!=='eq'||String(row&&row[f.col])===String(f.val);});}
     q.forEach(function(item){
@@ -3493,11 +3498,6 @@ async function importOfflineTeacherPack(ev){
       }else if(item.method==='DELETE')rows=rows.filter(function(row){return !matchesFilters(row,item.filters);});
       cache[key]=rows;
     });
-    var queueResult={added:0,skipped:0,total:q.length};
-    if(q.length){
-      if(!window.DastyarOffline||typeof DastyarOffline.importPending!=='function')throw new Error('امکان انتقال امن صف عملیات در این نسخه آماده نیست.');
-      queueResult=await DastyarOffline.importPending(q);
-    }
     try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){console.warn('ذخیره snapshot پس از ورود بسته انجام نشد؛ صف عملیات حفظ شده است.',e);}
     try{localStorage.setItem('dastyar_school_snapshot_v1',JSON.stringify({users:cache.users,classes:cache.classes,students:cache.students,attendance:cache.attendance,scores:cache.scores,competencies:cache.competencies,activities:cache.activities,evaluations:cache.evaluations,discipline:cache.discipline,finance:cache.finance,documents:cache.documents||[]}));}catch(e){}
     var online=!!navigator.onLine&&!window.isOffline&&!(window.DastyarOffline&&DastyarOffline.isLocalOnly&&DastyarOffline.isLocalOnly());
