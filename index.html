@@ -2462,7 +2462,7 @@ function mergePendingAttendanceIntoCache(){ try{ mergeLocalSchoolCacheIntoMemory
 async function flushPendingAttendanceToServer(){
   try{window.flushPendingAttendanceToServer=flushPendingAttendanceToServer;}catch(e){}
   if(!navigator.onLine||!(typeof SB_URL!=='undefined'?SB_URL:window.SB_URL))return {ok:false,msg:'آفلاین'};
-  var q=[];try{q=JSON.parse(localStorage.getItem('dastyar_pending_attendance_v1')||'[]')||[];}catch(e){q=[];}
+  var q=[];try{q=JSON.parse(localStorage.getItem('dastyar_pending_attendance_v1')||'[]')||[];}catch(e){}
   if(!Array.isArray(q)||!q.length)return {ok:true,msg:'صف خالی',count:0};
   var remain=[],sent=0;
   for(var i=0;i<q.length;i++){
@@ -2471,22 +2471,31 @@ async function flushPendingAttendanceToServer(){
     try{
       var _sbUrl=(typeof SB_URL!=='undefined'?SB_URL:(window.__DASTYAR_SUPABASE_URL||''));var _sbKey=(typeof SB_KEY!=='undefined'?SB_KEY:(window.__DASTYAR_SUPABASE_ANON||''));
       var base=String(_sbUrl).replace(/\/$/,'')+'/rest/v1/sa_attendance';
-      var headers={'apikey':_sbKey,'Authorization':'Bearer '+_sbKey,'Content-Type':'application/json','Prefer':'return=minimal'};
+      var headers={'apikey':_sbKey,'Authorization':'Bearer '+_sbKey,'Content-Type':'application/json','Accept':'application/json','Prefer':'return=minimal'};
       if(item.deleteAll){
         var du=base+'?class_id=eq.'+encodeURIComponent(String(item.class_id))+'&date=eq.'+encodeURIComponent(String(item.date));
         var dr=await fetch(du,{method:'DELETE',headers:headers});if(!dr.ok)throw new Error(await dr.text());
       }else if(deleteIds.length){
-        var filter='in.('+deleteIds.map(function(id){return '"'+String(id).replace(/"/g,'\\"')+'"';}).join(',')+')';
+        var filter='in.('+deleteIds.map(function(id){return '"'+String(id).replace(/"/g,'\\\"')+'"';}).join(',')+')';
         var du=base+'?class_id=eq.'+encodeURIComponent(String(item.class_id))+'&date=eq.'+encodeURIComponent(String(item.date))+'&student_id='+encodeURIComponent(filter);
         var dr=await fetch(du,{method:'DELETE',headers:headers});if(!dr.ok)throw new Error(await dr.text());
       }
       if(rows.length){
         var response=await fetch(base+'?on_conflict=id',{method:'POST',headers:headers,body:JSON.stringify(rows)});
         if(!response.ok)throw new Error(await response.text());
-        sent+=rows.length;
-        try{var ids={};rows.forEach(function(r){ids[String(r.id)]=1;});(cache.attendance||[]).forEach(function(r){if(r&&ids[String(r.id)]){delete r._offline;delete r._savedAt;}});}catch(e){}
       }
-    }catch(e){remain.push(item);console.warn('flush attendance failed',e);}
+      // HTTP 2xx به‌تنهایی کافی نیست؛ پیش از حذف صف، نتیجه واقعی روی سرور بررسی می‌شود.
+      var verifyUrl=base+'?select=id,student_id,class_id,date,status&class_id=eq.'+encodeURIComponent(String(item.class_id))+'&date=eq.'+encodeURIComponent(String(item.date));
+      var verifyResponse=await fetch(verifyUrl,{method:'GET',headers:headers});
+      var verifyRaw=await verifyResponse.text(),verifyData=null;try{verifyData=verifyRaw?JSON.parse(verifyRaw):null;}catch(e){}
+      if(!verifyResponse.ok||!Array.isArray(verifyData))throw new Error((verifyData&&(verifyData.message||verifyData.details))||verifyRaw||'بررسی نهایی حضور و غیاب از سرور ناموفق بود');
+      var byStudent={};verifyData.forEach(function(r){byStudent[String(r.student_id)]=r;});
+      var missing=rows.filter(function(r){var found=byStudent[String(r.student_id)];return !found||String(found.status)!==String(r.status);});
+      var undeleted=item.deleteAll?verifyData.length:deleteIds.filter(function(id){return !!byStudent[String(id)];}).length;
+      if(missing.length||undeleted)throw new Error('تأیید سرور کامل نیست؛ ثبت‌نشده: '+missing.length+'، حذف‌نشده: '+undeleted);
+      sent+=rows.length;
+      try{var ids={};rows.forEach(function(r){ids[String(r.id)]=1;});(cache.attendance||[]).forEach(function(r){if(r&&ids[String(r.id)]){delete r._offline;delete r._savedAt;}});}catch(e){}
+    }catch(e){remain.push(item);console.warn('flush attendance failed; local queue retained',e);}
   }
   try{localStorage.setItem('dastyar_pending_attendance_v1',JSON.stringify(remain));}catch(e){}
   try{localStorage.setItem('dastyar_school_snapshot_v1',JSON.stringify({
@@ -2528,7 +2537,7 @@ async function reloadAll(){
   // حذف‌های صریح پرسش‌وپاسخ حتی در صورت بازگشت کش قدیمی، دوباره نمایش داده نمی‌شوند.
   cache.activities=applyQaTombstones(cache.activities);
   try{ mergeLocalSchoolCacheIntoMemory(); }catch(e){ try{ mergePendingAttendanceIntoCache(); }catch(e2){} }
-  try{ if(navigator.onLine){ flushPendingAttendanceToServer().then(function(){ try{ if(typeof refreshSyncStatusPanel==='function') refreshSyncStatusPanel(); }catch(e){} }).catch(function(){}); } }catch(e){}
+  try{ if(navigator.onLine){ await flushPendingAttendanceToServer(); try{ if(typeof refreshSyncStatusPanel==='function') refreshSyncStatusPanel(); }catch(e){} } }catch(e){ console.warn('همگام‌سازی حضور و غیاب در بارگذاری مجدد کامل نشد؛ صف محلی حفظ می‌شود.',e); }
   try{ if(typeof applyStudentPhotosFromLocal==='function') applyStudentPhotosFromLocal(); }catch(e){}
   // اگر سرور دانش‌آموز داده، همان مبنا است (نه ادغام متورم محلی)
   const sRes=results[2];
