@@ -424,29 +424,56 @@ async function syncQueue(){if(syncRunning||!global.navigator.onLine)return;syncR
       var table=String(source.table||''),method=String(source.method||'').toUpperCase();
       if(allowedTables.indexOf(table)<0)throw new Error('جدول غیرمجاز در بسته آفلاین: '+table);
       if(allowedMethods.indexOf(method)<0)throw new Error('نوع عملیات غیرمجاز در بسته آفلاین: '+method);
-      var url=String(source.url||''),expected=activeEndpoint+'/rest/v1/';
-      if(url.indexOf(expected)!==0||url.slice(expected.length).split('?')[0]!==table)throw new Error('آدرس سرور عملیات با پایگاه‌داده این برنامه یکسان نیست.');
+      var url=String(source.url||''),expected=activeEndpoint+'/rest/v1/'+table;
       var headers=source.headers||{};
-      if(String(headers.apikey||'')!==activeApiKey)throw new Error('کلید پایگاه‌داده بسته با این مدرسه مطابقت ندارد.');
+      if(String(headers.apikey||'')!==activeApiKey||String(headers.Authorization||'')!=='Bearer '+activeApiKey)
+        throw new Error('اعتبار اتصال بسته با تنظیمات امن این مدرسه مطابقت ندارد.');
       var filters=Array.isArray(source.filters)?source.filters:[];
-      if((method==='PATCH'||method==='DELETE')&&!filters.some(function(f){return f&&f.type==='eq'&&['id','student_id','code','national_id','nationality_id'].indexOf(String(f.col))>=0;}))throw new Error('عملیات ویرایش یا حذف بدون شرط شناسه پذیرفته نمی‌شود.');
-      if(method!=='DELETE'&&(source.payload==null||!(Array.isArray(source.payload)||typeof source.payload==='object')))throw new Error('اطلاعات عملیات نوشتن ناقص است.');
-      normalized.push({table:table,method:method,payload:source.payload==null?null:clone(source.payload),filters:clone(filters),url:url,headers:clone(headers),createdAt:Number(source.createdAt)||Date.now()});
+      if(filters.some(function(f){return !f||['eq','limit','range','order'].indexOf(String(f.type))<0;}))
+        throw new Error('یکی از شرط‌های عملیات بسته معتبر نیست.');
+      if(url!==expected+buildQuery(filters))throw new Error('آدرس یا شرط‌های عملیات با اطلاعات بسته مطابقت ندارد.');
+      if((method==='PATCH'||method==='DELETE')&&!filters.some(function(f){return f&&f.type==='eq'&&['id','student_id','code','national_id','nationality_id'].indexOf(String(f.col))>=0;}))
+        throw new Error('عملیات ویرایش یا حذف بدون شرط شناسه مشخص پذیرفته نمی‌شود.');
+      if(method!=='DELETE'&&(source.payload==null||!(Array.isArray(source.payload)||typeof source.payload==='object')))
+        throw new Error('اطلاعات عملیات نوشتن ناقص است.');
+      normalized.push({table:table,method:method,payload:source.payload==null?null:clone(source.payload),filters:clone(filters),url:url,headers:{apikey:activeApiKey,Authorization:'Bearer '+activeApiKey,'Content-Type':'application/json',Prefer:String(headers.Prefer||'return=representation')},createdAt:Number(source.createdAt)||Date.now()});
     });
-    var stored=await getResponse('__dastyar_imported_queue_fingerprints__').catch(function(){return null;});
-    var known=stored&&stored.value&&typeof stored.value==='object'?stored.value:{};
-    var current=await allQueue(),currentKeys=new Set();
-    current.forEach(function(item){currentKeys.add(queueFingerprint(item));});
-    var added=0,skipped=0;
-    for(var i=0;i<normalized.length;i++){
-      var item=normalized[i],fingerprint=queueFingerprint(item),marker='op:'+fingerprint;
-      if(known[marker]||currentKeys.has(fingerprint)){known[marker]=true;skipped++;continue;}
-      await putQueue(item);known[marker]=true;currentKeys.add(fingerprint);added++;
-    }
-    var markerSaved=true;
-    try{await saveResponse('__dastyar_imported_queue_fingerprints__',known);}catch(e){markerSaved=false;console.warn('ثبت شناسه بسته واردشده انجام نشد؛ صف اصلی حفظ شده است.',e);}
-    updateOfflineBadge();
-    return {added:added,skipped:skipped,total:normalized.length,markerSaved:markerSaved};
+    var db=await openDB();
+    return new Promise(function(resolve,reject){
+      var tx;
+      try{tx=db.transaction([QUEUE,SYNC_QUEUE,RESPONSES],'readwrite');}
+      catch(e){reject(e);return;}
+      var loaded=0,queueRows=[],known={},result={added:0,skipped:0,total:normalized.length};
+      function fail(error){try{tx.abort();}catch(e){}reject(error||new Error('ثبت امن بسته آفلاین ناموفق بود'));}
+      function processWhenReady(){
+        loaded++;if(loaded!==3)return;
+        try{
+          var saved=markerReq.result;
+          known=saved&&saved.value&&typeof saved.value==='object'?saved.value:{};
+          var currentKeys=new Set();
+          queueRows.forEach(function(item){currentKeys.add(queueFingerprint(item));});
+          normalized.forEach(function(item){
+            var fingerprint=queueFingerprint(item),marker='op:'+fingerprint;
+            if(known[marker]||currentKeys.has(fingerprint)){known[marker]=true;result.skipped++;return;}
+            var target=item.table==='sa_students'?SYNC_QUEUE:QUEUE;
+            var storedItem=Object.assign({},item,{_queueStore:target});
+            tx.objectStore(target).add(storedItem);
+            known[marker]=true;currentKeys.add(fingerprint);result.added++;
+          });
+          tx.objectStore(RESPONSES).put({key:'__dastyar_imported_queue_fingerprints__',value:known,updatedAt:Date.now()});
+        }catch(e){fail(e);}
+      }
+      var queueReq=tx.objectStore(QUEUE).getAll();
+      var syncReq=tx.objectStore(SYNC_QUEUE).getAll();
+      var markerReq=tx.objectStore(RESPONSES).get('__dastyar_imported_queue_fingerprints__');
+      [queueReq,syncReq,markerReq].forEach(function(req){
+        req.onsuccess=function(){if(req===queueReq||req===syncReq)queueRows=queueRows.concat(req.result||[]);processWhenReady();};
+        req.onerror=function(){fail(req.error);};
+      });
+      tx.oncomplete=function(){updateOfflineBadge();resolve(result);};
+      tx.onerror=function(){reject(tx.error||new Error('ثبت اتمی بسته آفلاین ناموفق بود'));};
+      tx.onabort=function(){reject(tx.error||new Error('ثبت اتمی بسته آفلاین لغو شد'));};
+    });
   }
   global.supabase={createClient:createClient};global.DastyarOffline={
     sync:syncQueue,pending:allQueue,importPending:importPendingQueue,dbName:DB_NAME,lastQueuedAt:0,compactQueue:compactQueue,purgeQueueAlreadyOnServer:purgeQueueAlreadyOnServer,updateBadge:updateOfflineBadge,
@@ -3466,22 +3493,29 @@ async function exportOfflineTeacherPack(){
     if(typeof toast==='function')toast('بسته آفلاین شامل '+portableQueue.length+' عملیات و '+pendingDocs.length+' فایلِ در انتظار آماده شد؛ اطلاعات آنلاین سرور داخل آن نیست.');
   }catch(e){console.error(e);if(typeof toast==='function')toast('خروجی آفلاین انجام نشد: '+(e&&e.message||'خطای نامشخص'));}
 }
-function mergeById(existing,incoming){
-  existing=Array.isArray(existing)?existing.slice():[];incoming=Array.isArray(incoming)?incoming:[];
+function mergeById(existing, incoming){
+  existing=Array.isArray(existing)?existing.slice():[];
+  incoming=Array.isArray(incoming)?incoming:[];
   var map={};
-  function keys(row){
-    var out=[];if(row.id!=null)out.push('id:'+String(row.id));
-    if(row.student_id!=null&&row.date!=null&&row.class_id!=null)out.push('att:'+String(row.class_id)+'|'+String(row.date)+'|'+String(row.student_id));
-    if(row.class_id!=null&&(row.national_id||row.nationality_id||row.code))out.push('student:'+String(row.class_id)+'|'+String(row.national_id||row.nationality_id||row.code).trim().toLowerCase());
-    return out;
-  }
-  existing.forEach(function(row,index){if(row)keys(row).forEach(function(key){map[key]=index;});});
-  incoming.forEach(function(row){
-    if(!row||typeof row!=='object')return;
-    var rowKeys=keys(row),index=null;
-    for(var i=0;i<rowKeys.length;i++){if(map[rowKeys[i]]!=null){index=map[rowKeys[i]];break;}}
-    if(index!=null)existing[index]=Object.assign({},existing[index],row);else{existing.push(row);index=existing.length-1;}
-    rowKeys.forEach(function(key){map[key]=index;});
+  existing.forEach(function(r,i){
+    if(!r) return;
+    if(r.id!=null) map['id:'+String(r.id)]=i;
+    if(r.student_id!=null && r.date!=null && r.class_id!=null && r.status!=null)
+      map['att:'+String(r.class_id)+'|'+String(r.date)+'|'+String(r.student_id)]=i;
+  });
+  incoming.forEach(function(r){
+    if(!r) return;
+    var key=r.id!=null?('id:'+String(r.id)):null;
+    var attKey=(r.student_id!=null&&r.date!=null&&r.class_id!=null&&r.status!=null)?('att:'+String(r.class_id)+'|'+String(r.date)+'|'+String(r.student_id)):null;
+    var idx=(key&&map[key]!=null)?map[key]:((attKey&&map[attKey]!=null)?map[attKey]:null);
+    if(idx!=null){
+      existing[idx]=Object.assign({}, existing[idx], r);
+    } else {
+      existing.push(r);
+      var ni=existing.length-1;
+      if(key) map[key]=ni;
+      if(attKey) map[attKey]=ni;
+    }
   });
   return existing;
 }
