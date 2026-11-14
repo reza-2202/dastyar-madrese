@@ -3529,8 +3529,13 @@ async function importOfflineTeacherPack(ev){
     var c=pack.cache||{},q=Array.isArray(pack.queue)?pack.queue:[],pendingDocs=Array.isArray(pack.pending_documents)?pack.pending_documents:[];
     if(pendingDocs.some(function(row){return !row||!row.id||!row.pending_upload||!row.local_archive_data_url&&!String(row.file_url||'').startsWith('data:');}))
       throw new Error('یکی از فایل‌های آفلاین نسخه محلی قابل انتقال ندارد.');
-    var teacherClassIds=new Set((Array.isArray(pack.teacher.class_ids)?pack.teacher.class_ids:[]).map(function(id){return String(id);}));
-    if(!teacherClassIds.size)throw new Error('کلاس معلم در بسته مشخص نیست؛ برای جلوگیری از ورود اطلاعات به کلاس اشتباه، بسته پذیرفته نشد.');
+    var packTeacherName=String(pack.teacher.username||'').trim().toLowerCase();
+    var trustedTeacher=(Array.isArray(cache.users)?cache.users:[]).find(function(row){return row&&row.role==='teacher'&&String(row.username||'').trim().toLowerCase()===packTeacherName;});
+    if(!trustedTeacher)throw new Error('این معلم در فهرست معلمان همین مدرسه شناسایی نشد؛ ابتدا فهرست معلمان را همگام کنید.');
+    var teacherClassIds=new Set((Array.isArray(trustedTeacher.class_ids)?trustedTeacher.class_ids:[]).map(function(id){return String(id);}));
+    var declaredClassIds=new Set((Array.isArray(pack.teacher.class_ids)?pack.teacher.class_ids:[]).map(function(id){return String(id);}));
+    if(!teacherClassIds.size||!declaredClassIds.size||Array.from(declaredClassIds).some(function(id){return !teacherClassIds.has(id);}))
+      throw new Error('کلاس‌های بسته با کلاس‌های ثبت‌شده برای این معلم مطابقت ندارد.');
     function belongsToTeacherClass(row){return !row||row.class_id==null||teacherClassIds.has(String(row.class_id));}
     if(Object.keys(c).some(function(key){return Array.isArray(c[key])&&c[key].some(function(row){return !belongsToTeacherClass(row);});}))throw new Error('بسته شامل اطلاعاتی خارج از کلاس‌های ثبت‌شده برای این معلم است.');
     if(q.some(function(item){var payload=item&&item.payload,rows=Array.isArray(payload)?payload:(payload?[payload]:[]);return rows.some(function(row){return !belongsToTeacherClass(row);})||(item.filters||[]).some(function(f){return f&&f.type==='eq'&&f.col==='class_id'&&!teacherClassIds.has(String(f.val));});}))throw new Error('صف عملیات بسته شامل داده‌ای خارج از کلاس‌های ثبت‌شده برای این معلم است.');
