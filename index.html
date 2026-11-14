@@ -2471,7 +2471,7 @@ async function flushPendingAttendanceToServer(){
     try{
       var _sbUrl=(typeof SB_URL!=='undefined'?SB_URL:(window.__DASTYAR_SUPABASE_URL||''));var _sbKey=(typeof SB_KEY!=='undefined'?SB_KEY:(window.__DASTYAR_SUPABASE_ANON||''));
       var base=String(_sbUrl).replace(/\/$/,'')+'/rest/v1/sa_attendance';
-      var headers={'apikey':_sbKey,'Authorization':'Bearer '+_sbKey,'Content-Type':'application/json','Accept':'application/json','Prefer':'return=minimal'};
+      var headers={'apikey':_sbKey,'Authorization':'Bearer '+_sbKey,'Content-Type':'application/json','Accept':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'};
       if(item.deleteAll){
         var du=base+'?class_id=eq.'+encodeURIComponent(String(item.class_id))+'&date=eq.'+encodeURIComponent(String(item.date));
         var dr=await fetch(du,{method:'DELETE',headers:headers});if(!dr.ok)throw new Error(await dr.text());
