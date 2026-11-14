@@ -1,4 +1,4 @@
-const CACHE = 'dastyar-shell-v60-20261115-offline-attendance-idempotent';
+const CACHE = 'dastyar-shell-v61-20261115-offline-pack-class-match';
 const BASE = '/dastyar-madrese/';
 const SHELL = [
   BASE,
