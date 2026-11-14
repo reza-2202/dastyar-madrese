@@ -3512,10 +3512,11 @@ async function importOfflineTeacherPack(ev){
     var tableCache={sa_students:'students',sa_attendance:'attendance',sa_scores:'scores',sa_competencies:'competencies',sa_activities:'activities',sa_evaluations:'evaluations',sa_discipline:'discipline',sa_finance:'finance',sa_documents:'documents',sa_parent_contacts:'parent_contacts'};
     function importedQueueBelongs(item){
       if(!item||!tableCache[item.table])return false;
-      if(item.method==='DELETE')return Array.isArray(item.filters)&&item.filters.some(function(f){return f&&f.type==='eq'&&f.col==='class_id'&&classIds.indexOf(String(f.val))>=0;});
+      var filters=Array.isArray(item.filters)?item.filters:[];
+      var classFilter=filters.find(function(f){return f&&f.type==='eq'&&f.col==='class_id';});
+      if(classFilter)return classIds.indexOf(String(classFilter.val))>=0;
       var rows=Array.isArray(item.payload)?item.payload:(item.payload?[item.payload]:[]);
       if(rows.some(inTeacherClass))return true;
-      var filters=Array.isArray(item.filters)?item.filters:[];
       var idFilter=filters.find(function(f){return f&&f.type==='eq'&&f.col==='id';});
       var studentFilter=filters.find(function(f){return f&&f.type==='eq'&&f.col==='student_id';});
       return (cache[tableCache[item.table]]||[]).some(function(row){return row&&inTeacherClass(row)&&((idFilter&&String(row.id)===String(idFilter.val))||(studentFilter&&String(row.student_id)===String(studentFilter.val)));});
