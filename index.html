@@ -2620,12 +2620,26 @@ async function ensureUsersFromServer(){
 
 function myClasses(){
   if(!user) return [];
-  if(user.role==='admin') return cache.classes;
-  return cache.classes.filter(c=>(user.class_ids||[]).includes(c.id));
+  const classes=Array.isArray(cache.classes)?cache.classes:[];
+  if(user.role==='admin') return classes;
+  // شناسه‌ها ممکن است در snapshot آفلاین و پاسخ سرور با نوع متفاوت (عدد/رشته) باشند.
+  const classIds=Array.isArray(user.class_ids)?user.class_ids.map(id=>String(id).trim()):[];
+  const matched=classes.filter(c=>c&&c.id!=null&&classIds.includes(String(c.id).trim()));
+  if(matched.length) return matched;
+  // بازیابی محدود کلاس فقط با تطبیق دقیق هویت معلم؛ مانع نمایش کلاس سایر معلمان می‌شود.
+  const username=String(user.username||'').trim().toLowerCase();
+  const fullName=String(user.full_name||'').trim().toLowerCase();
+  return classes.filter(c=>{
+    if(!c) return false;
+    const teacherUser=String(c.teacher_user||'').trim().toLowerCase();
+    const teacherName=String(c.teacher_name||'').trim().toLowerCase();
+    return (!!username&&teacherUser===username)|| (!!fullName&&teacherName===fullName);
+  });
 }
 function myStudents(){
-  const ids=myClasses().map(c=>c.id);
-  return cache.students.filter(s=>ids.includes(s.class_id));
+  const ids=new Set(myClasses().filter(c=>c&&c.id!=null).map(c=>String(c.id).trim()));
+  const students=Array.isArray(cache.students)?cache.students:[];
+  return students.filter(st=>st&&st.class_id!=null&&ids.has(String(st.class_id).trim()));
 }
 function subjectsFor(classId){
   const c=cache.classes.find(x=>String(x.id)===String(classId));
