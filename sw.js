@@ -1,4 +1,4 @@
-const CACHE = 'dastyar-shell-v58-20261115-attendance-verify';
+const CACHE = 'dastyar-shell-v59-20261115-offline-attendance-pack';
 const BASE = '/dastyar-madrese/';
 const SHELL = [
   BASE,
