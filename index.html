@@ -3537,6 +3537,8 @@ async function importOfflineTeacherPack(ev){
     if(pendingDocs.some(function(row){return row.class_id!=null&&!teacherClassIds.has(String(row.class_id));}))
       throw new Error('بسته شامل فایلی خارج از کلاس‌های ثبت‌شده برای این معلم است.');
     var tableMap={sa_attendance:'attendance',sa_scores:'scores',sa_competencies:'competencies',sa_activities:'activities',sa_evaluations:'evaluations',sa_discipline:'discipline',sa_documents:'documents',sa_students:'students',sa_finance:'finance'};
+    if(pendingDocs.length&&(!window.DastyarOffline||typeof DastyarOffline.putPendingDocument!=='function'||!window.dastyarDocumentArchive||typeof dastyarDocumentArchive.put!=='function'))
+      throw new Error('ذخیره‌ساز امن فایل‌های آفلاین در دسترس نیست؛ بسته وارد نشد.');
     var queueResult={added:0,skipped:0,total:q.length};
     if(q.length){
       if(!window.DastyarOffline||typeof DastyarOffline.importPending!=='function')throw new Error('امکان انتقال امن صف عملیات در این نسخه آماده نیست.');
@@ -3548,8 +3550,8 @@ async function importOfflineTeacherPack(ev){
       if(!doc.local_archive_data_url&&String(doc.file_url||'').indexOf('data:')===0)doc.local_archive_data_url=doc.file_url;
       doc.pending_upload=true;doc.sync_status='pending_upload';
       cache.documents=mergeById(cache.documents,[doc]);
-      if(window.DastyarOffline&&DastyarOffline.putPendingDocument)await DastyarOffline.putPendingDocument(doc);
-      if(window.dastyarDocumentArchive&&dastyarDocumentArchive.put)await dastyarDocumentArchive.put(doc);
+      await DastyarOffline.putPendingDocument(doc);
+      await dastyarDocumentArchive.put(doc);
     }
     function matchesFilters(row,filters){return(filters||[]).every(function(f){return f&&f.type==='eq'&&String(row&&row[f.col])===String(f.val);});}
     q.forEach(function(item){
