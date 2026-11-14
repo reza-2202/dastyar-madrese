@@ -414,6 +414,35 @@ async function syncQueue(){if(syncRunning||!global.navigator.onLine)return;syncR
     setLocalOnly:function(v){forceLocal=!!v;global.isOffline=!!v;updateOfflineBadge();},
     isLocalOnly:function(){return forceLocal;},
     saveSnapshot:function(value){return saveResponse('__dastyar_full_snapshot__',value);},
+    importPending:async function(imported){
+      var allowed={sa_students:1,sa_attendance:1,sa_scores:1,sa_competencies:1,sa_activities:1,sa_evaluations:1,sa_discipline:1,sa_finance:1,sa_documents:1,sa_parent_contacts:1};
+      var list=Array.isArray(imported)?imported:[],existing=await allQueue(),seen={},added=0,skipped=0;
+      function signature(x){return JSON.stringify([x.table,x.method,x.payload===undefined?null:x.payload,x.filters||[]]);}
+      existing.forEach(function(x){try{seen[signature(x)]=1;}catch(e){}});
+      var root=String(global.__DASTYAR_SUPABASE_URL||'');while(root.charAt(root.length-1)==='/')root=root.slice(0,-1);
+      var key=String(global.__DASTYAR_SUPABASE_ANON||'');
+      if(!root||!key)throw new Error('تنظیمات سرور برنامه در دسترس نیست');
+      for(var i=0;i<list.length;i++){
+        var src=list[i];
+        if(!src||!allowed[src.table]||['POST','PATCH','DELETE'].indexOf(String(src.method||''))<0){skipped++;continue;}
+        var filters=Array.isArray(src.filters)?src.filters.filter(function(f){
+          return f&&typeof f.col==='string'&&/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(f.col)&&
+            ((f.type==='eq'&&f.val!==undefined)||(f.type==='limit'&&Number.isFinite(Number(f.val)))||
+             (f.type==='range'&&Number.isFinite(Number(f.from))&&Number.isFinite(Number(f.to)))||
+             (f.type==='order'&&/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(f.col)));
+        }):[];
+        if((src.method==='PATCH'||src.method==='DELETE')&&!filters.some(function(f){return f.type==='eq';})){skipped++;continue;}
+        if(src.method==='POST'&&(!src.payload||typeof src.payload!=='object')){skipped++;continue;}
+        if(src.method==='PATCH'&&(!src.payload||typeof src.payload!=='object'||Array.isArray(src.payload))){skipped++;continue;}
+        var item={table:src.table,method:src.method,payload:src.method==='DELETE'?undefined:clone(src.payload),filters:clone(filters),
+          url:root+'/rest/v1/'+src.table+buildQuery(filters),
+          headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json',Prefer:(src.prefer==='merge'?'resolution=merge-duplicates,return=representation':'return=representation')},
+          createdAt:Number(src.createdAt)||Date.now()};
+        var sig=signature(item);if(seen[sig]){skipped++;continue;}
+        await putQueue(item);seen[sig]=1;added++;
+      }
+      updateOfflineBadge();return {added:added,skipped:skipped};
+    },
     putPendingDocument:putPendingDocument,pendingDocuments:allPendingDocuments,removePendingDocument:removePendingDocument,
     loadSnapshot:function(){return getResponse('__dastyar_full_snapshot__').then(function(x){return x?x.value:null;});},
     status:function(){return {online:!!global.navigator.onLine,pending:allQueue()};}
@@ -3377,61 +3406,66 @@ function updateOfflineExportCardAvailability(){
 }
 async function exportOfflineTeacherPack(){
   try{
-    if(!isAppOfflineNow()){
-      if(typeof toast==='function') toast('سرور وصل است؛ خروجی آفلاین لازم نیست و غیرفعال است');
-      updateOfflineExportCardAvailability();
-      return;
-    }
-    var u=window.user||user;
-    if(!u){ if(typeof toast==='function') toast('ابتدا وارد شوید'); return; }
-    var queue=[];
-    try{
-      if(window.DastyarOffline&&typeof DastyarOffline.pending==='function'){
-        queue=await DastyarOffline.pending();
-      }
-    }catch(e){ queue=[]; }
+    if(!isAppOfflineNow()){if(typeof toast==='function')toast('خروجی بسته آفلاین فقط هنگام قطع اینترنت یا سرور فعال است');updateOfflineExportCardAvailability();return;}
+    var u=window.user||user;if(!u){if(typeof toast==='function')toast('ابتدا وارد شوید');return;}
+    var queue=window.DastyarOffline&&typeof DastyarOffline.pending==='function'?await DastyarOffline.pending():[];
     queue=Array.isArray(queue)?queue:[];
-    // فقط صف آفلاین = چیزهایی که هنوز به سرور نرفته‌اند
-    if(!queue.length){
-      if(typeof toast==='function') toast('داده آفلاینِ در صف برای خروجی نیست (همه یا قبلاً همگام شده یا ثبت آفلاینی نبوده)');
-      return;
+    var pendingAttendance=[];try{pendingAttendance=JSON.parse(localStorage.getItem('dastyar_pending_attendance_v1')||'[]')||[];}catch(e){}
+    if(!Array.isArray(pendingAttendance))pendingAttendance=[];
+    var snap=null;try{snap=window.DastyarOffline&&await DastyarOffline.loadSnapshot();}catch(e){}
+    if(!snap){try{snap=JSON.parse(localStorage.getItem('dastyar_school_snapshot_v1')||'null');}catch(e){}}
+    snap=snap&&typeof snap==='object'?snap:{};
+    var classIds=u.role==='admin'?(snap.classes||[]).map(function(c){return String(c.id);}):(Array.isArray(u.class_ids)?u.class_ids.map(String):[]);
+    if(u.role!=='admin'&&!classIds.length&&typeof myClasses==='function')myClasses().forEach(function(c){if(c&&c.id!=null)classIds.push(String(c.id));});
+    var studentIds={};(snap.students||[]).forEach(function(st){if(st&&st.id!=null&&classIds.indexOf(String(st.class_id))>=0)studentIds[String(st.id)]=1;});
+    function belongs(row){if(!row)return false;if(u.role==='admin')return true;if(row.class_id!=null)return classIds.indexOf(String(row.class_id))>=0;if(row.student_id!=null)return !!studentIds[String(row.student_id)];return false;}
+    var cacheTable={sa_students:'students',sa_attendance:'attendance',sa_scores:'scores',sa_competencies:'competencies',sa_activities:'activities',sa_evaluations:'evaluations',sa_discipline:'discipline',sa_finance:'finance',sa_documents:'documents',sa_parent_contacts:'parent_contacts'};
+    function queueBelongs(item){
+      if(u.role==='admin')return true;
+      var rows=Array.isArray(item.payload)?item.payload:(item.payload&&typeof item.payload==='object'?[item.payload]:[]);
+      if(rows.some(belongs))return true;
+      var filters=Array.isArray(item.filters)?item.filters:[];
+      var classFilter=filters.find(function(f){return f&&f.type==='eq'&&f.col==='class_id';});
+      if(classFilter)return classIds.indexOf(String(classFilter.val))>=0;
+      var idFilter=filters.find(function(f){return f&&f.type==='eq'&&f.col==='id';});
+      var studentFilter=filters.find(function(f){return f&&f.type==='eq'&&f.col==='student_id';});
+      var source=snap[cacheTable[item.table]]||[];
+      return source.some(function(row){return row&&belongs(row)&&((idFilter&&String(row.id)===String(idFilter.val))||(studentFilter&&String(row.student_id)===String(studentFilter.val)));});
     }
-    // از روی صف، رکوردهای هر جدول را استخراج کن
-    var byTable={attendance:[],scores:[],activities:[],evaluations:[],discipline:[],documents:[],students:[]};
-    var mapTable={sa_attendance:'attendance',sa_scores:'scores',sa_activities:'activities',sa_evaluations:'evaluations',sa_discipline:'discipline',sa_documents:'documents',sa_students:'students'};
-    function pushRows(table, payload){
-      var key=mapTable[table]; if(!key) return;
-      var rows=Array.isArray(payload)?payload:(payload?[payload]:[]);
-      rows.forEach(function(r){ if(r) byTable[key].push(r); });
-    }
+    var allowed={sa_students:1,sa_attendance:1,sa_scores:1,sa_competencies:1,sa_activities:1,sa_evaluations:1,sa_discipline:1,sa_finance:1,sa_documents:1,sa_parent_contacts:1};
+    var safeQueue=[];
     queue.forEach(function(item){
-      if(!item) return;
-      // فقط نوشتن‌ها
-      if(item.method&&item.method!=='POST'&&item.method!=='PATCH'&&item.method!=='UPSERT') return;
-      pushRows(item.table, item.payload);
+      if(!item||!allowed[item.table]||['POST','PATCH','DELETE'].indexOf(item.method)<0||!queueBelongs(item))return;
+      var rows=Array.isArray(item.payload)?item.payload:(item.payload&&typeof item.payload==='object'?[item.payload]:[]);
+      var safePayload=item.payload;
+      if(u.role!=='admin'&&item.method!=='DELETE'&&rows.length){
+        var filtered=rows.filter(belongs);safePayload=Array.isArray(item.payload)?filtered:(filtered[0]||item.payload);
+      }
+      safeQueue.push({table:item.table,method:item.method,payload:safePayload===undefined?null:safePayload,filters:Array.isArray(item.filters)?item.filters:[],createdAt:item.createdAt||Date.now(),prefer:String(item.headers&&item.headers.Prefer||'').indexOf('resolution=merge-duplicates')>=0?'merge':'default'});
     });
-    var pack={
-      type:'dastyar_offline_teacher_pack',
-      version:'2026.10.28.54',
-      offline_only:true,
-      exported_at:new Date().toISOString(),
-      teacher:{username:u.username||'', full_name:u.full_name||'', role:u.role||'', class_ids:u.class_ids||[]},
-      school:'دبستان شهید فتح‌الله فلاح‌پور',
-      queue:queue,
-      cache:byTable
-    };
-    var blob=new Blob([JSON.stringify(pack)],{type:'application/json;charset=utf-8'});
-    var a=document.createElement('a');
-    var stamp=new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
-    a.href=URL.createObjectURL(blob);
-    a.download='dastyar-offline-only-'+(u.username||'teacher')+'-'+stamp+'.json';
-    document.body.appendChild(a); a.click();
-    setTimeout(function(){ try{ URL.revokeObjectURL(a.href); a.remove(); }catch(e){} }, 1500);
-    if(typeof toast==='function') toast('فقط '+queue.length+' مورد آفلاینِ در صف خروجی گرفته شد (داده آنلاین سرور نیست)');
-  }catch(e){
-    console.error(e);
-    if(typeof toast==='function') toast('خروجی آفلاین انجام نشد');
-  }
+    var pendingAtt=pendingAttendance.filter(function(x){return u.role==='admin'||(x&&classIds.indexOf(String(x.class_id))>=0);}).map(function(x){return JSON.parse(JSON.stringify(x));});
+    var cachePack={students:[],attendance:[],scores:[],competencies:[],activities:[],evaluations:[],discipline:[],finance:[],documents:[],parent_contacts:[]};
+    var map={sa_students:'students',sa_attendance:'attendance',sa_scores:'scores',sa_competencies:'competencies',sa_activities:'activities',sa_evaluations:'evaluations',sa_discipline:'discipline',sa_finance:'finance',sa_documents:'documents',sa_parent_contacts:'parent_contacts'};
+    safeQueue.forEach(function(item){var target=map[item.table];if(!target||item.method==='DELETE')return;var rows=Array.isArray(item.payload)?item.payload:(item.payload?[item.payload]:[]);rows.forEach(function(row){if(row&&belongs(row))cachePack[target].push(row);});});
+    pendingAtt.forEach(function(item){(item.rows||[]).forEach(function(row){if(row)cachePack.attendance.push(Object.assign({},row,{_offline:true}));});});
+    var archivedDocs=[];
+    try{if(window.dastyarDocumentArchive&&typeof dastyarDocumentArchive.all==='function')archivedDocs=archivedDocs.concat(await dastyarDocumentArchive.all());}catch(e){}
+    try{if(window.DastyarOffline&&typeof DastyarOffline.pendingDocuments==='function')archivedDocs=archivedDocs.concat(await DastyarOffline.pendingDocuments());}catch(e){}
+    archivedDocs=archivedDocs.concat(snap.documents||[]);
+    var archivedDocIds={};
+    archivedDocs.forEach(function(doc){
+      if(!doc||!(doc.pending_upload||doc.sync_status==='pending_upload')||!belongs(doc)||doc.id==null)return;
+      var id=String(doc.id);if(archivedDocIds[id])return;archivedDocIds[id]=1;cachePack.documents.push(doc);
+    });
+    var pack={type:'dastyar_offline_teacher_pack',format_version:2,version:'2026.10.28.54',offline_only:true,exported_at:new Date().toISOString(),
+      teacher:{username:u.username||'',full_name:u.full_name||'',role:u.role||'',class_ids:classIds},school:'دبستان شهید فتح‌الله فلاح‌پور',
+      queue:safeQueue,pending_attendance:pendingAtt,cache:cachePack};
+    var blob=new Blob([JSON.stringify(pack)],{type:'application/json;charset=utf-8'}),a=document.createElement('a');
+    var stamp=new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');a.href=URL.createObjectURL(blob);
+    a.download='dastyar-offline-pack-'+(u.username||'user')+'-'+stamp+'.json';document.body.appendChild(a);a.click();
+    setTimeout(function(){try{URL.revokeObjectURL(a.href);a.remove();}catch(e){}},1500);
+    if(typeof toast==='function')toast('بسته پشتیبان آماده شد: '+safeQueue.length+' عملیات صف و '+pendingAtt.length+' بسته حضور و غیاب');
+  }catch(e){console.error(e);if(typeof toast==='function')toast('خروجی آفلاین انجام نشد: '+(e&&e.message||''));}
 }
 function mergeById(existing, incoming){
   existing=Array.isArray(existing)?existing.slice():[];
@@ -3462,33 +3496,113 @@ function mergeById(existing, incoming){
 }
 async function importOfflineTeacherPack(ev){
   try{
-    if(!user||user.role!=='admin'){ if(typeof toast==='function') toast('فقط مدیر می‌تواند بسته را وارد کند'); return; }
-    var file=ev&&ev.target&&ev.target.files&&ev.target.files[0];
-    if(!file) return;
-    var text=await file.text();
-    var pack=JSON.parse(text);
-    if(!pack||pack.type!=='dastyar_offline_teacher_pack'){ if(typeof toast==='function') toast('فایل معتبر نیست'); return; }
+    if(!user||user.role!=='admin'){if(typeof toast==='function')toast('فقط مدیر می‌تواند بسته را وارد کند');return;}
+    var file=ev&&ev.target&&ev.target.files&&ev.target.files[0];if(!file)return;
+    if(file.size>100*1024*1024)throw new Error('حجم فایل بیشتر از حد مجاز ۱۰۰ مگابایت است');
+    var pack=JSON.parse(await file.text());
+    if(!pack||pack.type!=='dastyar_offline_teacher_pack'||![1,2].includes(Number(pack.format_version||1)))throw new Error('ساختار فایل پشتیبان معتبر یا پشتیبانی‌شده نیست');
+    var teacher=pack.teacher||{};
+    var teacherKey=normalizeLoginName(teacher.username||'');
+    var trustedUser=(cache.users||[]).find(function(x){return x&&normalizeLoginName(x.username||'')===teacherKey;});
+    if(!trustedUser||trustedUser.role!==teacher.role)throw new Error('حساب صادرکننده در فهرست کاربران محلی مدیر تأیید نشد؛ برای حفظ جداسازی کلاس‌ها فایل وارد نشد');
+    var trustedClassIds=trustedUser.role==='admin'?(cache.classes||[]).filter(function(c){return c&&c.id!=null;}).map(function(c){return String(c.id);}):(Array.isArray(trustedUser.class_ids)?trustedUser.class_ids.map(String):[]);
+    if(trustedUser.role==='teacher'&&!trustedClassIds.length){
+      (cache.classes||[]).forEach(function(c){if(c&&c.id!=null&&String(c.teacher_user||'').trim().toLowerCase()===String(trustedUser.username||'').trim().toLowerCase())trustedClassIds.push(String(c.id));});
+    }
+    var claimedClassIds=Array.isArray(teacher.class_ids)?teacher.class_ids.map(String):[];
+    if(claimedClassIds.some(function(id){return trustedClassIds.indexOf(id)<0;}))throw new Error('فایل شامل شناسه کلاسی خارج از دسترسی این معلم است؛ ورود متوقف شد');
+    var classIds=claimedClassIds.length?claimedClassIds:trustedClassIds;
+    if(!classIds.length)throw new Error('کلاس مجاز این حساب در داده‌های محلی مدیر پیدا نشد');
     var c=pack.cache||{};
-    // فقط ادغام؛ تکراری با شناسه یا کلید حضور ثبت مجدد نمی‌شود
-    cache.attendance=mergeById(cache.attendance,c.attendance);
-    cache.scores=mergeById(cache.scores,c.scores);
-    cache.activities=mergeById(cache.activities,c.activities);
-    cache.evaluations=mergeById(cache.evaluations,c.evaluations);
-    cache.discipline=mergeById(cache.discipline,c.discipline);
-    cache.documents=mergeById(cache.documents,c.documents);
-    cache.students=mergeById(cache.students,c.students);
-    try{ if(window.DastyarOffline&&DastyarOffline.saveSnapshot) await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache))); }catch(e){}
-    try{ localStorage.setItem('dastyar_school_snapshot_v1', JSON.stringify({users:cache.users,classes:cache.classes,students:cache.students,attendance:cache.attendance,scores:cache.scores,competencies:cache.competencies,activities:cache.activities,evaluations:cache.evaluations,discipline:cache.discipline,finance:cache.finance,documents:cache.documents||[]})); }catch(e){}
-    try{ if(typeof refreshDash==='function') refreshDash(); }catch(e){}
-    var qn=(pack.queue&&pack.queue.length)||0;
-    var who=(pack.teacher&&(pack.teacher.full_name||pack.teacher.username))||'معلم';
-    if(typeof toast==='function') toast('بسته آفلاین «'+who+'» بدون تکرار وارد شد'+(qn?(' | صف: '+qn):''));
-  }catch(e){
-    console.error(e);
-    if(typeof toast==='function') toast('ورود بسته ناموفق بود');
-  }finally{
-    try{ if(ev&&ev.target) ev.target.value=''; }catch(e){}
-  }
+    function inTeacherClass(row){
+      if(!row)return false;
+      if(row.class_id!=null)return classIds.indexOf(String(row.class_id))>=0;
+      if(row.student_id!=null)return (cache.students||[]).some(function(st){return st&&String(st.id)===String(row.student_id)&&classIds.indexOf(String(st.class_id))>=0;});
+      return false;
+    }
+    var names=['students','attendance','scores','competencies','activities','evaluations','discipline','finance','documents','parent_contacts'];
+    var rejected=0,accepted={};
+    names.forEach(function(name){
+      var rows=Array.isArray(c[name])?c[name]:[];
+      var safe=rows.filter(function(row){var ok=inTeacherClass(row);if(!ok)rejected++;return ok;});
+      accepted[name]=safe;
+      cache[name]=mergeById(cache[name],safe);
+    });
+    if(window.DastyarOffline&&typeof DastyarOffline.putPendingDocument==='function'){
+      for(var docIndex=0;docIndex<(accepted.documents||[]).length;docIndex++){
+        var pendingDoc=accepted.documents[docIndex];
+        if(pendingDoc&&(pendingDoc.pending_upload||pendingDoc.sync_status==='pending_upload')){
+          try{await DastyarOffline.putPendingDocument(pendingDoc);}catch(docQueueError){console.warn('صف محلی فایل وارد نشد',docQueueError);}
+          try{if(window.dastyarDocumentArchive&&typeof dastyarDocumentArchive.put==='function')await dastyarDocumentArchive.put(pendingDoc);}catch(docArchiveError){}
+        }
+      }
+    }
+    var tableCache={sa_students:'students',sa_attendance:'attendance',sa_scores:'scores',sa_competencies:'competencies',sa_activities:'activities',sa_evaluations:'evaluations',sa_discipline:'discipline',sa_finance:'finance',sa_documents:'documents',sa_parent_contacts:'parent_contacts'};
+    function importedQueueBelongs(item){
+      if(!item||!tableCache[item.table])return false;
+      var filters=Array.isArray(item.filters)?item.filters:[];
+      var classFilter=filters.find(function(f){return f&&f.type==='eq'&&f.col==='class_id';});
+      if(classFilter)return classIds.indexOf(String(classFilter.val))>=0;
+      var rows=Array.isArray(item.payload)?item.payload:(item.payload?[item.payload]:[]);
+      if(rows.some(inTeacherClass))return true;
+      var idFilter=filters.find(function(f){return f&&f.type==='eq'&&f.col==='id';});
+      var studentFilter=filters.find(function(f){return f&&f.type==='eq'&&f.col==='student_id';});
+      return (cache[tableCache[item.table]]||[]).some(function(row){return row&&inTeacherClass(row)&&((idFilter&&String(row.id)===String(idFilter.val))||(studentFilter&&String(row.student_id)===String(studentFilter.val)));});
+    }
+    var q=(Array.isArray(pack.queue)?pack.queue:[]).filter(function(item){
+      if(!item||!['POST','PATCH','DELETE'].includes(item.method)||!importedQueueBelongs(item))return false;
+      if(item.method==='POST'){var rows=Array.isArray(item.payload)?item.payload:(item.payload?[item.payload]:[]);return rows.length>0&&rows.every(inTeacherClass);}
+      return true;
+    });
+    var queueResult={added:0,skipped:0};
+    if(window.DastyarOffline&&typeof DastyarOffline.importPending==='function')queueResult=await DastyarOffline.importPending(q);
+    q.forEach(function(item){
+      var target=tableCache[item.table],rows=cache[target]||[];
+      if(item.method==='PATCH'){
+        rows.forEach(function(row){var matches=(item.filters||[]).filter(function(f){return f&&f.type==='eq';}).every(function(f){return String(row[f.col])===String(f.val);});if(matches)Object.assign(row,item.payload||{});});
+        cache[target]=rows;
+      }else if(item.method==='DELETE'){
+        cache[target]=rows.filter(function(row){return !(item.filters||[]).filter(function(f){return f&&f.type==='eq';}).every(function(f){return String(row[f.col])===String(f.val);});});
+      }
+    });
+    var incomingAtt=Array.isArray(pack.pending_attendance)?pack.pending_attendance:[];
+    var currentAtt=[];try{currentAtt=JSON.parse(localStorage.getItem('dastyar_pending_attendance_v1')||'[]')||[];}catch(e){}
+    if(!Array.isArray(currentAtt))currentAtt=[];
+    incomingAtt.forEach(function(x){
+      if(!x||classIds.indexOf(String(x.class_id))<0)return;
+      var old=currentAtt.find(function(y){return y&&String(y.class_id)===String(x.class_id)&&String(y.date)===String(x.date);});
+      if(!old)currentAtt.push(x);
+      else{
+        old.rows=mergeById(old.rows||[],x.rows||[]);
+        old.deleteStudentIds=Array.from(new Set([].concat(old.deleteStudentIds||[],x.deleteStudentIds||[]).map(String)));
+        old.deleteAll=!!(old.deleteAll||x.deleteAll);
+      }
+    });
+    try{localStorage.setItem('dastyar_pending_attendance_v1',JSON.stringify(currentAtt));}catch(e){}
+    incomingAtt.forEach(function(item){
+      if(!item||classIds.indexOf(String(item.class_id))<0)return;
+      if(item.deleteAll){cache.attendance=(cache.attendance||[]).filter(function(r){return !(r&&String(r.class_id)===String(item.class_id)&&String(r.date)===String(item.date));});}
+      else if(Array.isArray(item.deleteStudentIds)&&item.deleteStudentIds.length){
+        var deleted=item.deleteStudentIds.map(String);
+        cache.attendance=(cache.attendance||[]).filter(function(r){return !(r&&String(r.class_id)===String(item.class_id)&&String(r.date)===String(item.date)&&deleted.indexOf(String(r.student_id))>=0);});
+      }
+      (item.rows||[]).forEach(function(row){if(!row)return;var ix=(cache.attendance||[]).findIndex(function(r){return r&&String(r.id)===String(row.id);});if(ix>=0)cache.attendance[ix]=Object.assign({},cache.attendance[ix],row,{_offline:true});else cache.attendance.push(Object.assign({},row,{_offline:true}));});
+    });
+    if(typeof persistLocalSchoolCache==='function')persistLocalSchoolCache();
+    try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
+    try{localStorage.setItem('dastyar_school_snapshot_v1',JSON.stringify(cache));}catch(e){}
+    try{if(typeof refreshDash==='function')refreshDash();}catch(e){}
+    try{if(typeof renderStudents==='function')renderStudents();}catch(e){}
+    try{if(typeof refreshSyncStatusPanel==='function')refreshSyncStatusPanel();}catch(e){}
+    if(navigator.onLine&&window.DastyarOffline&&typeof DastyarOffline.sync==='function'){
+      try{DastyarOffline.sync();}catch(e){}
+      try{if(typeof flushPendingAttendanceToServer==='function')flushPendingAttendanceToServer();}catch(e){}
+      try{if(typeof syncPendingSchoolDocuments==='function')syncPendingSchoolDocuments();}catch(e){}
+    }
+    var who=teacher.full_name||teacher.username||'معلم';
+    if(typeof toast==='function')toast('بسته «'+who+'» وارد شد؛ '+queueResult.added+' عملیات برای همگام‌سازی آینده آماده شد'+(rejected?' | '+rejected+' ردیف خارج از کلاس‌های معلم رد شد':''));
+  }catch(e){console.error(e);if(typeof toast==='function')toast('ورود بسته ناموفق بود: '+(e&&e.message||''));}
+  finally{try{if(ev&&ev.target)ev.target.value='';}catch(e){}}
 }
 function toggleEvaluationClassList(){
  var box=document.getElementById('evaluation-class-list');if(!box)return;
