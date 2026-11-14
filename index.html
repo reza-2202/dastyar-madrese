@@ -412,7 +412,7 @@ async function syncQueue(){if(syncRunning||!global.navigator.onLine)return;syncR
       updateOfflineBadge();
     }catch(e){forceLocal=true;global.isOffline=true;console.warn('سرور در دسترس نیست؛ تغییرات در گوشی باقی می‌مانند.',e);}finally{syncRunning=false;updateOfflineBadge();}}
   function queueFingerprint(item){
-    return JSON.stringify([String(item.table||''),String(item.method||''),String(item.url||''),item.filters||[],item.payload===undefined?null:item.payload]);
+    return JSON.stringify([String(item.table||''),String(item.method||''),String(item.url||''),item.filters||[],item.payload===undefined?null:item.payload,Number(item.createdAt)||0]);
   }
   async function importPendingQueue(items){
     if(!Array.isArray(items))throw new Error('صف عملیات بسته آفلاین معتبر نیست.');
@@ -429,7 +429,7 @@ async function syncQueue(){if(syncRunning||!global.navigator.onLine)return;syncR
       var headers=source.headers||{};
       if(String(headers.apikey||'')!==activeApiKey)throw new Error('کلید پایگاه‌داده بسته با این مدرسه مطابقت ندارد.');
       var filters=Array.isArray(source.filters)?source.filters:[];
-      if((method==='PATCH'||method==='DELETE')&&!filters.some(function(f){return f&&f.type==='eq'&&f.col;}))throw new Error('عملیات ویرایش یا حذف بدون شرط شناسه پذیرفته نمی‌شود.');
+      if((method==='PATCH'||method==='DELETE')&&!filters.some(function(f){return f&&f.type==='eq'&&['id','student_id','code','national_id','nationality_id'].indexOf(String(f.col))>=0;}))throw new Error('عملیات ویرایش یا حذف بدون شرط شناسه پذیرفته نمی‌شود.');
       if(method!=='DELETE'&&(source.payload==null||!(Array.isArray(source.payload)||typeof source.payload==='object')))throw new Error('اطلاعات عملیات نوشتن ناقص است.');
       normalized.push({table:table,method:method,payload:source.payload==null?null:clone(source.payload),filters:clone(filters),url:url,headers:clone(headers),createdAt:Number(source.createdAt)||Date.now()});
     });
@@ -3426,7 +3426,19 @@ async function exportOfflineTeacherPack(){
     try{if(window.DastyarOffline&&typeof DastyarOffline.pending==='function')allPending=await DastyarOffline.pending();}catch(e){allPending=[];}
     allPending=Array.isArray(allPending)?allPending:[];
     var queue=allPending.filter(function(item){return item&&allowedTables.indexOf(String(item.table||''))>=0&&allowedMethods.indexOf(String(item.method||'').toUpperCase())>=0;});
-    if(!queue.length){if(typeof toast==='function')toast('عملیات آفلاینِ قابل انتقال در صف وجود ندارد.');return;}
+    var pendingDocs=[],docSources=[];
+    try{if(window.DastyarOffline&&DastyarOffline.pendingDocuments)docSources=docSources.concat(await DastyarOffline.pendingDocuments());}catch(e){}
+    try{if(window.dastyarDocumentArchive&&dastyarDocumentArchive.all)docSources=docSources.concat(await dastyarDocumentArchive.all());}catch(e){}
+    (cache.documents||[]).filter(function(row){return row&&row.pending_upload;}).forEach(function(row){docSources.push(row);});
+    var docMap=new Map();
+    docSources.forEach(function(row){
+      if(!row||!row.id||!row.pending_upload)return;
+      var copy=JSON.parse(JSON.stringify(row));
+      if(!copy.local_archive_data_url&&String(copy.file_url||'').indexOf('data:')===0)copy.local_archive_data_url=copy.file_url;
+      if(copy.local_archive_data_url)docMap.set(String(copy.id),copy);
+    });
+    pendingDocs=Array.from(docMap.values());
+    if(!queue.length&&!pendingDocs.length){if(typeof toast==='function')toast('عملیات یا فایل آفلاینِ قابل انتقال در صف وجود ندارد.');return;}
     var byTable={attendance:[],scores:[],competencies:[],activities:[],evaluations:[],discipline:[],documents:[],students:[],finance:[]};
     var mapTable={sa_attendance:'attendance',sa_scores:'scores',sa_competencies:'competencies',sa_activities:'activities',sa_evaluations:'evaluations',sa_discipline:'discipline',sa_documents:'documents',sa_students:'students',sa_finance:'finance'};
     function pushRows(table,payload,item){
@@ -3443,13 +3455,15 @@ async function exportOfflineTeacherPack(){
     var pack={
       type:'dastyar_offline_teacher_pack',version:'2026.10.28.54',offline_only:true,exported_at:new Date().toISOString(),
       teacher:{username:u.username||'',full_name:u.full_name||'',role:u.role||'',class_ids:Array.isArray(u.class_ids)?u.class_ids:[]},
-      school:'دبستان شهید فتح‌الله فلاح‌پور',queue:portableQueue,cache:byTable
+      school:'دبستان شهید فتح‌الله فلاح‌پور',queue:portableQueue,cache:byTable,pending_documents:pendingDocs
     };
-    var blob=new Blob([JSON.stringify(pack)],{type:'application/json;charset=utf-8'}),a=document.createElement('a');
+    var blob=new Blob([JSON.stringify(pack)],{type:'application/json;charset=utf-8'});
+    if(blob.size>25*1024*1024)throw new Error('حجم بسته همراه فایل‌های در انتظار بیش از ۲۵ مگابایت است؛ فایل‌های بزرگ را جداگانه ارسال کنید.');
+    var a=document.createElement('a');
     var stamp=new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
     a.href=URL.createObjectURL(blob);a.download='dastyar-offline-only-'+(u.username||'teacher')+'-'+stamp+'.json';
     document.body.appendChild(a);a.click();setTimeout(function(){try{URL.revokeObjectURL(a.href);a.remove();}catch(e){}},1500);
-    if(typeof toast==='function')toast('بسته آفلاین شامل '+portableQueue.length+' عملیات قابل انتقال آماده شد؛ اطلاعات آنلاین سرور داخل آن نیست.');
+    if(typeof toast==='function')toast('بسته آفلاین شامل '+portableQueue.length+' عملیات و '+pendingDocs.length+' فایلِ در انتظار آماده شد؛ اطلاعات آنلاین سرور داخل آن نیست.');
   }catch(e){console.error(e);if(typeof toast==='function')toast('خروجی آفلاین انجام نشد: '+(e&&e.message||'خطای نامشخص'));}
 }
 function mergeById(existing,incoming){
@@ -3479,7 +3493,12 @@ async function importOfflineTeacherPack(ev){
     var pack=JSON.parse(await file.text());
     if(!pack||pack.type!=='dastyar_offline_teacher_pack'||pack.version!=='2026.10.28.54'||pack.school!=='دبستان شهید فتح‌الله فلاح‌پور')throw new Error('این فایل بسته آفلاین معتبر همین نسخه و مدرسه نیست.');
     if(!pack.teacher||pack.teacher.role!=='teacher')throw new Error('مشخصات معلم در بسته معتبر نیست.');
-    var c=pack.cache||{},q=Array.isArray(pack.queue)?pack.queue:[];
+    var c=pack.cache||{},q=Array.isArray(pack.queue)?pack.queue:[],pendingDocs=Array.isArray(pack.pending_documents)?pack.pending_documents:[];
+    if(pendingDocs.some(function(row){return !row||!row.id||!row.pending_upload||!row.local_archive_data_url&&!String(row.file_url||'').startsWith('data:');}))
+      throw new Error('یکی از فایل‌های آفلاین نسخه محلی قابل انتقال ندارد.');
+    var teacherClassIds=new Set((Array.isArray(pack.teacher.class_ids)?pack.teacher.class_ids:[]).map(function(id){return String(id);}));
+    if(teacherClassIds.size&&pendingDocs.some(function(row){return row.class_id!=null&&!teacherClassIds.has(String(row.class_id));}))
+      throw new Error('بسته شامل فایلی خارج از کلاس‌های ثبت‌شده برای این معلم است.');
     var tableMap={sa_attendance:'attendance',sa_scores:'scores',sa_competencies:'competencies',sa_activities:'activities',sa_evaluations:'evaluations',sa_discipline:'discipline',sa_documents:'documents',sa_students:'students',sa_finance:'finance'};
     var queueResult={added:0,skipped:0,total:q.length};
     if(q.length){
@@ -3487,6 +3506,14 @@ async function importOfflineTeacherPack(ev){
       queueResult=await DastyarOffline.importPending(q);
     }
     Object.keys(tableMap).forEach(function(table){var key=tableMap[table];if(Array.isArray(c[key]))cache[key]=mergeById(cache[key],c[key]);});
+    for(var di=0;di<pendingDocs.length;di++){
+      var doc=JSON.parse(JSON.stringify(pendingDocs[di]));
+      if(!doc.local_archive_data_url&&String(doc.file_url||'').indexOf('data:')===0)doc.local_archive_data_url=doc.file_url;
+      doc.pending_upload=true;doc.sync_status='pending_upload';
+      cache.documents=mergeById(cache.documents,[doc]);
+      if(window.DastyarOffline&&DastyarOffline.putPendingDocument)await DastyarOffline.putPendingDocument(doc);
+      if(window.dastyarDocumentArchive&&dastyarDocumentArchive.put)await dastyarDocumentArchive.put(doc);
+    }
     function matchesFilters(row,filters){return(filters||[]).every(function(f){return !f||f.type!=='eq'||String(row&&row[f.col])===String(f.val);});}
     q.forEach(function(item){
       var key=tableMap[item&&item.table];if(!key)return;
@@ -3501,8 +3528,9 @@ async function importOfflineTeacherPack(ev){
     try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){console.warn('ذخیره snapshot پس از ورود بسته انجام نشد؛ صف عملیات حفظ شده است.',e);}
     try{localStorage.setItem('dastyar_school_snapshot_v1',JSON.stringify({users:cache.users,classes:cache.classes,students:cache.students,attendance:cache.attendance,scores:cache.scores,competencies:cache.competencies,activities:cache.activities,evaluations:cache.evaluations,discipline:cache.discipline,finance:cache.finance,documents:cache.documents||[]}));}catch(e){}
     var online=!!navigator.onLine&&!window.isOffline&&!(window.DastyarOffline&&DastyarOffline.isLocalOnly&&DastyarOffline.isLocalOnly());
-    if(online&&q.length){
-      try{await DastyarOffline.sync();}catch(syncError){console.warn('همگام‌سازی بسته واردشده ادامه‌دار/ناموفق بود؛ صف حفظ شد.',syncError);}
+    if(online&&(q.length||pendingDocs.length)){
+      if(q.length){try{await DastyarOffline.sync();}catch(syncError){console.warn('همگام‌سازی بسته واردشده ادامه‌دار/ناموفق بود؛ صف حفظ شد.',syncError);}}
+      if(pendingDocs.length&&typeof syncPendingSchoolDocuments==='function'){try{await syncPendingSchoolDocuments();}catch(docSyncError){console.warn('همگام‌سازی فایل‌های آفلاین ادامه‌دار/ناموفق بود؛ فایل‌ها در آرشیو محلی حفظ شدند.',docSyncError);}}
       try{if(typeof reloadAll==='function')await reloadAll();}catch(reloadError){console.warn('بارگذاری مجدد پس از ورود بسته ناموفق بود؛ اطلاعات محلی حفظ شد.',reloadError);}
     }
     try{if(typeof refreshDash==='function')refreshDash();}catch(e){}
@@ -3510,7 +3538,7 @@ async function importOfflineTeacherPack(ev){
     var pending=[];try{if(window.DastyarOffline&&DastyarOffline.pending)pending=await DastyarOffline.pending();}catch(e){}
     var who=pack.teacher.full_name||pack.teacher.username||'معلم';
     var message='بسته آفلاین «'+who+'» وارد شد؛ عملیات جدید: '+queueResult.added+'، تکراریِ ردشده: '+queueResult.skipped;
-    if(online)message+='، باقی‌مانده در صف همگام‌سازی: '+pending.length;else message+='؛ پس از اتصال واقعی به سرور همگام‌سازی می‌شود.';
+    if(online)message+='، فایل‌های آفلاین: '+pendingDocs.length+'، باقی‌مانده در صف همگام‌سازی: '+pending.length;else message+='؛ عملیات و فایل‌ها پس از اتصال واقعی به سرور همگام‌سازی می‌شوند.';
     if(typeof toast==='function')toast(message);
   }catch(e){console.error(e);if(typeof toast==='function')toast('ورود بسته ناموفق بود: '+(e&&e.message||'خطای نامشخص'));}
   finally{try{if(ev&&ev.target)ev.target.value='';}catch(e){}}
