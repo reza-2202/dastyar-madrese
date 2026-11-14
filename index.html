@@ -424,57 +424,54 @@ async function syncQueue(){if(syncRunning||!global.navigator.onLine)return;syncR
       var table=String(source.table||''),method=String(source.method||'').toUpperCase();
       if(allowedTables.indexOf(table)<0)throw new Error('جدول غیرمجاز در بسته آفلاین: '+table);
       if(allowedMethods.indexOf(method)<0)throw new Error('نوع عملیات غیرمجاز در بسته آفلاین: '+method);
-      var url=String(source.url||''),expected=activeEndpoint+'/rest/v1/'+table;
-      var headers=source.headers||{};
-      if(String(headers.apikey||'')!==activeApiKey||String(headers.Authorization||'')!=='Bearer '+activeApiKey)
-        throw new Error('اعتبار اتصال بسته با تنظیمات امن این مدرسه مطابقت ندارد.');
-      var filters=Array.isArray(source.filters)?source.filters:[];
-      var prefer=String(headers.Prefer||'return=representation');
-      if(!/^(?:return=(?:representation|minimal)|resolution=merge-duplicates)(?:\\s*,\\s*(?:return=(?:representation|minimal)|resolution=merge-duplicates))*$/i.test(prefer))throw new Error('تنظیم ارسال عملیات در بسته معتبر نیست.');
-      if(filters.some(function(f){return !f||['eq','limit','range','order'].indexOf(String(f.type))<0;}))
-        throw new Error('یکی از شرط‌های عملیات بسته معتبر نیست.');
-      if(url!==expected+buildQuery(filters))throw new Error('آدرس یا شرط‌های عملیات با اطلاعات بسته مطابقت ندارد.');
-      if((method==='PATCH'||method==='DELETE')&&!filters.some(function(f){return f&&f.type==='eq'&&['id','student_id','code','national_id','nationality_id'].indexOf(String(f.col))>=0;}))
-        throw new Error('عملیات ویرایش یا حذف بدون شرط شناسه مشخص پذیرفته نمی‌شود.');
-      if(method!=='DELETE'&&(source.payload==null||!(Array.isArray(source.payload)||typeof source.payload==='object')))
-        throw new Error('اطلاعات عملیات نوشتن ناقص است.');
-      normalized.push({table:table,method:method,payload:source.payload==null?null:clone(source.payload),filters:clone(filters),url:url,headers:{apikey:activeApiKey,Authorization:'Bearer '+activeApiKey,'Content-Type':'application/json',Prefer:prefer},createdAt:Number(source.createdAt)||Date.now()});
+      var url=String(source.url||''),expected=activeEndpoint+'/rest/v1/';
+      if(url.indexOf(expected)!==0||url.slice(expected.length).split('?')[0]!==table)throw new Error('آدرس سرور عملیات با پایگاه‌داده این برنامه یکسان نیست.');
+      var originalHeaders=source.headers||{};
+      if(String(originalHeaders.apikey||'')!==activeApiKey)throw new Error('کلید پایگاه‌داده بسته با این مدرسه مطابقت ندارد.');
+      if(String(originalHeaders.Authorization||'')!=='Bearer '+activeApiKey)throw new Error('اعتبارنامه عملیات با اتصال فعلی مدرسه مطابقت ندارد.');
+      var filters=Array.isArray(source.filters)?clone(source.filters):[];
+      if(method==='PATCH'||method==='DELETE'){
+        if(!filters.length||filters.some(function(f){return !f||f.type!=='eq'||!/^[a-z][a-z0-9_]*$/i.test(String(f.col||''))||f.val==null||typeof f.val==='object';}))
+          throw new Error('شرط ویرایش یا حذف معتبر و محدودکننده نیست.');
+        var strong=filters.some(function(f){return ['id','code','national_id','nationality_id'].indexOf(String(f.col))>=0;});
+        var attendanceComposite=table==='sa_attendance'&&['class_id','date','student_id'].every(function(col){return filters.some(function(f){return String(f.col)===col;});});
+        if(!strong&&!attendanceComposite)throw new Error('برای ویرایش یا حذف باید شناسه یکتا یا ترکیب کلاس، تاریخ و دانش‌آموز مشخص باشد.');
+      }
+      if(method!=='DELETE'&&(source.payload==null||!(Array.isArray(source.payload)||typeof source.payload==='object')))throw new Error('اطلاعات عملیات نوشتن ناقص است.');
+      var safeHeaders={apikey:activeApiKey,Authorization:'Bearer '+activeApiKey,'Content-Type':String(originalHeaders['Content-Type']||'application/json'),Prefer:String(originalHeaders.Prefer||'return=representation')};
+      normalized.push({table:table,method:method,payload:source.payload==null?null:clone(source.payload),filters:filters,url:activeEndpoint+'/rest/v1/'+table+buildQuery(filters),headers:safeHeaders,createdAt:Number(source.createdAt)||Date.now()});
     });
+    // Queue rows and import fingerprints commit in one IndexedDB transaction.
     var db=await openDB();
-    return new Promise(function(resolve,reject){
-      var tx;
-      try{tx=db.transaction([QUEUE,SYNC_QUEUE,RESPONSES],'readwrite');}
-      catch(e){reject(e);return;}
-      var loaded=0,queueRows=[],known={},result={added:0,skipped:0,total:normalized.length};
-      function fail(error){try{tx.abort();}catch(e){}reject(error||new Error('ثبت امن بسته آفلاین ناموفق بود'));}
-      function processWhenReady(){
-        loaded++;if(loaded!==3)return;
+    var names=[QUEUE,RESPONSES];if(db.objectStoreNames.contains(SYNC_QUEUE))names.push(SYNC_QUEUE);
+    return await new Promise(function(resolve,reject){
+      var tx=db.transaction(names,'readwrite'),responseStore=tx.objectStore(RESPONSES);
+      var markerReq=responseStore.get('__dastyar_imported_queue_fingerprints__');
+      var queueReqs=names.filter(function(n){return n!==RESPONSES;}).map(function(n){return {name:n,req:tx.objectStore(n).getAll()};});
+      var ready=1+queueReqs.length,known={},currentKeys=new Set(),added=0,skipped=0,started=false,failed=false;
+      function fail(err){if(failed)return;failed=true;try{tx.abort();}catch(e){}reject(err||new Error('ثبت امن بسته آفلاین ناموفق بود'));}
+      function maybeCommit(){
+        if(--ready!==0||started||failed)return;
+        started=true;
+        var stored=markerReq.result;known=stored&&stored.value&&typeof stored.value==='object'?stored.value:{};
+        queueReqs.forEach(function(entry){(entry.req.result||[]).forEach(function(item){currentKeys.add(queueFingerprint(item));});});
         try{
-          var saved=markerReq.result;
-          known=saved&&saved.value&&typeof saved.value==='object'?saved.value:{};
-          var currentKeys=new Set();
-          queueRows.forEach(function(item){currentKeys.add(queueFingerprint(item));});
           normalized.forEach(function(item){
             var fingerprint=queueFingerprint(item),marker='op:'+fingerprint;
-            if(known[marker]||currentKeys.has(fingerprint)){known[marker]=true;result.skipped++;return;}
+            if(known[marker]||currentKeys.has(fingerprint)){known[marker]=true;skipped++;return;}
             var target=item.table==='sa_students'?SYNC_QUEUE:QUEUE;
-            var storedItem=Object.assign({},item,{_queueStore:target});
-            tx.objectStore(target).add(storedItem);
-            known[marker]=true;currentKeys.add(fingerprint);result.added++;
+            if(!db.objectStoreNames.contains(target))throw new Error('صف ذخیره‌سازی مورد نیاز در این نسخه وجود ندارد.');
+            item._queueStore=target;tx.objectStore(target).add(item);
+            known[marker]=true;currentKeys.add(fingerprint);added++;
           });
-          tx.objectStore(RESPONSES).put({key:'__dastyar_imported_queue_fingerprints__',value:known,updatedAt:Date.now()});
+          responseStore.put({key:'__dastyar_imported_queue_fingerprints__',value:known,updatedAt:Date.now()});
         }catch(e){fail(e);}
       }
-      var queueReq=tx.objectStore(QUEUE).getAll();
-      var syncReq=tx.objectStore(SYNC_QUEUE).getAll();
-      var markerReq=tx.objectStore(RESPONSES).get('__dastyar_imported_queue_fingerprints__');
-      [queueReq,syncReq,markerReq].forEach(function(req){
-        req.onsuccess=function(){if(req===queueReq||req===syncReq)queueRows=queueRows.concat(req.result||[]);processWhenReady();};
-        req.onerror=function(){fail(req.error);};
-      });
-      tx.oncomplete=function(){updateOfflineBadge();resolve(result);};
-      tx.onerror=function(){reject(tx.error||new Error('ثبت اتمی بسته آفلاین ناموفق بود'));};
-      tx.onabort=function(){reject(tx.error||new Error('ثبت اتمی بسته آفلاین لغو شد'));};
+      markerReq.onsuccess=maybeCommit;markerReq.onerror=function(){fail(markerReq.error);};
+      queueReqs.forEach(function(entry){entry.req.onsuccess=maybeCommit;entry.req.onerror=function(){fail(entry.req.error);};});
+      tx.oncomplete=function(){updateOfflineBadge();resolve({added:added,skipped:skipped,total:normalized.length,markerSaved:true});};
+      tx.onerror=function(){if(!failed)reject(tx.error||new Error('ثبت تراکنشی بسته آفلاین ناموفق بود'));};
+      tx.onabort=function(){if(!failed)reject(tx.error||new Error('ثبت تراکنشی بسته آفلاین لغو شد'));};
     });
   }
   global.supabase={createClient:createClient};global.DastyarOffline={
@@ -3554,7 +3551,7 @@ async function importOfflineTeacherPack(ev){
       if(window.DastyarOffline&&DastyarOffline.putPendingDocument)await DastyarOffline.putPendingDocument(doc);
       if(window.dastyarDocumentArchive&&dastyarDocumentArchive.put)await dastyarDocumentArchive.put(doc);
     }
-    function matchesFilters(row,filters){return(filters||[]).every(function(f){return !f||f.type!=='eq'||String(row&&row[f.col])===String(f.val);});}
+    function matchesFilters(row,filters){return(filters||[]).every(function(f){return f&&f.type==='eq'&&String(row&&row[f.col])===String(f.val);});}
     q.forEach(function(item){
       var key=tableMap[item&&item.table];if(!key)return;
       var rows=Array.isArray(cache[key])?cache[key]:[],payload=item.payload;
