@@ -3496,9 +3496,18 @@ async function importOfflineTeacherPack(ev){
     if(file.size>100*1024*1024)throw new Error('حجم فایل بیشتر از حد مجاز ۱۰۰ مگابایت است');
     var pack=JSON.parse(await file.text());
     if(!pack||pack.type!=='dastyar_offline_teacher_pack'||![1,2].includes(Number(pack.format_version||1)))throw new Error('ساختار فایل پشتیبان معتبر یا پشتیبانی‌شده نیست');
-    var teacher=pack.teacher||{};if(teacher.role&&teacher.role!=='teacher')throw new Error('این بسته از حساب معلم صادر نشده است');
-    var classIds=Array.isArray(teacher.class_ids)?teacher.class_ids.map(String):[];
-    if(!classIds.length)throw new Error('شناسه کلاس معلم در بسته موجود نیست؛ برای جلوگیری از ورود اطلاعات کلاس اشتباه، وارد نشد');
+    var teacher=pack.teacher||{};
+    var teacherKey=normalizeLoginName(teacher.username||'');
+    var trustedUser=(cache.users||[]).find(function(x){return x&&normalizeLoginName(x.username||'')===teacherKey;});
+    if(!trustedUser||trustedUser.role!==teacher.role)throw new Error('حساب صادرکننده در فهرست کاربران محلی مدیر تأیید نشد؛ برای حفظ جداسازی کلاس‌ها فایل وارد نشد');
+    var trustedClassIds=trustedUser.role==='admin'?(cache.classes||[]).filter(function(c){return c&&c.id!=null;}).map(function(c){return String(c.id);}):(Array.isArray(trustedUser.class_ids)?trustedUser.class_ids.map(String):[]);
+    if(trustedUser.role==='teacher'&&!trustedClassIds.length){
+      (cache.classes||[]).forEach(function(c){if(c&&c.id!=null&&String(c.teacher_user||'').trim().toLowerCase()===String(trustedUser.username||'').trim().toLowerCase())trustedClassIds.push(String(c.id));});
+    }
+    var claimedClassIds=Array.isArray(teacher.class_ids)?teacher.class_ids.map(String):[];
+    if(claimedClassIds.some(function(id){return trustedClassIds.indexOf(id)<0;}))throw new Error('فایل شامل شناسه کلاسی خارج از دسترسی این معلم است؛ ورود متوقف شد');
+    var classIds=claimedClassIds.length?claimedClassIds:trustedClassIds;
+    if(!classIds.length)throw new Error('کلاس مجاز این حساب در داده‌های محلی مدیر پیدا نشد');
     var c=pack.cache||{};
     function inTeacherClass(row){
       if(!row)return false;
