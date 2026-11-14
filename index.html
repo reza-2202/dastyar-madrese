@@ -2244,25 +2244,69 @@ async function collectOfflineOnlyStudents(serverList){
 
 // دریافت کامل سوابق حضور و غیاب با صفحه‌بندی؛ سقف پیش‌فرض REST نباید سوابق کلاس‌ها را پنهان کند.
 async function fetchAllAttendanceRows(){
+  // وقتی اینترنت ضعیف است، navigator.onLine ممکن است true بماند؛
+  // بنابراین درخواست مستقیم REST باید مهلت مشخص داشته باشد و در شکست، از نسخه محلی استفاده کند.
+  async function useLocalAttendanceSnapshot(reason){
+    let rows=Array.isArray(cache.attendance)?cache.attendance:[];
+    if(!rows.length){
+      try{
+        if(window.DastyarOffline&&typeof window.DastyarOffline.loadSnapshot==='function'){
+          const snap=await window.DastyarOffline.loadSnapshot();
+          if(snap&&Array.isArray(snap.attendance)) rows=snap.attendance;
+        }
+      }catch(e){}
+    }
+    if(!rows.length){
+      try{
+        const snap=JSON.parse(localStorage.getItem('dastyar_school_snapshot_v1')||'null');
+        if(snap&&Array.isArray(snap.attendance)) rows=snap.attendance;
+      }catch(e){}
+    }
+    if(Array.isArray(rows)&&rows.length){
+      return {data:rows,error:null,offline:true,cached:true};
+    }
+    return {data:null,error:{message:reason||'سوابق حضور و غیاب هنوز روی این گوشی ذخیره نشده است.'}};
+  }
   try{
     if(!navigator.onLine || window.isOffline){
       const cached=await sb.from('sa_attendance').select('*');
-      return cached;
+      if(cached&&!cached.error&&Array.isArray(cached.data)) return cached;
+      return await useLocalAttendanceSnapshot((cached&&cached.error&&cached.error.message)||'نسخه محلی سوابق حضور و غیاب در دسترس نیست.');
     }
     const base=String(SB_URL).replace(/\/$/,'')+'/rest/v1/sa_attendance?select=*&order=id.asc';
     const headers={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Accept':'application/json'};
-    const all=[],pageSize=500;
+    const all=[],pageSize=500,deadline=Date.now()+15000;
     for(let offset=0;offset<100000;offset+=pageSize){
-      const response=await fetch(base,{method:'GET',headers:Object.assign({},headers,{'Range':offset+'-'+(offset+pageSize-1),'Prefer':'count=exact'})});
-      const raw=await response.text();let data=null;try{data=raw?JSON.parse(raw):[];}catch(e){throw new Error(raw||'پاسخ نامعتبر از سرور حضور و غیاب');}
+      const remaining=deadline-Date.now();
+      if(remaining<=0) throw new Error('مهلت دریافت سوابق حضور و غیاب در اینترنت ضعیف تمام شد.');
+      const controller=typeof AbortController!=='undefined'?new AbortController():null;
+      let timer=null;
+      const request=fetch(base,{method:'GET',headers:Object.assign({},headers,{'Range':offset+'-'+(offset+pageSize-1),'Prefer':'count=exact'}),signal:controller?controller.signal:undefined});
+      const result=await new Promise(function(resolve,reject){
+        timer=setTimeout(function(){
+          try{if(controller)controller.abort();}catch(e){}
+          reject(new Error('سرور برای دریافت سوابق حضور و غیاب به‌موقع پاسخ نداد.'));
+        },Math.min(8000,remaining));
+        request.then(async function(response){
+          try{
+            const raw=await response.text();
+            clearTimeout(timer);
+            resolve({response:response,raw:raw});
+          }catch(error){clearTimeout(timer);reject(error);}
+        },function(error){clearTimeout(timer);reject(error);});
+      });
+      const response=result.response,raw=result.raw;let data=null;try{data=raw?JSON.parse(raw):[];}catch(e){throw new Error(raw||'پاسخ نامعتبر از سرور حضور و غیاب');}
       if(!response.ok)throw new Error((data&&(data.message||data.details||data.hint))||raw||('HTTP '+response.status));
-      const page=Array.isArray(data)?data:[];all.push(...page);
+      const page=Array.isArray(data)?data:[];
+      all.push(...page);
       if(page.length<pageSize)return {data:all,error:null};
     }
     throw new Error('تعداد سوابق حضور و غیاب از حد امن بارگذاری بیشتر است');
   }catch(error){
-    console.warn('دریافت کامل حضور و غیاب ناموفق بود:',error);
-    return {data:null,error:{message:error&&error.message||String(error)}};
+    const fallback=await useLocalAttendanceSnapshot(error&&error.message||String(error));
+    if(fallback&&Array.isArray(fallback.data)) return fallback;
+    console.warn('دریافت سوابق حضور و غیاب ناموفق بود و نسخه محلی هم در دسترس نبود:',error);
+    return fallback;
   }
 }
 
