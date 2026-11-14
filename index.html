@@ -2282,14 +2282,20 @@ async function fetchAllAttendanceRows(){
       const controller=typeof AbortController!=='undefined'?new AbortController():null;
       let timer=null;
       const request=fetch(base,{method:'GET',headers:Object.assign({},headers,{'Range':offset+'-'+(offset+pageSize-1),'Prefer':'count=exact'}),signal:controller?controller.signal:undefined});
-      const response=await new Promise(function(resolve,reject){
+      const result=await new Promise(function(resolve,reject){
         timer=setTimeout(function(){
           try{if(controller)controller.abort();}catch(e){}
           reject(new Error('سرور برای دریافت سوابق حضور و غیاب به‌موقع پاسخ نداد.'));
         },Math.min(8000,remaining));
-        request.then(function(value){clearTimeout(timer);resolve(value);},function(error){clearTimeout(timer);reject(error);});
+        request.then(async function(response){
+          try{
+            const raw=await response.text();
+            clearTimeout(timer);
+            resolve({response:response,raw:raw});
+          }catch(error){clearTimeout(timer);reject(error);}
+        },function(error){clearTimeout(timer);reject(error);});
       });
-      const raw=await response.text();let data=null;try{data=raw?JSON.parse(raw):[];}catch(e){throw new Error(raw||'پاسخ نامعتبر از سرور حضور و غیاب');}
+      const response=result.response,raw=result.raw;let data=null;try{data=raw?JSON.parse(raw):[];}catch(e){throw new Error(raw||'پاسخ نامعتبر از سرور حضور و غیاب');}
       if(!response.ok)throw new Error((data&&(data.message||data.details||data.hint))||raw||('HTTP '+response.status));
       const page=Array.isArray(data)?data:[];
       all.push(...page);
