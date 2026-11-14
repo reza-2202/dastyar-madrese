@@ -3552,6 +3552,11 @@ async function importOfflineTeacherPack(ev){
     try{localStorage.setItem('dastyar_pending_attendance_v1',JSON.stringify(currentAtt));}catch(e){}
     incomingAtt.forEach(function(item){
       if(!item||classIds.indexOf(String(item.class_id))<0)return;
+      if(item.deleteAll){cache.attendance=(cache.attendance||[]).filter(function(r){return !(r&&String(r.class_id)===String(item.class_id)&&String(r.date)===String(item.date));});}
+      else if(Array.isArray(item.deleteStudentIds)&&item.deleteStudentIds.length){
+        var deleted=item.deleteStudentIds.map(String);
+        cache.attendance=(cache.attendance||[]).filter(function(r){return !(r&&String(r.class_id)===String(item.class_id)&&String(r.date)===String(item.date)&&deleted.indexOf(String(r.student_id))>=0);});
+      }
       (item.rows||[]).forEach(function(row){if(!row)return;var ix=(cache.attendance||[]).findIndex(function(r){return r&&String(r.id)===String(row.id);});if(ix>=0)cache.attendance[ix]=Object.assign({},cache.attendance[ix],row,{_offline:true});else cache.attendance.push(Object.assign({},row,{_offline:true}));});
     });
     if(typeof persistLocalSchoolCache==='function')persistLocalSchoolCache();
@@ -3560,6 +3565,10 @@ async function importOfflineTeacherPack(ev){
     try{if(typeof refreshDash==='function')refreshDash();}catch(e){}
     try{if(typeof renderStudents==='function')renderStudents();}catch(e){}
     try{if(typeof refreshSyncStatusPanel==='function')refreshSyncStatusPanel();}catch(e){}
+    if(navigator.onLine&&window.DastyarOffline&&typeof DastyarOffline.sync==='function'){
+      try{DastyarOffline.sync();}catch(e){}
+      try{if(typeof flushPendingAttendanceToServer==='function')flushPendingAttendanceToServer();}catch(e){}
+    }
     var who=teacher.full_name||teacher.username||'معلم';
     if(typeof toast==='function')toast('بسته «'+who+'» وارد شد؛ '+queueResult.added+' عملیات برای همگام‌سازی آینده آماده شد'+(rejected?' | '+rejected+' ردیف خارج از کلاس‌های معلم رد شد':''));
   }catch(e){console.error(e);if(typeof toast==='function')toast('ورود بسته ناموفق بود: '+(e&&e.message||''));}
