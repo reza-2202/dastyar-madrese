@@ -6326,6 +6326,16 @@ async function saveAct(){
   }
   var result=await sb.from('sa_activities').insert(rows);
   if(result.error){toast('خطا در ثبت: '+result.error.message+' — اگر ستون‌های جدید را اضافه نکرده‌اید، ابتدا دستور SQL همراه فایل را اجرا کنید.');return;}
+  if(result.offline||isAppOfflineNow()){
+    rows.forEach(function(row){var ix=(cache.activities||[]).findIndex(function(a){return String(a.id)===String(row.id);});if(ix>=0)cache.activities[ix]=Object.assign({},cache.activities[ix],row);else cache.activities.push(row);});
+    cache.activities=applyQaTombstones(cache.activities);
+    try{persistLocalSchoolCache();}catch(e){}
+    try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
+    document.getElementById('ac-form').innerHTML='';window.editingActivityId='';
+    await loadActivities();try{refreshDash();}catch(e){}
+    toast(rows.length>1?fa(rows.length)+' پرسش و پاسخ در گوشی ذخیره شد و پس از اتصال همگام می‌شود.':'پرسش و پاسخ در گوشی ذخیره شد و پس از اتصال همگام می‌شود.');
+    return;
+  }
   await reloadAll();cache.activities=applyQaTombstones(cache.activities);if(rows.some(function(r){return r&&r.type==='qa';})){for(var qaRow of rows.filter(function(r){return r&&r.type==='qa';})){var savedQa=(cache.activities||[]).find(function(a){return String(a.id)===String(qaRow.id);})||qaRow;try{await syncOneDailyQaEvaluation(savedQa,false,false);}catch(syncErr){console.warn('ثبت ارزشیابی مرتبط با پرسش‌وپاسخ ناموفق بود',syncErr);}}await buildClosedMonthQaEvaluations();refreshQaEvaluationDashboard();}document.getElementById('ac-form').innerHTML='';window.editingActivityId='';await loadActivities();if(rows.some(function(r){return r&&r.type==='qa';})){try{await syncQaReportCardAverages(rows.filter(function(r){return r&&r.type==='qa';}).map(function(r){return r.student_id;}));}catch(scoreSyncErr){console.warn('به‌روزرسانی میانگین کارنامه پس از ثبت پرسش ناموفق بود',scoreSyncErr);}}try{refreshDash();}catch(e){}toast(rows.length>1?fa(rows.length)+' پرسش و پاسخ ثبت شد':'ثبت آنلاین شد');
 }
 async function deleteQaActivity(id){
@@ -6350,7 +6360,7 @@ function renderQaPerformance(list){
 }
 async function saveQaTeacherGroup(activityId,value){if(!['desired','progress','attention'].includes(value))return;var res=await sb.from('sa_activities').update({teacher_group:value}).eq('id',activityId);if(res.error){toast('ذخیره تغییر گروه ناموفق بود: '+res.error.message);return;}var row=cache.activities.find(function(a){return String(a.id)===String(activityId);});if(row)row.teacher_group=value;try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}toast('نظر معلم ذخیره شد');await loadActivities();}
 async function loadActivities(){
-  await reloadAll();cache.activities=applyQaTombstones(cache.activities);fillActivitySubjectFilter();
+  if(!isAppOfflineNow())await reloadAll();cache.activities=applyQaTombstones(cache.activities);fillActivitySubjectFilter();
   var classId=document.getElementById('ac-class').value;
   fillQaExportStudents();
   var fDate=(document.getElementById('ac-filter-dt')&&document.getElementById('ac-filter-dt').value)||'';
