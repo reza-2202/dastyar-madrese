@@ -2026,44 +2026,54 @@ async function init(){
   updateOfflineBadgeSafe();
   updateLoginConnStatus('ورود در دسترس است؛ اتصال به سرور در پس‌زمینه بررسی می‌شود…', false);
 
-  // Background-only server initialization. Errors update the status indicator, not a blocking screen.
+  // تشخیص اتصال را از بارگذاری اطلاعات مدرسه جدا می‌کنیم.
+  // بارگذاری کامل cache پیش از تعیین نقش کاربر ممنوع است؛ چون می‌تواند با ورود معلم هم‌زمان شود.
   (async function backgroundConnect(){
-    if(!sb)return;
+    if(!sb){
+      globalStatus(true);
+      updateLoginConnStatus('اتصال سرور آماده نیست — کار آفلاین فعال است', false);
+      await restoreOfflineSnapshot();
+      if(typeof fillTeacherSelect==='function')fillTeacherSelect();
+      return;
+    }
+    if(!navigator.onLine){
+      globalStatus(true);
+      updateLoginConnStatus('سرور در دسترس نیست — کار آفلاین فعال است', false);
+      await restoreOfflineSnapshot();
+      if(typeof fillTeacherSelect==='function')fillTeacherSelect();
+      return;
+    }
     try{
-      if(navigator.onLine){
-        // اولویت آنلاین: خروج از حالت محلی اجباری
-        if(window.DastyarOffline&&window.DastyarOffline.setLocalOnly) window.DastyarOffline.setLocalOnly(false);
-        const probe=await withTimeout(sb.from('sa_users').select('id').limit(1),12000,'timeout');
-        if(probe.error)throw new Error(probe.error.message||'پایگاه‌داده پاسخ نداد');
-        updateLoginConnStatus('اتصال سرور برقرار شد؛ آماده‌سازی اطلاعات در پس‌زمینه…', true);
-        await withTimeout(seedIfEmpty(),20000,'seed timeout');
-        await withTimeout(reloadAll(),20000,'reload timeout');
-        if(typeof ensureUsersFromServer==='function') await ensureUsersFromServer();
-        if(typeof ensureStudentsFromServer==='function') await ensureStudentsFromServer();
-        /* ensureClass4BStudents disabled — no auto student injection */
-        // فشرده‌سازی و پاک‌سازی صف تکراری
+      if(window.DastyarOffline&&window.DastyarOffline.setLocalOnly) window.DastyarOffline.setLocalOnly(false);
+      const probe=await withTimeout(sb.from('sa_users').select('id').limit(1),12000,'timeout');
+      if(probe.error)throw new Error(probe.error.message||'پایگاه‌داده پاسخ نداد');
+
+      // نتیجه اتصال بلافاصله پس از probe اعلام می‌شود؛ عملیات سنگین در پس‌زمینه ادامه می‌یابد.
+      globalStatus(false);
+      updateLoginConnStatus('متصل به سرور — می‌توانید وارد شوید', true);
+
+      // مهم: قبل از ورود هیچ reloadAll یا جایگزینی cache کاربران/دانش‌آموزان اجرا نمی‌شود.
+      // doLogin پس از احراز نقش، داده‌های لازم را بارگذاری می‌کند.
+      (async function prepareServerInBackground(){
         try{
-          if(window.DastyarOffline&&window.DastyarOffline.compactQueue) await window.DastyarOffline.compactQueue();
-          if(window.DastyarOffline&&window.DastyarOffline.purgeQueueAlreadyOnServer) await window.DastyarOffline.purgeQueueAlreadyOnServer();
-          if(window.DastyarOffline&&window.DastyarOffline.sync) await withTimeout(window.DastyarOffline.sync(),45000,'sync');
-        }catch(sq){ console.warn(sq); }
-        if(typeof fillTeacherSelect==='function')fillTeacherSelect();
-        if(typeof restoreRememberedLogin==='function')restoreRememberedLogin();
-        globalStatus(false);
-        updateLoginConnStatus('متصل به سرور — می‌توانید وارد شوید', true);
-        if(typeof refreshDash==='function') refreshDash();
-      }else{
-        await restoreOfflineSnapshot();
-        globalStatus(true);
-        if(typeof fillTeacherSelect==='function') fillTeacherSelect();
-        updateLoginConnStatus('سرور در دسترس نیست — کار آفلاین فعال است', false);
-      }
+          await withTimeout(seedIfEmpty(),20000,'seed timeout');
+          /* ensureClass4BStudents disabled — no auto student injection */
+          try{
+            if(window.DastyarOffline&&window.DastyarOffline.compactQueue) await window.DastyarOffline.compactQueue();
+            if(window.DastyarOffline&&window.DastyarOffline.purgeQueueAlreadyOnServer) await window.DastyarOffline.purgeQueueAlreadyOnServer();
+            if(window.DastyarOffline&&window.DastyarOffline.sync) await withTimeout(window.DastyarOffline.sync(),45000,'sync');
+          }catch(sq){ console.warn(sq); }
+        }catch(e){
+          // خطای آماده‌سازی داده نباید اتصال موفق را به وضعیت آفلاین برگرداند.
+          console.warn('آماده‌سازی پس‌زمینه ادامه‌دار است؛ اتصال سرور برقرار است.',e);
+        }
+      })();
     }catch(e){
       console.warn('اتصال پس‌زمینه برقرار نشد؛ رابط کاربری باز می‌ماند.',e);
-      await restoreOfflineSnapshot();
       globalStatus(true);
-      if(typeof fillTeacherSelect==='function') fillTeacherSelect();
       updateLoginConnStatus('سرور در دسترس نیست — کار آفلاین فعال است', false);
+      await restoreOfflineSnapshot();
+      if(typeof fillTeacherSelect==='function')fillTeacherSelect();
     }
   })();
 }
