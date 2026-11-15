@@ -1,4 +1,4 @@
-const CACHE = 'dastyar-shell-v67-20261115-admin-qa-refresh';
+const CACHE = 'dastyar-shell-v68-20261115-qa-dashboard-counter';
 const BASE = '/dastyar-madrese/';
 const SHELL = [
   BASE,

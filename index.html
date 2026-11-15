@@ -1205,6 +1205,7 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <div class="sc"><div class="n" id="st-c">۰</div><div class="l">کلاس</div></div>
 <div class="sc"><div class="n" id="st-p">۰</div><div class="l">حاضر امروز</div></div>
 <div class="sc" role="button" tabindex="0" onclick="toggleEvaluationClassList()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleEvaluationClassList()}" style="cursor:pointer"><div class="n" id="st-e">۰</div><div class="l">ارزشیابی<br><small>برای مشاهده کلاس‌ها بزنید</small></div></div>
+<div class="sc" role="button" tabindex="0" onclick="toggleQaClassList()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleQaClassList()}" style="cursor:pointer"><div class="n" id="st-qa">۰</div><div class="l">پرسش و پاسخ روزانه<br><small>برای مشاهده کلاس‌ها بزنید</small></div></div>
 <div class="sc"><div class="n" id="st-f">۰</div><div class="l">فایل در انتظار</div><small id="st-f-classes" role="button" tabindex="0" onclick="togglePendingFileClasses()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();togglePendingFileClasses()}" style="display:block;font-size:.65rem;line-height:1.5;color:#1d4ed8;margin-top:3px;text-decoration:underline;cursor:pointer">برای مشاهده کلاس‌ها بزنید</small></div>
 <div class="sc" role="button" tabindex="0" onclick="toggleAttendanceClassList()" style="cursor:pointer"><div class="n" id="st-a">۰</div><div class="l">کلاس حضورثبت‌شده<br><small>برای مشاهده نام کلاس‌ها بزنید</small></div></div>
 <div class="sc" role="button" tabindex="0" onclick="toggleDisciplineDashList()" style="cursor:pointer"><div class="n" id="st-d">۰</div><div class="l">موارد انضباطی<br><small>برای مشاهده جزئیات بزنید</small></div></div>
@@ -1232,6 +1233,7 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
  <div id="adm-urg-list" style="margin-top:12px"></div>
 </div>
 <div id="evaluation-class-list" class="card" style="display:none"><div class="ct">📝 آمار ارزشیابی کلاس‌ها</div><div class="meta" style="margin-bottom:8px">سبز: دارای ارزشیابی | قرمز: بدون ارزشیابی</div><div id="evaluation-class-list-items" class="meta"></div></div>
+<div id="qa-class-list" class="card" style="display:none"><div class="ct">🗣️ آمار پرسش و پاسخ روزانه کلاس‌ها</div><div class="meta" style="margin-bottom:8px">سبز: دارای ثبت پرسش و پاسخ | خاکستری: بدون ثبت</div><div id="qa-class-list-items" class="meta"></div></div>
 <div id="parent-invitation-summary" class="card" role="button" tabindex="0" onclick="toggleParentInvitationClassList()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleParentInvitationClassList()}" style="cursor:pointer"><div class="ct" style="display:flex;align-items:center;gap:8px">✉️ دعوت‌نامه‌های اولیا <span id="parent-invitation-count-badge" aria-label="تعداد درخواست‌های دعوتنامه امروز" style="display:none;min-width:21px;height:21px;padding:0 6px;box-sizing:border-box;border-radius:999px;background:#dc2626;color:#fff;font-size:11px;font-weight:800;line-height:21px;text-align:center;box-shadow:0 1px 3px #0002"></span></div><div id="parent-invitation-summary-content" class="meta">برای نمایش آمار، اطلاعات را بارگذاری کنید.</div><small style="display:block;color:#1d4ed8;margin-top:6px;text-decoration:underline">برای مشاهده کلاس‌های درخواست‌دهنده امروز ضربه بزنید</small></div>
 <div id="parent-invitation-class-list" class="card" style="display:none"><div class="ct">✉️ کلاس‌های درخواست‌دهنده دعوت‌نامه امروز</div><div class="meta" style="margin-bottom:8px">فقط درخواست‌های ثبت‌شده در تاریخ امروز نمایش داده می‌شوند.</div><div id="parent-invitation-class-list-items" class="meta"></div></div>
 <div class="card">
@@ -3660,6 +3662,26 @@ function toggleEvaluationClassList(){
    return '<span style="display:inline-block;margin:4px;padding:7px 11px;border-radius:16px;background:'+(total>0?'#dbeafe':'#f1f5f9')+';color:'+(total>0?'#1e3a8a':'#64748b')+';border:1px solid '+(total>0?'#93c5fd':'#e2e8f0')+'"><b>'+label+'</b> — جمع پرونده: '+(typeof fa==='function'?fa(total):total)+' | این هفته: '+(typeof fa==='function'?fa(week):week)+(prev?(' | هفته‌های قبل: '+(typeof fa==='function'?fa(prev):prev)):'')+'</span>';
  }).join(''):'کلاسی برای این حساب تعریف نشده است.';
 }
+function toggleQaClassList(){
+ var box=document.getElementById('qa-class-list');if(!box)return;
+ var opening=box.style.display==='none'||!box.style.display;box.style.display=opening?'block':'none';
+ if(opening)renderQaClassList();
+}
+function renderQaClassList(){
+ var classes=(typeof myClasses==='function'?myClasses():(cache.classes||[]));
+ var counts=new Map();
+ (cache.activities||[]).forEach(function(a){
+   if(!a||a.type!=='qa'||a.class_id==null)return;
+   var cid=String(a.class_id);
+   counts.set(cid,(counts.get(cid)||0)+1);
+ });
+ var el=document.getElementById('qa-class-list-items');if(!el)return;
+ el.innerHTML=classes.length?classes.map(function(c){
+   var total=counts.get(String(c.id))||0;
+   var label=(c.label||c.id)+(c.teacher_name?' — '+c.teacher_name:'');
+   return '<span style="display:inline-block;margin:4px;padding:7px 11px;border-radius:16px;background:'+(total>0?'#dcfce7':'#f1f5f9')+';color:'+(total>0?'#166534':'#64748b')+';border:1px solid '+(total>0?'#86efac':'#e2e8f0')+'"><b>'+label+'</b> — '+(typeof fa==='function'?fa(total):total)+' پرسش و پاسخ</span>';
+ }).join(''):'کلاسی برای این حساب تعریف نشده است.';
+}
 
 var __dastyarDashboardDocsRefreshAt=0;
 var __dastyarDashboardDocsRefreshPromise=null;
@@ -3826,14 +3848,15 @@ function refreshDash(){
     if(!belongs)return false;
     return typeof isEvaluationInCurrentWeek==='function'?isEvaluationInCurrentWeek(e):true;
   }).length;
-  // همه ثبت‌های پرسش‌وپاسخ روزانه، مستقل از زمان همگام‌سازی و تاریخ رسیدن به سرور، در شمارنده ارزشیابی حساب می‌شوند.
-  // خلاصه‌های ماهانه خودکار در بخش ارزشیابی رکورد مشتق‌شده‌اند و برای جلوگیری از دوباره‌شماری جداگانه اضافه نمی‌شوند.
-  evCount+=(cache.activities||[]).filter(function(a){
-    if(!a||a.type!=='qa')return false;
-    var belongs=user&&user.role==='admin' ? true : evalClassIds.has(String(a.class_id));
-    return belongs;
-  }).length;
   var evEl=document.getElementById('st-e');if(evEl)evEl.textContent=fa(evCount);
+  // شمارنده مستقل پرسش‌وپاسخ؛ از همان cache محلی/سروری استفاده می‌کند تا ثبت آفلاین هم فوراً دیده شود.
+  var qaCount=(cache.activities||[]).filter(function(a){
+    if(!a||a.type!=='qa')return false;
+    return user&&user.role==='admin' ? true : evalClassIds.has(String(a.class_id));
+  }).length;
+  var qaEl=document.getElementById('st-qa');if(qaEl)qaEl.textContent=fa(qaCount);
+  var qaBox=document.getElementById('qa-class-list');
+  if(qaBox&&qaBox.style.display==='block'&&typeof renderQaClassList==='function')renderQaClassList();
   // فایل‌های در انتظار چاپ/تحویل (هنوز دکمه آماده تحویل نخورده)
   var docClassNames=[];
   try{
