@@ -3760,7 +3760,7 @@ async function refreshAdminQaAfterTeacherSync(){
     if(typeof buildClosedMonthQaEvaluations==='function')await buildClosedMonthQaEvaluations();
     if(typeof refreshDash==='function')refreshDash();
     var activityPage=document.getElementById('page-activity');
-    if(activityPage&&activityPage.classList.contains('active')&&typeof loadActivities==='function')await loadActivities();
+    if(activityPage&&activityPage.classList.contains('on')&&typeof loadActivities==='function')await loadActivities();
     return true;
   }catch(e){console.warn('تازه‌سازی خودکار پرسش‌وپاسخ مدیر انجام نشد؛ در نوبت بعد دوباره تلاش می‌شود.',e);return false;}
   finally{__dastyarAdminQaAutoRefreshBusy=false;}
