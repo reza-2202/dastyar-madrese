@@ -35,7 +35,7 @@
 (function(global){
   'use strict';
   var DB_NAME='dastyar_offline_db', DB_VERSION=3, QUEUE='queue', SYNC_QUEUE='sync_queue', RESPONSES='responses', DOCS='pending_documents';
-  var dbPromise=null, syncRunning=false, syncRequested=false, forceLocal=false, activeEndpoint='', activeApiKey='';
+  var dbPromise=null, syncRunning=false, forceLocal=false, activeEndpoint='', activeApiKey='';
   global.isOffline=false;
   function openDB(){
     if(dbPromise)return dbPromise;
@@ -376,7 +376,7 @@
     return removed;
   }
 
-async function syncQueue(){if(!global.navigator.onLine)return;if(syncRunning){syncRequested=true;return;}syncRunning=true;try{
+async function syncQueue(){if(syncRunning||!global.navigator.onLine)return;syncRunning=true;try{
       // پیش از ارسال هر مورد، اتصال واقعی به سرور را بررسی کن؛ صرفاً navigator.onLine کافی نیست.
       var liveClient=null;try{liveClient=(typeof sb!=='undefined'&&sb)?sb:global.sb||null;}catch(e){liveClient=global.sb||null;}
       if(!liveClient||typeof liveClient.from!=='function')throw new Error('کلاینت سرور هنوز آماده نیست');
@@ -385,7 +385,7 @@ async function syncQueue(){if(!global.navigator.onLine)return;if(syncRunning){sy
       // فقط پس از پاسخ موفق سرور، حالت آنلاین اعلام شود؛ خطای ثبت یک ردیف به معنی قطع اینترنت نیست.
       forceLocal=false;global.isOffline=false;
       try{await compactQueue();await purgeQueueAlreadyOnServer();}catch(e){console.warn('پاک‌سازی مقدماتی صف انجام نشد؛ ادامه با حفظ صف:',e);}
-      var items=await allQueue(), failedCount=0, firstFailure=null, sentCount=0, sentActivities=false, sentDiscipline=false;
+      var items=await allQueue(), failedCount=0, firstFailure=null, sentCount=0, sentActivities=false;
       for(var i=0;i<items.length;i++){
         if(!global.navigator.onLine)break;
         var item=items[i];
@@ -394,7 +394,6 @@ async function syncQueue(){if(!global.navigator.onLine)return;if(syncRunning){sy
           await removeQueue(item);
           sentCount++;
           if(String(item.table||'')==='sa_activities')sentActivities=true;
-          if(String(item.table||'')==='sa_discipline')sentDiscipline=true;
         }catch(e){
           // Never discard a failed item. Keep it for retry, but don't let one
           // invalid row block unrelated queued changes behind it.
@@ -416,18 +415,11 @@ async function syncQueue(){if(!global.navigator.onLine)return;if(syncRunning){sy
           if(typeof refreshDash==='function')refreshDash();
         }catch(qaRefreshError){console.warn('به‌روزرسانی ارزشیابی پرسش‌وپاسخ‌های آفلاین ناموفق بود؛ داده‌های صف حفظ شدند.',qaRefreshError);}
       }
-      if(sentDiscipline&&typeof refreshDashboardEvaluationDisciplineCache==='function'){
-        try{await refreshDashboardEvaluationDisciplineCache(true);}catch(disciplineRefreshError){console.warn('تازه‌سازی شمارنده انضباط پس از همگام‌سازی انجام نشد؛ در نوبت بعد تکرار می‌شود.',disciplineRefreshError);}
-      }
-      // بعضی فرایندهای پس از ارسال پرسش‌وپاسخ، رکوردهای پیوندی ارزشیابی را تازه در صف می‌گذارند؛ آن‌ها را در نوبت بعدی همین اتصال بفرست.
-      var pendingBeforePost=new Set(left.map(function(item){return queueFingerprint(item);}));
-      var afterPostProcessing=await allQueue();
-      if(afterPostProcessing.some(function(item){return !pendingBeforePost.has(queueFingerprint(item));}))syncRequested=true;
       if(left.length===0){forceLocal=false;global.isOffline=false;notify('همگام‌سازی کامل شد؛ صف تغییرات خالی است.');}
       else if(sentCount>0)notify('تعداد '+sentCount+' مورد ارسال شد؛ '+left.length+' مورد در صف باقی ماند'+(firstFailure?'؛ خطای نخست: '+firstFailure.table+' / '+firstFailure.message:''));
       else notify('تعداد '+left.length+' مورد هنوز همگام نشده است'+(firstFailure?'؛ خطا: '+firstFailure.table+' / '+firstFailure.message:''));
       updateOfflineBadge();
-    }catch(e){forceLocal=true;global.isOffline=true;console.warn('سرور در دسترس نیست؛ تغییرات در گوشی باقی می‌مانند.',e);}finally{syncRunning=false;updateOfflineBadge();if(syncRequested&&global.navigator.onLine){syncRequested=false;setTimeout(function(){syncQueue();},250);}}
+    }catch(e){forceLocal=true;global.isOffline=true;console.warn('سرور در دسترس نیست؛ تغییرات در گوشی باقی می‌مانند.',e);}finally{syncRunning=false;updateOfflineBadge();}}
   function queueFingerprint(item){
     return JSON.stringify([String(item.table||''),String(item.method||''),String(item.url||''),item.filters||[],item.payload===undefined?null:item.payload,Number(item.createdAt)||0]);
   }
@@ -2033,41 +2025,43 @@ async function init(){
   updateOfflineBadgeSafe();
   updateLoginConnStatus('در حال بررسی اتصال به سرور…', false);
 
-  // Fast login bootstrap: fetch only server credentials before login.
-  // Full school data is loaded by doLogin() after the user enters the app.
+  // Background-only server initialization. Errors update the status indicator, not a blocking screen.
   (async function backgroundConnect(){
     if(!sb)return;
     try{
       if(navigator.onLine){
+        // اولویت آنلاین: خروج از حالت محلی اجباری
         if(window.DastyarOffline&&window.DastyarOffline.setLocalOnly) window.DastyarOffline.setLocalOnly(false);
-        let usersResult=await withTimeout(sb.from('sa_users').select('*').limit(500),8000,'users');
-        if(usersResult.error)throw new Error(usersResult.error.message||'پایگاه‌داده پاسخ نداد');
-        if(!Array.isArray(usersResult.data)||!usersResult.data.length){
-          await withTimeout(seedIfEmpty(),12000,'seed timeout');
-          usersResult=await withTimeout(sb.from('sa_users').select('*').limit(500),8000,'users retry');
-          if(usersResult.error)throw new Error(usersResult.error.message||'دریافت کاربران ناموفق بود');
-        }
-        if(Array.isArray(usersResult.data)&&usersResult.data.length){
-          cache.users=typeof dedupeUsers==='function'?dedupeUsers(usersResult.data):usersResult.data;
-          window.__dastyarUsersFetchedAt=Date.now();
-          try{cache.users=applyTeacherPasswordOverrides(cache.users||[]);}catch(e){}
-        }
+        const probe=await withTimeout(sb.from('sa_users').select('id').limit(1),12000,'timeout');
+        if(probe.error)throw new Error(probe.error.message||'پایگاه‌داده پاسخ نداد');
+        await withTimeout(seedIfEmpty(),20000,'seed timeout');
+        await withTimeout(reloadAll(),20000,'reload timeout');
+        if(typeof ensureUsersFromServer==='function') await ensureUsersFromServer();
+        if(typeof ensureStudentsFromServer==='function') await ensureStudentsFromServer();
+        /* ensureClass4BStudents disabled — no auto student injection */
+        // فشرده‌سازی و پاک‌سازی صف تکراری
+        try{
+          if(window.DastyarOffline&&window.DastyarOffline.compactQueue) await window.DastyarOffline.compactQueue();
+          if(window.DastyarOffline&&window.DastyarOffline.purgeQueueAlreadyOnServer) await window.DastyarOffline.purgeQueueAlreadyOnServer();
+          if(window.DastyarOffline&&window.DastyarOffline.sync) await withTimeout(window.DastyarOffline.sync(),45000,'sync');
+        }catch(sq){ console.warn(sq); }
         if(typeof fillTeacherSelect==='function')fillTeacherSelect();
         if(typeof restoreRememberedLogin==='function')restoreRememberedLogin();
         globalStatus(false);
-        updateLoginConnStatus('متصل به سرور — می‌توانید وارد شوید',true);
+        updateLoginConnStatus('متصل به سرور — می‌توانید وارد شوید', true);
+        if(typeof refreshDash==='function') refreshDash();
       }else{
         await restoreOfflineSnapshot();
         globalStatus(true);
-        if(typeof fillTeacherSelect==='function')fillTeacherSelect();
-        updateLoginConnStatus('سرور در دسترس نیست — کار آفلاین فعال است',false);
+        if(typeof fillTeacherSelect==='function') fillTeacherSelect();
+        updateLoginConnStatus('سرور در دسترس نیست — کار آفلاین فعال است', false);
       }
     }catch(e){
-      console.warn('دریافت اطلاعات ورود از سرور انجام نشد؛ رابط کاربری باز می‌ماند.',e);
+      console.warn('اتصال پس‌زمینه برقرار نشد؛ رابط کاربری باز می‌ماند.',e);
       await restoreOfflineSnapshot();
       globalStatus(true);
-      if(typeof fillTeacherSelect==='function')fillTeacherSelect();
-      updateLoginConnStatus('سرور در دسترس نیست — کار آفلاین فعال است',false);
+      if(typeof fillTeacherSelect==='function') fillTeacherSelect();
+      updateLoginConnStatus('سرور در دسترس نیست — کار آفلاین فعال است', false);
     }
   })();
 }
@@ -2785,23 +2779,16 @@ async function doLogin(){
 
   // آنلاین: کاربران را مستقیم از سرور بگیر
   if(navigator.onLine && sb){
-    const usersAlreadyFresh=Array.isArray(cache.users)&&cache.users.length>0&&
-      Date.now()-Number(window.__dastyarUsersFetchedAt||0)<15000;
-    if(usersAlreadyFresh){
-      networkFailed=false;
-    }else{
-      try{
-        const r=await withTimeout(sb.from('sa_users').select('*').limit(500),8000,'users');
-        if(r&&!r.error&&Array.isArray(r.data)&&r.data.length){
-          cache.users=typeof dedupeUsers==='function'?dedupeUsers(r.data):r.data;
-          window.__dastyarUsersFetchedAt=Date.now();
-          networkFailed=false;
-          try{globalStatus(false);}catch(e){}
-        }else if(r&&r.error){networkFailed=true;}
-      }catch(e){
-        networkFailed=true;
-        console.warn(e);
-      }
+    try{
+      const r=await withTimeout(sb.from('sa_users').select('*').limit(500),12000,'users');
+      if(r&&!r.error&&Array.isArray(r.data)&&r.data.length){
+        cache.users = typeof dedupeUsers==='function' ? dedupeUsers(r.data) : r.data;
+        networkFailed=false;
+        try{ globalStatus(false); }catch(e){}
+      }else if(r&&r.error){ networkFailed=true; }
+    }catch(e){
+      networkFailed=true;
+      console.warn(e);
     }
   }
   if(networkFailed||!navigator.onLine){
@@ -3736,10 +3723,10 @@ async function refreshDashboardDocumentCache(){
 
 var __dastyarDashboardRecordsRefreshAt=0;
 var __dastyarDashboardRecordsRefreshPromise=null;
-async function refreshDashboardEvaluationDisciplineCache(force){
+async function refreshDashboardEvaluationDisciplineCache(){
   if(!user||!sb||!navigator.onLine||window.isOffline)return false;
   if(__dastyarDashboardRecordsRefreshPromise)return __dastyarDashboardRecordsRefreshPromise;
-  if(!force&&Date.now()-__dastyarDashboardRecordsRefreshAt<12000)return false;
+  if(Date.now()-__dastyarDashboardRecordsRefreshAt<12000)return false;
   __dastyarDashboardRecordsRefreshAt=Date.now();
   __dastyarDashboardRecordsRefreshPromise=(async function(){
     const results=await Promise.all([
@@ -3787,37 +3774,21 @@ var __dastyarAdminQaAutoRefreshBusy=false;
 var __dastyarAdminQaAutoRefreshAt=0;
 async function refreshAdminQaAfterTeacherSync(){
   if(__dastyarAdminQaAutoRefreshBusy||!user||user.role!=='admin'||!sb||!navigator.onLine)return false;
-  if(Date.now()-__dastyarAdminQaAutoRefreshAt<3500)return false;
+  if(Date.now()-__dastyarAdminQaAutoRefreshAt<9000)return false;
   __dastyarAdminQaAutoRefreshBusy=true;__dastyarAdminQaAutoRefreshAt=Date.now();
   try{
-    // فقط سه جدول مربوط به پرسش‌وپاسخ، ارزشیابی پیوندی و انضباط را تازه کن؛ سایر داده‌های مدرسه بی‌جهت بارگذاری نمی‌شوند.
-    var results=await Promise.all([
-      sb.from('sa_activities').select('*').order('created_at',{ascending:false}),
-      sb.from('sa_evaluations').select('*').order('created_at',{ascending:false}),
-      sb.from('sa_discipline').select('*').order('created_at',{ascending:false})
-    ]);
-    if(!results[0]||results[0].error||!Array.isArray(results[0].data))throw new Error((results[0]&&results[0].error&&results[0].error.message)||'دریافت پرسش‌وپاسخ‌ها ناموفق بود');
-    if(!results[1]||results[1].error||!Array.isArray(results[1].data))throw new Error((results[1]&&results[1].error&&results[1].error.message)||'دریافت ارزشیابی‌ها ناموفق بود');
-    if(!results[2]||results[2].error||!Array.isArray(results[2].data))throw new Error((results[2]&&results[2].error&&results[2].error.message)||'دریافت سوابق انضباطی ناموفق بود');
-    cache.activities=applyQaTombstones(results[0].data);
-    cache.evaluations=results[1].data;
-    cache.discipline=results[2].data;
-    try{mergeLocalSchoolCacheIntoMemory();}catch(e){}
-    cache.activities=applyQaTombstones(cache.activities);
-    try{persistLocalSchoolCache();}catch(e){}
-    try{if(window.DastyarOffline&&window.DastyarOffline.saveSnapshot)await window.DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
+    // Fetch the activity and its linked evaluation records in the same refresh cycle.
+    await reloadAll();
     if(typeof buildClosedMonthQaEvaluations==='function')await buildClosedMonthQaEvaluations();
     if(typeof refreshDash==='function')refreshDash();
     var activityPage=document.getElementById('page-activity');
-    if(activityPage&&activityPage.classList.contains('on')&&typeof loadActivities==='function')await loadActivities(true);
-    var disciplinePage=document.getElementById('page-discipline');
-    if(disciplinePage&&disciplinePage.classList.contains('on')&&typeof renderDisciplineList==='function')renderDisciplineList();
+    if(activityPage&&activityPage.classList.contains('on')&&typeof loadActivities==='function')await loadActivities();
     return true;
   }catch(e){console.warn('تازه‌سازی خودکار پرسش‌وپاسخ مدیر انجام نشد؛ در نوبت بعد دوباره تلاش می‌شود.',e);return false;}
   finally{__dastyarAdminQaAutoRefreshBusy=false;}
 }
 // اگر مدیر برنامه را باز نگه دارد، بدون فشردن «به‌روزرسانی سوابق» تغییرات معلم دریافت می‌شود.
-try{if(!window.__dastyarAdminQaAutoRefreshTimer)window.__dastyarAdminQaAutoRefreshTimer=setInterval(function(){if(document.visibilityState==='visible')refreshAdminQaAfterTeacherSync();},4000);}catch(e){}
+try{if(!window.__dastyarAdminQaAutoRefreshTimer)window.__dastyarAdminQaAutoRefreshTimer=setInterval(function(){if(document.visibilityState==='visible')refreshAdminQaAfterTeacherSync();},10000);}catch(e){}
 
 function refreshDash(){
   try{refreshDashboardEvaluationDisciplineCache();}catch(e){}
@@ -5663,8 +5634,6 @@ async function deleteDiscipline(id){
     }
   }catch(e){console.warn(e);}
   try{ renderDisciplineList(); }catch(e){}
-  try{ if(typeof renderDisciplineDashList==='function'){var db=document.getElementById('discipline-dash-list');if(db&&db.style.display==='block')renderDisciplineDashList();} }catch(e){}
-  try{ if(typeof refreshDash==='function')refreshDash(); }catch(e){}
   toast('مورد انضباطی حذف شد');
 }
 
@@ -6417,7 +6386,6 @@ async function deleteQaActivity(id){
   if(!confirm('فقط همین رکورد پرسش و پاسخ حذف شود؟\n'+(st?(st.first_name+' '+st.last_name):'دانش‌آموز')+' — '+row.subject+' — '+row.date+'\nسایر پرسش‌ها، فعالیت‌ها، حضور و غیاب و ارزشیابی‌ها دست‌نخورده می‌مانند.'))return;
   var result=await sb.from('sa_activities').delete().eq('id',String(id));if(result.error){toast('حذف انجام نشد: '+result.error.message);return;}
   setQaDeletedId(id);cache.activities=(cache.activities||[]).filter(function(a){return String(a.id)!==String(id);});
-  try{if(typeof refreshDash==='function')refreshDash();}catch(e){}
   var linkedEvaluationDeleted=true;
   try{await syncOneDailyQaEvaluation(row,true,false);}catch(syncErr){linkedEvaluationDeleted=false;console.warn('حذف ارزشیابی مرتبط با پرسش‌وپاسخ ناموفق بود',syncErr);}
   try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
@@ -6433,8 +6401,8 @@ function renderQaPerformance(list){
   Object.keys(groups).forEach(function(key){html+='<div style="margin-top:10px"><b>'+titles[key]+' ('+fa(groups[key].length)+')</b>'+(groups[key].length?groups[key].map(function(x){return '<div class="meta" style="padding:8px;border-bottom:1px solid #e2e8f0;display:flex;gap:8px;align-items:flex-start">'+(x.student.photo?('<img src="'+String(x.student.photo).replace(/"/g,'')+'" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:1px solid #cbd5e1"/>'):'')+'<div style="flex:1">'+escHtml(x.student.first_name+' '+x.student.last_name)+' — '+escHtml(x.subject)+' | میانگین '+x.avg.toFixed(1)+' از ۲۰ ('+fa(x.count)+' ثبت)<div style="display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap"><select aria-label="تغییر گروه عملکرد" onchange="saveQaTeacherGroup(\''+String(x.latest.id).replace(/'/g,'')+'\',this.value)"><option value="desired" '+(x.current==='desired'?'selected':'')+'>تسلط مطلوب</option><option value="progress" '+(x.current==='progress'?'selected':'')+'>در حال پیشرفت</option><option value="attention" '+(x.current==='attention'?'selected':'')+'>نیازمند توجه بیشتر</option></select><small>پیشنهاد: '+titles[x.suggested]+'</small></div></div></div>';}).join(''):'<div class="meta">هنوز دانش‌آموزی در این سطح قرار نگرفته است.</div>')+'</div>';});return html+'</div>';
 }
 async function saveQaTeacherGroup(activityId,value){if(!['desired','progress','attention'].includes(value))return;var res=await sb.from('sa_activities').update({teacher_group:value}).eq('id',activityId);if(res.error){toast('ذخیره تغییر گروه ناموفق بود: '+res.error.message);return;}var row=cache.activities.find(function(a){return String(a.id)===String(activityId);});if(row)row.teacher_group=value;try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}toast('نظر معلم ذخیره شد');await loadActivities();}
-async function loadActivities(skipServerReload){
-  if(!skipServerReload&&!isAppOfflineNow())await reloadAll();cache.activities=applyQaTombstones(cache.activities);fillActivitySubjectFilter();
+async function loadActivities(){
+  if(!isAppOfflineNow())await reloadAll();cache.activities=applyQaTombstones(cache.activities);fillActivitySubjectFilter();
   var classId=document.getElementById('ac-class').value;
   fillQaExportStudents();
   var fDate=(document.getElementById('ac-filter-dt')&&document.getElementById('ac-filter-dt').value)||'';
