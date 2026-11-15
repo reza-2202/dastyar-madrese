@@ -1,4 +1,4 @@
-const CACHE = 'dastyar-shell-v65-20261115-qa-date-week-count';
+const CACHE = 'dastyar-shell-v66-20261115-admin-qa-refresh';
 const BASE = '/dastyar-madrese/';
 const SHELL = [
   BASE,
