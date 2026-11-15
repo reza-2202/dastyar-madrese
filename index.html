@@ -3747,6 +3747,27 @@ async function refreshDashboardEvaluationDisciplineCache(){
   return __dastyarDashboardRecordsRefreshPromise;
 }
 
+// مدیر در زمان باز بودن برنامه، تغییرات پرسش‌وپاسخ ثبت‌شده توسط معلمان را خودکار از سرور می‌گیرد.
+var __dastyarAdminQaAutoRefreshBusy=false;
+var __dastyarAdminQaAutoRefreshAt=0;
+async function refreshAdminQaAfterTeacherSync(){
+  if(__dastyarAdminQaAutoRefreshBusy||!user||user.role!=='admin'||!sb||!navigator.onLine||window.isOffline)return false;
+  if(Date.now()-__dastyarAdminQaAutoRefreshAt<9000)return false;
+  __dastyarAdminQaAutoRefreshBusy=true;__dastyarAdminQaAutoRefreshAt=Date.now();
+  try{
+    // Fetch the activity and its linked evaluation records in the same refresh cycle.
+    await reloadAll();
+    if(typeof buildClosedMonthQaEvaluations==='function')await buildClosedMonthQaEvaluations();
+    if(typeof refreshDash==='function')refreshDash();
+    var activityPage=document.getElementById('page-activity');
+    if(activityPage&&activityPage.classList.contains('active')&&typeof loadActivities==='function')await loadActivities();
+    return true;
+  }catch(e){console.warn('تازه‌سازی خودکار پرسش‌وپاسخ مدیر انجام نشد؛ در نوبت بعد دوباره تلاش می‌شود.',e);return false;}
+  finally{__dastyarAdminQaAutoRefreshBusy=false;}
+}
+// اگر مدیر برنامه را باز نگه دارد، بدون فشردن «به‌روزرسانی سوابق» تغییرات معلم دریافت می‌شود.
+try{if(!window.__dastyarAdminQaAutoRefreshTimer)window.__dastyarAdminQaAutoRefreshTimer=setInterval(function(){if(document.visibilityState==='visible')refreshAdminQaAfterTeacherSync();},10000);}catch(e){}
+
 function refreshDash(){
   try{refreshDashboardEvaluationDisciplineCache();}catch(e){}
   try{ if(typeof refreshDashboardDocumentCache==='function') refreshDashboardDocumentCache(); }catch(e){}
