@@ -385,7 +385,7 @@ async function syncQueue(){if(syncRunning||!global.navigator.onLine)return;syncR
       // فقط پس از پاسخ موفق سرور، حالت آنلاین اعلام شود؛ خطای ثبت یک ردیف به معنی قطع اینترنت نیست.
       forceLocal=false;global.isOffline=false;
       try{await compactQueue();await purgeQueueAlreadyOnServer();}catch(e){console.warn('پاک‌سازی مقدماتی صف انجام نشد؛ ادامه با حفظ صف:',e);}
-      var items=await allQueue(), failedCount=0, firstFailure=null, sentCount=0, sentActivities=false;
+      var items=await allQueue(), failedCount=0, firstFailure=null, sentCount=0, sentActivities=false, sentDiscipline=false;
       for(var i=0;i<items.length;i++){
         if(!global.navigator.onLine)break;
         var item=items[i];
@@ -394,6 +394,7 @@ async function syncQueue(){if(syncRunning||!global.navigator.onLine)return;syncR
           await removeQueue(item);
           sentCount++;
           if(String(item.table||'')==='sa_activities')sentActivities=true;
+          if(String(item.table||'')==='sa_discipline')sentDiscipline=true;
         }catch(e){
           // Never discard a failed item. Keep it for retry, but don't let one
           // invalid row block unrelated queued changes behind it.
@@ -414,6 +415,9 @@ async function syncQueue(){if(syncRunning||!global.navigator.onLine)return;syncR
           if(typeof buildClosedMonthQaEvaluations==='function')await buildClosedMonthQaEvaluations();
           if(typeof refreshDash==='function')refreshDash();
         }catch(qaRefreshError){console.warn('به‌روزرسانی ارزشیابی پرسش‌وپاسخ‌های آفلاین ناموفق بود؛ داده‌های صف حفظ شدند.',qaRefreshError);}
+      }
+      if(sentDiscipline&&typeof refreshDashboardEvaluationDisciplineCache==='function'){
+        try{await refreshDashboardEvaluationDisciplineCache(true);}catch(disciplineRefreshError){console.warn('تازه‌سازی شمارنده انضباط پس از همگام‌سازی انجام نشد؛ در نوبت بعد تکرار می‌شود.',disciplineRefreshError);}
       }
       if(left.length===0){forceLocal=false;global.isOffline=false;notify('همگام‌سازی کامل شد؛ صف تغییرات خالی است.');}
       else if(sentCount>0)notify('تعداد '+sentCount+' مورد ارسال شد؛ '+left.length+' مورد در صف باقی ماند'+(firstFailure?'؛ خطای نخست: '+firstFailure.table+' / '+firstFailure.message:''));
@@ -3723,10 +3727,10 @@ async function refreshDashboardDocumentCache(){
 
 var __dastyarDashboardRecordsRefreshAt=0;
 var __dastyarDashboardRecordsRefreshPromise=null;
-async function refreshDashboardEvaluationDisciplineCache(){
+async function refreshDashboardEvaluationDisciplineCache(force){
   if(!user||!sb||!navigator.onLine||window.isOffline)return false;
   if(__dastyarDashboardRecordsRefreshPromise)return __dastyarDashboardRecordsRefreshPromise;
-  if(Date.now()-__dastyarDashboardRecordsRefreshAt<12000)return false;
+  if(!force&&Date.now()-__dastyarDashboardRecordsRefreshAt<12000)return false;
   __dastyarDashboardRecordsRefreshAt=Date.now();
   __dastyarDashboardRecordsRefreshPromise=(async function(){
     const results=await Promise.all([
@@ -5634,6 +5638,8 @@ async function deleteDiscipline(id){
     }
   }catch(e){console.warn(e);}
   try{ renderDisciplineList(); }catch(e){}
+  try{ if(typeof renderDisciplineDashList==='function'){var db=document.getElementById('discipline-dash-list');if(db&&db.style.display==='block')renderDisciplineDashList();} }catch(e){}
+  try{ if(typeof refreshDash==='function')refreshDash(); }catch(e){}
   toast('مورد انضباطی حذف شد');
 }
 
@@ -6386,6 +6392,7 @@ async function deleteQaActivity(id){
   if(!confirm('فقط همین رکورد پرسش و پاسخ حذف شود؟\n'+(st?(st.first_name+' '+st.last_name):'دانش‌آموز')+' — '+row.subject+' — '+row.date+'\nسایر پرسش‌ها، فعالیت‌ها، حضور و غیاب و ارزشیابی‌ها دست‌نخورده می‌مانند.'))return;
   var result=await sb.from('sa_activities').delete().eq('id',String(id));if(result.error){toast('حذف انجام نشد: '+result.error.message);return;}
   setQaDeletedId(id);cache.activities=(cache.activities||[]).filter(function(a){return String(a.id)!==String(id);});
+  try{if(typeof refreshDash==='function')refreshDash();}catch(e){}
   var linkedEvaluationDeleted=true;
   try{await syncOneDailyQaEvaluation(row,true,false);}catch(syncErr){linkedEvaluationDeleted=false;console.warn('حذف ارزشیابی مرتبط با پرسش‌وپاسخ ناموفق بود',syncErr);}
   try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
