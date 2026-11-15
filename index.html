@@ -3645,7 +3645,7 @@ function toggleEvaluationClassList(){
  (cache.students||[]).forEach(function(st){if(st&&st.id!=null)studentClass.set(String(st.id),String(st.class_id||''));});
  var totalCounts=new Map(), weekCounts=new Map();
  (cache.evaluations||[]).forEach(function(e){
-   if(!e)return;
+   if(!e||String(e.recorded_by||'').indexOf('| خلاصه خودکار پرسش‌وپاسخ')>=0||(typeof isDailyQaEvaluationRow==='function'&&isDailyQaEvaluationRow(e)))return;
    var cid=e.class_id!=null?String(e.class_id):studentClass.get(String(e.student_id));
    if(!cid)return;
    totalCounts.set(cid,(totalCounts.get(cid)||0)+1);
@@ -3659,7 +3659,7 @@ function toggleEvaluationClassList(){
    var week=weekCounts.get(String(c.id))||0;
    var prev=Math.max(0,total-week);
    var label=(c.label||c.id)+(c.teacher_name?' — '+c.teacher_name:'');
-   return '<span style="display:inline-block;margin:4px;padding:7px 11px;border-radius:16px;background:'+(total>0?'#dbeafe':'#f1f5f9')+';color:'+(total>0?'#1e3a8a':'#64748b')+';border:1px solid '+(total>0?'#93c5fd':'#e2e8f0')+'"><b>'+label+'</b> — جمع پرونده: '+(typeof fa==='function'?fa(total):total)+' | این هفته: '+(typeof fa==='function'?fa(week):week)+(prev?(' | هفته‌های قبل: '+(typeof fa==='function'?fa(prev):prev)):'')+'</span>';
+   return '<span style="display:inline-block;margin:4px;padding:7px 11px;border-radius:16px;background:'+(total>0?'#dbeafe':'#f1f5f9')+';color:'+(total>0?'#1e3a8a':'#64748b')+';border:1px solid '+(total>0?'#93c5fd':'#e2e8f0')+'"><b>'+label+'</b> — جمع ارزشیابی: '+(typeof fa==='function'?fa(total):total)+' | این هفته: '+(typeof fa==='function'?fa(week):week)+(prev?(' | هفته‌های قبل: '+(typeof fa==='function'?fa(prev):prev)):'')+'</span>';
  }).join(''):'کلاسی برای این حساب تعریف نشده است.';
 }
 function toggleQaClassList(){
