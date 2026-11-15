@@ -1,4 +1,4 @@
-const CACHE = 'dastyar-shell-v64-20261115-offline-qa-save';
+const CACHE = 'dastyar-shell-v65-20261115-qa-date-week-count';
 const BASE = '/dastyar-madrese/';
 const SHELL = [
   BASE,
