@@ -35,7 +35,7 @@
 (function(global){
   'use strict';
   var DB_NAME='dastyar_offline_db', DB_VERSION=3, QUEUE='queue', SYNC_QUEUE='sync_queue', RESPONSES='responses', DOCS='pending_documents';
-  var dbPromise=null, syncRunning=false, forceLocal=false, activeEndpoint='', activeApiKey='';
+  var dbPromise=null, syncRunning=false, syncRequested=false, forceLocal=false, activeEndpoint='', activeApiKey='';
   global.isOffline=false;
   function openDB(){
     if(dbPromise)return dbPromise;
@@ -93,7 +93,7 @@
       var filters=[], api={_cols:'*',_maybeSingle:false};
       api.select=function(cols){api._cols=cols||'*';return api;};api.eq=function(col,val){filters.push({type:'eq',col:col,val:val});return api;};api.limit=function(n){filters.push({type:'limit',val:n});return api;};api.range=function(from,to){from=Math.max(0,Number(from)||0);to=Math.max(from,Number(to)||from);filters.push({type:'range',from:from,to:to});return api;};api.order=function(col,opts){filters.push({type:'order',col:col,asc:!(opts&&opts.ascending===false)});return api;};api.maybeSingle=function(){api._maybeSingle=true;return api;};
       function makeUrl(method){var q=buildQuery(filters);if(method==='GET'&&api._cols)q+=(q?'&':'?')+'select='+encodeURIComponent(api._cols);return base+'/'+name+q;}
-      function queueWrite(method,payload,headers){payload=clone(payload);if(method==='POST'&&payload!=null){if(Array.isArray(payload))payload.forEach(function(row){if(row&&typeof row==='object'&&(row.id==null||row.id===''))row.id=uid();});else if(typeof payload==='object'&&(payload.id==null||payload.id===''))payload.id=uid();}var item={table:name,method:method,payload:clone(payload),filters:clone(filters),url:makeUrl(method),headers:Object.assign({},baseHeaders,headers||{}),createdAt:Date.now()};return putQueue(item).then(function(){global.DastyarOffline.lastQueuedAt=Date.now();updateOfflineBadge();try{ if(typeof persistLocalSchoolCache==='function') persistLocalSchoolCache(); }catch(e){} notify('ذخیره شد؛ '+name+' پس از اتصال اینترنت همگام‌سازی می‌شود.');return {data:clone(payload),error:null,status:202,offline:true};}).catch(function(e){return {data:null,error:{message:'ذخیره آفلاین انجام نشد: '+e.message},status:0};});}
+      function queueWrite(method,payload,headers){payload=clone(payload);if(method==='POST'&&payload!=null){if(Array.isArray(payload))payload.forEach(function(row){if(row&&typeof row==='object'&&(row.id==null||row.id===''))row.id=uid();});else if(typeof payload==='object'&&(payload.id==null||payload.id===''))payload.id=uid();}var item={table:name,method:method,payload:clone(payload),filters:clone(filters),url:makeUrl(method),headers:Object.assign({},baseHeaders,headers||{}),createdAt:Date.now()};return putQueue(item).then(function(){global.DastyarOffline.lastQueuedAt=Date.now();updateOfflineBadge();try{ if(typeof persistLocalSchoolCache==='function') persistLocalSchoolCache(); }catch(e){} notify('ذخیره شد؛ '+name+' پس از اتصال اینترنت همگام‌سازی می‌شود.');if(global.navigator.onLine){setTimeout(function(){syncQueue();},0);}return {data:clone(payload),error:null,status:202,offline:true};}).catch(function(e){return {data:null,error:{message:'ذخیره آفلاین انجام نشد: '+e.message},status:0};});}
       async function run(method,payload,extraHeaders,allowQueue){var url=makeUrl(method),headers=Object.assign({},baseHeaders,extraHeaders||{}),isWrite=method!=='GET';
         if(method==='POST'&&payload!=null){payload=clone(payload);if(Array.isArray(payload))payload.forEach(function(row){if(row&&typeof row==='object'&&(row.id==null||row.id===''))row.id=uid();});else if(typeof payload==='object'&&(payload.id==null||payload.id===''))payload.id=uid();}
         if(isWrite&&allowQueue!==false&&(!global.navigator.onLine||forceLocal))return queueWrite(method,payload,extraHeaders);
@@ -376,7 +376,7 @@
     return removed;
   }
 
-async function syncQueue(){if(syncRunning||!global.navigator.onLine)return;syncRunning=true;try{
+async function syncQueue(){if(!global.navigator.onLine)return;if(syncRunning){syncRequested=true;return;}syncRunning=true;try{
       // پیش از ارسال هر مورد، اتصال واقعی به سرور را بررسی کن؛ صرفاً navigator.onLine کافی نیست.
       var liveClient=null;try{liveClient=(typeof sb!=='undefined'&&sb)?sb:global.sb||null;}catch(e){liveClient=global.sb||null;}
       if(!liveClient||typeof liveClient.from!=='function')throw new Error('کلاینت سرور هنوز آماده نیست');
@@ -385,7 +385,7 @@ async function syncQueue(){if(syncRunning||!global.navigator.onLine)return;syncR
       // فقط پس از پاسخ موفق سرور، حالت آنلاین اعلام شود؛ خطای ثبت یک ردیف به معنی قطع اینترنت نیست.
       forceLocal=false;global.isOffline=false;
       try{await compactQueue();await purgeQueueAlreadyOnServer();}catch(e){console.warn('پاک‌سازی مقدماتی صف انجام نشد؛ ادامه با حفظ صف:',e);}
-      var items=await allQueue(), failedCount=0, firstFailure=null, sentCount=0, sentActivities=false;
+      var items=await allQueue(), failedCount=0, firstFailure=null, sentCount=0, sentActivities=false, sentEvaluations=false, sentDiscipline=false;
       for(var i=0;i<items.length;i++){
         if(!global.navigator.onLine)break;
         var item=items[i];
@@ -393,7 +393,7 @@ async function syncQueue(){if(syncRunning||!global.navigator.onLine)return;syncR
           await syncOne(item);
           await removeQueue(item);
           sentCount++;
-          if(String(item.table||'')==='sa_activities')sentActivities=true;
+          if(String(item.table||'')==='sa_activities')sentActivities=true;if(String(item.table||'')==='sa_evaluations')sentEvaluations=true;if(String(item.table||'')==='sa_discipline')sentDiscipline=true;
         }catch(e){
           // Never discard a failed item. Keep it for retry, but don't let one
           // invalid row block unrelated queued changes behind it.
@@ -407,6 +407,7 @@ async function syncQueue(){if(syncRunning||!global.navigator.onLine)return;syncR
         }
       }
       var left=await allQueue();
+      if((sentActivities||sentEvaluations||sentDiscipline)&&typeof refreshDash==='function'){try{refreshDash();}catch(e){}}
       // پس از ارسال پرسش‌وپاسخ‌های آفلاین، ارزشیابی‌های روزانه و میانگین ماهانه را از داده تأییدشده سرور بازسازی کن.
       if(sentActivities&&!left.some(function(item){return item&&String(item.table||'')==='sa_activities';})&&typeof user!=='undefined'&&user&&typeof reloadAll==='function'){
         try{
@@ -419,7 +420,7 @@ async function syncQueue(){if(syncRunning||!global.navigator.onLine)return;syncR
       else if(sentCount>0)notify('تعداد '+sentCount+' مورد ارسال شد؛ '+left.length+' مورد در صف باقی ماند'+(firstFailure?'؛ خطای نخست: '+firstFailure.table+' / '+firstFailure.message:''));
       else notify('تعداد '+left.length+' مورد هنوز همگام نشده است'+(firstFailure?'؛ خطا: '+firstFailure.table+' / '+firstFailure.message:''));
       updateOfflineBadge();
-    }catch(e){forceLocal=true;global.isOffline=true;console.warn('سرور در دسترس نیست؛ تغییرات در گوشی باقی می‌مانند.',e);}finally{syncRunning=false;updateOfflineBadge();}}
+    }catch(e){forceLocal=true;global.isOffline=true;console.warn('سرور در دسترس نیست؛ تغییرات در گوشی باقی می‌مانند.',e);}finally{syncRunning=false;updateOfflineBadge();if(syncRequested&&global.navigator.onLine){syncRequested=false;setTimeout(function(){syncQueue();},50);}}}
   function queueFingerprint(item){
     return JSON.stringify([String(item.table||''),String(item.method||''),String(item.url||''),item.filters||[],item.payload===undefined?null:item.payload,Number(item.createdAt)||0]);
   }
@@ -2034,6 +2035,7 @@ async function init(){
         if(window.DastyarOffline&&window.DastyarOffline.setLocalOnly) window.DastyarOffline.setLocalOnly(false);
         const probe=await withTimeout(sb.from('sa_users').select('id').limit(1),12000,'timeout');
         if(probe.error)throw new Error(probe.error.message||'پایگاه‌داده پاسخ نداد');
+        updateLoginConnStatus('اتصال سرور برقرار شد؛ آماده‌سازی اطلاعات در پس‌زمینه…', true);
         await withTimeout(seedIfEmpty(),20000,'seed timeout');
         await withTimeout(reloadAll(),20000,'reload timeout');
         if(typeof ensureUsersFromServer==='function') await ensureUsersFromServer();
@@ -3769,26 +3771,66 @@ async function refreshDashboardEvaluationDisciplineCache(){
   return __dastyarDashboardRecordsRefreshPromise;
 }
 
-// مدیر در زمان باز بودن برنامه، تغییرات پرسش‌وپاسخ ثبت‌شده توسط معلمان را خودکار از سرور می‌گیرد.
+// مدیر در زمان باز بودن برنامه، فقط سه جدول پرسش‌وپاسخ، ارزشیابی مرتبط و انضباط را تازه می‌کند.
 var __dastyarAdminQaAutoRefreshBusy=false;
 var __dastyarAdminQaAutoRefreshAt=0;
 async function refreshAdminQaAfterTeacherSync(){
   if(__dastyarAdminQaAutoRefreshBusy||!user||user.role!=='admin'||!sb||!navigator.onLine)return false;
-  if(Date.now()-__dastyarAdminQaAutoRefreshAt<9000)return false;
+  if(Date.now()-__dastyarAdminQaAutoRefreshAt<2500)return false;
   __dastyarAdminQaAutoRefreshBusy=true;__dastyarAdminQaAutoRefreshAt=Date.now();
   try{
-    // Fetch the activity and its linked evaluation records in the same refresh cycle.
-    await reloadAll();
+    if(__dastyarDashboardRecordsRefreshPromise)await __dastyarDashboardRecordsRefreshPromise;
+    const results=await Promise.all([
+      sb.from('sa_activities').select('*').order('created_at',{ascending:false}),
+      sb.from('sa_evaluations').select('*').order('created_at',{ascending:false}),
+      sb.from('sa_discipline').select('*').order('created_at',{ascending:false})
+    ]);
+    const names=['پرسش‌وپاسخ','ارزشیابی','انضباط'];
+    results.forEach(function(r,i){if(!r||r.error||!Array.isArray(r.data))throw new Error(names[i]+' از سرور دریافت نشد: '+(r&&r.error&&r.error.message||'پاسخ نامعتبر'));});
+    function overlayPending(table,serverRows,pending){
+      var rows=serverRows.slice();
+      (pending||[]).filter(function(item){return item&&item.table===table;}).forEach(function(item){
+        var payload=Array.isArray(item.payload)?item.payload:(item.payload?[item.payload]:[]);
+        if(item.method==='POST'){
+          payload.forEach(function(row){
+            if(!row)return;
+            var at=rows.findIndex(function(old){return String(old.id)===String(row.id);});
+            if(at>=0)rows[at]=Object.assign({},rows[at],row);else rows.push(row);
+          });
+        }else if(item.method==='PATCH'){
+          rows.forEach(function(row){
+            if((item.filters||[]).every(function(f){return f.type!=='eq'||String(row&&row[f.col])===String(f.val);}))Object.assign(row,item.payload||{});
+          });
+        }else if(item.method==='DELETE'){
+          rows=rows.filter(function(row){return !(item.filters||[]).every(function(f){return f.type!=='eq'||String(row&&row[f.col])===String(f.val);});});
+        }
+      });
+      return rows;
+    }
+    var pending=window.DastyarOffline&&typeof window.DastyarOffline.pending==='function'?await window.DastyarOffline.pending():[];
+    var nextActivities=applyQaTombstones(overlayPending('sa_activities',results[0].data,pending));
+    var nextEvaluations=overlayPending('sa_evaluations',results[1].data,pending);
+    var nextDiscipline=overlayPending('sa_discipline',results[2].data,pending);
+    var changed=JSON.stringify(cache.activities||[])!==JSON.stringify(nextActivities)||
+      JSON.stringify(cache.evaluations||[])!==JSON.stringify(nextEvaluations)||
+      JSON.stringify(cache.discipline||[])!==JSON.stringify(nextDiscipline);
+    if(!changed)return true;
+    cache.activities=nextActivities;cache.evaluations=nextEvaluations;cache.discipline=nextDiscipline;
+    __dastyarDashboardRecordsRefreshAt=Date.now();
+    try{persistLocalSchoolCache();}catch(e){}
+    try{if(window.DastyarOffline&&window.DastyarOffline.saveSnapshot)await window.DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
     if(typeof buildClosedMonthQaEvaluations==='function')await buildClosedMonthQaEvaluations();
     if(typeof refreshDash==='function')refreshDash();
     var activityPage=document.getElementById('page-activity');
-    if(activityPage&&activityPage.classList.contains('on')&&typeof loadActivities==='function')await loadActivities();
+    if(activityPage&&activityPage.classList.contains('on')&&typeof loadActivities==='function')await loadActivities(true);
+    var disciplinePage=document.getElementById('page-discipline');
+    if(disciplinePage&&disciplinePage.classList.contains('on')&&typeof renderDisciplineList==='function')renderDisciplineList();
     return true;
-  }catch(e){console.warn('تازه‌سازی خودکار پرسش‌وپاسخ مدیر انجام نشد؛ در نوبت بعد دوباره تلاش می‌شود.',e);return false;}
+  }catch(e){console.warn('تازه‌سازی خودکار پرسش‌وپاسخ و انضباط مدیر ناموفق بود؛ در نوبت بعد دوباره تلاش می‌شود.',e);return false;}
   finally{__dastyarAdminQaAutoRefreshBusy=false;}
 }
-// اگر مدیر برنامه را باز نگه دارد، بدون فشردن «به‌روزرسانی سوابق» تغییرات معلم دریافت می‌شود.
-try{if(!window.__dastyarAdminQaAutoRefreshTimer)window.__dastyarAdminQaAutoRefreshTimer=setInterval(function(){if(document.visibilityState==='visible')refreshAdminQaAfterTeacherSync();},10000);}catch(e){}
+// هر سه ثانیه، فقط هنگام باز بودن صفحه و فقط در پنل مدیر، تغییرات معلم دریافت می‌شود.
+try{if(!window.__dastyarAdminQaAutoRefreshTimer)window.__dastyarAdminQaAutoRefreshTimer=setInterval(function(){if(document.visibilityState==='visible')refreshAdminQaAfterTeacherSync();},3000);}catch(e){}
 
 function refreshDash(){
   try{refreshDashboardEvaluationDisciplineCache();}catch(e){}
@@ -5634,6 +5676,7 @@ async function deleteDiscipline(id){
     }
   }catch(e){console.warn(e);}
   try{ renderDisciplineList(); }catch(e){}
+  try{refreshDash();}catch(e){}
   toast('مورد انضباطی حذف شد');
 }
 
@@ -6389,7 +6432,7 @@ async function deleteQaActivity(id){
   var linkedEvaluationDeleted=true;
   try{await syncOneDailyQaEvaluation(row,true,false);}catch(syncErr){linkedEvaluationDeleted=false;console.warn('حذف ارزشیابی مرتبط با پرسش‌وپاسخ ناموفق بود',syncErr);}
   try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
-  await loadActivities();try{await syncQaReportCardAverages([row.student_id]);}catch(scoreSyncErr){console.warn('به‌روزرسانی میانگین کارنامه پس از حذف پرسش ناموفق بود',scoreSyncErr);}await buildClosedMonthQaEvaluations();refreshQaEvaluationDashboard();
+  await loadActivities();try{await syncQaReportCardAverages([row.student_id]);}catch(scoreSyncErr){console.warn('به‌روزرسانی میانگین کارنامه پس از حذف پرسش ناموفق بود',scoreSyncErr);}await buildClosedMonthQaEvaluations();refreshQaEvaluationDashboard();try{refreshDash();}catch(e){}
   if(!linkedEvaluationDeleted)toast('پرسش و پاسخ حذف شد؛ حذف سابقه ارزشیابی در اولین همگام‌سازی دوباره تلاش می‌شود');
   else toast(result.offline?'حذف در صف همگام‌سازی قرار گرفت':'پرسش و پاسخ و سابقه مرتبط ارزشیابی حذف شد');
 }
@@ -6401,8 +6444,8 @@ function renderQaPerformance(list){
   Object.keys(groups).forEach(function(key){html+='<div style="margin-top:10px"><b>'+titles[key]+' ('+fa(groups[key].length)+')</b>'+(groups[key].length?groups[key].map(function(x){return '<div class="meta" style="padding:8px;border-bottom:1px solid #e2e8f0;display:flex;gap:8px;align-items:flex-start">'+(x.student.photo?('<img src="'+String(x.student.photo).replace(/"/g,'')+'" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:1px solid #cbd5e1"/>'):'')+'<div style="flex:1">'+escHtml(x.student.first_name+' '+x.student.last_name)+' — '+escHtml(x.subject)+' | میانگین '+x.avg.toFixed(1)+' از ۲۰ ('+fa(x.count)+' ثبت)<div style="display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap"><select aria-label="تغییر گروه عملکرد" onchange="saveQaTeacherGroup(\''+String(x.latest.id).replace(/'/g,'')+'\',this.value)"><option value="desired" '+(x.current==='desired'?'selected':'')+'>تسلط مطلوب</option><option value="progress" '+(x.current==='progress'?'selected':'')+'>در حال پیشرفت</option><option value="attention" '+(x.current==='attention'?'selected':'')+'>نیازمند توجه بیشتر</option></select><small>پیشنهاد: '+titles[x.suggested]+'</small></div></div></div>';}).join(''):'<div class="meta">هنوز دانش‌آموزی در این سطح قرار نگرفته است.</div>')+'</div>';});return html+'</div>';
 }
 async function saveQaTeacherGroup(activityId,value){if(!['desired','progress','attention'].includes(value))return;var res=await sb.from('sa_activities').update({teacher_group:value}).eq('id',activityId);if(res.error){toast('ذخیره تغییر گروه ناموفق بود: '+res.error.message);return;}var row=cache.activities.find(function(a){return String(a.id)===String(activityId);});if(row)row.teacher_group=value;try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}toast('نظر معلم ذخیره شد');await loadActivities();}
-async function loadActivities(){
-  if(!isAppOfflineNow())await reloadAll();cache.activities=applyQaTombstones(cache.activities);fillActivitySubjectFilter();
+async function loadActivities(skipServerReload){
+  if(!skipServerReload&&!isAppOfflineNow())await reloadAll();cache.activities=applyQaTombstones(cache.activities);fillActivitySubjectFilter();
   var classId=document.getElementById('ac-class').value;
   fillQaExportStudents();
   var fDate=(document.getElementById('ac-filter-dt')&&document.getElementById('ac-filter-dt').value)||'';
