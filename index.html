@@ -420,8 +420,9 @@ async function syncQueue(){if(!global.navigator.onLine)return;if(syncRunning){sy
         try{await refreshDashboardEvaluationDisciplineCache(true);}catch(disciplineRefreshError){console.warn('تازه‌سازی شمارنده انضباط پس از همگام‌سازی انجام نشد؛ در نوبت بعد تکرار می‌شود.',disciplineRefreshError);}
       }
       // بعضی فرایندهای پس از ارسال پرسش‌وپاسخ، رکوردهای پیوندی ارزشیابی را تازه در صف می‌گذارند؛ آن‌ها را در نوبت بعدی همین اتصال بفرست.
+      var pendingBeforePost=new Set(left.map(function(item){return queueFingerprint(item);}));
       var afterPostProcessing=await allQueue();
-      if(afterPostProcessing.length>left.length)syncRequested=true;
+      if(afterPostProcessing.some(function(item){return !pendingBeforePost.has(queueFingerprint(item));}))syncRequested=true;
       if(left.length===0){forceLocal=false;global.isOffline=false;notify('همگام‌سازی کامل شد؛ صف تغییرات خالی است.');}
       else if(sentCount>0)notify('تعداد '+sentCount+' مورد ارسال شد؛ '+left.length+' مورد در صف باقی ماند'+(firstFailure?'؛ خطای نخست: '+firstFailure.table+' / '+firstFailure.message:''));
       else notify('تعداد '+left.length+' مورد هنوز همگام نشده است'+(firstFailure?'؛ خطا: '+firstFailure.table+' / '+firstFailure.message:''));
