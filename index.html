@@ -2024,7 +2024,7 @@ async function init(){
 
   if(typeof restoreRememberedLogin==='function')restoreRememberedLogin();
   updateOfflineBadgeSafe();
-  updateLoginConnStatus('در حال بررسی اتصال به سرور…', false);
+  updateLoginConnStatus('ورود در دسترس است؛ اتصال به سرور در پس‌زمینه بررسی می‌شود…', false);
 
   // Background-only server initialization. Errors update the status indicator, not a blocking screen.
   (async function backgroundConnect(){
