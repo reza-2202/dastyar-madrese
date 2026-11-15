@@ -2029,43 +2029,41 @@ async function init(){
   updateOfflineBadgeSafe();
   updateLoginConnStatus('در حال بررسی اتصال به سرور…', false);
 
-  // Background-only server initialization. Errors update the status indicator, not a blocking screen.
+  // Fast login bootstrap: fetch only server credentials before login.
+  // Full school data is loaded by doLogin() after the user enters the app.
   (async function backgroundConnect(){
     if(!sb)return;
     try{
       if(navigator.onLine){
-        // اولویت آنلاین: خروج از حالت محلی اجباری
         if(window.DastyarOffline&&window.DastyarOffline.setLocalOnly) window.DastyarOffline.setLocalOnly(false);
-        const probe=await withTimeout(sb.from('sa_users').select('id').limit(1),12000,'timeout');
-        if(probe.error)throw new Error(probe.error.message||'پایگاه‌داده پاسخ نداد');
-        await withTimeout(seedIfEmpty(),20000,'seed timeout');
-        await withTimeout(reloadAll(),20000,'reload timeout');
-        if(typeof ensureUsersFromServer==='function') await ensureUsersFromServer();
-        if(typeof ensureStudentsFromServer==='function') await ensureStudentsFromServer();
-        /* ensureClass4BStudents disabled — no auto student injection */
-        // فشرده‌سازی و پاک‌سازی صف تکراری
-        try{
-          if(window.DastyarOffline&&window.DastyarOffline.compactQueue) await window.DastyarOffline.compactQueue();
-          if(window.DastyarOffline&&window.DastyarOffline.purgeQueueAlreadyOnServer) await window.DastyarOffline.purgeQueueAlreadyOnServer();
-          if(window.DastyarOffline&&window.DastyarOffline.sync) await withTimeout(window.DastyarOffline.sync(),45000,'sync');
-        }catch(sq){ console.warn(sq); }
+        let usersResult=await withTimeout(sb.from('sa_users').select('*').limit(500),8000,'users');
+        if(usersResult.error)throw new Error(usersResult.error.message||'پایگاه‌داده پاسخ نداد');
+        if(!Array.isArray(usersResult.data)||!usersResult.data.length){
+          await withTimeout(seedIfEmpty(),12000,'seed timeout');
+          usersResult=await withTimeout(sb.from('sa_users').select('*').limit(500),8000,'users retry');
+          if(usersResult.error)throw new Error(usersResult.error.message||'دریافت کاربران ناموفق بود');
+        }
+        if(Array.isArray(usersResult.data)&&usersResult.data.length){
+          cache.users=typeof dedupeUsers==='function'?dedupeUsers(usersResult.data):usersResult.data;
+          window.__dastyarUsersFetchedAt=Date.now();
+          try{cache.users=applyTeacherPasswordOverrides(cache.users||[]);}catch(e){}
+        }
         if(typeof fillTeacherSelect==='function')fillTeacherSelect();
         if(typeof restoreRememberedLogin==='function')restoreRememberedLogin();
         globalStatus(false);
-        updateLoginConnStatus('متصل به سرور — می‌توانید وارد شوید', true);
-        if(typeof refreshDash==='function') refreshDash();
+        updateLoginConnStatus('متصل به سرور — می‌توانید وارد شوید',true);
       }else{
         await restoreOfflineSnapshot();
         globalStatus(true);
-        if(typeof fillTeacherSelect==='function') fillTeacherSelect();
-        updateLoginConnStatus('سرور در دسترس نیست — کار آفلاین فعال است', false);
+        if(typeof fillTeacherSelect==='function')fillTeacherSelect();
+        updateLoginConnStatus('سرور در دسترس نیست — کار آفلاین فعال است',false);
       }
     }catch(e){
-      console.warn('اتصال پس‌زمینه برقرار نشد؛ رابط کاربری باز می‌ماند.',e);
+      console.warn('دریافت اطلاعات ورود از سرور انجام نشد؛ رابط کاربری باز می‌ماند.',e);
       await restoreOfflineSnapshot();
       globalStatus(true);
-      if(typeof fillTeacherSelect==='function') fillTeacherSelect();
-      updateLoginConnStatus('سرور در دسترس نیست — کار آفلاین فعال است', false);
+      if(typeof fillTeacherSelect==='function')fillTeacherSelect();
+      updateLoginConnStatus('سرور در دسترس نیست — کار آفلاین فعال است',false);
     }
   })();
 }
@@ -2783,16 +2781,23 @@ async function doLogin(){
 
   // آنلاین: کاربران را مستقیم از سرور بگیر
   if(navigator.onLine && sb){
-    try{
-      const r=await withTimeout(sb.from('sa_users').select('*').limit(500),12000,'users');
-      if(r&&!r.error&&Array.isArray(r.data)&&r.data.length){
-        cache.users = typeof dedupeUsers==='function' ? dedupeUsers(r.data) : r.data;
-        networkFailed=false;
-        try{ globalStatus(false); }catch(e){}
-      }else if(r&&r.error){ networkFailed=true; }
-    }catch(e){
-      networkFailed=true;
-      console.warn(e);
+    const usersAlreadyFresh=Array.isArray(cache.users)&&cache.users.length>0&&
+      Date.now()-Number(window.__dastyarUsersFetchedAt||0)<15000;
+    if(usersAlreadyFresh){
+      networkFailed=false;
+    }else{
+      try{
+        const r=await withTimeout(sb.from('sa_users').select('*').limit(500),8000,'users');
+        if(r&&!r.error&&Array.isArray(r.data)&&r.data.length){
+          cache.users=typeof dedupeUsers==='function'?dedupeUsers(r.data):r.data;
+          window.__dastyarUsersFetchedAt=Date.now();
+          networkFailed=false;
+          try{globalStatus(false);}catch(e){}
+        }else if(r&&r.error){networkFailed=true;}
+      }catch(e){
+        networkFailed=true;
+        console.warn(e);
+      }
     }
   }
   if(networkFailed||!navigator.onLine){
