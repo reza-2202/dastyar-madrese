@@ -3826,11 +3826,12 @@ function refreshDash(){
     if(!belongs)return false;
     return typeof isEvaluationInCurrentWeek==='function'?isEvaluationInCurrentWeek(e):true;
   }).length;
+  // همه ثبت‌های پرسش‌وپاسخ روزانه، مستقل از زمان همگام‌سازی و تاریخ رسیدن به سرور، در شمارنده ارزشیابی حساب می‌شوند.
+  // خلاصه‌های ماهانه خودکار در بخش ارزشیابی رکورد مشتق‌شده‌اند و برای جلوگیری از دوباره‌شماری جداگانه اضافه نمی‌شوند.
   evCount+=(cache.activities||[]).filter(function(a){
     if(!a||a.type!=='qa')return false;
     var belongs=user&&user.role==='admin' ? true : evalClassIds.has(String(a.class_id));
-    if(!belongs)return false;
-    return typeof isEvaluationInCurrentWeek==='function'?isEvaluationInCurrentWeek(a):String(a.date||'')===String(today());
+    return belongs;
   }).length;
   var evEl=document.getElementById('st-e');if(evEl)evEl.textContent=fa(evCount);
   // فایل‌های در انتظار چاپ/تحویل (هنوز دکمه آماده تحویل نخورده)
@@ -6321,7 +6322,21 @@ async function saveAct(){
     if(type==='qa'&&scoreValue!==null&&(!Number.isFinite(scoreValue)||scoreValue<0||scoreValue>20)){toast('نمره باید بین ۰ تا ۲۰ باشد');return;}
     var row={student_id:document.getElementById('ac-st').value,class_id:classId,type:type,subject:subject,weekday:document.getElementById('ac-wd').value,date:document.getElementById('ac-dt').value,level:(type==='qa'&&qaLevelFromScore(scoreValue))||document.getElementById('ac-lv').value,notes:document.getElementById('ac-nt').value.trim(),recorded_by:user.full_name};
     if(type==='qa')row.score=scoreValue;
-    if(editingId){var previousActivity=(cache.activities||[]).find(function(a){return String(a.id)===editingId;});var syncQa=type==='qa'||(previousActivity&&previousActivity.type==='qa');if(syncQa)row.teacher_group=null;delete row.recorded_by;var res=await sb.from('sa_activities').update(row).eq('id',editingId);if(res.error){toast('خطا در ویرایش: '+res.error.message);return;}await reloadAll();cache.activities=applyQaTombstones(cache.activities);if(syncQa){var editedQa=(cache.activities||[]).find(function(a){return String(a.id)===editingId;});if(editedQa&&editedQa.type==='qa'){try{await syncOneDailyQaEvaluation(editedQa,false,false);}catch(syncErr){console.warn('به‌روزرسانی ارزشیابی مرتبط با پرسش‌وپاسخ ناموفق بود',syncErr);}}await buildClosedMonthQaEvaluations();refreshQaEvaluationDashboard();}document.getElementById('ac-form').innerHTML='';window.editingActivityId='';await loadActivities();if(syncQa){try{await syncQaReportCardAverages([previousActivity&&previousActivity.student_id,row.student_id]);}catch(scoreSyncErr){console.warn('به‌روزرسانی میانگین کارنامه پس از ویرایش پرسش ناموفق بود',scoreSyncErr);}}try{refreshDash();}catch(e){}toast('فقط همین پرسش و پاسخ ویرایش شد');return;}
+    if(editingId){var previousActivity=(cache.activities||[]).find(function(a){return String(a.id)===editingId;});var syncQa=type==='qa'||(previousActivity&&previousActivity.type==='qa');if(syncQa)row.teacher_group=null;delete row.recorded_by;
+      if(isAppOfflineNow()){
+        var offlineEdit=await sb.from('sa_activities').update(row).eq('id',editingId);
+        if(offlineEdit.error){toast('خطا در ویرایش: '+offlineEdit.error.message);return;}
+        var editAt=(cache.activities||[]).findIndex(function(a){return String(a.id)===editingId;});
+        if(editAt>=0)cache.activities[editAt]=Object.assign({},cache.activities[editAt],row,{id:editingId});
+        cache.activities=applyQaTombstones(cache.activities);
+        try{persistLocalSchoolCache();}catch(e){}
+        try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
+        if(syncQa){try{await buildClosedMonthQaEvaluations();}catch(offlineEditQaError){console.warn('به‌روزرسانی آفلاین ارزشیابی پس از ویرایش پرسش‌وپاسخ ناموفق بود',offlineEditQaError);}refreshQaEvaluationDashboard();}
+        document.getElementById('ac-form').innerHTML='';window.editingActivityId='';
+        await loadActivities();try{refreshDash();}catch(e){}
+        toast('ویرایش در گوشی ذخیره شد و پس از اتصال همگام می‌شود');return;
+      }
+      var res=await sb.from('sa_activities').update(row).eq('id',editingId);if(res.error){toast('خطا در ویرایش: '+res.error.message);return;}await reloadAll();cache.activities=applyQaTombstones(cache.activities);if(syncQa){var editedQa=(cache.activities||[]).find(function(a){return String(a.id)===editingId;});if(editedQa&&editedQa.type==='qa'){try{await syncOneDailyQaEvaluation(editedQa,false,false);}catch(syncErr){console.warn('به‌روزرسانی ارزشیابی مرتبط با پرسش‌وپاسخ ناموفق بود',syncErr);}}await buildClosedMonthQaEvaluations();refreshQaEvaluationDashboard();}document.getElementById('ac-form').innerHTML='';window.editingActivityId='';await loadActivities();if(syncQa){try{await syncQaReportCardAverages([previousActivity&&previousActivity.student_id,row.student_id]);}catch(scoreSyncErr){console.warn('به‌روزرسانی میانگین کارنامه پس از ویرایش پرسش ناموفق بود',scoreSyncErr);}}try{refreshDash();}catch(e){}toast('فقط همین پرسش و پاسخ ویرایش شد');return;}
     row.id=uid();rows.push(row);
   }
   var result=await sb.from('sa_activities').insert(rows);
@@ -6331,6 +6346,10 @@ async function saveAct(){
     cache.activities=applyQaTombstones(cache.activities);
     try{persistLocalSchoolCache();}catch(e){}
     try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
+    if(rows.some(function(r){return r&&r.type==='qa';})){
+      try{await buildClosedMonthQaEvaluations();}catch(qaOfflineError){console.warn('به‌روزرسانی آفلاین پیوند پرسش‌وپاسخ و ارزشیابی انجام نشد',qaOfflineError);}
+      refreshQaEvaluationDashboard();
+    }
     document.getElementById('ac-form').innerHTML='';window.editingActivityId='';
     await loadActivities();try{refreshDash();}catch(e){}
     toast(rows.length>1?fa(rows.length)+' پرسش و پاسخ در گوشی ذخیره شد و پس از اتصال همگام می‌شود.':'پرسش و پاسخ در گوشی ذخیره شد و پس از اتصال همگام می‌شود.');
@@ -6487,7 +6506,7 @@ async function syncOneDailyQaEvaluation(activity,remove,refreshUi){
   var evalId=stableQaUuid('qa-activity|'+String(activity.id));
   if(remove){
     var deleted;
-    if(typeof sb.from('sa_evaluations').deleteRemote==='function'){
+    if(!isAppOfflineNow()&&typeof sb.from('sa_evaluations').deleteRemote==='function'){
       deleted=await sb.from('sa_evaluations').deleteRemote('id',evalId);
     }else{
       deleted=await sb.from('sa_evaluations').delete().eq('id',evalId);
@@ -6570,7 +6589,7 @@ async function syncDailyQaEvaluations(){
   var stale=existing.filter(function(e){return !currentIds.has(String(e.id));});
   var deletedIds=new Set();
   for(var i=0;i<stale.length;i++){
-    var del=typeof sb.from('sa_evaluations').deleteRemote==='function'
+    var del=!isAppOfflineNow()&&typeof sb.from('sa_evaluations').deleteRemote==='function'
       ?await sb.from('sa_evaluations').deleteRemote('id',String(stale[i].id))
       :await sb.from('sa_evaluations').delete().eq('id',String(stale[i].id));
     if(del&&del.error){console.warn('حذف سابقه مرتبط ارزشیابی ناموفق بود',del.error);continue;}
