@@ -3787,21 +3787,37 @@ var __dastyarAdminQaAutoRefreshBusy=false;
 var __dastyarAdminQaAutoRefreshAt=0;
 async function refreshAdminQaAfterTeacherSync(){
   if(__dastyarAdminQaAutoRefreshBusy||!user||user.role!=='admin'||!sb||!navigator.onLine)return false;
-  if(Date.now()-__dastyarAdminQaAutoRefreshAt<9000)return false;
+  if(Date.now()-__dastyarAdminQaAutoRefreshAt<3500)return false;
   __dastyarAdminQaAutoRefreshBusy=true;__dastyarAdminQaAutoRefreshAt=Date.now();
   try{
-    // Fetch the activity and its linked evaluation records in the same refresh cycle.
-    await reloadAll();
+    // فقط سه جدول مربوط به پرسش‌وپاسخ، ارزشیابی پیوندی و انضباط را تازه کن؛ سایر داده‌های مدرسه بی‌جهت بارگذاری نمی‌شوند.
+    var results=await Promise.all([
+      sb.from('sa_activities').select('*').order('created_at',{ascending:false}),
+      sb.from('sa_evaluations').select('*').order('created_at',{ascending:false}),
+      sb.from('sa_discipline').select('*').order('created_at',{ascending:false})
+    ]);
+    if(!results[0]||results[0].error||!Array.isArray(results[0].data))throw new Error((results[0]&&results[0].error&&results[0].error.message)||'دریافت پرسش‌وپاسخ‌ها ناموفق بود');
+    if(!results[1]||results[1].error||!Array.isArray(results[1].data))throw new Error((results[1]&&results[1].error&&results[1].error.message)||'دریافت ارزشیابی‌ها ناموفق بود');
+    if(!results[2]||results[2].error||!Array.isArray(results[2].data))throw new Error((results[2]&&results[2].error&&results[2].error.message)||'دریافت سوابق انضباطی ناموفق بود');
+    cache.activities=applyQaTombstones(results[0].data);
+    cache.evaluations=results[1].data;
+    cache.discipline=results[2].data;
+    try{mergeLocalSchoolCacheIntoMemory();}catch(e){}
+    cache.activities=applyQaTombstones(cache.activities);
+    try{persistLocalSchoolCache();}catch(e){}
+    try{if(window.DastyarOffline&&window.DastyarOffline.saveSnapshot)await window.DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
     if(typeof buildClosedMonthQaEvaluations==='function')await buildClosedMonthQaEvaluations();
     if(typeof refreshDash==='function')refreshDash();
     var activityPage=document.getElementById('page-activity');
-    if(activityPage&&activityPage.classList.contains('on')&&typeof loadActivities==='function')await loadActivities();
+    if(activityPage&&activityPage.classList.contains('on')&&typeof loadActivities==='function')await loadActivities(true);
+    var disciplinePage=document.getElementById('page-discipline');
+    if(disciplinePage&&disciplinePage.classList.contains('on')&&typeof renderDisciplineList==='function')renderDisciplineList();
     return true;
   }catch(e){console.warn('تازه‌سازی خودکار پرسش‌وپاسخ مدیر انجام نشد؛ در نوبت بعد دوباره تلاش می‌شود.',e);return false;}
   finally{__dastyarAdminQaAutoRefreshBusy=false;}
 }
 // اگر مدیر برنامه را باز نگه دارد، بدون فشردن «به‌روزرسانی سوابق» تغییرات معلم دریافت می‌شود.
-try{if(!window.__dastyarAdminQaAutoRefreshTimer)window.__dastyarAdminQaAutoRefreshTimer=setInterval(function(){if(document.visibilityState==='visible')refreshAdminQaAfterTeacherSync();},10000);}catch(e){}
+try{if(!window.__dastyarAdminQaAutoRefreshTimer)window.__dastyarAdminQaAutoRefreshTimer=setInterval(function(){if(document.visibilityState==='visible')refreshAdminQaAfterTeacherSync();},4000);}catch(e){}
 
 function refreshDash(){
   try{refreshDashboardEvaluationDisciplineCache();}catch(e){}
@@ -6417,8 +6433,8 @@ function renderQaPerformance(list){
   Object.keys(groups).forEach(function(key){html+='<div style="margin-top:10px"><b>'+titles[key]+' ('+fa(groups[key].length)+')</b>'+(groups[key].length?groups[key].map(function(x){return '<div class="meta" style="padding:8px;border-bottom:1px solid #e2e8f0;display:flex;gap:8px;align-items:flex-start">'+(x.student.photo?('<img src="'+String(x.student.photo).replace(/"/g,'')+'" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:1px solid #cbd5e1"/>'):'')+'<div style="flex:1">'+escHtml(x.student.first_name+' '+x.student.last_name)+' — '+escHtml(x.subject)+' | میانگین '+x.avg.toFixed(1)+' از ۲۰ ('+fa(x.count)+' ثبت)<div style="display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap"><select aria-label="تغییر گروه عملکرد" onchange="saveQaTeacherGroup(\''+String(x.latest.id).replace(/'/g,'')+'\',this.value)"><option value="desired" '+(x.current==='desired'?'selected':'')+'>تسلط مطلوب</option><option value="progress" '+(x.current==='progress'?'selected':'')+'>در حال پیشرفت</option><option value="attention" '+(x.current==='attention'?'selected':'')+'>نیازمند توجه بیشتر</option></select><small>پیشنهاد: '+titles[x.suggested]+'</small></div></div></div>';}).join(''):'<div class="meta">هنوز دانش‌آموزی در این سطح قرار نگرفته است.</div>')+'</div>';});return html+'</div>';
 }
 async function saveQaTeacherGroup(activityId,value){if(!['desired','progress','attention'].includes(value))return;var res=await sb.from('sa_activities').update({teacher_group:value}).eq('id',activityId);if(res.error){toast('ذخیره تغییر گروه ناموفق بود: '+res.error.message);return;}var row=cache.activities.find(function(a){return String(a.id)===String(activityId);});if(row)row.teacher_group=value;try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}toast('نظر معلم ذخیره شد');await loadActivities();}
-async function loadActivities(){
-  if(!isAppOfflineNow())await reloadAll();cache.activities=applyQaTombstones(cache.activities);fillActivitySubjectFilter();
+async function loadActivities(skipServerReload){
+  if(!skipServerReload&&!isAppOfflineNow())await reloadAll();cache.activities=applyQaTombstones(cache.activities);fillActivitySubjectFilter();
   var classId=document.getElementById('ac-class').value;
   fillQaExportStudents();
   var fDate=(document.getElementById('ac-filter-dt')&&document.getElementById('ac-filter-dt').value)||'';
