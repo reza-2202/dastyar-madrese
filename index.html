@@ -8537,10 +8537,16 @@ function evaluationWeekKey(e){
   return String(e.date||e.month||'');
 }
 function isEvaluationInCurrentWeek(e){
+  // شمارنده داشبورد باید بر اساس تاریخ ثبت‌شده محاسبه شود، نه زمان رسیدن رکورد به سرور؛
+  // این تفاوت مخصوصاً برای ثبت‌های آفلاینِ پرسش‌وپاسخ مهم است.
+  var d=parseJalali(e&&e.date);
+  if(d&&typeof jalaliToGregorian==='function'&&typeof schoolWeekStartKey==='function'){
+    var g=jalaliToGregorian(d.jy,d.jm,d.jd);
+    var recordWeek=schoolWeekStartKey(new Date(g.gy,g.gm-1,g.gd));
+    return recordWeek===currentSchoolWeekKey();
+  }
   var wk=evaluationWeekKey(e);
-  var cur=currentSchoolWeekKey();
-  if(e&&e.created_at) return wk===cur;
-  return String(e&&e.date||'')===String(today());
+  return wk===currentSchoolWeekKey();
 }
 
 function weekdayNow(){
