@@ -385,7 +385,7 @@ async function syncQueue(){if(syncRunning||!global.navigator.onLine)return;syncR
       // فقط پس از پاسخ موفق سرور، حالت آنلاین اعلام شود؛ خطای ثبت یک ردیف به معنی قطع اینترنت نیست.
       forceLocal=false;global.isOffline=false;
       try{await compactQueue();await purgeQueueAlreadyOnServer();}catch(e){console.warn('پاک‌سازی مقدماتی صف انجام نشد؛ ادامه با حفظ صف:',e);}
-      var items=await allQueue(), failedCount=0, firstFailure=null, sentCount=0;
+      var items=await allQueue(), failedCount=0, firstFailure=null, sentCount=0, sentActivities=false;
       for(var i=0;i<items.length;i++){
         if(!global.navigator.onLine)break;
         var item=items[i];
@@ -393,6 +393,7 @@ async function syncQueue(){if(syncRunning||!global.navigator.onLine)return;syncR
           await syncOne(item);
           await removeQueue(item);
           sentCount++;
+          if(String(item.table||'')==='sa_activities')sentActivities=true;
         }catch(e){
           // Never discard a failed item. Keep it for retry, but don't let one
           // invalid row block unrelated queued changes behind it.
@@ -406,6 +407,14 @@ async function syncQueue(){if(syncRunning||!global.navigator.onLine)return;syncR
         }
       }
       var left=await allQueue();
+      // پس از ارسال پرسش‌وپاسخ‌های آفلاین، ارزشیابی‌های روزانه و میانگین ماهانه را از داده تأییدشده سرور بازسازی کن.
+      if(sentActivities&&!left.some(function(item){return item&&String(item.table||'')==='sa_activities';})&&typeof user!=='undefined'&&user&&typeof reloadAll==='function'){
+        try{
+          await reloadAll();
+          if(typeof buildClosedMonthQaEvaluations==='function')await buildClosedMonthQaEvaluations();
+          if(typeof refreshDash==='function')refreshDash();
+        }catch(qaRefreshError){console.warn('به‌روزرسانی ارزشیابی پرسش‌وپاسخ‌های آفلاین ناموفق بود؛ داده‌های صف حفظ شدند.',qaRefreshError);}
+      }
       if(left.length===0){forceLocal=false;global.isOffline=false;notify('همگام‌سازی کامل شد؛ صف تغییرات خالی است.');}
       else if(sentCount>0)notify('تعداد '+sentCount+' مورد ارسال شد؛ '+left.length+' مورد در صف باقی ماند'+(firstFailure?'؛ خطای نخست: '+firstFailure.table+' / '+firstFailure.message:''));
       else notify('تعداد '+left.length+' مورد هنوز همگام نشده است'+(firstFailure?'؛ خطا: '+firstFailure.table+' / '+firstFailure.message:''));
@@ -3790,7 +3799,7 @@ function refreshDash(){
   document.getElementById('st-p').textContent=fa(present);
   var evalClassIds=new Set((typeof myClasses==='function'?myClasses():(cache.classes||[])).map(function(c){return String(c.id);}));
   var evCount=(cache.evaluations||[]).filter(function(e){
-    if(!e||String(e.recorded_by||'').indexOf('| خلاصه خودکار پرسش‌وپاسخ')>=0)return false;
+    if(!e||String(e.recorded_by||'').indexOf('| خلاصه خودکار پرسش‌وپاسخ')>=0||(typeof isDailyQaEvaluationRow==='function'&&isDailyQaEvaluationRow(e)))return false;
     var belongs=user&&user.role==='admin' ? true :
       (e.class_id!=null ? evalClassIds.has(String(e.class_id)) : ids.has(String(e.student_id)));
     if(!belongs)return false;
