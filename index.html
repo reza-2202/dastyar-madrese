@@ -3751,7 +3751,7 @@ async function refreshDashboardEvaluationDisciplineCache(){
 var __dastyarAdminQaAutoRefreshBusy=false;
 var __dastyarAdminQaAutoRefreshAt=0;
 async function refreshAdminQaAfterTeacherSync(){
-  if(__dastyarAdminQaAutoRefreshBusy||!user||user.role!=='admin'||!sb||!navigator.onLine||window.isOffline)return false;
+  if(__dastyarAdminQaAutoRefreshBusy||!user||user.role!=='admin'||!sb||!navigator.onLine)return false;
   if(Date.now()-__dastyarAdminQaAutoRefreshAt<9000)return false;
   __dastyarAdminQaAutoRefreshBusy=true;__dastyarAdminQaAutoRefreshAt=Date.now();
   try{
