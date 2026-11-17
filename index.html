@@ -13563,7 +13563,58 @@ function addMetric(parent,label,value){
   tile.appendChild(el('div','font-size:.7rem;color:#475569;margin-top:2px',label));
   parent.appendChild(tile);
 }
+function trendWeekKey(row){
+  var raw=dateOf(row),p=null;
+  try{p=typeof parseJalali==='function'?parseJalali(raw):null;}catch(e){}
+  if(!p||typeof jalaliToGregorian!=='function'||typeof schoolWeekStartKey!=='function')return '';
+  try{var g=jalaliToGregorian(p.jy,p.jm,p.jd);return schoolWeekStartKey(new Date(g.gy,g.gm-1,g.gd,12,0,0,0));}catch(e){return '';}
+}
+function buildTrendReport(classes,students,attendance,activities,evaluations){
+  var studentClass=new Map(),visibleIds=new Set(classes.map(function(c){return String(c&&c.id);}));
+  students.forEach(function(st){if(st&&st.id!=null&&st.class_id!=null)studentClass.set(String(st.id),String(st.class_id));});
+  var weeks=[],keys=new Set(),now=new Date();
+  for(var i=0;i<4;i++){
+    var d=new Date(now.getTime()-i*7*86400000),key='';
+    try{key=schoolWeekStartKey(d);}catch(e){}
+    if(!key||keys.has(key))continue;
+    keys.add(key);weeks.push({key:key,label:i===0?'هفته جاری':i===1?'هفته قبل':(' '+i+' هفته قبل'),attendance:0,qa:0,evaluation:0});
+  }
+  var weekMap=new Map(weeks.map(function(w){return [w.key,w];}));
+  var attendanceSeen=new Set(),classMap=new Map();
+  classes.forEach(function(cl){if(cl&&cl.id!=null)classMap.set(String(cl.id),{name:cl.label||cl.name||('کلاس '+cl.id),attendance:0,qa:0,evaluation:0});});
+  function classId(row){return classForRecord(row,studentClass);}
+  attendance.forEach(function(row){
+    if(!row||!String(row.status||'').trim())return;
+    var wk=weekMap.get(trendWeekKey(row)),cid=classId(row);
+    if(!wk||!visibleIds.has(cid))return;
+    var sid=row.student_id!=null?'s:'+String(row.student_id):row.id!=null?'i:'+String(row.id):'r:'+String(dateOf(row));
+    var unique=cid+'|'+String(dateOf(row))+'|'+sid;
+    if(attendanceSeen.has(unique))return;
+    attendanceSeen.add(unique);wk.attendance++;
+    if(classMap.has(cid))classMap.get(cid).attendance++;
+  });
+  activities.forEach(function(row){
+    if(!row||row.type!=='qa')return;
+    var wk=weekMap.get(trendWeekKey(row)),cid=classId(row);
+    if(!wk||!visibleIds.has(cid))return;
+    wk.qa++;if(classMap.has(cid))classMap.get(cid).qa++;
+  });
+  evaluations.forEach(function(row){
+    if(!row||(typeof isDailyQaEvaluationRow==='function'&&isDailyQaEvaluationRow(row)))return;
+    var wk=weekMap.get(trendWeekKey(row)),cid=classId(row);
+    if(!wk||!visibleIds.has(cid))return;
+    wk.evaluation++;if(classMap.has(cid))classMap.get(cid).evaluation++;
+  });
+  return {weeks:weeks,classes:Array.from(classMap.values()).sort(function(x,y){return (y.attendance+y.qa+y.evaluation)-(x.attendance+x.qa+x.evaluation);})};
+}
+function buildTrendPrintHtml(report){
+  function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];});}
+  var rows=report.weeks.slice().reverse().map(function(w){return '<tr><td>'+esc(w.label)+'</td><td>'+w.attendance+'</td><td>'+w.qa+'</td><td>'+w.evaluation+'</td></tr>';}).join('');
+  var classes=report.classes.map(function(c){return '<tr><td>'+esc(c.name)+'</td><td>'+c.attendance+'</td><td>'+c.qa+'</td><td>'+c.evaluation+'</td></tr>';}).join('');
+  return '<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><title>گزارش روند عملکرد مدرسه</title><style>body{font-family:Tahoma,Arial;direction:rtl;text-align:right;padding:24px;color:#172033}h2{text-align:center}table{width:100%;border-collapse:collapse;margin:12px 0 24px}th,td{border:1px solid #9ca3af;padding:8px;text-align:right}th{background:#e5edf8}p{color:#475569}@media print{body{padding:0}}</style><h2>گزارش روند عملکرد مدرسه</h2><p>دبستان شهید فتح‌الله فلاح‌پور | تاریخ تهیه: '+esc(todayKey())+'</p><h3>مقایسه چهار هفته اخیر</h3><table><thead><tr><th>بازه</th><th>ثبت حضور و غیاب</th><th>پرسش‌وپاسخ</th><th>ارزشیابی</th></tr></thead><tbody>'+rows+'</tbody></table><h3>مقایسه کلاس‌ها در چهار هفته اخیر</h3><table><thead><tr><th>کلاس</th><th>ثبت حضور و غیاب</th><th>پرسش‌وپاسخ</th><th>ارزشیابی</th></tr></thead><tbody>'+classes+'</tbody></table><p>این گزارش فقط از سوابق موجود در حافظه برنامه تهیه شده است.</p></html>';
+}
 function build(){
+
   if(!currentManager())return null;
   var dashboard=document.getElementById('page-dashboard');
   if(!dashboard)return null;
@@ -13588,6 +13639,17 @@ function build(){
   summary.id=CARD_ID+'-summary';body.appendChild(summary);
   var alerts=el('div','display:flex;flex-direction:column;gap:7px;margin:8px 0');
   alerts.id=CARD_ID+'-alerts';body.appendChild(alerts);
+  var trendSection=el('section','margin:10px 0;padding:9px;border:1px solid #dbe3ef;border-radius:10px;background:#fbfdff');
+  var trendToggle=el('button','width:100%;text-align:right;border:0;background:transparent;color:#1e3a8a;padding:5px 2px;font:800 .8rem Vazirmatn,Tahoma,sans-serif;cursor:pointer','📈 نمایش داشبورد روند چهار هفته اخیر');
+  trendToggle.type='button';trendToggle.setAttribute('aria-expanded','false');
+  var trendBody=el('div','display:none;margin-top:8px');trendBody.id=CARD_ID+'-trend-body';
+  trendToggle.onclick=function(){var open=trendBody.style.display==='none';trendBody.style.display=open?'block':'none';trendToggle.setAttribute('aria-expanded',open?'true':'false');trendToggle.textContent=open?'📈 بستن داشبورد روند':'📈 نمایش داشبورد روند چهار هفته اخیر';};
+  var trendSummary=el('div','font-size:.72rem;line-height:1.8;color:#475569;margin-bottom:8px','روندها پس از بارگذاری سوابق محاسبه می‌شوند.');trendSummary.id=CARD_ID+'-trend-summary';trendBody.appendChild(trendSummary);
+  var trendWeeks=el('div','overflow:hidden');trendWeeks.id=CARD_ID+'-trend-weeks';trendBody.appendChild(trendWeeks);
+  var trendClasses=el('div','margin-top:10px');trendClasses.id=CARD_ID+'-trend-classes';trendBody.appendChild(trendClasses);
+  var trendPrint=el('button','margin-top:9px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#1e40af;padding:6px 10px;font:inherit;font-size:.72rem;cursor:pointer','چاپ گزارش روند');trendPrint.type='button';
+  trendPrint.onclick=function(){var w=window.open('','_blank');if(!w){if(typeof toast==='function')toast('مرورگر اجازه باز کردن صفحه چاپ را نداد');return;}w.document.open();w.document.write(buildTrendPrintHtml(latestTrendReport));w.document.close();w.onload=function(){w.focus();w.print();};};trendBody.appendChild(trendPrint);
+  trendSection.appendChild(trendToggle);trendSection.appendChild(trendBody);body.appendChild(trendSection);
   var source=el('div','font-size:.72rem;line-height:1.8;color:#475569;padding:7px 8px;border-radius:8px;background:#f8fafc;margin-bottom:9px');
   source.id=CARD_ID+'-source';body.appendChild(source);
   var rows=el('div','display:flex;flex-direction:column;gap:7px');
@@ -13596,6 +13658,7 @@ function build(){
   anchor.insertAdjacentElement('afterend',card);
   return card;
 }
+var latestTrendReport={weeks:[],classes:[]};
 window.__refreshManagerPerformanceCenterCore=async function(){
   if(!currentManager()){var hiddenCard=document.getElementById(CARD_ID);if(hiddenCard)hiddenCard.style.display='none';return;}
   var seq=++refreshSequence;
@@ -13613,9 +13676,12 @@ window.__refreshManagerPerformanceCenterCore=async function(){
   function forClass(rows,cid){return rows.filter(function(r){return classForRecord(r,studentClass)===String(cid);});}
   var summary=document.getElementById(CARD_ID+'-summary');
   var alerts=document.getElementById(CARD_ID+'-alerts');
+  var trendSummary=document.getElementById(CARD_ID+'-trend-summary'),trendWeeks=document.getElementById(CARD_ID+'-trend-weeks'),trendClasses=document.getElementById(CARD_ID+'-trend-classes');
   var rowsBox=document.getElementById(CARD_ID+'-rows');
   var source=document.getElementById(CARD_ID+'-source');
   if(!summary||!alerts||!rowsBox||!source)return;
+  if(!trendSummary||!trendWeeks||!trendClasses)return;
+  var latestTrendReport=buildTrendReport(classes,students,attendance,activities,evaluations);
   var visibleIds=new Set(classes.map(function(c){return String(c&&c.id);}));
   function visibleRows(rows){return rows.filter(function(r){return visibleIds.has(classForRecord(r,studentClass));});}
   var attendanceClasses=new Set(visibleRows(todayAttendance).filter(function(r){return r&&String(r.status||'').trim();}).map(function(r){return classForRecord(r,studentClass);}));
@@ -13624,6 +13690,27 @@ window.__refreshManagerPerformanceCenterCore=async function(){
   try{if(window.DastyarOffline&&typeof window.DastyarOffline.pending==='function'){var pending=await window.DastyarOffline.pending();pendingCount=list(pending).length;}}catch(e){}
   if(seq!==refreshSequence)return;
   summary.replaceChildren();alerts.replaceChildren();rowsBox.replaceChildren();
+  trendSummary.textContent='مقایسه ثبت‌های موجود در چهار هفته اخیر؛ هفته کاری از شنبه محاسبه می‌شود. این اعداد تعداد ثبت‌ها هستند، نه نمره یا درصد عملکرد.';
+  trendWeeks.replaceChildren();trendClasses.replaceChildren();
+  if(!latestTrendReport.weeks.length||!latestTrendReport.weeks.some(function(w){return w.attendance||w.qa||w.evaluation;})){
+    trendWeeks.appendChild(el('div','padding:9px;border:1px dashed #cbd5e1;border-radius:8px;color:#64748b;font-size:.72rem','برای چهار هفته اخیر داده کافی وجود ندارد؛ پس از ثبت و همگام‌سازی سوابق، این گزارش تکمیل می‌شود.'));
+  }else{
+    var weekTable=el('table','width:100%;border-collapse:collapse;font-size:.7rem');
+    var weekHead=el('tr','background:#eff6ff');['بازه','حضور و غیاب','پرسش‌وپاسخ','ارزشیابی'].forEach(function(t){weekHead.appendChild(el('th','padding:7px;border:1px solid #dbe3ef;text-align:right',t));});
+    var thead=el('thead');thead.appendChild(weekHead);weekTable.appendChild(thead);
+    var tbody=el('tbody');
+    latestTrendReport.weeks.slice().reverse().forEach(function(w){var tr=el('tr');[w.label,w.attendance,w.qa,w.evaluation].forEach(function(v){tr.appendChild(el('td','padding:7px;border:1px solid #e2e8f0;text-align:right',v));});tbody.appendChild(tr);});
+    weekTable.appendChild(tbody);trendWeeks.appendChild(weekTable);
+  }
+  trendClasses.appendChild(el('div','font-size:.76rem;font-weight:800;color:#334155;margin-bottom:6px','مقایسه کلاس‌ها در چهار هفته اخیر'));
+  if(!latestTrendReport.classes.some(function(cl){return cl.attendance||cl.qa||cl.evaluation;})){
+    trendClasses.appendChild(el('div','font-size:.7rem;color:#64748b;padding:6px 0','برای مقایسه کلاس‌ها هنوز داده کافی ثبت نشده است.'));
+  }else{
+    var classTable=el('table','width:100%;border-collapse:collapse;font-size:.68rem');
+    var ch=el('tr','background:#f8fafc');['کلاس','حضور و غیاب','پرسش‌وپاسخ','ارزشیابی'].forEach(function(t){ch.appendChild(el('th','padding:6px;border:1px solid #dbe3ef;text-align:right',t));});
+    var cthead=el('thead');cthead.appendChild(ch);classTable.appendChild(cthead);
+    var cb=el('tbody');latestTrendReport.classes.forEach(function(cl){var tr=el('tr');[cl.name,cl.attendance,cl.qa,cl.evaluation].forEach(function(v){tr.appendChild(el('td','padding:6px;border:1px solid #e2e8f0;text-align:right',v));});cb.appendChild(tr);});classTable.appendChild(cb);trendClasses.appendChild(classTable);
+  }
   addMetric(summary,'تعداد کلاس‌ها',classes.length);
   addMetric(summary,'کلاس‌های دارای حضور امروز',attendanceClasses.size);
   addMetric(summary,'پرسش‌وپاسخ امروز',visibleQaCount);
