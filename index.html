@@ -13594,7 +13594,7 @@ function build(){
   anchor.insertAdjacentElement('afterend',card);
   return card;
 }
-window.refreshManagerPerformanceCenter=async function(){
+window.__refreshManagerPerformanceCenterCore=async function(){
   if(!currentManager()){var hiddenCard=document.getElementById(CARD_ID);if(hiddenCard)hiddenCard.style.display='none';return;}
   var seq=++refreshSequence;
   var card=build();
@@ -13613,7 +13613,6 @@ window.refreshManagerPerformanceCenter=async function(){
   var rowsBox=document.getElementById(CARD_ID+'-rows');
   var source=document.getElementById(CARD_ID+'-source');
   if(!summary||!rowsBox||!source)return;
-  summary.replaceChildren();rowsBox.replaceChildren();
   var visibleIds=new Set(classes.map(function(c){return String(c&&c.id);}));
   function visibleRows(rows){return rows.filter(function(r){return visibleIds.has(classForRecord(r,studentClass));});}
   var attendanceClasses=new Set(visibleRows(todayAttendance).filter(function(r){return r&&String(r.status||'').trim();}).map(function(r){return classForRecord(r,studentClass);}));
@@ -13621,6 +13620,7 @@ window.refreshManagerPerformanceCenter=async function(){
   var pendingCount=null;
   try{if(window.DastyarOffline&&typeof window.DastyarOffline.pending==='function'){var pending=await window.DastyarOffline.pending();pendingCount=list(pending).length;}}catch(e){}
   if(seq!==refreshSequence)return;
+  summary.replaceChildren();rowsBox.replaceChildren();
   addMetric(summary,'تعداد کلاس‌ها',classes.length);
   addMetric(summary,'کلاس‌های دارای حضور امروز',attendanceClasses.size);
   addMetric(summary,'پرسش‌وپاسخ امروز',visibleQaCount);
@@ -13649,6 +13649,14 @@ window.refreshManagerPerformanceCenter=async function(){
     });
     box.appendChild(detail);rowsBox.appendChild(box);
   });
+};
+var __managerPerformanceRefreshPromise=null;
+window.refreshManagerPerformanceCenter=function(){
+  if(__managerPerformanceRefreshPromise)return __managerPerformanceRefreshPromise;
+  __managerPerformanceRefreshPromise=Promise.resolve().then(function(){
+    return window.__refreshManagerPerformanceCenterCore();
+  }).finally(function(){__managerPerformanceRefreshPromise=null;});
+  return __managerPerformanceRefreshPromise;
 };
 function install(){
   build();
