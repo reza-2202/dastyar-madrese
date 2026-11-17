@@ -10280,10 +10280,10 @@ function objectToPairs(v){if(Array.isArray(v))return v.filter(function(x){return
 function persistSnapshot(){var snap;try{snap=jsonCopy(cache||{});}catch(e){return Promise.resolve(false)};try{localStorage.setItem('dastyar_school_snapshot_v1',JSON.stringify(snap));}catch(e){}if(window.DastyarOffline&&typeof window.DastyarOffline.saveSnapshot==='function')return Promise.resolve(window.DastyarOffline.saveSnapshot(snap)).then(function(){return true}).catch(function(){return false});return Promise.resolve(false);}
 var originalGetCustom=window.getStudentCustomFields;
 window.getStudentCustomFields=function(studentId){
-  var m=(typeof cache!=='undefined'&&cache.customStudentSpecs)||{};var id=String(studentId);
+  var m=(window.cache&&cache.customStudentSpecs)||{};var id=String(studentId);
   if(Object.prototype.hasOwnProperty.call(m,id))return pairsToObject(m[id]);
   if(typeof originalGetCustom==='function')return originalGetCustom(studentId);
-  var st=(typeof cache!=='undefined'&&cache.students||[]).find(function(x){return String(x.id)===id;});var cf=st&&st.custom_fields; if(typeof cf==='string'){try{cf=JSON.parse(cf)}catch(e){cf={}}}return cf&&typeof cf==='object'&&!Array.isArray(cf)?cf:{};
+  var st=(window.cache&&cache.students||[]).find(function(x){return String(x.id)===id;});var cf=st&&st.custom_fields; if(typeof cf==='string'){try{cf=JSON.parse(cf)}catch(e){cf={}}}return cf&&typeof cf==='object'&&!Array.isArray(cf)?cf:{};
 };
 // Custom profile edits stay in the existing local snapshot; no unapproved database column is added.
 window.addStudentCustomField=async function(studentId){
@@ -10326,7 +10326,7 @@ function addWordButton(){var panel=byId('page-absentees');if(!panel||byId('absen
 
 /* Server-first startup/login: verify the real Supabase client before disabling local-only mode. */
 var serverCheckRunning=false;
-async function serverFirstSync(){if(serverCheckRunning||!navigator.onLine)return false;var client=(typeof sb!=='undefined'&&sb)?sb:window.sb;if(!client||typeof client.from!=='function')return false;serverCheckRunning=true;try{var probe=await Promise.race([client.from('sa_users').select('id').limit(1),new Promise(function(_,reject){setTimeout(function(){reject(new Error('timeout'))},9000)})]);if(probe&&probe.error)throw new Error(probe.error.message||'server unavailable');if(window.DastyarOffline&&window.DastyarOffline.setLocalOnly)window.DastyarOffline.setLocalOnly(false);if(window.DastyarOffline&&window.DastyarOffline.sync)await window.DastyarOffline.sync();/* Optional server persistence: only succeeds if the existing sa_students table already supports custom_fields; never alters schema or discards local copies. */try{var specs=(typeof cache!=='undefined'&&cache.customStudentSpecs)||{};for(var sid of Object.keys(specs)){var pairs=objectToPairs(specs[sid]);var st=(cache.students||[]).find(function(x){return String(x.id)===String(sid)});if(!st||!pairs.length)continue;var remoteResult=await client.from('sa_students').update({custom_fields:pairsToObject(pairs)}).eq('id',sid);if(remoteResult&&remoteResult.error)console.warn('مشخصات سفارشی فقط محلی باقی ماندند؛ ستون سرور در دسترس نیست یا ذخیره نشد.',remoteResult.error);}}catch(customSyncError){console.warn('ارسال مشخصات سفارشی انجام نشد؛ نسخه محلی حفظ شد.',customSyncError)}if(typeof reloadAll==='function'&&typeof user!=='undefined'&&user){try{await reloadAll()}catch(e){console.warn('Remote refresh failed; local data retained',e)}}return true;}catch(e){if(window.DastyarOffline&&window.DastyarOffline.setLocalOnly)window.DastyarOffline.setLocalOnly(true);console.warn('Server-first probe failed; local data retained',e);return false;}finally{serverCheckRunning=false;}}
+async function serverFirstSync(){if(serverCheckRunning||!navigator.onLine)return false;var client=(typeof sb!=='undefined'&&sb)?sb:window.sb;if(!client||typeof client.from!=='function')return false;serverCheckRunning=true;try{var probe=await Promise.race([client.from('sa_users').select('id').limit(1),new Promise(function(_,reject){setTimeout(function(){reject(new Error('timeout'))},9000)})]);if(probe&&probe.error)throw new Error(probe.error.message||'server unavailable');if(window.DastyarOffline&&window.DastyarOffline.setLocalOnly)window.DastyarOffline.setLocalOnly(false);if(window.DastyarOffline&&window.DastyarOffline.sync)await window.DastyarOffline.sync();/* Optional server persistence: only succeeds if the existing sa_students table already supports custom_fields; never alters schema or discards local copies. */try{var specs=(window.cache&&cache.customStudentSpecs)||{};for(var sid of Object.keys(specs)){var pairs=objectToPairs(specs[sid]);var st=(cache.students||[]).find(function(x){return String(x.id)===String(sid)});if(!st||!pairs.length)continue;var remoteResult=await client.from('sa_students').update({custom_fields:pairsToObject(pairs)}).eq('id',sid);if(remoteResult&&remoteResult.error)console.warn('مشخصات سفارشی فقط محلی باقی ماندند؛ ستون سرور در دسترس نیست یا ذخیره نشد.',remoteResult.error);}}catch(customSyncError){console.warn('ارسال مشخصات سفارشی انجام نشد؛ نسخه محلی حفظ شد.',customSyncError)}if(typeof reloadAll==='function'&&typeof user!=='undefined'&&user){try{await reloadAll()}catch(e){console.warn('Remote refresh failed; local data retained',e)}}return true;}catch(e){if(window.DastyarOffline&&window.DastyarOffline.setLocalOnly)window.DastyarOffline.setLocalOnly(true);console.warn('Server-first probe failed; local data retained',e);return false;}finally{serverCheckRunning=false;}}
 var originalDoLogin=window.doLogin;if(typeof originalDoLogin==='function'){window.doLogin=async function(){var result=await originalDoLogin.apply(this,arguments);setTimeout(function(){serverFirstSync();},200);return result;};}
 function initAdditive(){addWordButton();}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initAdditive);else initAdditive();
@@ -11153,7 +11153,7 @@ function currentUser(){
 }
 function allClasses(){
   try{ if(typeof myClasses==='function'){ var m=myClasses(); if(m&&m.length) return m; } }catch(e){}
-  return (typeof cache!=='undefined'&&cache.classes)||[];
+  return (window.cache&&cache.classes)||[];
 }
 function normClassLabel(s){
   return faNorm(s).replace(/^کلاس\s*/,'').replace(/^پایه\s*/,'');
@@ -11765,7 +11765,7 @@ window.openTeacherFileAsWord=async function(docId,url,fileName,mime){
     if(!url){ alert('آدرس فایل موجود نیست'); return; }
     if(typeof toast==='function') toast('در حال آماده‌سازی Word...');
     var docRow=null;
-    try{docRow=((typeof cache!=='undefined'&&cache.documents)||[]).find(function(d){return String(d.id)===String(docId);})||null;}catch(e){}
+    try{docRow=((window.cache&&cache.documents)||[]).find(function(d){return String(d.id)===String(docId);})||null;}catch(e){}
     var school='دبستان شهید فتح‌الله فلاح‌پور';
     var teacher=(docRow&&(docRow.teacher_name||docRow.teacher_username))||((window.user&&(user.full_name||user.username))||'……………………');
     var exam=(docRow&&(docRow.exam_name||docRow.title))||'……………………';
@@ -13960,7 +13960,7 @@ window.printAbsenteesNeedsAttention=function(){
 (function(){
 'use strict';
 function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
-function dateKey(r){var v=String(r&&(r.date||r.created_at)||'').trim();if(!v)return '';if(/^\d{4}[-/]\d{1,2}[-/]\d{1,2}/.test(v))return v.slice(0,10).replace(/\//g,'-');var d=new Date(v);return isNaN(d.getTime())?'':d.toISOString().slice(0,10);}
+function dateKey(r){var v=String(r&&(r.date||r.created_at||r.updated_at)||'').trim();if(!v)return '';if(/^\d{4}[-/]\d{1,2}[-/]\d{1,2}/.test(v))return v.slice(0,10).replace(/\//g,'-');var d=new Date(v);return isNaN(d.getTime())?'':d.toISOString().slice(0,10);}
 function num(v){if(v==null||v==='')return null;var n=Number(String(v).replace(/[۰-۹]/g,function(x){return '۰۱۲۳۴۵۶۷۸۹'.indexOf(x);}).replace(/[٠-٩]/g,function(x){return '٠١٢٣٤٥٦٧٨٩'.indexOf(x);}).replace(/,/g,''));return Number.isFinite(n)?n:null;}
 function aggregate(rows,fn){var m={};(rows||[]).forEach(function(r){var d=dateKey(r);if(!d)return;var x=fn(r);if(x==null)return;if(!m[d])m[d]=[];m[d].push(x);});return Object.keys(m).sort().map(function(d){var a=m[d];return {date:d,value:a.reduce(function(s,x){return s+x;},0)/a.length,count:a.length,total:a.reduce(function(s,x){return s+x;},0)};});}
 function chart(points,kind,color,maxVal){if(!points||points.length<2)return '<div style="font-size:11px;color:#64748b;padding:8px 0">برای نمایش روند، دست‌کم دو تاریخ ثبت معتبر لازم است.</div>';var w=300,h=76,pad=8,vals=points.map(function(x){return x.value;}),mx=maxVal||Math.max(1,Math.max.apply(null,vals)),coords=points.map(function(x,i){return {x:pad+i*(w-2*pad)/(points.length-1),y:h-pad-(Math.max(0,x.value)/mx)*(h-2*pad)};});var svg='<svg viewBox="0 0 '+w+' '+h+'" role="img" aria-label="نمودار روند" style="width:100%;height:auto;display:block"><path d="M'+pad+' '+(h-pad)+' H'+(w-pad)+'" stroke="#cbd5e1" stroke-width="1" fill="none"/>';if(kind==='bar'){var bw=Math.max(3,Math.min(18,(w-2*pad)/points.length*.55));coords.forEach(function(c,i){var y=c.y;svg+='<rect x="'+(c.x-bw/2).toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+(h-pad-y).toFixed(1)+'" rx="2" fill="'+color+'" opacity=".82"/>';});}else{var path=coords.map(function(c,i){return (i?'L':'M')+c.x.toFixed(1)+' '+c.y.toFixed(1);}).join(' ');svg+='<path d="'+path+'" fill="none" stroke="'+color+'" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>';coords.forEach(function(c){svg+='<circle cx="'+c.x.toFixed(1)+'" cy="'+c.y.toFixed(1)+'" r="3" fill="'+color+'" stroke="#fff" stroke-width="1.2"/>';});}svg+='</svg><div style="display:flex;justify-content:space-between;font-size:9px;color:#64748b"><span>'+esc(points[0].date)+'</span><span>'+esc(points[points.length-1].date)+'</span></div>';return svg;}
@@ -13970,8 +13970,8 @@ var scores=(typeof cache!=='undefined'&&cache.scores||[]).filter(function(r){ret
 var evals=(typeof cache!=='undefined'&&cache.evaluations||[]).filter(function(r){return String(r.student_id)===String(studentId);});
 var acts=(typeof cache!=='undefined'&&cache.activities||[]).filter(function(r){return String(r.student_id)===String(studentId);});
 var eduRows=scores.concat(evals,acts.filter(function(r){return r.type==='exam'||r.type==='qa'||r.type==='evaluation';}));
-var seen={};eduRows=eduRows.filter(function(r){var v=num(r.score);if(v==null||v<0||v>100||!dateKey(r))return false;var k=[dateKey(r),r.subject||r.lesson||'',v,r.type||''].join('|');if(seen[k])return false;seen[k]=1;return true;});
-var rawMax=eduRows.reduce(function(m,r){return Math.max(m,num(r.score)||0);},0),divisor=rawMax>20?5:1;
+var seen={};eduRows=eduRows.filter(function(r){var v=num(r.score);if(v==null||v<0||v>20||!dateKey(r))return false;var k=[dateKey(r),r.subject||r.lesson||'',v,r.type||''].join('|');if(seen[k])return false;seen[k]=1;return true;});
+var divisor=1;
 var edu=aggregate(eduRows,function(r){var v=num(r.score);return v==null?null:v/divisor;});
 var att=(typeof cache!=='undefined'&&cache.attendance||[]).filter(function(r){return String(r.student_id)===String(studentId);});
 var attByDate={};att.forEach(function(r){var d=dateKey(r),st=String(r.status||'').toLowerCase();if(!d)return;if(!attByDate[d])attByDate[d]={present:0,total:0};attByDate[d].total++;if(st==='present'||st==='late')attByDate[d].present++;});
