@@ -186,6 +186,7 @@ button{width:100%;margin-top:14px;padding:12px;border:0;border-radius:12px;backg
     }
   }
   function parentTrendHtml(p){
+  function arr(v){return Array.isArray(v)?v:[];}
   function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
   function date(r){var v=String(r&&(r.date||r.created_at)||'').trim();if(!v)return '';if(/^\d{4}[-/]\d{1,2}[-/]\d{1,2}/.test(v))return v.slice(0,10).replace(/\//g,'-');var d=new Date(v);return isNaN(d.getTime())?'':d.toISOString().slice(0,10);}
   function n(v){if(v==null||v==='')return null;var x=Number(String(v).replace(/[۰-۹]/g,function(c){return '۰۱۲۳۴۵۶۷۸۹'.indexOf(c);}).replace(/[٠-٩]/g,function(c){return '٠١٢٣٤٥٦٧٨٩'.indexOf(c);}).replace(/,/g,''));return Number.isFinite(x)?x:null;}
