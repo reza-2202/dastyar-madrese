@@ -1678,7 +1678,7 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <div class="no-print" id="ev-form"></div>
 <div class="card no-print" id="parent-portal-evaluation-card" style="border:1px solid #bfdbfe;background:#f8fbff">
  <div class="ct">🔗 پرونده الکترونیکی اولیا</div>
- <p class="meta" style="line-height:1.8">برای تمام اولیای این کلاس فقط یک لینک کوتاه و مشترک ساخته می‌شود. هر ولی با روش ورود تعیین‌شده، فقط پرونده فرزند خود را از سرور دریافت می‌کند. مدیر یا معلم می‌تواند دسترسی را فعال، غیرفعال یا زمان‌دار کند.</p>
+ <p class="meta" style="line-height:1.8">برای تمام اولیای این کلاس فقط یک لینک کوتاه و مشترک ساخته می‌شود. هر ولی با روش ورود تعیین‌شده، فقط پرونده فرزند خود را از سرور دریافت می‌کند. مدیر یا معلم می‌تواند دسترسی را فعال، غیرفعال یا زمان‌دار کند. این پرونده به‌صورت بسته رمزگذاری‌شده منتشر می‌شود؛ پس از ثبت سوابق جدید، برای به‌روزرسانی اطلاعات داخل همان لینک، دکمه ساخت لینک را دوباره بزنید.</p>
  <div class="fg" style="margin-top:10px"><label for="parent-login-mode">روش ورود مجاز برای اولیا و دانش‌آموزان این کلاس</label><select id="parent-login-mode" style="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px"><option value="code_password">کد دانش‌آموزی + رمز اختصاصی (پیشنهادی)</option><option value="password_only">فقط رمز اختصاصی تولیدشده توسط برنامه</option><option value="code_only">فقط کد دانش‌آموزی</option><option value="name_password">نام و نام خانوادگی + رمز اختصاصی</option><option value="name_only">فقط نام و نام خانوادگی</option></select><small class="meta">روش انتخاب‌شده برای همه دانش‌آموزان این کلاس در بسته جدید اعمال می‌شود. روش‌های بدون رمز اختصاصی امنیت پایین‌تری دارند.</small></div>
  <div class="fg"><label for="parent-link-duration">مدت اعتبار لینک مشترک</label><select id="parent-link-duration" style="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px"><option value="24">۲۴ ساعت (یک روز)</option><option value="72">۳ روز</option><option value="168">۷ روز</option><option value="720">۳۰ روز</option><option value="0">بدون انقضا تا غیرفعال‌سازی دستی</option></select></div>
  <label style="display:flex;align-items:center;gap:8px;margin:10px 0;font-size:.82rem"><input id="parent-access-enabled" type="checkbox" checked> فعال بودن دسترسی اولیا برای این کلاس</label>
@@ -2108,7 +2108,7 @@ async function restoreOfflineSnapshot(){
     let snap=window.DastyarOffline&&await window.DastyarOffline.loadSnapshot();
     if(!snap){try{snap=JSON.parse(localStorage.getItem('dastyar_school_snapshot_v1')||'null');}catch(_){snap=null;}}
     if(snap&&typeof snap==='object'){
-      cache.users=snap.users||[];cache.classes=snap.classes||[];cache.students=snap.students||[];cache.attendance=snap.attendance||[];cache.scores=snap.scores||[];cache.competencies=snap.competencies||[];cache.activities=snap.activities||[];cache.evaluations=snap.evaluations||[];cache.discipline=snap.discipline||[];cache.finance=snap.finance||[];cache.documents=Array.isArray(snap.documents)?snap.documents:[];cache.parent_contacts=Array.isArray(snap.parent_contacts)?snap.parent_contacts:[];
+      cache.users=snap.users||[];cache.classes=snap.classes||[];cache.students=snap.students||[];cache.attendance=snap.attendance||[];cache.scores=snap.scores||[];cache.competencies=snap.competencies||[];cache.activities=snap.activities||[];cache.evaluations=snap.evaluations||[];cache.discipline=snap.discipline||[];cache.finance=snap.finance||[];cache.documents=Array.isArray(snap.documents)?snap.documents:[];cache.parent_contacts=Array.isArray(snap.parent_contacts)?snap.parent_contacts:[];cache.customStudentSpecs=snap.customStudentSpecs&&typeof snap.customStudentSpecs==='object'?snap.customStudentSpecs:{};
       if(typeof fillTeacherSelect=='function') fillTeacherSelect();
     }
     // Offline first-run fallback: build the known school classes and teacher list locally.
@@ -5308,24 +5308,24 @@ function openStudentDossier(id){
  try{ if(typeof applyStudentPhotosFromLocal==='function') applyStudentPhotosFromLocal(); }catch(e){}
  const s=cache.students.find(x=>x.id===id); if(!s)return;
  const cl=cache.classes.find(x=>x.id===s.class_id);
- const att=cache.attendance.filter(x=>x.student_id===id).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
- const dis=cache.discipline.filter(x=>x.student_id===id).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
- const evs=cache.evaluations.filter(x=>x.student_id===id).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+ const att=cache.attendance.filter(x=>String(x.student_id)===String(id)).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+ const dis=cache.discipline.filter(x=>String(x.student_id)===String(id)).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+ const evs=cache.evaluations.filter(x=>String(x.student_id)===String(id)).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
  const studentActivities=cache.activities.filter(x=>String(x.student_id)===String(id));
   const absenceFollowups=studentActivities.filter(x=>x.type==='absence_followup'||x.subject==='پیگیری غیبت مدیر').sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||String(b.created_at||'').localeCompare(String(a.created_at||'')));
   const allActs=studentActivities.filter(x=>x.type!=='absence_followup'&&x.subject!=='پیگیری غیبت مدیر').sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
  const exams=allActs.filter(x=>x.type==='exam');
  const acts=allActs.filter(x=>x.type!=='exam');
- const scores=cache.scores.filter(x=>x.student_id===id);
- const comps=cache.competencies.filter(x=>x.student_id===id);
+ const scores=cache.scores.filter(x=>String(x.student_id)===String(id));
+ const comps=cache.competencies.filter(x=>String(x.student_id)===String(id));
  const contacts=(cache.parent_contacts||[]).filter(x=>String(x.student_id)===String(id)).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
  const fins=(cache.finance||[]).filter(x=>String(x.student_id)===String(id)).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
  const statusLabel={present:'حاضر',unexcused:'غایب',absent:'غایب',excused:'غایب موجه',late:'تأخیر'};
  const levelLabel={excellent:'خیلی خوب',good:'خوب',acceptable:'قابل قبول',needs:'نیاز به تلاش'};
  const section=(title,rows,html)=>'<section class="card dossier-section"><div class="ct">'+title+' ('+fa(rows.length)+')</div>'+(rows.length?html:'<div class="empty">سابقه‌ای ثبت نشده است</div>')+'</section>';
- const attHtml=att.map(a=>'<div class="meta" style="padding:7px;border-bottom:1px solid #e2e8f0">📅 '+escHtml(a.weekday||'')+' '+escHtml(a.date||'')+' — <b>'+escHtml(statusLabel[a.status]||a.status||'ثبت وضعیت')+'</b>'+(a.notice_approved?' — تأیید مدیر ثبت شده':'')+'</div>').join('');
+ const attHtml=att.map(a=>'<div class="meta" style="padding:7px;border-bottom:1px solid #e2e8f0">📅 '+escHtml(a.weekday||'')+' '+escHtml(a.date||'')+' — <b>'+escHtml(statusLabel[a.status]||a.status||'ثبت وضعیت')+'</b>'+(a.notice_approved?' — تأیید مدیر ثبت شده':'')+(a.recorded_by?' — ثبت‌کننده: '+escHtml(a.recorded_by):'')+'</div>').join('');
  const disHtml=dis.map(d=>'<div style="padding:9px;border-bottom:1px solid #cbd5e1;break-inside:avoid"><div class="meta">📅 '+escHtml(d.weekday||'')+' '+escHtml(d.date||'')+' | موضوع: <b>'+escHtml(d.category||'انضباطی')+'</b> | وضعیت: '+(d.status==='approved'?'✅ رسیدگی و اجازه ورود تأیید شده':'⏳ در انتظار رسیدگی')+'</div><div style="margin-top:5px">بازخورد / اقدام: <b>'+escHtml(d.feedback||'ثبت نشده')+'</b></div><div style="white-space:pre-wrap;margin-top:5px">شرح و توضیحات: '+escHtml(d.details||'')+'</div>'+(d.decision_text?'<div style="margin-top:5px;font-weight:bold">'+escHtml(d.decision_text)+'</div>':'')+'<small>ثبت‌کننده: '+escHtml(d.created_by||'')+(d.approved_by?' | تأییدکننده: '+escHtml(d.approved_by):'')+'</small></div>').join('');
- const evHtml=evs.map(e=>'<div style="padding:8px;border-bottom:1px solid #e2e8f0"><b>'+escHtml(e.subject||'درس')+'</b> — '+escHtml(e.weekday||'')+' '+escHtml(e.date||'')+' | نمره: '+(e.score==null?'—':escHtml(e.score))+' | '+escHtml(levelLabel[e.level]||e.level||'')+(e.notes?'<div>'+escHtml(e.notes)+'</div>':'')+'</div>').join('');
+ const evHtml=evs.map(e=>'<div style="padding:8px;border-bottom:1px solid #e2e8f0"><b>'+escHtml(e.subject||'درس')+'</b> — '+escHtml(e.weekday||'')+' '+escHtml(e.date||'')+' | نمره: '+(e.score==null?'—':escHtml(e.score))+' | '+escHtml(levelLabel[e.level]||e.level||'')+(e.notes?'<div>'+escHtml(e.notes)+'</div>':'')+(e.recorded_by?'<small>ثبت‌کننده: '+escHtml(e.recorded_by)+'</small>':'')+'</div>').join('');
  const followupHtml=absenceFollowups.map(a=>{
    const raw=String(a.notes||'');
    const token=raw.match(/\[ABSENCE_CYCLE:([^|\]]+)\|([^\]]+)\]/);
@@ -5334,10 +5334,10 @@ function openStudentDossier(id){
    const clean=raw.replace(/^\[ABSENCE_CYCLE:[^\]]+\]\s*/,'').replace(/چرخه پیگیری:[^\n]*\n?/,'').replace(/تعداد غیبت\/تأخیر در این چرخه:[^\n]*\n?/,'').replace(/^توضیحات مدیر:\s*/,'').trim();
    return '<div style="padding:10px;margin:7px 0;border:1px solid #cbd5e1;border-right:4px solid #2563eb;border-radius:7px;break-inside:avoid"><div style="font-weight:800;color:#1e40af">رسیدگی مستقل'+(token?' — '+escHtml(token[1])+' تا '+escHtml(token[2]):'')+'</div><div class="meta" style="margin-top:4px">📅 '+escHtml(range?range[1]:(a.date||'—'))+(count?' | '+escHtml(count[1]):'')+' | ثبت‌کننده: '+escHtml(a.recorded_by||'مدیر')+'</div><div style="white-space:pre-wrap;margin-top:7px;line-height:1.8">'+escHtml(clean||'توضیحی ثبت نشده است')+'</div></div>';
  }).join('');
- const actHtml=acts.map(a=>'<div style="padding:8px;border-bottom:1px solid #e2e8f0"><b>'+escHtml(a.type==='qa'?'پرسش و پاسخ':'فعالیت کلاسی')+' — '+escHtml(a.subject||'')+'</b><div class="meta">'+escHtml(a.weekday||'')+' '+escHtml(a.date||'')+' | '+escHtml(levelLabel[a.level]||a.level||'')+'</div>'+(a.notes?'<div>'+escHtml(a.notes)+'</div>':'')+'</div>').join('');
- const examHtml=exams.map(a=>'<div style="padding:8px;border-bottom:1px solid #e2e8f0"><b>'+escHtml(a.exam_name||a.name||a.subject||'آزمون')+'</b><div class="meta">'+escHtml(a.weekday||'')+' '+escHtml(a.date||'')+' | درس: '+escHtml(a.subject||a.lesson||'')+' | نمره: '+(a.score==null||a.score===''?'—':escHtml(a.score))+' | '+escHtml(levelLabel[a.level]||a.level||'')+'</div>'+(a.notes||a.desc_text||a.description?'<div>'+escHtml(a.notes||a.desc_text||a.description||'')+'</div>':'')+'</div>').join('');
+ const actHtml=acts.map(a=>'<div style="padding:8px;border-bottom:1px solid #e2e8f0"><b>'+escHtml(a.type==='qa'?'پرسش و پاسخ':'فعالیت کلاسی')+' — '+escHtml(a.subject||'')+'</b><div class="meta">'+escHtml(a.weekday||'')+' '+escHtml(a.date||'')+' | '+escHtml(levelLabel[a.level]||a.level||'')+'</div>'+(a.notes?'<div>'+escHtml(a.notes)+'</div>':'')+(a.recorded_by?'<small>ثبت‌کننده: '+escHtml(a.recorded_by)+'</small>':'')+'</div>').join('');
+ const examHtml=exams.map(a=>'<div style="padding:8px;border-bottom:1px solid #e2e8f0"><b>'+escHtml(a.exam_name||a.name||a.subject||'آزمون')+'</b><div class="meta">'+escHtml(a.weekday||'')+' '+escHtml(a.date||'')+' | درس: '+escHtml(a.subject||a.lesson||'')+' | نمره: '+(a.score==null||a.score===''?'—':escHtml(a.score))+' | '+escHtml(levelLabel[a.level]||a.level||'')+'</div>'+(a.notes||a.desc_text||a.description?'<div>'+escHtml(a.notes||a.desc_text||a.description||'')+'</div>':'')+(a.recorded_by?'<small>ثبت‌کننده: '+escHtml(a.recorded_by)+'</small>':'')+'</div>').join('');
  const contactHtml=contacts.map(c=>'<div style="padding:8px;border-bottom:1px solid #e2e8f0"><b>'+escHtml({call:'تماس',message:'پیام',inperson:'حضوری',other:'سایر'}[c.contact_type]||c.contact_type||'تماس')+'</b> — '+escHtml(c.date||'')+' | '+(c.phone?escHtml(c.phone):'')+'<div class="meta">موضوع: '+escHtml(c.subject||'')+' | نتیجه: '+escHtml(c.result||'')+(c.follow_up_date?(' | پیگیری: '+escHtml(c.follow_up_date)):'')+'</div>'+(c.notes?'<div>'+escHtml(c.notes)+'</div>':'')+'<small>ثبت‌کننده: '+escHtml(c.recorded_by||'')+'</small></div>').join('');
- const finHtml=fins.map(f=>'<div style="padding:8px;border-bottom:1px solid #e2e8f0"><b>'+escHtml(f.topic||f.title||'مالی')+'</b> — '+escHtml(f.date||'')+' | مبلغ: '+escHtml(String(f.amount!=null?f.amount:'—'))+'<div class="meta">'+(f.notes?escHtml(f.notes):'')+'</div></div>').join('');
+ const finHtml=fins.map(f=>'<div style="padding:8px;border-bottom:1px solid #e2e8f0"><b>'+escHtml(f.topic||f.title||'مالی')+'</b> — '+escHtml(f.date||'')+' | مبلغ: '+escHtml(String(f.amount!=null?f.amount:'—'))+'<div class="meta">'+(f.notes?escHtml(f.notes):'')+'</div>'+(f.created_by?'<small>ثبت‌کننده: '+escHtml(f.created_by)+'</small>':'')+'</div>').join('');
  const scoreHtml=scores.map(x=>'<div class="meta" style="padding:6px;border-bottom:1px solid #e2e8f0">'+escHtml(x.subject||'درس')+' — '+(x.score==null?'—':escHtml(x.score))+' | '+escHtml(levelLabel[x.level]||x.level||'')+'</div>').join('');
  const compHtml=comps.map(x=>'<div class="meta" style="padding:6px;border-bottom:1px solid #e2e8f0">'+escHtml(x.name||'شایستگی')+' — '+escHtml(levelLabel[x.level]||x.level||'')+'</div>').join('');
  const progressMap=new Map();
@@ -12963,7 +12963,9 @@ window.generateParentPortalLink=async function(classId,studentId){
       student:safeParentStudent(st),
       updated_at:new Date().toISOString(),
       attendance:(cache.attendance||[]).filter(x=>String(x.student_id)===String(st.id)),
-      activities:(cache.activities||[]).filter(x=>String(x.student_id)===String(st.id)),
+      activities:(cache.activities||[]).filter(x=>x&&String(x.student_id)===String(st.id)&&x.type!=='exam'&&x.type!=='absence_followup'&&x.subject!=='پیگیری غیبت مدیر'),
+      exams:(cache.activities||[]).filter(x=>x&&String(x.student_id)===String(st.id)&&x.type==='exam'),
+      absence_followups:(cache.activities||[]).filter(x=>x&&String(x.student_id)===String(st.id)&&(x.type==='absence_followup'||x.subject==='پیگیری غیبت مدیر')),
       evaluations:(cache.evaluations||[]).filter(x=>String(x.student_id)===String(st.id)),
       scores:(cache.scores||[]).filter(x=>String(x.student_id)===String(st.id)),
       competencies:(cache.competencies||[]).filter(x=>String(x.student_id)===String(st.id)),
