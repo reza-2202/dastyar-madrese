@@ -2541,7 +2541,7 @@ async function flushPendingAttendanceToServer(){
 }
 
 async function reloadAll(){
-  const [u,c,s,a,sc,co,ac,ev,di,fi] = await Promise.all([
+  const [u,c,s,a,sc,co,ac,ev,di,fi,pc] = await Promise.all([
     sb.from('sa_users').select('*'),
     sb.from('sa_classes').select('*').order('grade'),
     sb.from('sa_students').select('*'),
@@ -2551,12 +2551,13 @@ async function reloadAll(){
     sb.from('sa_activities').select('*').order('created_at',{ascending:false}),
     sb.from('sa_evaluations').select('*').order('created_at',{ascending:false}),
     sb.from('sa_discipline').select('*').order('created_at',{ascending:false}),
-    sb.from('sa_finance').select('*').order('created_at',{ascending:false})
+    sb.from('sa_finance').select('*').order('created_at',{ascending:false}),
+    sb.from('sa_parent_contacts').select('*').order('created_at',{ascending:false})
   ]);
   if(a&&!a.error&&Array.isArray(a.data)) window.__dastyarAttendanceAuthoritative=true;
-  const previous={users:cache.users,classes:cache.classes,students:cache.students,attendance:cache.attendance,scores:cache.scores,competencies:cache.competencies,activities:cache.activities,evaluations:cache.evaluations,discipline:cache.discipline,finance:cache.finance};
-  const results=[u,c,s,a,sc,co,ac,ev,di,fi];
-  const names=['users','classes','students','attendance','scores','competencies','activities','evaluations','discipline','finance'];
+  const previous={users:cache.users,classes:cache.classes,students:cache.students,attendance:cache.attendance,scores:cache.scores,competencies:cache.competencies,activities:cache.activities,evaluations:cache.evaluations,discipline:cache.discipline,finance:cache.finance,parent_contacts:cache.parent_contacts};
+  const results=[u,c,s,a,sc,co,ac,ev,di,fi,pc];
+  const names=['users','classes','students','attendance','scores','competencies','activities','evaluations','discipline','finance','parent_contacts'];
   names.forEach((name,i)=>{
     const r=results[i];
     const prev=previous[name]||[];
@@ -10270,7 +10271,7 @@ window.addStudentOnline=async function(){var code=String(byId('ns-code')&&byId('
 };
 // Re-render profile specifications after the dossier's original renderer completes.
 var originalOpenDossier=window.openStudentDossier;
-window.openStudentDossier=function(id){if(typeof originalOpenDossier==='function')originalOpenDossier.apply(this,arguments);try{if(typeof injectCustomFieldsUI==='function')injectCustomFieldsUI(id);try{injectExamSectionIntoDossier(id);}catch(e){};if(typeof renderStudentCustomFields==='function')renderStudentCustomFields(id);}catch(e){console.warn('نمایش مشخصات سفارشی:',e)}};
+window.openStudentDossier=function(id){if(typeof originalOpenDossier==='function')originalOpenDossier.apply(this,arguments);try{if(typeof injectCustomFieldsUI==='function')injectCustomFieldsUI(id);if(typeof renderStudentCustomFields==='function')renderStudentCustomFields(id);}catch(e){console.warn('نمایش مشخصات سفارشی:',e)}};
 
 /* Minimal standards-compliant DOCX package writer (ZIP Store, no external libraries). */
 function utf8(s){return new TextEncoder().encode(String(s));}
