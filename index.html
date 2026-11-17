@@ -13625,6 +13625,7 @@ else setTimeout(install,250);
 <script id="dastyar-attendance-export-tools-20261117">
 
 
+
 (function(){
 'use strict';
 function faStatus(s){return ({present:'حاضر',unexcused:'غیبت غیرموجه',absent:'غیبت غیرموجه',excused:'غیبت موجه',late:'تأخیر'})[String(s||'').toLowerCase()]||String(s||'ثبت‌نشده');}
@@ -13689,8 +13690,8 @@ function attentionData(){
   var pendingStart=pending.length?String(pending[0].date||''):'',pendingEnd=pending.length?String(pending[pending.length-1].date||''):'';
   var token=pendingStart&&pendingEnd?'[ABSENCE_CYCLE:'+pendingStart+'|'+pendingEnd+']':'';
   var pendingEvent=token?history.find(function(a){return String(a.notes||'').indexOf(token)>=0;}):null;
-  var pendingMatch=pendingEvent?String(pendingEvent.notes||'').match(/توضیحات مدیر:\\s*([\\s\\S]*)/):null;
-  var latestMatch=latest?String(latest.notes||'').match(/توضیحات مدیر:\\s*([\\s\\S]*)/):null;
+  var pendingMatch=pendingEvent?String(pendingEvent.notes||'').match(/توضیحات مدیر:\s*([\s\S]*)/):null;
+  var latestMatch=latest?String(latest.notes||'').match(/توضیحات مدیر:\s*([\s\S]*)/):null;
   var note=pendingMatch&&pendingMatch[1].trim()?pendingMatch[1].trim():String(rev.note||'');
   var latestNote=latestMatch&&latestMatch[1]?latestMatch[1].trim():'';
   items.push({sid:sid,name:st?((st.first_name||'')+' '+(st.last_name||'')):sid,className:cl?(cl.label||cl.id):((list[0]&&list[0].class_id)||'—'),phone:studentPhone(st),list:list,handled:handled,pending:pending,until:until,reviewer:rev.by||(latest&&latest.recorded_by)||'',note:note,latestNote:latestNote,history:history,counts:counts});
@@ -13701,7 +13702,7 @@ function attentionData(){
 function attentionTables(items){
  var summary=[],details=[];
  items.forEach(function(it){
-  summary.push({'کلاس':it.className,'نام دانش‌آموز':it.name,'تلفن':it.phone,'کل موارد':it.list.length,'غیبت غیرموجه':it.counts.unexcused,'غیبت موجه':it.counts.excused,'تأخیر':it.counts.late,'رسیدگی‌شده':it.handled.length,'رسیدگی‌نشده':it.pending.length,'رسیدگی مدیر تا تاریخ':it.until||'—','نام مدیر رسیدگی‌کننده':it.reviewer||'—','آخرین تاریخ پیگیری مدیر':it.history.length?(it.history[it.history.length-1].date||'—'):'—','آخرین توضیحات مدیر':it.latestNote||'—','توضیحات چرخه جاری':it.note||'—'});
+  summary.push({'کلاس':it.className,'نام دانش‌آموز':it.name,'تلفن':it.phone,'کل موارد':it.list.length,'غیبت غیرموجه':it.counts.unexcused,'غیبت موجه':it.counts.excused,'تأخیر':it.counts.late,'رسیدگی‌شده':it.handled.length,'رسیدگی‌نشده':it.pending.length,'رسیدگی مدیر تا تاریخ':it.until||'—','نام مدیر رسیدگی‌کننده':it.reviewer||'—','تعداد دفعات پیگیری مدیر':it.history.length,'آخرین تاریخ پیگیری مدیر':it.history.length?(it.history[it.history.length-1].date||'—'):'—','آخرین توضیحات مدیر':it.latestNote||'—','توضیحات چرخه جاری':it.note||'—'});
   it.list.forEach(function(a){
    var d=String(a.date||''),done=!!(it.until&&d&&d<=it.until);
    details.push({'کلاس':it.className,'نام دانش‌آموز':it.name,'تاریخ غیبت/تأخیر':d||'—','نوع ثبت':faStatus(a.status),'وضعیت پیگیری':done?'رسیدگی‌شده':'رسیدگی‌نشده','رسیدگی مدیر تا تاریخ':it.until||'—','ثبت‌کننده ثبت حضور و غیاب':a.recorded_by||'—','توضیحات پیگیری مدیر':it.note||'—'});
@@ -13718,8 +13719,8 @@ window.exportAbsenteesNeedsAttentionExcel=function(){
   if(typeof XLSX==='undefined'){toast('کتابخانه Excel در دسترس نیست؛ اتصال اینترنت را بررسی کنید');return;}
   var items=attentionData();if(!items.length){toast('برای خروجی، ابتدا گزارش غایبین نیازمند رسیدگی را بارگذاری کنید یا موردی با حداقل سه ثبت وجود ندارد');return;}
   var tables=attentionTables(items),wb=XLSX.utils.book_new();
-  addSheet(wb,tables.summary,'خلاصه رسیدگی',[18,24,18,12,15,13,12,13,14,18,22,40]);
-  addSheet(wb,tables.details.length?tables.details:[{'پیام':'جزئیات غیبت و پیگیری ثبت نشده است'}],'جزئیات غیبت و پیگیری',[18,24,16,18,18,18,48]);
+  addSheet(wb,tables.summary,'خلاصه رسیدگی',[18,24,18,12,15,13,12,13,14,18,22,16,40,40]);
+  addSheet(wb,tables.details.length?tables.details:[{'پیام':'جزئیات غیبت و پیگیری ثبت نشده است'}],'جزئیات غیبت و پیگیری',[18,24,16,18,18,18,32,48]);
   wb.Workbook=wb.Workbook||{};wb.Workbook.Views=[{RTL:true}];
   XLSX.writeFile(wb,'غایبین_نیازمند_رسیدگی_'+today().replace(/\//g,'-')+'.xlsx');
   toast('فایل اکسل کامل غایبین نیازمند رسیدگی آماده شد');
@@ -13762,6 +13763,7 @@ window.printAbsenteesNeedsAttention=function(){
  setTimeout(function(){window.print();},120);
 };
 })();
+
 
 </script>\n</body>
 </html>
