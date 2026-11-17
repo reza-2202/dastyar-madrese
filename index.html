@@ -3118,6 +3118,8 @@ var __dastyarNavigationSequence=window.__dastyarNavigationSequence||0;
 // Keep only the currently active page/navigation node; avoid scanning every page on each tap.
 var __dastyarActivePage=document.querySelector('.page.on');
 var __dastyarActiveNav=document.querySelector('.ni.on');
+var __dastyarNavNodes=Object.create(null);
+document.querySelectorAll('.ni[data-p]').forEach(function(node){__dastyarNavNodes[node.getAttribute('data-p')]=node;});
 function go(p){
   // Reject unauthorized destinations before changing the visible page.
   if(p==='monthlyreport'&&(!user||(user.role!=='admin'&&user.role!=='manager'))){toast('گزارش ماهانه فقط برای مدیر است');return;}
@@ -3130,7 +3132,7 @@ function go(p){
   if(openInvitation)p='discipline';
   const navigationToken=++window.__dastyarNavigationSequence;
   const page=document.getElementById('page-'+p);
-  const n=document.querySelector('.ni[data-p="'+p+'"]');
+  const n=__dastyarNavNodes[p]||null;
   if(__dastyarActivePage&&__dastyarActivePage!==page)__dastyarActivePage.classList.remove('on');
   if(__dastyarActiveNav&&__dastyarActiveNav!==n)__dastyarActiveNav.classList.remove('on');
   if(page)page.classList.add('on');
