@@ -1506,6 +1506,7 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <button class="btn btn-p" onclick="saveAttendance()" style="margin-bottom:8px">💾 ذخیره آنلاین</button>
 <button class="btn btn-o" onclick="markAllPresent()" style="margin-bottom:8px;background:#dcfce7;border-color:#86efac;color:#166534">✅ همه حاضر</button>
 <button class="btn btn-o btn-sm" onclick="loadAttHistory()">🔍 جستجوی سوابق</button>
+<button class="btn btn-o btn-sm" onclick="exportAttendanceExcel()">📊 خروجی اکسل حضور و غیاب</button>
 </div>
 <div id="alist"></div>
 <div class="no-print" id="att-history"></div>
@@ -1531,6 +1532,7 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <div id="absentees-report"></div>
 <div class="card" id="absentees-attention-wrap" style="margin-top:12px;border:1px solid #fecaca;background:#fff7f7">
 <div class="ct" style="color:#991b1b">⚠ غایبین نیازمند رسیدگی</div>
+<div class="no-print" style="display:flex;gap:7px;flex-wrap:wrap;margin:8px 0"><button class="btn btn-o btn-sm" onclick="exportAbsenteesNeedsAttentionExcel()">📊 خروجی اکسل کامل</button><button class="btn btn-o btn-sm" onclick="exportAbsenteesNeedsAttentionWord()">📄 خروجی Word کامل</button><button class="btn btn-o btn-sm" onclick="printAbsenteesNeedsAttention()">🖨️ چاپ گزارش کامل</button></div>
 <p class="meta" style="margin-bottom:8px">به‌صورت خودکار از همه روزها. مدیر می‌تواند «رسیدگی شد تا این تاریخ» بزند؛ موارد قبلی سبز و غیبت‌های جدید قرمز نمایش داده می‌شوند.</p>
 <div id="absentees-attention-report"><div class="empty">برای مشاهده، دکمه «غایبین نیازمند رسیدگی» را بزنید.</div></div>
 </div>
@@ -13620,5 +13622,129 @@ else setTimeout(install,250);
 
 
 </script>
-</body>
+<script id="dastyar-attendance-export-tools-20261117">\n
+(function(){
+'use strict';
+function faStatus(s){return ({present:'حاضر',unexcused:'غیرموجه',absent:'غیرموجه',excused:'موجه',late:'تأخیر'})[String(s||'').toLowerCase()]||String(s||'ثبت‌نشده');}
+function safe(v){return typeof escHtml==='function'?escHtml(v==null?'':String(v)):String(v==null?'':v).replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]);});}
+function styleSheet(ws){
+ ws['!views']=[{RTL:true}];
+ var range=XLSX.utils.decode_range(ws['!ref']||'A1:A1');
+ for(var R=range.s.r;R<=range.e.r;R++)for(var C=range.s.c;C<=range.e.c;C++){
+  var addr=XLSX.utils.encode_cell({r:R,c:C});if(!ws[addr])continue;
+  var head=R===0;
+  ws[addr].s={alignment:{horizontal:'right',vertical:'center',readingOrder:2,wrapText:true},font:{name:'Tahoma',sz:10,bold:head,color:{rgb:head?'FFFFFF':'243447'}},fill:{patternType:'solid',fgColor:{rgb:head?'174A7E':(R%2?'EAF3FF':'FFFFFF')}},border:{top:{style:'thin',color:{rgb:'D6E3F0'}},bottom:{style:'thin',color:{rgb:'D6E3F0'}},left:{style:'thin',color:{rgb:'D6E3F0'}},right:{style:'thin',color:{rgb:'D6E3F0'}}}};
+ }
+ ws['!rows']=Array.from({length:range.e.r+1},function(_,i){return {hpt:i===0?32:25};});
+}
+function addSheet(wb,rows,name,widths){
+ var ws=XLSX.utils.json_to_sheet(rows);
+ ws['!cols']=widths.map(function(w){return {wch:w};});
+ styleSheet(ws);XLSX.utils.book_append_sheet(wb,ws,name);return ws;
+}
+window.exportAttendanceExcel=async function(){
+ try{
+  if(typeof XLSX==='undefined'){toast('کتابخانه Excel در دسترس نیست؛ اتصال اینترنت را بررسی کنید');return;}
+  var classId=String(document.getElementById('at-class')&&document.getElementById('at-class').value||'');
+  var date=String(document.getElementById('at-date')&&document.getElementById('at-date').value||today());
+  var weekday=String(document.getElementById('at-weekday')&&document.getElementById('at-weekday').value||'');
+  if(!classId){toast('ابتدا کلاس را انتخاب کنید');return;}
+  if(user&&user.role==='teacher'&&typeof myClasses==='function'&&!myClasses().some(function(c){return String(c.id)===classId;})){toast('به اطلاعات این کلاس دسترسی ندارید');return;}
+  if(navigator.onLine&&!window.isOffline&&typeof reloadAll==='function'){try{await reloadAll();}catch(e){console.warn('به‌روزرسانی پیش از خروجی انجام نشد؛ از داده‌های محلی استفاده می‌شود.',e);}}
+  var cls=(cache.classes||[]).find(function(c){return String(c.id)===classId;});
+  var students=(cache.students||[]).filter(function(st){return String(st.class_id)===classId;}).slice().sort(function(a,b){return String(a.last_name||'').localeCompare(String(b.last_name||''),'fa')||String(a.first_name||'').localeCompare(String(b.first_name||''),'fa');});
+  if(!students.length){toast('فهرست دانش‌آموزان این کلاس موجود نیست');return;}
+  var map={};(cache.attendance||[]).filter(function(a){return a&&String(a.class_id)===classId&&String(a.date)===date;}).forEach(function(a){map[String(a.student_id)]=a;});
+  var statusCounts={present:0,unexcused:0,excused:0,late:0,blank:0};
+  var rows=students.map(function(st,i){
+   var a=map[String(st.id)],status=a?String(a.status||''):'';
+   if(status==='absent')status='unexcused';
+   if(!['present','unexcused','excused','late'].includes(status))status='';
+   statusCounts[status||'blank']++;
+   return {'ردیف':i+1,'نام و نام خانوادگی':((st.first_name||'')+' '+(st.last_name||'')).trim(),'کلاس':cls?(cls.label||cls.id):classId,'تاریخ شمسی':date,'روز هفته':weekday,'وضعیت حضور و غیاب':status?faStatus(status):'ثبت نشده','ثبت‌کننده':a?(a.recorded_by||'—'):'—'};
+  });
+  var wb=XLSX.utils.book_new();
+  addSheet(wb,rows,'حضور و غیاب',[8,25,16,16,14,22,32]);
+  var summary=[{'عنوان':'مدرسه','مقدار':'دبستان شهید فتح‌الله فلاح‌پور'},{'عنوان':'کلاس','مقدار':cls?(cls.label||cls.id):classId},{'عنوان':'تاریخ','مقدار':date},{'عنوان':'روز هفته','مقدار':weekday},{'عنوان':'تعداد دانش‌آموزان','مقدار':students.length},{'عنوان':'حاضر','مقدار':statusCounts.present},{'عنوان':'غایب غیرموجه','مقدار':statusCounts.unexcused},{'عنوان':'غایب موجه','مقدار':statusCounts.excused},{'عنوان':'تأخیر','مقدار':statusCounts.late},{'عنوان':'ثبت‌نشده','مقدار':statusCounts.blank},{'عنوان':'تاریخ تهیه خروجی','مقدار':today()}];
+  addSheet(wb,summary,'خلاصه',[28,36]);wb.Workbook=wb.Workbook||{};wb.Workbook.Views=[{RTL:true}];
+  XLSX.writeFile(wb,'حضور_و_غیاب_'+(cls?(cls.label||classId):classId)+'_'+date.replace(/\//g,'-')+'.xlsx');
+  toast('فایل اکسل فارسی حضور و غیاب آماده شد');
+ }catch(e){console.error(e);toast('ساخت خروجی اکسل حضور و غیاب ناموفق بود: '+(e&&e.message||e));}
+};
+function attentionData(){
+ var rows=collectAbsenteeRows({ignoreDates:true}),by=groupAbsenteesByStudent(rows),reviews=loadAbsenceReviews(),items=[];
+ Object.keys(by).forEach(function(sid){
+  var list=(by[sid]||[]).slice().sort(function(a,b){return String(a.date||'').localeCompare(String(b.date||''));});
+  if(list.length<3)return;
+  var st=(cache.students||[]).find(function(x){return String(x.id)===String(sid);});
+  var cl=(cache.classes||[]).find(function(x){return String(x.id)===String((list[0]&&list[0].class_id)||'');});
+  var rev=reviews[sid]||{},until=String(rev.until_date||''),handled=[],pending=[];
+  list.forEach(function(a){var d=String(a.date||'');if(until&&d&&d<=until)handled.push(a);else pending.push(a);});
+  var counts={unexcused:0,excused:0,late:0};
+  list.forEach(function(a){var s=String(a.status||'');if(s==='absent'||s==='unexcused')counts.unexcused++;else if(s==='excused')counts.excused++;else if(s==='late')counts.late++;});
+  var history=(cache.activities||[]).filter(function(a){return String(a.student_id)===String(sid)&&(a.type==='absence_followup'||a.subject==='پیگیری غیبت مدیر');}).sort(function(a,b){return String(a.date||'').localeCompare(String(b.date||''))||String(a.created_at||'').localeCompare(String(b.created_at||''));});
+  var latest=history.length?history[history.length-1]:null;
+  var note=String(rev.note||'');
+  if(latest){var m=String(latest.notes||'').match(/توضیحات مدیر:\s*([\s\S]*)/);if(m&&m[1].trim())note=m[1].trim();}
+  items.push({sid:sid,name:st?((st.first_name||'')+' '+(st.last_name||'')):sid,className:cl?(cl.label||cl.id):((list[0]&&list[0].class_id)||'—'),phone:studentPhone(st),list:list,handled:handled,pending:pending,until:until,reviewer:rev.by||'',note:note,history:history,counts:counts});
+ });
+ items.sort(function(a,b){return b.pending.length-a.pending.length||b.list.length-a.list.length||String(a.className).localeCompare(String(b.className));});
+ return items;
+}
+function attentionTables(items){
+ var summary=[],details=[];
+ items.forEach(function(it){
+  summary.push({'کلاس':it.className,'نام دانش‌آموز':it.name,'تلفن':it.phone,'کل موارد':it.list.length,'غیبت غیرموجه':it.counts.unexcused,'غیبت موجه':it.counts.excused,'تأخیر':it.counts.late,'رسیدگی‌شده':it.handled.length,'رسیدگی‌نشده':it.pending.length,'رسیدگی مدیر تا تاریخ':it.until||'—','نام مدیر رسیدگی‌کننده':it.reviewer||'—','توضیحات مدیر':it.note||'—'});
+  it.list.forEach(function(a){
+   var d=String(a.date||''),done=!!(it.until&&d&&d<=it.until);
+   details.push({'کلاس':it.className,'نام دانش‌آموز':it.name,'تاریخ غیبت/تأخیر':d||'—','نوع ثبت':faStatus(a.status),'وضعیت پیگیری':done?'رسیدگی‌شده':'رسیدگی‌نشده','رسیدگی مدیر تا تاریخ':it.until||'—','توضیحات پیگیری مدیر':it.note||'—'});
+  });
+  it.history.forEach(function(ev){
+   var raw=String(ev.notes||''),range=raw.match(/چرخه پیگیری:\s*([^\n]+)/),cnt=raw.match(/تعداد غیبت\/تأخیر در این چرخه:\s*([^\n]+)/),note=raw.match(/توضیحات مدیر:\s*([\s\S]*)/);
+   details.push({'کلاس':it.className,'نام دانش‌آموز':it.name,'تاریخ غیبت/تأخیر':ev.date||'—','نوع ثبت':'سابقه پیگیری مدیر','وضعیت پیگیری':range?range[1]:'چرخه ثبت‌شده','رسیدگی مدیر تا تاریخ':ev.date||'—','توضیحات پیگیری مدیر':(cnt?'تعداد موارد: '+cnt[1]+' | ':'')+(note?note[1].trim():'')+' | ثبت‌کننده: '+(ev.recorded_by||'مدیر')});
+  });
+ });
+ return {summary:summary,details:details};
+}
+window.exportAbsenteesNeedsAttentionExcel=function(){
+ try{
+  if(typeof XLSX==='undefined'){toast('کتابخانه Excel در دسترس نیست؛ اتصال اینترنت را بررسی کنید');return;}
+  var items=attentionData();if(!items.length){toast('برای خروجی، ابتدا گزارش غایبین نیازمند رسیدگی را بارگذاری کنید یا موردی با حداقل سه ثبت وجود ندارد');return;}
+  var tables=attentionTables(items),wb=XLSX.utils.book_new();
+  addSheet(wb,tables.summary,'خلاصه رسیدگی',[18,24,18,12,15,13,12,13,14,18,22,40]);
+  addSheet(wb,tables.details.length?tables.details:[{'پیام':'جزئیات غیبت و پیگیری ثبت نشده است'}],'جزئیات غیبت و پیگیری',[18,24,16,18,18,18,48]);
+  wb.Workbook=wb.Workbook||{};wb.Workbook.Views=[{RTL:true}];
+  XLSX.writeFile(wb,'غایبین_نیازمند_رسیدگی_'+today().replace(/\//g,'-')+'.xlsx');
+  toast('فایل اکسل کامل غایبین نیازمند رسیدگی آماده شد');
+ }catch(e){console.error(e);toast('ساخت اکسل غایبین ناموفق بود: '+(e&&e.message||e));}
+};
+window.exportAbsenteesNeedsAttentionWord=function(){
+ try{
+  var items=attentionData();if(!items.length){toast('برای خروجی، ابتدا گزارش غایبین نیازمند رسیدگی را بارگذاری کنید یا موردی با حداقل سه ثبت وجود ندارد');return;}
+  var t=attentionTables(items);
+  function table(rows){
+   if(!rows.length)return '<p>موردی ثبت نشده است.</p>';
+   var keys=Object.keys(rows[0]),out='<table dir="rtl" style="direction:rtl;border-collapse:collapse;width:100%"><thead><tr>'+keys.map(function(k){return '<th style="border:1px solid #94a3b8;padding:5px;background:#dbeafe">'+safe(k)+'</th>';}).join('')+'</tr></thead><tbody>';
+   rows.forEach(function(r){out+='<tr>'+keys.map(function(k){return '<td style="border:1px solid #cbd5e1;padding:5px;vertical-align:top">'+safe(r[k])+'</td>';}).join('')+'</tr>';});
+   return out+'</tbody></table>';
+  }
+  var html='<div dir="rtl" style="direction:rtl;font-family:Tahoma,Arial;text-align:right"><h2 style="text-align:center">گزارش کامل غایبین نیازمند رسیدگی</h2><p>دبستان شهید فتح‌الله فلاح‌پور — تاریخ تهیه: '+safe(today())+'</p><h3>خلاصه وضعیت هر دانش‌آموز</h3>'+table(t.summary)+'<h3>جزئیات غیبت‌ها و سوابق پیگیری مدیر</h3>'+table(t.details)+'</div>';
+  if(typeof window.downloadWordHtml==='function')window.downloadWordHtml('گزارش-کامل-غایبین-نیازمند-رسیدگی',html,true);
+  else if(typeof downloadDocx==='function'){
+   var flat=items.map(function(it){return {className:it.className,studentName:it.name+' | کل '+it.list.length+' | غیرموجه '+it.counts.unexcused+' | موجه '+it.counts.excused+' | تأخیر '+it.counts.late+' | رسیدگی‌شده '+it.handled.length+' | رسیدگی‌نشده '+it.pending.length,phone:it.phone,date:it.until||'—',status:it.note||'—'};});
+   downloadDocx('غایبین-نیازمند-رسیدگی',flat,'','');
+  }else{toast('ابزار ساخت فایل Word در دسترس نیست');return;}
+  toast('فایل Word کامل غایبین نیازمند رسیدگی آماده شد');
+ }catch(e){console.error(e);toast('ساخت Word غایبین ناموفق بود: '+(e&&e.message||e));}
+};
+window.printAbsenteesNeedsAttention=function(){
+ var box=document.getElementById('absentees-attention-report');
+ if(!box||!box.innerHTML.trim()||box.textContent.indexOf('برای مشاهده')>=0){toast('ابتدا گزارش غایبین نیازمند رسیدگی را نمایش دهید');return;}
+ var area=document.getElementById('print-area');
+ if(!area){window.print();return;}
+ area.innerHTML='<div dir="rtl" style="direction:rtl;text-align:right;font-family:Tahoma,Arial"><h2 style="text-align:center">گزارش غایبین نیازمند رسیدگی</h2><p style="text-align:center">دبستان شهید فتح‌الله فلاح‌پور — '+safe(today())+'</p>'+box.innerHTML+'</div>';
+ window.print();
+};
+})();
+\n</script>\n</body>
 </html>
