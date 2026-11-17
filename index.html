@@ -5221,11 +5221,11 @@ function injectCustomFieldsUI(studentId){
   const first=root.querySelector('section.card');
   if(!first || document.getElementById('cf-list-'+studentId)) return;
   const wrap=document.createElement('div');
-  wrap.className='no-print';
+  wrap.className='';
   wrap.style.cssText='margin-top:12px;padding-top:10px;border-top:1px dashed #cbd5e1';
   wrap.innerHTML='<div style="font-weight:700;margin-bottom:6px">+ مشخصات بیشتر (سفارشی)</div>'
     +'<div id="cf-list-'+studentId+'"></div>'
-    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'
+    +'<div class="no-print" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'
     +'<input id="cf-key-'+studentId+'" placeholder="عنوان (مثلا گروه خونی)" style="flex:1;min-width:110px;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:inherit"/>'
     +'<input id="cf-val-'+studentId+'" placeholder="مقدار" style="flex:1;min-width:110px;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:inherit"/>'
     +'<button type="button" class="btn btn-o btn-sm" onclick="addStudentCustomField(\''+studentId+'\')">افزودن مشخصات بیشتر</button>'
@@ -5286,7 +5286,7 @@ async function removeStudentCustomField(studentId, key){
 function injectExamSectionIntoDossier(studentId){
   try{
     var root=document.getElementById('print-student-dossier'); if(!root) return;
-    if(root.querySelector('[data-exam-section="1"]')) return;
+    if(root.querySelector('[data-exam-section="1"]')||Array.from(root.querySelectorAll('.dossier-section .ct')).some(function(el){return /آزمون‌ها/.test(el.textContent||'');})) return;
     var exams=(cache.activities||[]).filter(function(a){return a&&a.type==='exam'&&String(a.student_id)===String(studentId);})
       .sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''));});
     var html='<section class="card dossier-section" data-exam-section="1"><div class="ct">📝 آزمون‌های کتبی / مدادکاغذی ('+((typeof fa==='function')?fa(exams.length):exams.length)+')</div>';
@@ -5307,22 +5307,22 @@ function openStudentDossier(id){
  try{ if(typeof applyStudentPhotosFromLocal==='function') applyStudentPhotosFromLocal(); }catch(e){}
  const s=cache.students.find(x=>x.id===id); if(!s)return;
  const cl=cache.classes.find(x=>x.id===s.class_id);
- const att=cache.attendance.filter(x=>x.student_id===id).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
- const dis=cache.discipline.filter(x=>x.student_id===id).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
- const evs=cache.evaluations.filter(x=>x.student_id===id).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+ const att=cache.attendance.filter(x=>String(x.student_id)===String(id)).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+ const dis=cache.discipline.filter(x=>String(x.student_id)===String(id)).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+ const evs=cache.evaluations.filter(x=>String(x.student_id)===String(id)).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
  const studentActivities=cache.activities.filter(x=>String(x.student_id)===String(id));
   const absenceFollowups=studentActivities.filter(x=>x.type==='absence_followup'||x.subject==='پیگیری غیبت مدیر').sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||String(b.created_at||'').localeCompare(String(a.created_at||'')));
   const allActs=studentActivities.filter(x=>x.type!=='absence_followup'&&x.subject!=='پیگیری غیبت مدیر').sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
  const exams=allActs.filter(x=>x.type==='exam');
  const acts=allActs.filter(x=>x.type!=='exam');
- const scores=cache.scores.filter(x=>x.student_id===id);
- const comps=cache.competencies.filter(x=>x.student_id===id);
+ const scores=cache.scores.filter(x=>String(x.student_id)===String(id));
+ const comps=cache.competencies.filter(x=>String(x.student_id)===String(id));
  const contacts=(cache.parent_contacts||[]).filter(x=>String(x.student_id)===String(id)).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
  const fins=(cache.finance||[]).filter(x=>String(x.student_id)===String(id)).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
  const statusLabel={present:'حاضر',unexcused:'غایب',absent:'غایب',excused:'غایب موجه',late:'تأخیر'};
  const levelLabel={excellent:'خیلی خوب',good:'خوب',acceptable:'قابل قبول',needs:'نیاز به تلاش'};
  const section=(title,rows,html)=>'<section class="card dossier-section"><div class="ct">'+title+' ('+fa(rows.length)+')</div>'+(rows.length?html:'<div class="empty">سابقه‌ای ثبت نشده است</div>')+'</section>';
- const attHtml=att.map(a=>'<div class="meta" style="padding:7px;border-bottom:1px solid #e2e8f0">📅 '+escHtml(a.weekday||'')+' '+escHtml(a.date||'')+' — <b>'+escHtml(statusLabel[a.status]||a.status||'ثبت وضعیت')+'</b>'+(a.notice_approved?' — تأیید مدیر ثبت شده':'')+'</div>').join('');
+ const attHtml=att.map(a=>'<div class="meta" style="padding:7px;border-bottom:1px solid #e2e8f0">📅 '+escHtml(a.weekday||'')+' '+escHtml(a.date||'')+' — <b>'+escHtml(statusLabel[a.status]||a.status||'ثبت وضعیت')+'</b>'+(a.note?' — توضیح: '+escHtml(a.note):'')+(a.notice_approved?' — تأیید مدیر ثبت شده':'')+(a.recorded_by?' — ثبت‌کننده: '+escHtml(a.recorded_by):'')+'</div>').join('');
  const disHtml=dis.map(d=>'<div style="padding:9px;border-bottom:1px solid #cbd5e1;break-inside:avoid"><div class="meta">📅 '+escHtml(d.weekday||'')+' '+escHtml(d.date||'')+' | موضوع: <b>'+escHtml(d.category||'انضباطی')+'</b> | وضعیت: '+(d.status==='approved'?'✅ رسیدگی و اجازه ورود تأیید شده':'⏳ در انتظار رسیدگی')+'</div><div style="margin-top:5px">بازخورد / اقدام: <b>'+escHtml(d.feedback||'ثبت نشده')+'</b></div><div style="white-space:pre-wrap;margin-top:5px">شرح و توضیحات: '+escHtml(d.details||'')+'</div>'+(d.decision_text?'<div style="margin-top:5px;font-weight:bold">'+escHtml(d.decision_text)+'</div>':'')+'<small>ثبت‌کننده: '+escHtml(d.created_by||'')+(d.approved_by?' | تأییدکننده: '+escHtml(d.approved_by):'')+'</small></div>').join('');
  const evHtml=evs.map(e=>'<div style="padding:8px;border-bottom:1px solid #e2e8f0"><b>'+escHtml(e.subject||'درس')+'</b> — '+escHtml(e.weekday||'')+' '+escHtml(e.date||'')+' | نمره: '+(e.score==null?'—':escHtml(e.score))+' | '+escHtml(levelLabel[e.level]||e.level||'')+(e.notes?'<div>'+escHtml(e.notes)+'</div>':'')+'</div>').join('');
  const followupHtml=absenceFollowups.map(a=>{
@@ -12831,7 +12831,7 @@ async function shaHex(str){const b=await crypto.subtle.digest('SHA-256',new Text
 async function compressBytes(bytes){if(!window.CompressionStream)return bytes;const cs=new CompressionStream('gzip');const stream=new Blob([bytes]).stream().pipeThrough(cs);return new Uint8Array(await new Response(stream).arrayBuffer());}
 async function deriveParentKey(secret,salt){const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(String(secret)),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt:salt,iterations:180000,hash:'SHA-256'},material,{name:'AES-GCM',length:256},false,['encrypt']);}
 function getPasswordMap(){try{const x=JSON.parse(localStorage.getItem(PASSWORDS_KEY)||'{}');return x&&typeof x==='object'?x:{};}catch(e){return {};}}
-function safeParentStudent(s){return {first_name:s.first_name||'',last_name:s.last_name||'',class_name:((cache.classes||[]).find(c=>String(c.id)===String(s.class_id))||{}).label||'',father_name:s.father_name||'',mother_name:s.mother_name||'',custom_fields:(function(){let x=s.custom_fields||{};if(typeof x==='string'){try{x=JSON.parse(x)}catch(e){x={}}}if(!x||typeof x!=='object'||Array.isArray(x))return {};const out={};Object.keys(x).forEach(function(k){if(!/(national|کد.?ملی|phone|تلفن|موبایل|رمز|password|address|نشانی|آدرس|مالی|درآمد|بانک)/i.test(k))out[k]=x[k];});return out;})()};}
+function safeParentStudent(s){let x=s.custom_fields||{};if(typeof x==='string'){try{x=JSON.parse(x)}catch(e){x={}}}if(!x||typeof x!=='object'||Array.isArray(x))x={};let specs=Array.isArray(s.custom_specs)?s.custom_specs:((cache.customStudentSpecs||{})[String(s.id)]||[]);if(!Array.isArray(specs)||!specs.length)specs=Object.keys(x).map(function(k){return {title:k,value:x[k]}});const safeFields={};specs.forEach(function(p){const k=String(p&&p.title||'').trim();if(k&&!/(national|کد.?ملی|phone|تلفن|موبایل|رمز|password|address|نشانی|آدرس|مالی|درآمد|بانک)/i.test(k))safeFields[k]=String(p.value==null?'':p.value)});return {first_name:s.first_name||'',last_name:s.last_name||'',class_name:((cache.classes||[]).find(c=>String(c.id)===String(s.class_id))||{}).label||'',father_name:s.father_name||'',mother_name:s.mother_name||'',custom_fields:safeFields};}
 function escParent(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 const PARENT_SETTINGS_KEY='dastyar_parent_access_settings_v1';
 function readParentSettings(){try{return JSON.parse(localStorage.getItem(PARENT_SETTINGS_KEY)||'{}')||{};}catch(e){return {};}}
@@ -12962,7 +12962,9 @@ window.generateParentPortalLink=async function(classId,studentId){
       student:safeParentStudent(st),
       updated_at:new Date().toISOString(),
       attendance:(cache.attendance||[]).filter(x=>String(x.student_id)===String(st.id)),
-      activities:(cache.activities||[]).filter(x=>String(x.student_id)===String(st.id)),
+      activities:(cache.activities||[]).filter(x=>x&&String(x.student_id)===String(st.id)&&x.type!=='exam'&&x.type!=='absence_followup'&&x.subject!=='پیگیری غیبت مدیر'),
+      exams:(cache.activities||[]).filter(x=>x&&String(x.student_id)===String(st.id)&&x.type==='exam'),
+      absence_followups:(cache.activities||[]).filter(x=>x&&String(x.student_id)===String(st.id)&&(x.type==='absence_followup'||x.subject==='پیگیری غیبت مدیر')),
       evaluations:(cache.evaluations||[]).filter(x=>String(x.student_id)===String(st.id)),
       scores:(cache.scores||[]).filter(x=>String(x.student_id)===String(st.id)),
       competencies:(cache.competencies||[]).filter(x=>String(x.student_id)===String(st.id)),

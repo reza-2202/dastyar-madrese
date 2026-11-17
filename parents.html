@@ -199,8 +199,17 @@ button{width:100%;margin-top:14px;padding:12px;border:0;border-radius:12px;backg
     function list(title,rows,fmt){rows=arr(rows);var h="<div class=\"section\"><h3>"+title+" ("+faDigits(rows.length)+")</h3>";if(!rows.length)return h+"<div class=\"item\">موردی ثبت نشده است</div></div>";return h+rows.map(fmt).join("")+"</div>";}
     function dateSort(rows){return arr(rows).slice().sort(function(a,b){return String(b.date||b.created_at||"").localeCompare(String(a.date||a.created_at||""));});}
     var html="";
+    var rawActivities=arr(p.activities);
+    var exams=arr(p.exams).concat(rawActivities.filter(function(a){return a&&a.type==='exam';}));
+    var followups=arr(p.absence_followups).concat(rawActivities.filter(function(a){return a&&(a.type==='absence_followup'||a.subject==='پیگیری غیبت مدیر');}));
+    var activities=rawActivities.filter(function(a){return a&&a.type!=='exam'&&a.type!=='absence_followup'&&a.subject!=='پیگیری غیبت مدیر';});
+    var customFields=st.custom_fields&&typeof st.custom_fields==='object'&&!Array.isArray(st.custom_fields)?st.custom_fields:{};
+    var customKeys=Object.keys(customFields);
     html+=list("حضور و غیاب",dateSort(p.attendance),function(a){return "<div class=\"item\">"+faDigits(esc(a.date||""))+" — "+esc(trStatus(a.status))+(a.note?(" — "+esc(a.note)):"")+"</div>";});
-    html+=list("پرسش و پاسخ / فعالیت",dateSort(p.activities),function(a){return "<div class=\"item\">"+faDigits(esc(a.date||""))+" — "+esc(trSubject(a.subject||a.lesson||""))+" — "+esc(trLevel(a.level||a.score||a.result||""))+(a.notes?(" — "+esc(a.notes)):"")+"</div>";});
+    html+=list("پرسش و پاسخ / فعالیت",dateSort(activities),function(a){return "<div class=\"item\">"+faDigits(esc(a.date||""))+" — "+esc(trSubject(a.subject||a.lesson||""))+" — "+esc(trLevel(a.level||a.score||a.result||""))+(a.notes?(" — "+esc(a.notes)):"")+(a.recorded_by?(" — ثبت‌کننده: "+esc(a.recorded_by)):"")+"</div>";});
+    html+=list("آزمون‌ها",dateSort(exams),function(a){return "<div class=\"item\"><b>"+esc(a.exam_name||a.name||a.subject||"آزمون")+"</b> — "+faDigits(esc(a.date||""))+" — درس: "+esc(trSubject(a.subject||a.lesson||""))+" — نمره: "+esc(a.score==null?"—":a.score)+" — "+esc(trLevel(a.level||""))+(a.notes||a.desc_text||a.description?(" — "+esc(a.notes||a.desc_text||a.description)):"")+(a.recorded_by?(" — ثبت‌کننده: "+esc(a.recorded_by)):"")+"</div>";});
+    html+=list("پیگیری غیبت",dateSort(followups),function(a){return "<div class=\"item\">"+faDigits(esc(a.date||""))+" — "+esc(a.notes||a.details||a.description||"توضیحی ثبت نشده است")+(a.recorded_by?(" — ثبت‌کننده: "+esc(a.recorded_by)):"")+"</div>";});
+    html+=list("مشخصات تکمیلی",customKeys,function(k){return "<div class=\"item\"><b>"+esc(k)+":</b> "+esc(customFields[k])+"</div>";});
     html+=list("ارزشیابی",dateSort(p.evaluations),function(a){return "<div class=\"item\">"+faDigits(esc(a.month||a.date||""))+" — "+esc(trSubject(a.subject||""))+" — "+esc(trLevel(a.level||a.score||""))+(a.notes?(" — "+esc(a.notes)):"")+"</div>";});
     html+=list("نمرات",dateSort(p.scores),function(a){return "<div class=\"item\">"+esc(trSubject(a.subject||""))+" — نمره: "+esc(a.score==null?"—":a.score)+" — "+esc(trLevel(a.level||""))+(a.notes?(" — "+esc(a.notes)):"")+"</div>";});
     var progressMap=Object.create(null);
