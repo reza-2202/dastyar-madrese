@@ -13743,7 +13743,9 @@ window.printAbsenteesNeedsAttention=function(){
  if(!box||!box.innerHTML.trim()||box.textContent.indexOf('برای مشاهده')>=0){toast('ابتدا گزارش غایبین نیازمند رسیدگی را نمایش دهید');return;}
  var area=document.getElementById('print-area');
  if(!area){window.print();return;}
- var printable=box.cloneNode(true);\n if(printable.querySelectorAll)printable.querySelectorAll('button,textarea,input,select,.no-print').forEach(function(n){n.remove();});\n area.innerHTML='<div dir="rtl" style="direction:rtl;text-align:right;font-family:Tahoma,Arial"><h2 style="text-align:center">گزارش غایبین نیازمند رسیدگی</h2><p style="text-align:center">دبستان شهید فتح‌الله فلاح‌پور — '+safe(today())+'</p>'+printable.innerHTML+'</div>';
+ var printable=box.cloneNode(true);
+ if(printable.querySelectorAll)printable.querySelectorAll('button,textarea,input,select,.no-print').forEach(function(n){n.remove();});
+ area.innerHTML='<div dir="rtl" style="direction:rtl;text-align:right;font-family:Tahoma,Arial"><h2 style="text-align:center">گزارش غایبین نیازمند رسیدگی</h2><p style="text-align:center">دبستان شهید فتح‌الله فلاح‌پور — '+safe(today())+'</p>'+printable.innerHTML+'</div>';
  window.print();
 };
 })();
