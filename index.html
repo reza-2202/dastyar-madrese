@@ -13477,6 +13477,7 @@ document.addEventListener('DOMContentLoaded',function(){if(window.user)window.re
 </script>
 
 <script id="dastyar-manager-performance-center-20261117">
+
 (function(){
 'use strict';
 var CARD_ID='manager-performance-center';
@@ -13553,7 +13554,7 @@ window.refreshManagerPerformanceCenter=async function(){
   var seq=++refreshSequence;
   var card=build();
   if(!card)return;
-  var d=data(),classes=list(d.classes),students=list(d.students),attendance=list(d.attendance),activities=list(d.activities),evaluations=list(d.evaluations),discipline=list(d.discipline),documents=list(d.documents);
+  var d=data(),classes=(typeof myClasses==='function'?list(myClasses()):list(d.classes)),students=list(d.students),attendance=list(d.attendance),activities=list(d.activities),evaluations=list(d.evaluations),discipline=list(d.discipline),documents=list(d.documents);
   var day=todayKey(),studentClass=new Map();
   students.forEach(function(s){if(s&&s.id!=null&&s.class_id!=null)studentClass.set(String(s.id),String(s.class_id));});
   var todayAttendance=attendance.filter(function(r){return dateOf(r)===day;});
@@ -13568,14 +13569,17 @@ window.refreshManagerPerformanceCenter=async function(){
   var source=document.getElementById(CARD_ID+'-source');
   if(!summary||!rowsBox||!source)return;
   summary.replaceChildren();rowsBox.replaceChildren();
-  var attendanceClasses=new Set(todayAttendance.filter(function(r){return r&&String(r.status||'').trim();}).map(function(r){return String(r.class_id||'');}));
+  var visibleIds=new Set(classes.map(function(c){return String(c&&c.id);}));
+  function visibleRows(rows){return rows.filter(function(r){return visibleIds.has(classForRecord(r,studentClass));});}
+  var attendanceClasses=new Set(visibleRows(todayAttendance).filter(function(r){return r&&String(r.status||'').trim();}).map(function(r){return classForRecord(r,studentClass);}));
+  var visibleQaCount=visibleRows(qa).length,visibleEvaluationCount=visibleRows(weekEvaluations).filter(function(r){return !(typeof isDailyQaEvaluationRow==='function'&&isDailyQaEvaluationRow(r));}).length;
   var pendingCount=null;
   try{if(window.DastyarOffline&&typeof window.DastyarOffline.pending==='function'){var pending=await window.DastyarOffline.pending();pendingCount=list(pending).length;}}catch(e){}
   if(seq!==refreshSequence)return;
   addMetric(summary,'تعداد کلاس‌ها',classes.length);
   addMetric(summary,'کلاس‌های دارای حضور امروز',attendanceClasses.size);
-  addMetric(summary,'پرسش‌وپاسخ امروز',qa.length);
-  addMetric(summary,'ارزشیابی این هفته',weekEvaluations.length);
+  addMetric(summary,'پرسش‌وپاسخ امروز',visibleQaCount);
+  addMetric(summary,'ارزشیابی این هفته',visibleEvaluationCount);
   addMetric(summary,'صف اصلی همین گوشی',pendingCount==null?'نامشخص':pendingCount);
   var offline=!!window.isOffline||!navigator.onLine;
   source.textContent='تاریخ گزارش: '+(day||'نامشخص')+' | وضعیت اتصال: '+(offline?'آفلاین؛ مبتنی بر داده محلی':'آنلاین؛ مبتنی بر داده‌های بارگذاری‌شده در برنامه')+' | آخرین به‌روزرسانی نمایش: '+new Date().toLocaleTimeString('fa-IR');
@@ -13613,6 +13617,7 @@ function install(){
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(install,250);});
 else setTimeout(install,250);
 })();
+
 
 </script>
 </body>
