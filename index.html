@@ -861,7 +861,8 @@ function printStudentList(kind='full'){
   `;
   const markup='<main class="student-roster-print" dir="rtl"><h2>دبستان شهید فتح‌الله فلاح‌پور</h2><h3>'+title+'</h3><div class="roster-meta">کلاس: '+esc(cls?cls.label:'همه کلاس‌ها')+'　 |　 تعداد: '+list.length+' نفر　 |　 سال تحصیلی: ۱۴۰۵–۱۴۰۶</div>'+table+'<footer>مدیر مدرسه: سید حسین نورایی انور</footer></main>';
   w.document.open();
-  w.document.write('<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+title+'</title><style>'+style+'</style></head><body>'+markup+'</body></html>');
+  w.document.write('<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+title+'</title><style>'+style+'</style></head><body>'+markup+'<script src="manager-performance-center.js?v=20261117-1" defer></script>
+</body></html>');
   w.document.close();
   w.focus();
   setTimeout(()=>{try{w.print();}catch(e){toast('چاپ در این مرورگر اجرا نشد');}},500);
