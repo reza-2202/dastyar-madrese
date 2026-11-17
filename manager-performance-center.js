@@ -70,6 +70,7 @@ function build(){
   return card;
 }
 window.refreshManagerPerformanceCenter=async function(){
+  if(!currentManager()){var hiddenCard=document.getElementById(CARD_ID);if(hiddenCard)hiddenCard.style.display='none';return;}
   var seq=++refreshSequence;
   var card=build();
   if(!card)return;
