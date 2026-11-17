@@ -1678,7 +1678,7 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <div class="no-print" id="ev-form"></div>
 <div class="card no-print" id="parent-portal-evaluation-card" style="border:1px solid #bfdbfe;background:#f8fbff">
  <div class="ct">🔗 پرونده الکترونیکی اولیا</div>
- <p class="meta" style="line-height:1.8">برای تمام اولیای این کلاس فقط یک لینک کوتاه و مشترک ساخته می‌شود. هر ولی با روش ورود تعیین‌شده، فقط پرونده فرزند خود را از سرور دریافت می‌کند. مدیر یا معلم می‌تواند دسترسی را فعال، غیرفعال یا زمان‌دار کند.</p>
+ <p class="meta" style="line-height:1.8">برای تمام اولیای این کلاس فقط یک لینک کوتاه و مشترک ساخته می‌شود. هر ولی با روش ورود تعیین‌شده، فقط پرونده فرزند خود را از سرور دریافت می‌کند. مدیر یا معلم می‌تواند دسترسی را فعال، غیرفعال یا زمان‌دار کند. این پرونده به‌صورت بسته رمزگذاری‌شده منتشر می‌شود؛ پس از ثبت سوابق جدید، برای به‌روزرسانی اطلاعات داخل همان لینک، دکمه ساخت لینک را دوباره بزنید.</p>
  <div class="fg" style="margin-top:10px"><label for="parent-login-mode">روش ورود مجاز برای اولیا و دانش‌آموزان این کلاس</label><select id="parent-login-mode" style="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px"><option value="code_password">کد دانش‌آموزی + رمز اختصاصی (پیشنهادی)</option><option value="password_only">فقط رمز اختصاصی تولیدشده توسط برنامه</option><option value="code_only">فقط کد دانش‌آموزی</option><option value="name_password">نام و نام خانوادگی + رمز اختصاصی</option><option value="name_only">فقط نام و نام خانوادگی</option></select><small class="meta">روش انتخاب‌شده برای همه دانش‌آموزان این کلاس در بسته جدید اعمال می‌شود. روش‌های بدون رمز اختصاصی امنیت پایین‌تری دارند.</small></div>
  <div class="fg"><label for="parent-link-duration">مدت اعتبار لینک مشترک</label><select id="parent-link-duration" style="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px"><option value="24">۲۴ ساعت (یک روز)</option><option value="72">۳ روز</option><option value="168">۷ روز</option><option value="720">۳۰ روز</option><option value="0">بدون انقضا تا غیرفعال‌سازی دستی</option></select></div>
  <label style="display:flex;align-items:center;gap:8px;margin:10px 0;font-size:.82rem"><input id="parent-access-enabled" type="checkbox" checked> فعال بودن دسترسی اولیا برای این کلاس</label>
@@ -5307,16 +5307,16 @@ function openStudentDossier(id){
  try{ if(typeof applyStudentPhotosFromLocal==='function') applyStudentPhotosFromLocal(); }catch(e){}
  const s=cache.students.find(x=>x.id===id); if(!s)return;
  const cl=cache.classes.find(x=>x.id===s.class_id);
- const att=cache.attendance.filter(x=>x.student_id===id).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
- const dis=cache.discipline.filter(x=>x.student_id===id).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
- const evs=cache.evaluations.filter(x=>x.student_id===id).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+ const att=cache.attendance.filter(x=>String(x.student_id)===String(id)).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+ const dis=cache.discipline.filter(x=>String(x.student_id)===String(id)).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+ const evs=cache.evaluations.filter(x=>String(x.student_id)===String(id)).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
  const studentActivities=cache.activities.filter(x=>String(x.student_id)===String(id));
   const absenceFollowups=studentActivities.filter(x=>x.type==='absence_followup'||x.subject==='پیگیری غیبت مدیر').sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||String(b.created_at||'').localeCompare(String(a.created_at||'')));
   const allActs=studentActivities.filter(x=>x.type!=='absence_followup'&&x.subject!=='پیگیری غیبت مدیر').sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
  const exams=allActs.filter(x=>x.type==='exam');
  const acts=allActs.filter(x=>x.type!=='exam');
- const scores=cache.scores.filter(x=>x.student_id===id);
- const comps=cache.competencies.filter(x=>x.student_id===id);
+ const scores=cache.scores.filter(x=>String(x.student_id)===String(id));
+ const comps=cache.competencies.filter(x=>String(x.student_id)===String(id));
  const contacts=(cache.parent_contacts||[]).filter(x=>String(x.student_id)===String(id)).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
  const fins=(cache.finance||[]).filter(x=>String(x.student_id)===String(id)).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
  const statusLabel={present:'حاضر',unexcused:'غایب',absent:'غایب',excused:'غایب موجه',late:'تأخیر'};
