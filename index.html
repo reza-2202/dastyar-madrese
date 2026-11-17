@@ -1171,6 +1171,17 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
   <p id="sync-status-text" style="font-size:.82rem;color:#1e40af;line-height:1.7;margin:0 0 10px">در حال بررسی صف همگام‌سازی...</p>
   <button type="button" class="btn btn-p btn-sm" id="sync-now-btn" onclick="manualSyncNow()">همین حالا همگام‌سازی کن</button>
   <p style="font-size:.72rem;color:#64748b;margin:8px 0 0;line-height:1.6">همه ثبت‌ها (حضور، نمره، کارنامه، پرسش و پاسخ، آزمون، انضباط، مالی و ...) در حالت آفلاین روی گوشی می‌مانند و پس از اتصال اینترنت همگام می‌شوند؛ تکراری ثبت نمی‌شود.</p>
+  <div id="manager-sync-details" style="display:none;margin-top:12px;padding:10px;border:1px solid #bfdbfe;border-radius:10px;background:#fff">
+    <div style="font-weight:800;color:#1e40af;font-size:.86rem;margin-bottom:7px">📊 گزارش مدیریتی همگام‌سازی</div>
+    <div id="manager-sync-summary" aria-live="polite" style="font-size:.78rem;line-height:1.8;padding:7px 8px;border-radius:8px;background:#f8fafc;margin-bottom:8px">در حال بررسی صف‌های این گوشی...</div>
+    <div style="font-size:.78rem;font-weight:800;color:#334155;margin:6px 0">تعداد موارد در صف‌های مختلف</div>
+    <div id="manager-sync-breakdown" style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden"></div>
+    <div style="font-size:.78rem;font-weight:800;color:#334155;margin:10px 0 4px">باقی‌مانده صف اصلی به تفکیک بخش</div>
+    <div id="manager-sync-table-breakdown" style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden"></div>
+    <div id="manager-sync-last" style="font-size:.75rem;color:#475569;line-height:1.8;margin-top:9px">آخرین همگام‌سازی کامل هنوز ثبت نشده است.</div>
+    <button type="button" class="btn btn-o btn-sm" style="margin-top:7px" onclick="refreshManagerSyncDetails()">تازه‌سازی گزارش</button>
+    <p style="font-size:.7rem;color:#64748b;line-height:1.7;margin:8px 0 0">برای تلاش مجدد، از دکمه همگام‌سازی بالای همین کارت استفاده کنید. این گزارش صف‌های همین گوشی را نشان می‌دهد؛ صف گوشی معلمی که هنوز آفلاین است تا زمان اتصال آن گوشی از راه دور قابل مشاهده نیست. موارد باقی‌مانده لزوماً خطا نیستند و ممکن است در انتظار اتصال باشند.</p>
+  </div>
 </div>
 <div class="no-print" id="smart-reminders-card" style="margin:6px 0 10px">
   <button type="button" id="smart-reminders-mini-btn" onclick="toggleSmartRemindersPanel()" title="یادآور هوشمند"
@@ -13334,5 +13345,133 @@ window.refreshSharedInboxPanels=function(){
 document.addEventListener('DOMContentLoaded',function(){if(window.user)window.refreshSharedInboxPanels();});
 })();
 </script>
+<script id="dastyar-manager-sync-center-20261117">
+(function(){
+  'use strict';
+  var LAST_SYNC_KEY='dastyar_manager_last_full_sync_v1';
+  var syncCandidateAt=0;
+  var TABLE_LABELS={
+    sa_users:'حساب‌های کاربری',sa_classes:'کلاس‌ها',sa_students:'دانش‌آموزان',
+    sa_attendance:'حضور و غیاب',sa_scores:'نمرات',sa_competencies:'شایستگی‌ها',
+    sa_activities:'پرسش و فعالیت روزانه',sa_evaluations:'ارزشیابی',
+    sa_discipline:'انضباط',sa_finance:'امور مالی',sa_documents:'اسناد و فایل‌ها'
+  };
+  function readArray(key){
+    try{var value=JSON.parse(localStorage.getItem(key)||'[]');return Array.isArray(value)?value:[];}
+    catch(e){return [];}
+  }
+  function isOnlineAndUsable(){
+    try{return !!navigator.onLine && !(typeof isAppOfflineNow==='function'?isAppOfflineNow():!!window.isOffline);}
+    catch(e){return !!navigator.onLine&&!window.isOffline;}
+  }
+  function addPendingDocuments(set,rows){
+    if(!Array.isArray(rows))return;
+    rows.forEach(function(row){
+      if(!row||row.id==null)return;
+      if(row.pending_upload===true||row.sync_status==='pending_upload')set.add(String(row.id));
+    });
+  }
+  async function collectState(){
+    var queue=[];
+    try{if(window.DastyarOffline&&typeof window.DastyarOffline.pending==='function')queue=await window.DastyarOffline.pending()||[];}
+    catch(e){queue=[];}
+    var byTable={};
+    queue.forEach(function(item){var name=String(item&&item.table||'نامشخص');byTable[name]=(byTable[name]||0)+1;});
+    var attendance=readArray('dastyar_pending_attendance_v1').length;
+    var deletes=readArray('dastyar_pending_document_deletes_v1').length;
+    var documentIds=new Set();
+    try{if(window.DastyarOffline&&typeof window.DastyarOffline.pendingDocuments==='function')addPendingDocuments(documentIds,await window.DastyarOffline.pendingDocuments());}catch(e){}
+    try{if(window.dastyarDocumentArchive&&typeof window.dastyarDocumentArchive.all==='function')addPendingDocuments(documentIds,await window.dastyarDocumentArchive.all());}catch(e){}
+    try{if(typeof cache!=='undefined'&&cache&&Array.isArray(cache.documents))addPendingDocuments(documentIds,cache.documents);}catch(e){}
+    return {queueCount:queue.length,byTable:byTable,attendance:attendance,documents:documentIds.size,deletes:deletes,total:queue.length+attendance+documentIds.size+deletes};
+  }
+  function addLine(parent,label,value,warning){
+    var line=document.createElement('div');
+    line.style.cssText='display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 8px;border-bottom:1px solid #e2e8f0;font-size:.78rem;line-height:1.6';
+    var name=document.createElement('span');name.textContent=label;
+    var count=document.createElement('b');count.textContent=String(value);count.style.color=warning&&Number(value)>0?'#b45309':'#334155';
+    line.appendChild(name);line.appendChild(count);parent.appendChild(line);
+  }
+  function faDate(value){
+    try{return new Date(Number(value)).toLocaleString('fa-IR');}catch(e){return '—';}
+  }
+  async function refreshManagerSyncDetails(){
+    var box=document.getElementById('manager-sync-details');
+    if(!box)return;
+    var current=null;try{if(typeof user!=='undefined')current=user;}catch(e){}
+    var allowed=!!(current&&(current.role==='admin'||current.role==='manager'));
+    box.style.display=allowed?'block':'none';
+    if(!allowed)return;
+    var summary=document.getElementById('manager-sync-summary');
+    var breakdown=document.getElementById('manager-sync-breakdown');
+    var last=document.getElementById('manager-sync-last');
+    if(!summary||!breakdown||!last)return;
+    var state=await collectState();
+    if(syncCandidateAt&&Date.now()-syncCandidateAt<600000&&state.total===0&&isOnlineAndUsable()){
+      try{localStorage.setItem(LAST_SYNC_KEY,String(syncCandidateAt));}catch(e){}
+      syncCandidateAt=0;
+    }
+    var online=isOnlineAndUsable();
+    summary.textContent=!online?'وضعیت: آفلاین یا اتصال سرور تأیید نشده است؛ اطلاعات صف‌شده روی همین گوشی باقی می‌مانند.':state.total?'وضعیت: اتصال برقرار است؛ '+state.total+' مورد هنوز در صف‌های قابل‌پیگیری این گوشی باقی مانده است.':'وضعیت: صف‌های قابل‌پیگیری این گوشی خالی هستند.';
+    summary.style.color=!online?'#b45309':state.total?'#b45309':'#166534';
+    breakdown.replaceChildren();
+    addLine(breakdown,'صف اصلی ثبت‌ها',state.queueCount,state.queueCount>0);
+    addLine(breakdown,'حضور و غیاب آفلاین',state.attendance,state.attendance>0);
+    addLine(breakdown,'بارگذاری فایل‌ها',state.documents,state.documents>0);
+    addLine(breakdown,'حذف فایل‌های در انتظار',state.deletes,state.deletes>0);
+    var tables=document.getElementById('manager-sync-table-breakdown');
+    if(tables){
+      tables.replaceChildren();
+      var names=Object.keys(state.byTable).sort();
+      if(!names.length){var empty=document.createElement('div');empty.textContent='در صف اصلی، موردی برای ارسال باقی نمانده است.';empty.style.cssText='font-size:.76rem;color:#64748b;padding:7px 2px';tables.appendChild(empty);}
+      else names.forEach(function(name){addLine(tables,TABLE_LABELS[name]||name,state.byTable[name],true);});
+    }
+    var stamp=0;try{stamp=Number(localStorage.getItem(LAST_SYNC_KEY)||0);}catch(e){}
+    last.textContent=stamp?'آخرین همگام‌سازی کامل تأییدشده از این گوشی: '+faDate(stamp):'هنوز زمان همگام‌سازی کامل از این گوشی ثبت نشده است.';
+  }
+  window.refreshManagerSyncDetails=refreshManagerSyncDetails;
+  if(window.DastyarOffline&&typeof window.DastyarOffline.sync==='function'&&!window.DastyarOffline.__managerSyncCenterWrapped){
+    var originalSync=window.DastyarOffline.sync;
+    window.DastyarOffline.sync=async function(){
+      var result=await originalSync.apply(this,arguments);
+      try{var pending=await window.DastyarOffline.pending();if(isOnlineAndUsable()&&(!pending||!pending.length))syncCandidateAt=Date.now();}catch(e){}
+      return result;
+    };
+    window.DastyarOffline.__managerSyncCenterWrapped=true;
+  }
+  if(typeof window.refreshSyncStatusPanel==='function'&&!window.refreshSyncStatusPanel.__managerSyncCenterWrapped){
+    var originalRefresh=window.refreshSyncStatusPanel;
+    var wrappedRefresh=async function(){
+      var result;
+      try{result=await originalRefresh.apply(this,arguments);}
+      finally{try{await refreshManagerSyncDetails();}catch(e){console.warn('به‌روزرسانی گزارش همگام‌سازی مدیر ناموفق بود',e);}}
+      return result;
+    };
+    wrappedRefresh.__managerSyncCenterWrapped=true;
+    window.refreshSyncStatusPanel=wrappedRefresh;
+  }
+  if(typeof window.manualSyncNow==='function'&&!window.manualSyncNow.__managerSyncCenterWrapped){
+    var originalManualSync=window.manualSyncNow;
+    var wrappedManualSync=async function(){
+      var result;
+      try{result=await originalManualSync.apply(this,arguments);}
+      finally{
+        if(isOnlineAndUsable()){
+          try{if(typeof syncPendingSchoolDocumentDeletes==='function')await syncPendingSchoolDocumentDeletes();}catch(e){console.warn('تلاش مجدد برای حذف فایل‌های معوق ناموفق بود',e);}
+          try{if(typeof syncPendingSchoolDocuments==='function')await syncPendingSchoolDocuments();}catch(e){console.warn('تلاش مجدد برای بارگذاری فایل‌های معوق ناموفق بود',e);}
+        }
+        try{await refreshManagerSyncDetails();}catch(e){}
+      }
+      return result;
+    };
+    wrappedManualSync.__managerSyncCenterWrapped=true;
+    window.manualSyncNow=wrappedManualSync;
+  }
+  window.addEventListener('online',function(){setTimeout(function(){refreshManagerSyncDetails();},1800);});
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(refreshManagerSyncDetails,400);});
+  else setTimeout(refreshManagerSyncDetails,400);
+})();
+</script>
+
 </body>
 </html>
