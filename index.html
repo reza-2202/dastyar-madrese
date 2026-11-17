@@ -8891,7 +8891,7 @@ function refreshAbsenteeReportsInBackground(){
   window.__dastyarAbsenteeRefreshPromise=pending;
   return pending;
 }
-function loadAbsenteesReport(options){
+async function loadAbsenteesReport(options){
   options=options||{};
   if(!options.skipRefresh) refreshAbsenteeReportsInBackground();
   var box=document.getElementById('absentees-report');
