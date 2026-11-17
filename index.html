@@ -5221,11 +5221,11 @@ function injectCustomFieldsUI(studentId){
   const first=root.querySelector('section.card');
   if(!first || document.getElementById('cf-list-'+studentId)) return;
   const wrap=document.createElement('div');
-  wrap.className='no-print';
+  wrap.className='';
   wrap.style.cssText='margin-top:12px;padding-top:10px;border-top:1px dashed #cbd5e1';
   wrap.innerHTML='<div style="font-weight:700;margin-bottom:6px">+ مشخصات بیشتر (سفارشی)</div>'
     +'<div id="cf-list-'+studentId+'"></div>'
-    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'
+    +'<div class="no-print" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'
     +'<input id="cf-key-'+studentId+'" placeholder="عنوان (مثلا گروه خونی)" style="flex:1;min-width:110px;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:inherit"/>'
     +'<input id="cf-val-'+studentId+'" placeholder="مقدار" style="flex:1;min-width:110px;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:inherit"/>'
     +'<button type="button" class="btn btn-o btn-sm" onclick="addStudentCustomField(\''+studentId+'\')">افزودن مشخصات بیشتر</button>'
@@ -12831,7 +12831,7 @@ async function shaHex(str){const b=await crypto.subtle.digest('SHA-256',new Text
 async function compressBytes(bytes){if(!window.CompressionStream)return bytes;const cs=new CompressionStream('gzip');const stream=new Blob([bytes]).stream().pipeThrough(cs);return new Uint8Array(await new Response(stream).arrayBuffer());}
 async function deriveParentKey(secret,salt){const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(String(secret)),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt:salt,iterations:180000,hash:'SHA-256'},material,{name:'AES-GCM',length:256},false,['encrypt']);}
 function getPasswordMap(){try{const x=JSON.parse(localStorage.getItem(PASSWORDS_KEY)||'{}');return x&&typeof x==='object'?x:{};}catch(e){return {};}}
-function safeParentStudent(s){return {first_name:s.first_name||'',last_name:s.last_name||'',class_name:((cache.classes||[]).find(c=>String(c.id)===String(s.class_id))||{}).label||'',father_name:s.father_name||'',mother_name:s.mother_name||'',custom_fields:(function(){let x=s.custom_fields||{};if(typeof x==='string'){try{x=JSON.parse(x)}catch(e){x={}}}if(!x||typeof x!=='object'||Array.isArray(x))return {};const out={};Object.keys(x).forEach(function(k){if(!/(national|کد.?ملی|phone|تلفن|موبایل|رمز|password|address|نشانی|آدرس|مالی|درآمد|بانک)/i.test(k))out[k]=x[k];});return out;})()};}
+function safeParentStudent(s){let x=s.custom_fields||{};if(typeof x==='string'){try{x=JSON.parse(x)}catch(e){x={}}}if(!x||typeof x!=='object'||Array.isArray(x))x={};let specs=Array.isArray(s.custom_specs)?s.custom_specs:((cache.customStudentSpecs||{})[String(s.id)]||[]);if(!Array.isArray(specs)||!specs.length)specs=Object.keys(x).map(function(k){return {title:k,value:x[k]}});const safeFields={};specs.forEach(function(p){const k=String(p&&p.title||'').trim();if(k&&!/(national|کد.?ملی|phone|تلفن|موبایل|رمز|password|address|نشانی|آدرس|مالی|درآمد|بانک)/i.test(k))safeFields[k]=String(p.value==null?'':p.value)});return {first_name:s.first_name||'',last_name:s.last_name||'',class_name:((cache.classes||[]).find(c=>String(c.id)===String(s.class_id))||{}).label||'',father_name:s.father_name||'',mother_name:s.mother_name||'',custom_fields:safeFields};}
 function escParent(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 const PARENT_SETTINGS_KEY='dastyar_parent_access_settings_v1';
 function readParentSettings(){try{return JSON.parse(localStorage.getItem(PARENT_SETTINGS_KEY)||'{}')||{};}catch(e){return {};}}
