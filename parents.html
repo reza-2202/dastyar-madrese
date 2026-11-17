@@ -199,8 +199,15 @@ button{width:100%;margin-top:14px;padding:12px;border:0;border-radius:12px;backg
     function list(title,rows,fmt){rows=arr(rows);var h="<div class=\"section\"><h3>"+title+" ("+faDigits(rows.length)+")</h3>";if(!rows.length)return h+"<div class=\"item\">موردی ثبت نشده است</div></div>";return h+rows.map(fmt).join("")+"</div>";}
     function dateSort(rows){return arr(rows).slice().sort(function(a,b){return String(b.date||b.created_at||"").localeCompare(String(a.date||a.created_at||""));});}
     var html="";
+    var allActivities=arr(p.activities);
+    var isAbsenceFollowup=function(a){return a&&(a.type==="absence_followup"||a.subject==="پیگیری غیبت مدیر");};
+    var exams=allActivities.filter(function(a){return a&&a.type==="exam";});
+    var followups=allActivities.filter(isAbsenceFollowup);
+    var dailyActivities=allActivities.filter(function(a){return a&&a.type!=="exam"&&!isAbsenceFollowup(a);});
     html+=list("حضور و غیاب",dateSort(p.attendance),function(a){return "<div class=\"item\">"+faDigits(esc(a.date||""))+" — "+esc(trStatus(a.status))+(a.note?(" — "+esc(a.note)):"")+"</div>";});
-    html+=list("پرسش و پاسخ / فعالیت",dateSort(p.activities),function(a){return "<div class=\"item\">"+faDigits(esc(a.date||""))+" — "+esc(trSubject(a.subject||a.lesson||""))+" — "+esc(trLevel(a.level||a.score||a.result||""))+(a.notes?(" — "+esc(a.notes)):"")+"</div>";});
+    html+=list("پرسش و پاسخ / فعالیت‌های کلاسی",dateSort(dailyActivities),function(a){var kind=a.type==="qa"?"پرسش و پاسخ":"فعالیت کلاسی";return "<div class=\"item\"><b>"+kind+"</b> — "+faDigits(esc(a.date||""))+" — "+esc(trSubject(a.subject||a.lesson||""))+" — "+esc(trLevel(a.level||a.score||a.result||""))+(a.notes?(" — "+esc(a.notes)):"")+"</div>";});
+    html+=list("آزمون‌های کتبی",dateSort(exams),function(a){return "<div class=\"item\"><b>"+esc(a.exam_name||a.name||a.subject||"آزمون")+"</b> — "+faDigits(esc(a.date||""))+" — درس: "+esc(trSubject(a.subject||a.lesson||""))+" — نمره: "+esc(a.score==null?"—":a.score)+" — "+esc(trLevel(a.level||""))+(a.notes?(" — "+esc(a.notes)):"")+"</div>";});
+    html+=list("پیگیری غیبت و تأخیر",dateSort(followups),function(a){var raw=String(a.notes||"");var clean=raw.replace(/^\[ABSENCE_CYCLE:[^\]]+\]\s*/,"").replace(/چرخه پیگیری:[^\n]*\n?/,"").replace(/تعداد غیبت\/تأخیر در این چرخه:[^\n]*\n?/,"").replace(/^توضیحات مدیر:\s*/,"").trim();return "<div class=\"item\">"+faDigits(esc(a.date||""))+(clean?(" — "+esc(clean)):"")+"</div>";});
     html+=list("ارزشیابی",dateSort(p.evaluations),function(a){return "<div class=\"item\">"+faDigits(esc(a.month||a.date||""))+" — "+esc(trSubject(a.subject||""))+" — "+esc(trLevel(a.level||a.score||""))+(a.notes?(" — "+esc(a.notes)):"")+"</div>";});
     html+=list("نمرات",dateSort(p.scores),function(a){return "<div class=\"item\">"+esc(trSubject(a.subject||""))+" — نمره: "+esc(a.score==null?"—":a.score)+" — "+esc(trLevel(a.level||""))+(a.notes?(" — "+esc(a.notes)):"")+"</div>";});
     var progressMap=Object.create(null);
@@ -212,6 +219,9 @@ button{width:100%;margin-top:14px;padding:12px;border:0;border-radius:12px;backg
     html+=list("انضباط",dateSort(p.discipline),function(a){return "<div class=\"item\">"+faDigits(esc(a.date||""))+" — "+esc(a.feedback||a.category||a.topic||"—")+(a.details?(" — "+esc(a.details)):"")+(a.decision_text?(" — "+esc(a.decision_text)):"")+"</div>";});
     html+=list("سوابق مالی",dateSort(p.finance),function(a){var amount=a.amount==null?"—":faDigits(a.amount);return "<div class=\"item\"><b>"+esc(a.topic||a.title||"مالی")+"</b> — "+faDigits(esc(a.date||""))+" — مبلغ: "+esc(amount)+(a.notes?(" — "+esc(a.notes)):"")+(a.status?(" — وضعیت: "+esc(a.status)):"")+"</div>";});
     html+=list("ارتباط و پیگیری با اولیا",dateSort(p.parent_contacts),function(a){var types={call:"تماس",message:"پیام",inperson:"حضوری",other:"سایر"};return "<div class=\"item\"><b>"+esc(types[a.contact_type]||a.contact_type||"ارتباط")+"</b> — "+faDigits(esc(a.date||""))+(a.phone?(" — "+esc(a.phone)):"")+(a.subject?(" — موضوع: "+esc(a.subject)):"")+(a.result?(" — نتیجه: "+esc(a.result)):"")+(a.follow_up_date?(" — پیگیری: "+faDigits(esc(a.follow_up_date))):"")+(a.notes?(" — "+esc(a.notes)):"")+"</div>";});
+    var customFields=st.custom_fields&&typeof st.custom_fields==="object"&&!Array.isArray(st.custom_fields)?st.custom_fields:{};
+    var customKeys=Object.keys(customFields);
+    if(customKeys.length) html+=list("مشخصات تکمیلی",customKeys,function(k){return "<div class=\"item\"><b>"+esc(k)+"</b> — "+esc(customFields[k])+"</div>";});
     $("v-body").innerHTML=html;
   }
 $("btn-login").onclick=function(e){ e.preventDefault(); doLogin(); };
