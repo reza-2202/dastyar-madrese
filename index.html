@@ -1166,21 +1166,31 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <p style="font-size:.75rem;opacity:.9;margin-top:8px">مدیریت مدرسه شهید فتح‌الله فلاح‌پور</p>
 <p style="font-size:.72rem;opacity:.85">صاحب امتیاز و سازنده: رضا فلاحتکار</p>
 </div>
-<div class="card no-print" id="sync-status-card" style="border:1px solid #93c5fd;background:#f8fbff">
-  <div class="ct">🔄 همگام‌سازی با سرور</div>
-  <p id="sync-status-text" style="font-size:.82rem;color:#1e40af;line-height:1.7;margin:0 0 10px">در حال بررسی صف همگام‌سازی...</p>
-  <button type="button" class="btn btn-p btn-sm" id="sync-now-btn" onclick="manualSyncNow()">همین حالا همگام‌سازی کن</button>
-  <p style="font-size:.72rem;color:#64748b;margin:8px 0 0;line-height:1.6">همه ثبت‌ها (حضور، نمره، کارنامه، پرسش و پاسخ، آزمون، انضباط، مالی و ...) در حالت آفلاین روی گوشی می‌مانند و پس از اتصال اینترنت همگام می‌شوند؛ تکراری ثبت نمی‌شود.</p>
-  <div id="manager-sync-details" style="display:none;margin-top:12px;padding:10px;border:1px solid #bfdbfe;border-radius:10px;background:#fff">
-    <div style="font-weight:800;color:#1e40af;font-size:.86rem;margin-bottom:7px">📊 گزارش مدیریتی همگام‌سازی</div>
-    <div id="manager-sync-summary" aria-live="polite" style="font-size:.78rem;line-height:1.8;padding:7px 8px;border-radius:8px;background:#f8fafc;margin-bottom:8px">در حال بررسی صف‌های این گوشی...</div>
-    <div style="font-size:.78rem;font-weight:800;color:#334155;margin:6px 0">تعداد موارد در صف‌های مختلف</div>
-    <div id="manager-sync-breakdown" style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden"></div>
-    <div style="font-size:.78rem;font-weight:800;color:#334155;margin:10px 0 4px">باقی‌مانده صف اصلی به تفکیک بخش</div>
-    <div id="manager-sync-table-breakdown" style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden"></div>
-    <div id="manager-sync-last" style="font-size:.75rem;color:#475569;line-height:1.8;margin-top:9px">آخرین همگام‌سازی کامل هنوز ثبت نشده است.</div>
-    <button type="button" class="btn btn-o btn-sm" style="margin-top:7px" onclick="refreshManagerSyncDetails()">تازه‌سازی گزارش</button>
-    <p style="font-size:.7rem;color:#64748b;line-height:1.7;margin:8px 0 0">برای تلاش مجدد، از دکمه همگام‌سازی بالای همین کارت استفاده کنید. این گزارش صف‌های همین گوشی را نشان می‌دهد؛ صف گوشی معلمی که هنوز آفلاین است تا زمان اتصال آن گوشی از راه دور قابل مشاهده نیست. موارد باقی‌مانده لزوماً خطا نیستند و ممکن است در انتظار اتصال باشند.</p>
+<div class="card no-print dastyar-dashboard-feature" id="sync-status-card" style="border:1px solid #93c5fd;background:#f8fbff">
+  <div class="dastyar-feature-head">
+    <button type="button" class="dastyar-feature-open" id="sync-status-open" aria-expanded="false" onclick="toggleDashboardFeature('sync')">🔄 همگام‌سازی با سرور <span class="dastyar-feature-hint">برای مشاهده وضعیت بزنید</span></button>
+    <button type="button" class="dastyar-feature-settings" aria-label="تنظیمات نمایش همگام‌سازی" title="تنظیمات نمایش" onclick="toggleDashboardFeatureSettings('sync')">⚙</button>
+  </div>
+  <div id="sync-status-settings" class="dastyar-feature-settings-panel" style="display:none">
+    <span>تنظیم نمایش: جزئیات این بخش با لمس عنوان باز و بسته می‌شود.</span>
+    <button type="button" onclick="toggleDashboardFeature('sync',true)">باز کردن جزئیات</button>
+    <button type="button" onclick="toggleDashboardFeatureSettings('sync')">بستن تنظیمات</button>
+  </div>
+  <div id="sync-status-body" class="dastyar-feature-body" style="display:none">
+    <p id="sync-status-text" style="font-size:.82rem;color:#1e40af;line-height:1.7;margin:0 0 10px">در حال بررسی صف همگام‌سازی...</p>
+    <button type="button" class="btn btn-p btn-sm" id="sync-now-btn" onclick="manualSyncNow()">همین حالا همگام‌سازی کن</button>
+    <p style="font-size:.72rem;color:#64748b;margin:8px 0 0;line-height:1.6">همه ثبت‌ها (حضور، نمره، کارنامه، پرسش و پاسخ، آزمون، انضباط، مالی و ...) در حالت آفلاین روی گوشی می‌مانند و پس از اتصال اینترنت همگام می‌شوند؛ تکراری ثبت نمی‌شود.</p>
+    <div id="manager-sync-details" style="display:none;margin-top:12px;padding:10px;border:1px solid #bfdbfe;border-radius:10px;background:#fff">
+      <div style="font-weight:800;color:#1e40af;font-size:.86rem;margin-bottom:7px">📊 گزارش مدیریتی همگام‌سازی</div>
+      <div id="manager-sync-summary" aria-live="polite" style="font-size:.78rem;line-height:1.8;padding:7px 8px;border-radius:8px;background:#f8fafc;margin-bottom:8px">در حال بررسی صف‌های این گوشی...</div>
+      <div style="font-size:.78rem;font-weight:800;color:#334155;margin:6px 0">تعداد موارد در صف‌های مختلف</div>
+      <div id="manager-sync-breakdown" style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden"></div>
+      <div style="font-size:.78rem;font-weight:800;color:#334155;margin:10px 0 4px">باقی‌مانده صف اصلی به تفکیک بخش</div>
+      <div id="manager-sync-table-breakdown" style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden"></div>
+      <div id="manager-sync-last" style="font-size:.75rem;color:#475569;line-height:1.8;margin-top:9px">آخرین همگام‌سازی کامل هنوز ثبت نشده است.</div>
+      <button type="button" class="btn btn-o btn-sm" style="margin-top:7px" onclick="refreshManagerSyncDetails()">تازه‌سازی گزارش</button>
+      <p style="font-size:.7rem;color:#64748b;line-height:1.7;margin:8px 0 0">برای تلاش مجدد، از دکمه همگام‌سازی بالای همین کارت استفاده کنید. این گزارش صف‌های همین گوشی را نشان می‌دهد؛ صف گوشی معلمی که هنوز آفلاین است تا زمان اتصال آن گوشی از راه دور قابل مشاهده نیست. موارد باقی‌مانده لزوماً خطا نیستند و ممکن است در انتظار اتصال باشند.</p>
+    </div>
   </div>
 </div>
 <div class="no-print" id="smart-reminders-card" style="margin:6px 0 10px">
@@ -13478,6 +13488,34 @@ document.addEventListener('DOMContentLoaded',function(){if(window.user)window.re
 })();
 </script>
 
+<style id="dastyar-dashboard-feature-controls">
+.dastyar-dashboard-feature{margin:10px 0!important}
+.dastyar-feature-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.dastyar-feature-open{flex:1;display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:right;border:0;background:transparent;color:#172554;padding:7px 2px;font:800 .9rem "Vazirmatn",Tahoma,sans-serif;cursor:pointer}
+.dastyar-feature-hint{font-size:.68rem;font-weight:500;color:#64748b}
+.dastyar-feature-settings{flex:0 0 34px;width:34px;height:34px;min-height:34px;border:1px solid #dbe3ef;border-radius:9px;background:#fff;color:#475569;font-size:1rem;cursor:pointer}
+.dastyar-feature-settings-panel{margin:7px 0 9px;padding:8px;border:1px dashed #cbd5e1;border-radius:9px;background:#fff;font-size:.72rem;line-height:1.8;color:#475569}
+.dastyar-feature-settings-panel button{margin:5px 4px 0 0;padding:5px 8px;min-height:30px;border:1px solid #dbe3ef;border-radius:7px;background:#f8fafc;color:#1e40af;font:inherit;cursor:pointer}
+.dastyar-feature-body{padding-top:8px;border-top:1px solid #e5edf7}
+#manager-performance-center{display:block!important;animation:none!important;transition:none!important}
+@media(prefers-reduced-motion:reduce){.dastyar-feature-open,.dastyar-feature-settings{transition:none!important}}
+</style>
+<script id="dastyar-dashboard-feature-controls-js">
+(function(){
+  window.toggleDashboardFeature=function(key,forceOpen){
+    var body=document.getElementById(key==='sync'?'sync-status-body':'manager-performance-center-body');
+    var btn=document.getElementById(key==='sync'?'sync-status-open':'manager-performance-center-open');
+    if(!body)return;
+    var open=forceOpen===true?true:body.style.display==='none'||!body.style.display;
+    body.style.display=open?'block':'none';
+    if(btn){btn.setAttribute('aria-expanded',open?'true':'false');var hint=btn.querySelector('.dastyar-feature-hint');if(hint)hint.textContent=open?'برای بستن بزنید':'برای مشاهده وضعیت بزنید';}
+  };
+  window.toggleDashboardFeatureSettings=function(key){
+    var panel=document.getElementById(key==='sync'?'sync-status-settings':'manager-performance-center-settings');
+    if(panel)panel.style.display=panel.style.display==='none'||!panel.style.display?'block':'none';
+  };
+})();
+</script>
 <script id="dastyar-manager-performance-center-20261117">
 
 (function(){
@@ -13530,24 +13568,29 @@ function build(){
   var dashboard=document.getElementById('page-dashboard');
   if(!dashboard)return null;
   var card=document.getElementById(CARD_ID);
-  if(card)return card;
-  var anchor=dashboard.querySelector('.sg');
+  if(card){card.style.display='block';return card;}
+  var anchor=document.getElementById('sync-status-card')||dashboard.querySelector('.sg')||dashboard.querySelector('.wel');
   if(!anchor)return null;
   card=el('section','margin:10px 0;padding:12px;border:1px solid #cbd5e1;border-radius:12px;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.05)');
   card.id=CARD_ID;
-  var head=el('div','display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px');
-  head.appendChild(el('strong','font-size:.92rem;color:#0f172a','📊 مرکز پایش عملکرد مدرسه'));
-  var btn=el('button','border:1px solid #cbd5e1;background:#f8fafc;color:#1e40af;border-radius:8px;padding:6px 10px;font:inherit;font-size:.75rem;cursor:pointer','به‌روزرسانی نمایش');
-  btn.type='button';btn.onclick=function(){window.refreshManagerPerformanceCenter();};
-  head.appendChild(btn);card.appendChild(head);
-  card.appendChild(el('p','font-size:.72rem;line-height:1.8;color:#64748b;margin:0 0 9px','گزارش فقط‌خواندنی از ثبت‌های موجود در حافظه برنامه؛ هیچ داده‌ای را تغییر یا حذف نمی‌کند.'));
+  var head=el('div','display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px');
+  var openBtn=el('button','flex:1;text-align:right;border:0;background:transparent;color:#0f172a;padding:7px 2px;font:800 .92rem Vazirmatn,Tahoma,sans-serif;cursor:pointer','📊 مرکز پایش عملکرد مدرسه  •  برای مشاهده بزنید');
+  openBtn.type='button';openBtn.id=CARD_ID+'-open';openBtn.setAttribute('aria-expanded','false');openBtn.onclick=function(){window.toggleDashboardFeature('performance');};head.appendChild(openBtn);
+  var gear=el('button','width:34px;height:34px;min-height:34px;border:1px solid #cbd5e1;border-radius:9px;background:#f8fafc;color:#475569;cursor:pointer','⚙');
+  gear.type='button';gear.title='تنظیمات نمایش مرکز پایش';gear.setAttribute('aria-label','تنظیمات نمایش مرکز پایش');gear.onclick=function(){window.toggleDashboardFeatureSettings('performance');};head.appendChild(gear);card.appendChild(head);
+  var settings=el('div','display:none;margin:7px 0 9px;padding:8px;border:1px dashed #cbd5e1;border-radius:9px;background:#fff;font-size:.72rem;line-height:1.8;color:#475569','تنظیم نمایش مرکز پایش');settings.id=CARD_ID+'-settings';
+  var settingsOpen=el('button','margin:5px 4px 0 0;padding:5px 8px;min-height:30px;border:1px solid #dbe3ef;border-radius:7px;background:#f8fafc;color:#1e40af;font:inherit;cursor:pointer','باز کردن جزئیات');settingsOpen.type='button';settingsOpen.onclick=function(){window.toggleDashboardFeature('performance',true);};settings.appendChild(settingsOpen);
+  var settingsClose=el('button','margin:5px 4px 0 0;padding:5px 8px;min-height:30px;border:1px solid #dbe3ef;border-radius:7px;background:#f8fafc;color:#1e40af;font:inherit;cursor:pointer','بستن تنظیمات');settingsClose.type='button';settingsClose.onclick=function(){window.toggleDashboardFeatureSettings('performance');};settings.appendChild(settingsClose);card.appendChild(settings);
+  var body=el('div','display:none;padding-top:8px;border-top:1px solid #e5e7eb');body.id=CARD_ID+'-body';card.appendChild(body);
+  body.appendChild(el('p','font-size:.72rem;line-height:1.8;color:#64748b;margin:0 0 9px','گزارش فقط‌خواندنی از ثبت‌های موجود در حافظه برنامه؛ هیچ داده‌ای را تغییر یا حذف نمی‌کند.'));
+  var refreshBtn=el('button','border:1px solid #cbd5e1;background:#f8fafc;color:#1e40af;border-radius:8px;padding:5px 9px;font:inherit;font-size:.72rem;cursor:pointer','به‌روزرسانی نمایش');refreshBtn.type='button';refreshBtn.onclick=function(){window.refreshManagerPerformanceCenter();};body.appendChild(refreshBtn);
   var summary=el('div','display:flex;flex-wrap:wrap;gap:6px;margin:8px 0');
-  summary.id=CARD_ID+'-summary';card.appendChild(summary);
+  summary.id=CARD_ID+'-summary';body.appendChild(summary);
   var source=el('div','font-size:.72rem;line-height:1.8;color:#475569;padding:7px 8px;border-radius:8px;background:#f8fafc;margin-bottom:9px');
-  source.id=CARD_ID+'-source';card.appendChild(source);
+  source.id=CARD_ID+'-source';body.appendChild(source);
   var rows=el('div','display:flex;flex-direction:column;gap:7px');
-  rows.id=CARD_ID+'-rows';card.appendChild(rows);
-  card.appendChild(el('p','font-size:.68rem;line-height:1.8;color:#64748b;margin:9px 0 0','محدودیت گزارش: صف آفلاین گوشی‌های دیگر فقط پس از اتصال و همگام‌سازی قابل مشاهده است. تاریخچه تغییرات و حذف‌های گذشته نیز در ساختار فعلی ثبت حسابرسی مستقلی ندارد.'));
+  rows.id=CARD_ID+'-rows';body.appendChild(rows);
+  body.appendChild(el('p','font-size:.68rem;line-height:1.8;color:#64748b;margin:9px 0 0','محدودیت گزارش: صف آفلاین گوشی‌های دیگر فقط پس از اتصال و همگام‌سازی قابل مشاهده است. تاریخچه تغییرات و حذف‌های گذشته نیز در ساختار فعلی ثبت حسابرسی مستقلی ندارد.'));
   anchor.insertAdjacentElement('afterend',card);
   return card;
 }
