@@ -13027,7 +13027,6 @@ window.generateParentPortalLink=async function(classId,studentId){
     const secret=parentSecret(identity,password,mode);
     const payload={
       student:safeParentStudent(st),
-       progress_trends_html:buildStudentTrendHtml(st.id),
       updated_at:new Date().toISOString(),
       attendance:(cache.attendance||[]).filter(x=>String(x.student_id)===String(st.id)),
       activities:(cache.activities||[]).filter(x=>x&&String(x.student_id)===String(st.id)&&x.type!=='exam'&&x.type!=='absence_followup'&&x.subject!=='پیگیری غیبت مدیر'),
