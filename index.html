@@ -13586,6 +13586,8 @@ function build(){
   var refreshBtn=el('button','border:1px solid #cbd5e1;background:#f8fafc;color:#1e40af;border-radius:8px;padding:5px 9px;font:inherit;font-size:.72rem;cursor:pointer','به‌روزرسانی نمایش');refreshBtn.type='button';refreshBtn.onclick=function(){window.refreshManagerPerformanceCenter();};body.appendChild(refreshBtn);
   var summary=el('div','display:flex;flex-wrap:wrap;gap:6px;margin:8px 0');
   summary.id=CARD_ID+'-summary';body.appendChild(summary);
+  var alerts=el('div','display:flex;flex-direction:column;gap:7px;margin:8px 0');
+  alerts.id=CARD_ID+'-alerts';body.appendChild(alerts);
   var source=el('div','font-size:.72rem;line-height:1.8;color:#475569;padding:7px 8px;border-radius:8px;background:#f8fafc;margin-bottom:9px');
   source.id=CARD_ID+'-source';body.appendChild(source);
   var rows=el('div','display:flex;flex-direction:column;gap:7px');
@@ -13610,9 +13612,10 @@ window.__refreshManagerPerformanceCenterCore=async function(){
   var weekEvaluations=evaluations.filter(function(r){try{return typeof isEvaluationInCurrentWeek==='function'?isEvaluationInCurrentWeek(r):dateOf(r)===day;}catch(e){return dateOf(r)===day;}});
   function forClass(rows,cid){return rows.filter(function(r){return classForRecord(r,studentClass)===String(cid);});}
   var summary=document.getElementById(CARD_ID+'-summary');
+  var alerts=document.getElementById(CARD_ID+'-alerts');
   var rowsBox=document.getElementById(CARD_ID+'-rows');
   var source=document.getElementById(CARD_ID+'-source');
-  if(!summary||!rowsBox||!source)return;
+  if(!summary||!alerts||!rowsBox||!source)return;
   var visibleIds=new Set(classes.map(function(c){return String(c&&c.id);}));
   function visibleRows(rows){return rows.filter(function(r){return visibleIds.has(classForRecord(r,studentClass));});}
   var attendanceClasses=new Set(visibleRows(todayAttendance).filter(function(r){return r&&String(r.status||'').trim();}).map(function(r){return classForRecord(r,studentClass);}));
@@ -13620,7 +13623,7 @@ window.__refreshManagerPerformanceCenterCore=async function(){
   var pendingCount=null;
   try{if(window.DastyarOffline&&typeof window.DastyarOffline.pending==='function'){var pending=await window.DastyarOffline.pending();pendingCount=list(pending).length;}}catch(e){}
   if(seq!==refreshSequence)return;
-  summary.replaceChildren();rowsBox.replaceChildren();
+  summary.replaceChildren();alerts.replaceChildren();rowsBox.replaceChildren();
   addMetric(summary,'تعداد کلاس‌ها',classes.length);
   addMetric(summary,'کلاس‌های دارای حضور امروز',attendanceClasses.size);
   addMetric(summary,'پرسش‌وپاسخ امروز',visibleQaCount);
@@ -13629,12 +13632,16 @@ window.__refreshManagerPerformanceCenterCore=async function(){
   var offline=!!window.isOffline||!navigator.onLine;
   source.textContent='تاریخ گزارش: '+(day||'نامشخص')+' | وضعیت اتصال: '+(offline?'آفلاین؛ مبتنی بر داده محلی':'آنلاین؛ مبتنی بر داده‌های بارگذاری‌شده در برنامه')+' | آخرین به‌روزرسانی نمایش: '+new Date().toLocaleTimeString('fa-IR');
   if(!classes.length){rowsBox.appendChild(el('div','padding:9px;color:#64748b;font-size:.78rem','کلاسی در حافظه برنامه موجود نیست.'));return;}
+  var noAttendanceClasses=[],noQaClasses=[],noEvaluationClasses=[];
   classes.forEach(function(c){
     if(!c||c.id==null)return;
     var cid=String(c.id),roster=students.filter(function(s){return s&&String(s.class_id)===cid;});
     var att=forClass(todayAttendance,cid),attN=countUnique(att.filter(function(r){return r&&String(r.status||'').trim();}));
     var qaN=forClass(qa,cid).length,examN=forClass(exams,cid).length,dailyN=forClass(daily,cid).length;
     var evalN=forClass(weekEvaluations,cid).filter(function(r){return !(typeof isDailyQaEvaluationRow==='function'&&isDailyQaEvaluationRow(r));}).length;
+    if(roster.length&&attN<roster.length)noAttendanceClasses.push(c.label||c.name||('کلاس '+cid));
+    if(roster.length&&qaN===0)noQaClasses.push(c.label||c.name||('کلاس '+cid));
+    if(roster.length&&evalN===0)noEvaluationClasses.push(c.label||c.name||('کلاس '+cid));
     var discN=forClass(discipline,cid).length,docN=forClass(documents,cid).length;
     var box=el('div','border:1px solid #e2e8f0;border-radius:10px;padding:9px;background:#fff');
     var top=el('div','display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap');
@@ -13649,6 +13656,21 @@ window.__refreshManagerPerformanceCenterCore=async function(){
     });
     box.appendChild(detail);rowsBox.appendChild(box);
   });
+  function addActionAlert(title,count,names,description,page,tone){
+    var item=el('div','display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:9px;border:1px solid '+(tone==='warn'?'#fcd34d':'#e2e8f0')+';border-radius:9px;background:'+(tone==='warn'?'#fffbeb':'#f8fafc'));
+    var info=el('div','flex:1;min-width:150px');
+    var heading=el('div','font-size:.76rem;font-weight:800;color:'+(tone==='warn'?'#92400e':'#334155'),title+(count===null?'':' · '+count));
+    info.appendChild(heading);
+    var detail=names&&names.length?names.slice(0,4).join('، ')+(names.length>4?' و ...':''):description;
+    info.appendChild(el('div','font-size:.68rem;line-height:1.7;color:#64748b;margin-top:2px',detail));
+    item.appendChild(info);
+    var action=el('button','border:1px solid #cbd5e1;border-radius:7px;background:#fff;color:#1e40af;padding:5px 9px;font:inherit;font-size:.68rem;cursor:pointer','مشاهده و پیگیری');
+    action.type='button';action.onclick=function(){if(typeof go==='function')go(page);};item.appendChild(action);alerts.appendChild(item);
+  }
+  addActionAlert('کلاس‌های بدون ثبت کامل حضور امروز',noAttendanceClasses.length,noAttendanceClasses,'همه کلاس‌های دارای دانش‌آموز ثبت حضور کامل دارند.','attendance',noAttendanceClasses.length?'warn':'ok');
+  addActionAlert('کلاس‌های بدون پرسش‌وپاسخ امروز',noQaClasses.length,noQaClasses,'برای همه کلاس‌ها پرسش‌وپاسخ امروز ثبت شده است.','activity',noQaClasses.length?'warn':'ok');
+  addActionAlert('کلاس‌های بدون ارزشیابی این هفته',noEvaluationClasses.length,noEvaluationClasses,'برای همه کلاس‌ها ارزشیابی این هفته ثبت شده است.','evaluation',noEvaluationClasses.length?'warn':'ok');
+  addActionAlert('غایبین نیازمند رسیدگی',null,null,'گزارش اصلی و سوابق رسیدگی موجود را باز کنید.','absentees','warn');
 };
 var __managerPerformanceRefreshPromise=null;
 window.refreshManagerPerformanceCenter=function(){
