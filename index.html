@@ -13974,7 +13974,7 @@ var seen={};eduRows=eduRows.filter(function(r){var v=num(r.score);if(v==null||v<
 var divisor=1;
 var edu=aggregate(eduRows,function(r){var v=num(r.score);return v==null?null:v/divisor;});
 var att=(typeof cache!=='undefined'&&cache.attendance||[]).filter(function(r){return String(r.student_id)===String(studentId);});
-var attByDate={};att.forEach(function(r){var d=dateKey(r),st=String(r.status||'').toLowerCase();if(!d)return;if(!attByDate[d])attByDate[d]={present:0,total:0};attByDate[d].total++;if(st==='present'||st==='late')attByDate[d].present++;});
+var attByDate={};att.forEach(function(r){var d=dateKey(r),st=String(r.status||'').toLowerCase().trim();if(!d||['present','late','absent','unexcused','excused'].indexOf(st)<0)return;if(!attByDate[d])attByDate[d]={present:0,total:0};attByDate[d].total++;if(st==='present'||st==='late')attByDate[d].present++;});
 var attendance=Object.keys(attByDate).sort().map(function(d){return {date:d,value:attByDate[d].total?100*attByDate[d].present/attByDate[d].total:0};});
 var dis=(typeof cache!=='undefined'&&cache.discipline||[]).filter(function(r){return String(r.student_id)===String(studentId);});
 var discipline=aggregate(dis,function(){return 1;}).map(function(x){return {date:x.date,value:x.total};});
