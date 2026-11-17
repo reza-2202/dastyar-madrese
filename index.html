@@ -8875,8 +8875,25 @@ function jdateInitAll(){
   document.querySelectorAll('[data-jdate]').forEach(function(el){ try{ jdateBuildSelects(el); }catch(e){ console.warn(e); } });
 }
 /* --- گزارش غایبین --- */
-async function loadAbsenteesReport(){
-  try{ if(navigator.onLine&&typeof reloadAll==='function') await reloadAll(); }catch(e){}
+// Refresh once in the background; never block opening the report on the full-school reload.
+function refreshAbsenteeReportsInBackground(){
+  if(!navigator.onLine||typeof reloadAll!=='function') return Promise.resolve();
+  if(window.__dastyarAbsenteeRefreshPromise) return window.__dastyarAbsenteeRefreshPromise;
+  var pending=Promise.resolve().then(function(){return reloadAll();}).then(function(){
+    var page=document.getElementById('page-absentees');
+    if(page&&page.classList.contains('on')){
+      loadAbsenteesReport({skipRefresh:true});
+      if(typeof window.loadAbsenteesNeedsAttention==='function') window.loadAbsenteesNeedsAttention({skipRefresh:true,silent:true});
+    }
+  }).catch(function(e){console.warn('به‌روزرسانی پس‌زمینه گزارش غایبین کامل نشد؛ اطلاعات محلی حفظ شد.',e);}).then(function(){
+    if(window.__dastyarAbsenteeRefreshPromise===pending) window.__dastyarAbsenteeRefreshPromise=null;
+  });
+  window.__dastyarAbsenteeRefreshPromise=pending;
+  return pending;
+}
+async function loadAbsenteesReport(options){
+  options=options||{};
+  if(!options.skipRefresh) refreshAbsenteeReportsInBackground();
   var box=document.getElementById('absentees-report');
   if(!box) return;
   var classId=(document.getElementById('ab-class')&&document.getElementById('ab-class').value)||'';
@@ -9088,15 +9105,11 @@ window.saveAbsenceFollowupNote=async function(studentId){
   }catch(e){ console.warn(e); }
 };
 
-window.loadAbsenteesNeedsAttention=async function(){
+window.loadAbsenteesNeedsAttention=function(options){
+  options=options||{};
   var box=document.getElementById('absentees-attention-report');
   if(!box) return;
-  // ابتدا داده‌های سرور را کامل دریافت کن؛ سپس گزارش را از cache تازه‌شده بساز.
-  if(navigator.onLine&&typeof reloadAll==='function'){
-    box.innerHTML='<div class="empty">در حال به‌روزرسانی سوابق غیبت…</div>';
-    try{ await reloadAll(); }
-    catch(loadError){ console.warn('تازه‌سازی سوابق غیبت ناموفق بود؛ گزارش از داده‌های موجود ساخته می‌شود.',loadError); }
-  }
+  if(!options.skipRefresh) refreshAbsenteeReportsInBackground();
   var statuses={unexcused:'غایب',absent:'غایب',excused:'موجه',late:'تأخیر'};
   var rows=collectAbsenteeRows({ignoreDates:true});
   var byStu=groupAbsenteesByStudent(rows);
@@ -9210,7 +9223,7 @@ window.loadAbsenteesNeedsAttention=async function(){
     html+='</div>';
   });
   box.innerHTML=html;
-  if(typeof toast==='function'){var urgentCount=items.filter(function(it){return it.pendingCount>=3;}).length;toast('گزارش سوابق بارگذاری شد؛ '+urgentCount+' دانش‌آموز چرخه جدیدِ نیازمند رسیدگی دارند. سوابق رسیدگی‌شده نیز حفظ شده‌اند.');}
+  if(!options.silent&&typeof toast==='function'){var urgentCount=items.filter(function(it){return it.pendingCount>=3;}).length;toast('گزارش سوابق بارگذاری شد؛ '+urgentCount+' دانش‌آموز چرخه جدیدِ نیازمند رسیدگی دارند. سوابق رسیدگی‌شده نیز حفظ شده‌اند.');}
 };
 window.exportAbsenteesNeedsAttentionWord=function(){
   var statuses={unexcused:'غایب',absent:'غایب',excused:'غایب موجه',late:'تأخیر'};
