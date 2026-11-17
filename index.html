@@ -9088,10 +9088,15 @@ window.saveAbsenceFollowupNote=async function(studentId){
   }catch(e){ console.warn(e); }
 };
 
-window.loadAbsenteesNeedsAttention=function(){
-  try{ if(navigator.onLine&&typeof reloadAll==='function') reloadAll(); }catch(e){}
+window.loadAbsenteesNeedsAttention=async function(){
   var box=document.getElementById('absentees-attention-report');
   if(!box) return;
+  // ابتدا داده‌های سرور را کامل دریافت کن؛ سپس گزارش را از cache تازه‌شده بساز.
+  if(navigator.onLine&&typeof reloadAll==='function'){
+    box.innerHTML='<div class="empty">در حال به‌روزرسانی سوابق غیبت…</div>';
+    try{ await reloadAll(); }
+    catch(loadError){ console.warn('تازه‌سازی سوابق غیبت ناموفق بود؛ گزارش از داده‌های موجود ساخته می‌شود.',loadError); }
+  }
   var statuses={unexcused:'غایب',absent:'غایب',excused:'موجه',late:'تأخیر'};
   var rows=collectAbsenteeRows({ignoreDates:true});
   var byStu=groupAbsenteesByStudent(rows);
