@@ -1260,29 +1260,53 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <div id="parent-invitation-class-list" class="card" style="display:none"><div class="ct">✉️ کلاس‌های درخواست‌دهنده دعوت‌نامه امروز</div><div class="meta" style="margin-bottom:8px">فقط درخواست‌های ثبت‌شده در تاریخ امروز نمایش داده می‌شوند.</div><div id="parent-invitation-class-list-items" class="meta"></div></div>
 <div class="card">
 <div class="ct">دسترسی سریع به بخش‌های برنامه</div>
-<div class="home-tiles">
+<div class="home-tiles" aria-label="دسترسی به امکانات برنامه">
+<section class="home-tile-group group-students" aria-label="امور دانش‌آموزان">
+<div class="home-tile-group-title"><span class="home-tile-group-mark">🎓</span><span>امور دانش‌آموزان</span></div>
+<div class="home-tiles-grid">
 <button class="home-tile" onclick="go('students')"><span class="tile-icon">👨‍🎓</span><span class="tile-label">دانش‌آموزان</span></button>
 <button class="home-tile" onclick="go('studentfile')"><span class="tile-icon" style="background:#dbeafe">📁👨‍🎓</span><span class="tile-label">پرونده دانش‌آموز</span></button>
+<button class="home-tile" id="student-data-tools-tile" onclick="go('studentdata')" style="display:none"><span class="tile-icon" style="background:#d1fae5">📥📊</span><span class="tile-label">ورود و خروجی اطلاعات دانش‌آموزان</span></button>
+</div>
+</section>
+<section class="home-tile-group group-attendance" aria-label="حضور، انضباط و پیگیری">
+<div class="home-tile-group-title"><span class="home-tile-group-mark">📌</span><span>حضور، انضباط و پیگیری</span></div>
+<div class="home-tiles-grid">
 <button class="home-tile" onclick="go('attendance')"><span class="tile-icon">✅</span><span class="tile-label">حضور و غیاب</span></button>
 <button class="home-tile" onclick="go('absentees')"><span class="tile-icon" style="background:#fee2e2">🚫📋</span><span class="tile-label">گزارش غایبین</span></button>
 <button class="home-tile" onclick="go('discipline')"><span class="tile-icon" style="background:#fee2e2">🛡️📋</span><span class="tile-label">موارد انضباطی</span></button>
 <button class="home-tile" id="invitation-tile" onclick="go('invitation')"><span class="tile-icon" style="background:#fef3c7">✉️</span><span class="tile-label">دعوتنامه حضوری اولیا</span></button>
-<button class="home-tile" onclick="go('finance')"><span class="tile-icon" style="background:#dcfce7">💰🧾</span><span class="tile-label">مالی و حسابداری</span></button>
+<button class="home-tile" id="parent-contact-tile" onclick="go('parentcontact')"><span class="tile-icon" style="background:#fff7ed">📞👨‍👩‍👧</span><span class="tile-label">دفتر تماس با اولیا</span></button>
+</div>
+</section>
+<section class="home-tile-group group-learning" aria-label="آموزش و ارزشیابی">
+<div class="home-tile-group-title"><span class="home-tile-group-mark">📚</span><span>آموزش و ارزشیابی</span></div>
+<div class="home-tiles-grid">
 <button class="home-tile" onclick="go('activity')"><span class="tile-icon">🗣️</span><span class="tile-label">پرسش و فعالیت روزانه</span></button>
 <button class="home-tile" onclick="go('evaluation')"><span class="tile-icon">📝</span><span class="tile-label">ارزشیابی</span></button>
 <button class="home-tile" onclick="go('report')"><span class="tile-icon">📋</span><span class="tile-label">کارنامه</span></button>
 <button class="home-tile" onclick="go('charts')"><span class="tile-icon">📊</span><span class="tile-label">نمودار پیشرفت</span></button>
-<button class="home-tile" onclick="go('documents')"><span class="tile-icon">📎</span><span class="tile-label">ارسال و مدیریت فایل‌ها</span></button>
-<button class="home-tile" onclick="go('chat')"><span class="tile-icon">💬</span><span class="tile-label">گفت‌وگوی متنی و صوتی</span></button>
-<button class="home-tile" onclick="go('about')"><span class="tile-icon">ℹ️</span><span class="tile-label">درباره برنامه</span></button>
+<button class="home-tile" onclick="go('weekly')"><span class="tile-icon" style="background:#dbeafe">🗓️</span><span class="tile-label">برنامه هفتگی</span></button>
+<button class="home-tile" id="teacher-class-report-tile" onclick="go('teacherreport')"><span class="tile-icon" style="background:#e0f2fe">📋📈</span><span class="tile-label">گزارش کلاس من</span></button>
+</div>
+</section>
+<section class="home-tile-group group-management" aria-label="مدیریت و امور اجرایی">
+<div class="home-tile-group-title"><span class="home-tile-group-mark">🏫</span><span>مدیریت و امور اجرایی</span></div>
+<div class="home-tiles-grid">
+<button class="home-tile" onclick="go('finance')"><span class="tile-icon" style="background:#dcfce7">💰🧾</span><span class="tile-label">مالی و حسابداری</span></button>
 <button class="home-tile" id="teacher-accounts-tile" onclick="go('teacheraccounts')" style="display:none"><span class="tile-icon" style="background:#dbeafe">👩‍🏫🔐</span><span class="tile-label">مدیریت معلمان و رمزها</span></button>
-<button class="home-tile" id="student-data-tools-tile" onclick="go('studentdata')" style="display:none"><span class="tile-icon" style="background:#d1fae5">📥📊</span><span class="tile-label">ورود و خروجی اطلاعات دانش‌آموزان</span></button>
 <button class="home-tile" id="teacher-performance-tile" onclick="go('teacherperformance')" style="display:none"><span class="tile-icon" style="background:#ede9fe;color:#5b21b6">🧑‍🏫📋</span><span class="tile-label">عملکرد و ارزیابی معلمان</span></button>
 <button class="home-tile" id="monthly-report-tile" onclick="go('monthlyreport')" style="display:none"><span class="tile-icon" style="background:#ecfdf5">📊📅</span><span class="tile-label">گزارش ماهانه مدیر</span></button>
-<button class="home-tile" id="parent-contact-tile" onclick="go('parentcontact')"><span class="tile-icon" style="background:#fff7ed">📞👨‍👩‍👧</span><span class="tile-label">دفتر تماس با اولیا</span></button>
-<button class="home-tile" id="teacher-class-report-tile" onclick="go('teacherreport')"><span class="tile-icon" style="background:#e0f2fe">📋📈</span><span class="tile-label">گزارش کلاس من</span></button>
-<button class="home-tile" onclick="go('weekly')"><span class="tile-icon" style="background:#dbeafe">🗓️</span><span class="tile-label">برنامه هفتگی</span></button>
+</div>
+</section>
+<section class="home-tile-group group-communication" aria-label="ارتباطات و اسناد">
+<div class="home-tile-group-title"><span class="home-tile-group-mark">🤝</span><span>ارتباطات و اسناد</span></div>
+<div class="home-tiles-grid">
+<button class="home-tile" onclick="go('documents')"><span class="tile-icon">📎</span><span class="tile-label">ارسال و مدیریت فایل‌ها</span></button>
+<button class="home-tile" onclick="go('chat')"><span class="tile-icon">💬</span><span class="tile-label">گفت‌وگوی متنی و صوتی</span></button>
 <button class="home-tile" onclick="go('parentmeet')"><span class="tile-icon" style="background:#ccfbf1">👨‍👩‍👧‍👦</span><span class="tile-label">ارتباط با اولیا و جلسات</span></button>
+</div>
+</section>
 </div>
 </div>
 <div class="card" style="text-align:center">
@@ -13910,5 +13934,27 @@ window.printAbsenteesNeedsAttention=function(){
 };
 })();
 </script>
+
+<style id="dastyar-dashboard-layout-polish-20261117">
+/* بازآرایی صرفاً نمایشی صفحه اصلی؛ مسیرها و رفتار دکمه‌ها بدون تغییر */
+#page-dashboard .home-tiles{display:flex!important;flex-direction:column;gap:13px;margin:0 0 14px}
+#page-dashboard .home-tile-group{min-width:0;padding:12px;border:1px solid #e5eaf2;border-radius:18px;background:linear-gradient(180deg,#fff 0%,#fbfdff 100%);box-shadow:0 3px 12px rgba(15,23,42,.035)}
+#page-dashboard .home-tile-group-title{display:flex;align-items:center;gap:9px;margin:0 0 11px;padding:1px 1px 10px;border-bottom:1px solid #edf1f6;color:#24364b;font-size:.88rem;font-weight:800;line-height:1.5}
+#page-dashboard .home-tile-group-mark{display:inline-flex;align-items:center;justify-content:center;width:31px;height:31px;border-radius:10px;background:#eff6ff;font-size:1rem}
+#page-dashboard .home-tiles-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+#page-dashboard .home-tile-group .home-tile{aspect-ratio:auto;min-height:124px;padding:12px 8px;gap:9px;border:1px solid #e8edf4;border-radius:15px;background:#fff;box-shadow:0 2px 7px rgba(15,23,42,.035);font-size:.79rem;line-height:1.55}
+#page-dashboard .home-tile-group .home-tile .tile-icon{width:53px;height:53px;flex:0 0 53px;border-radius:17px!important;display:flex;align-items:center;justify-content:center;font-size:1.72rem;box-shadow:inset 0 0 0 1px rgba(15,23,42,.035),0 2px 5px rgba(15,23,42,.045)}
+#page-dashboard .home-tile-group .home-tile .tile-label{display:block;text-align:center;line-height:1.65;font-size:.78rem;font-weight:750}
+#page-dashboard .home-tile-group .home-tile .tile-label:before{display:none!important;content:none!important}
+#page-dashboard .group-students .home-tile-group-mark,#page-dashboard .group-students .tile-icon{background:#eaf2ff!important;color:#2456a6}
+#page-dashboard .group-attendance .home-tile-group-mark,#page-dashboard .group-attendance .tile-icon{background:#fff1ed!important;color:#b45336}
+#page-dashboard .group-learning .home-tile-group-mark,#page-dashboard .group-learning .tile-icon{background:#eaf8f1!important;color:#18794e}
+#page-dashboard .group-management .home-tile-group-mark,#page-dashboard .group-management .tile-icon{background:#f2edff!important;color:#6544a5}
+#page-dashboard .group-communication .home-tile-group-mark,#page-dashboard .group-communication .tile-icon{background:#e8f7f8!important;color:#16747a}
+#page-dashboard .home-tile-group .home-tile:focus-visible{outline:3px solid #93c5fd;outline-offset:2px}
+#page-dashboard .home-tile-group .home-tile:active{transform:scale(.985)}
+@media(min-width:600px){#page-dashboard .home-tiles-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}#page-dashboard .home-tile-group .home-tile{min-height:132px}}
+@media(prefers-reduced-motion:reduce){#page-dashboard .home-tile-group .home-tile{transition:none!important}}
+</style>
 </body>
 </html>
