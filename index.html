@@ -13975,6 +13975,7 @@ window.printAbsenteesNeedsAttention=function(){
 @media(min-width:600px){#page-dashboard .home-tiles-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}#page-dashboard .home-tile-group .home-tile{min-height:132px}}
 @media(prefers-reduced-motion:reduce){#page-dashboard .home-tile-group .home-tile{transition:none!important}}
 </style>
+<style id="dastyar-instant-controls-and-growth-charts">#app .page{animation:none!important;transition:none!important}#app .ni,#app button,#app .btn{transition:none!important;animation:none!important;touch-action:manipulation}#app .dastyar-growth-trends>div[style*="grid-template-columns"]>div{padding:12px!important;border-radius:13px!important;box-shadow:0 3px 12px rgba(15,23,42,.045)}#app .dastyar-growth-trends svg{max-height:230px}</style>
 <script id="dastyar-student-growth-trends-v1">
 (function(){
 'use strict';
@@ -13982,7 +13983,38 @@ function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'
 function dateKey(r){var v=String(r&&(r.date||r.created_at||r.updated_at)||'').trim();if(!v)return '';if(/^\d{4}[-/]\d{1,2}[-/]\d{1,2}/.test(v))return v.slice(0,10).replace(/\//g,'-');var d=new Date(v);return isNaN(d.getTime())?'':d.toISOString().slice(0,10);}
 function num(v){if(v==null||v==='')return null;var n=Number(String(v).replace(/[۰-۹]/g,function(x){return '۰۱۲۳۴۵۶۷۸۹'.indexOf(x);}).replace(/[٠-٩]/g,function(x){return '٠١٢٣٤٥٦٧٨٩'.indexOf(x);}).replace(/,/g,''));return Number.isFinite(n)?n:null;}
 function aggregate(rows,fn){var m={};(rows||[]).forEach(function(r){var d=dateKey(r);if(!d)return;var x=fn(r);if(x==null)return;if(!m[d])m[d]=[];m[d].push(x);});return Object.keys(m).sort().map(function(d){var a=m[d];return {date:d,value:a.reduce(function(s,x){return s+x;},0)/a.length,count:a.length,total:a.reduce(function(s,x){return s+x;},0)};});}
-function chart(points,kind,color,maxVal){if(!points||points.length<2)return '<div style="font-size:11px;color:#64748b;padding:8px 0">برای نمایش روند، دست‌کم دو تاریخ ثبت معتبر لازم است.</div>';var w=300,h=76,pad=8,vals=points.map(function(x){return x.value;}),mx=maxVal||Math.max(1,Math.max.apply(null,vals)),coords=points.map(function(x,i){return {x:pad+i*(w-2*pad)/(points.length-1),y:h-pad-(Math.max(0,x.value)/mx)*(h-2*pad)};});var svg='<svg viewBox="0 0 '+w+' '+h+'" role="img" aria-label="نمودار روند" style="width:100%;height:auto;display:block"><path d="M'+pad+' '+(h-pad)+' H'+(w-pad)+'" stroke="#cbd5e1" stroke-width="1" fill="none"/>';if(kind==='bar'){var bw=Math.max(3,Math.min(18,(w-2*pad)/points.length*.55));coords.forEach(function(c,i){var y=c.y;svg+='<rect x="'+(c.x-bw/2).toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+(h-pad-y).toFixed(1)+'" rx="2" fill="'+color+'" opacity=".82"/>';});}else{var path=coords.map(function(c,i){return (i?'L':'M')+c.x.toFixed(1)+' '+c.y.toFixed(1);}).join(' ');svg+='<path d="'+path+'" fill="none" stroke="'+color+'" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>';coords.forEach(function(c){svg+='<circle cx="'+c.x.toFixed(1)+'" cy="'+c.y.toFixed(1)+'" r="3" fill="'+color+'" stroke="#fff" stroke-width="1.2"/>';});}svg+='</svg><div style="display:flex;justify-content:space-between;font-size:9px;color:#64748b"><span>'+esc(points[0].date)+'</span><span>'+esc(points[points.length-1].date)+'</span></div>';return svg;}
+function chart(points,kind,color,maxVal){
+if(!points||points.length<2)return '<div style="font-size:12px;color:#64748b;padding:14px 8px;border:1px dashed #cbd5e1;border-radius:9px;background:#f8fafc;text-align:center">برای نمایش روند، دست‌کم دو تاریخ ثبت معتبر لازم است.</div>';
+var w=420,h=190,left=46,right=14,top=14,bottom=38,pw=w-left-right,ph=h-top-bottom;
+var vals=points.map(function(x){return Math.max(0,Number(x.value)||0);});
+var maxObserved=Math.max.apply(null,vals.concat([0]));
+var ceiling=Number(maxVal)>0?Number(maxVal):Math.max(1,maxObserved);
+if(kind==='bar'&&maxObserved>ceiling)ceiling=maxObserved;
+var rawStep=ceiling/4,power=Math.pow(10,Math.floor(Math.log10(rawStep||1))),step=Math.max(power,Math.ceil(rawStep/power)*power);
+var yMax=Number(maxVal)>0&&kind!=='bar'?Number(maxVal):Math.max(step*4,Math.ceil(ceiling/step)*step);
+if(yMax<=0)yMax=1;
+var xAt=function(i){return kind==='bar'?left+(i+.5)*pw/points.length:left+(points.length===1?pw/2:i*pw/(points.length-1));};
+var yAt=function(v){return top+ph-(Math.max(0,Math.min(yMax,v))/yMax)*ph;};
+var uid='growthChart'+(++window.__dastyarGrowthChartSeq);
+var svg='<svg viewBox="0 0 '+w+' '+h+'" role="img" aria-label="نمودار استاندارد روند زمانی" style="width:100%;height:auto;display:block;overflow:visible"><defs><linearGradient id="'+uid+'Fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="'+color+'" stop-opacity=".24"/><stop offset="100%" stop-color="'+color+'" stop-opacity=".015"/></linearGradient></defs>';
+for(var t=0;t<=4;t++){var val=yMax*t/4,yy=yAt(val);svg+='<line x1="'+left+'" y1="'+yy.toFixed(1)+'" x2="'+(w-right)+'" y2="'+yy.toFixed(1)+'" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="'+(t===0?'0':'3 4')+'"/><text x="'+(left-8)+'" y="'+(yy+3.5).toFixed(1)+'" text-anchor="end" font-size="10" fill="#64748b">'+(val%1?val.toFixed(1):val.toFixed(0))+'</text>';}
+svg+='<line x1="'+left+'" y1="'+top+'" x2="'+left+'" y2="'+(top+ph)+'" stroke="#94a3b8" stroke-width="1.1"/><line x1="'+left+'" y1="'+(top+ph)+'" x2="'+(w-right)+'" y2="'+(top+ph)+'" stroke="#94a3b8" stroke-width="1.1"/>';
+if(kind==='bar'){
+var slot=pw/points.length,bw=Math.max(5,Math.min(28,slot*.58));
+points.forEach(function(p,i){var x=xAt(i),y=yAt(p.value),height=top+ph-y;svg+='<rect x="'+(x-bw/2).toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+Math.max(0,height).toFixed(1)+'" rx="4" fill="'+color+'" opacity=".86"><title>'+esc(p.date)+' : '+Number(p.value).toFixed(1)+'</title></rect>';});
+}else{
+var pts=points.map(function(p,i){return {x:xAt(i),y:yAt(p.value),v:p.value,date:p.date};});
+var line='M'+pts[0].x.toFixed(1)+' '+pts[0].y.toFixed(1);
+for(var q=1;q<pts.length;q++){var prev=pts[q-1],cur=pts[q],mid=(prev.x+cur.x)/2;line+=' C'+mid.toFixed(1)+' '+prev.y.toFixed(1)+' '+mid.toFixed(1)+' '+cur.y.toFixed(1)+' '+cur.x.toFixed(1)+' '+cur.y.toFixed(1);}
+var area=line+' L'+pts[pts.length-1].x.toFixed(1)+' '+(top+ph)+' L'+pts[0].x.toFixed(1)+' '+(top+ph)+' Z';
+svg+='<path d="'+area+'" fill="url(#'+uid+'Fill)" stroke="none"/><path d="'+line+'" fill="none" stroke="'+color+'" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>';
+pts.forEach(function(p){svg+='<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="4.2" fill="#fff" stroke="'+color+'" stroke-width="2.6"><title>'+esc(p.date)+' : '+Number(p.v).toFixed(1)+'</title></circle>';});
+}
+var labelIndexes=[0,Math.floor((points.length-1)/2),points.length-1].filter(function(v,i,a){return a.indexOf(v)===i;});
+labelIndexes.forEach(function(i){var label=String(points[i].date||'');if(label.length>10)label=label.slice(5,10);else if(label.length===10)label=label.slice(5);svg+='<text x="'+xAt(i).toFixed(1)+'" y="'+(h-12)+'" text-anchor="'+(i===0?'start':i===points.length-1?'end':'middle')+'" font-size="10" fill="#475569">'+esc(label)+'</text>';});
+svg+='</svg><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:10px;color:#64748b;margin-top:3px"><span>محور افقی: تاریخ ثبت</span><span>محور عمودی: مقدار شاخص</span></div>';
+return svg;
+}
 function trendText(points,unit,goodHigh){if(points.length<2)return 'هنوز برای مقایسه زمانی، ثبت تاریخ‌دار کافی وجود ندارد.';var a=points[0].value,b=points[points.length-1].value,d=b-a;if(Math.abs(d)<.15)return 'در بازه ثبت‌شده تغییر چشمگیری دیده نمی‌شود؛ مقدار پایانی '+b.toFixed(1)+' '+unit+' است.';var up=d>0;var positive=goodHigh?up:!up;return (up?'افزایش':'کاهش')+' از '+a.toFixed(1)+' به '+b.toFixed(1)+' '+unit+' مشاهده می‌شود؛ '+(positive?'این تغییر از نظر شاخص ثبت‌شده مطلوب‌تر است.':'این تغییر نیازمند بررسی سوابق و گفت‌وگو با دانش‌آموز است.');}
 function makeHtml(studentId,compact){
 var scores=(typeof cache!=='undefined'&&cache.scores||[]).filter(function(r){return String(r.student_id)===String(studentId);});
@@ -14001,8 +14033,9 @@ function card(title,desc,points,kind,color,max,analysis){return '<div style="bor
 var eduColor=edu.length&&edu[edu.length-1].value>=15?'#16a34a':edu.length&&edu[edu.length-1].value>=10?'#d97706':'#dc2626';
 var attColor=attendance.length&&attendance[attendance.length-1].value>=90?'#16a34a':attendance.length&&attendance[attendance.length-1].value>=75?'#d97706':'#dc2626';
 var disAnalysis=discipline.length<2?'برای بررسی تغییرات، ثبت انضباطی در دست‌کم دو تاریخ لازم است.':'تعداد موارد ثبت‌شده در هر تاریخ نمایش داده شده است؛ افزایش یا کاهش تعداد، به‌تنهایی قضاوت درباره رفتار دانش‌آموز نیست.';
-return '<section class="dastyar-growth-trends" style="margin:8px 0;padding:8px;border:1px solid #bfdbfe;border-radius:12px;background:#f8fbff;break-inside:avoid"><div style="font-weight:900;color:#1e40af;font-size:'+(compact?'10px':'14px')+';margin-bottom:6px">روند زمانی رشد و عملکرد دانش‌آموز</div><div style="display:grid;grid-template-columns:repeat('+(compact?'3':'1')+',minmax(0,1fr));gap:6px">'+card('آموزشی و درسی','میانگین نمره‌های عددی تاریخ‌دار (مقیاس ۲۰)',edu,'line',eduColor,20,compact?'':trendText(edu,'نمره',true))+card('حضور و غیاب','درصد حضور و تأخیر از کل ثبت‌های همان تاریخ',attendance,'line',attColor,100,compact?'':trendText(attendance,'درصد',true))+card('انضباطی و رفتاری','تعداد سوابق انضباطی ثبت‌شده در هر تاریخ',discipline,'bar','#64748b',Math.max(1,Math.max.apply(null,discipline.map(function(x){return x.value;}).concat([1]))),compact?'':disAnalysis)+'</div><div style="font-size:9px;color:#64748b;margin-top:5px">فقط ثبت‌های واقعی و تاریخ‌دار مبنا هستند؛ روزها یا نمره‌های ثبت‌نشده، داده فرضی محسوب نمی‌شوند.</div></section>';
+return '<section class="dastyar-growth-trends" style="margin:8px 0;padding:8px;border:1px solid #bfdbfe;border-radius:12px;background:#f8fbff;break-inside:avoid"><div style="font-weight:900;color:#1e40af;font-size:'+(compact?'10px':'14px')+';margin-bottom:6px">روند زمانی رشد و عملکرد دانش‌آموز</div><div style="display:grid;grid-template-columns:1fr;gap:10px">'+card('آموزشی و درسی','میانگین نمره‌های عددی تاریخ‌دار (مقیاس ۲۰)',edu,'line',eduColor,20,compact?'':trendText(edu,'نمره',true))+card('حضور و غیاب','درصد حضور و تأخیر از کل ثبت‌های همان تاریخ',attendance,'line',attColor,100,compact?'':trendText(attendance,'درصد',true))+card('انضباطی و رفتاری','تعداد سوابق انضباطی ثبت‌شده در هر تاریخ',discipline,'bar','#64748b',Math.max(1,Math.max.apply(null,discipline.map(function(x){return x.value;}).concat([1]))),compact?'':disAnalysis)+'</div><div style="font-size:9px;color:#64748b;margin-top:5px">فقط ثبت‌های واقعی و تاریخ‌دار مبنا هستند؛ روزها یا نمره‌های ثبت‌نشده، داده فرضی محسوب نمی‌شوند.</div></section>';
 }
+window.__dastyarGrowthChartSeq=window.__dastyarGrowthChartSeq||0;
 window.buildStudentGrowthTrendsHtml=makeHtml;
 var oldOpen=window.openStudentDossier;
 if(typeof oldOpen==='function')window.openStudentDossier=function(id){var out=oldOpen.apply(this,arguments);try{var root=document.getElementById('print-student-dossier');if(root){var old=root.querySelectorAll('.dossier-section');old.forEach(function(sec){var h=sec.querySelector('.ct');if(h&&h.textContent.indexOf('نمودار پیشرفت تحصیلی')>=0)sec.remove();});var first=root.querySelector('section.card');if(first)first.insertAdjacentHTML('afterend',makeHtml(id,false));}}catch(e){console.warn('student growth trends dossier',e);}return out;};
