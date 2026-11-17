@@ -13626,6 +13626,7 @@ else setTimeout(install,250);
 
 
 
+
 (function(){
 'use strict';
 function faStatus(s){return ({present:'حاضر',unexcused:'غیبت غیرموجه',absent:'غیبت غیرموجه',excused:'غیبت موجه',late:'تأخیر'})[String(s||'').toLowerCase()]||String(s||'ثبت‌نشده');}
@@ -13709,7 +13710,7 @@ function attentionTables(items){
   });
   it.history.forEach(function(ev){
    var raw=String(ev.notes||''),range=raw.match(/چرخه پیگیری:\s*([^\n]+)/),cnt=raw.match(/تعداد غیبت\/تأخیر در این چرخه:\s*([^\n]+)/),note=raw.match(/توضیحات مدیر:\s*([\s\S]*)/);
-   details.push({'کلاس':it.className,'نام دانش‌آموز':it.name,'تاریخ غیبت/تأخیر':ev.date||'—','نوع ثبت':'سابقه پیگیری مدیر','وضعیت پیگیری':range?range[1]:'چرخه ثبت‌شده','رسیدگی مدیر تا تاریخ':ev.date||'—','توضیحات پیگیری مدیر':(cnt?'تعداد موارد: '+cnt[1]+' | ':'')+(note?note[1].trim():'')+' | ثبت‌کننده: '+(ev.recorded_by||'مدیر')});
+   details.push({'کلاس':it.className,'نام دانش‌آموز':it.name,'تاریخ غیبت/تأخیر':ev.date||'—','نوع ثبت':'سابقه پیگیری مدیر','وضعیت پیگیری':range?range[1]:'چرخه ثبت‌شده','رسیدگی مدیر تا تاریخ':ev.date||'—','ثبت‌کننده ثبت حضور و غیاب':ev.recorded_by||'مدیر','توضیحات پیگیری مدیر':(cnt?'تعداد موارد: '+cnt[1]+' | ':'')+(note?note[1].trim():'')});
   });
  });
  return {summary:summary,details:details};
@@ -13719,7 +13720,7 @@ window.exportAbsenteesNeedsAttentionExcel=function(){
   if(typeof XLSX==='undefined'){toast('کتابخانه Excel در دسترس نیست؛ اتصال اینترنت را بررسی کنید');return;}
   var items=attentionData();if(!items.length){toast('برای خروجی، ابتدا گزارش غایبین نیازمند رسیدگی را بارگذاری کنید یا موردی با حداقل سه ثبت وجود ندارد');return;}
   var tables=attentionTables(items),wb=XLSX.utils.book_new();
-  addSheet(wb,tables.summary,'خلاصه رسیدگی',[18,24,18,12,15,13,12,13,14,18,22,16,40,40]);
+  addSheet(wb,tables.summary,'خلاصه رسیدگی',[18,24,18,12,15,13,12,13,14,18,22,16,16,40,40]);
   addSheet(wb,tables.details.length?tables.details:[{'پیام':'جزئیات غیبت و پیگیری ثبت نشده است'}],'جزئیات غیبت و پیگیری',[18,24,16,18,18,18,32,48]);
   wb.Workbook=wb.Workbook||{};wb.Workbook.Views=[{RTL:true}];
   XLSX.writeFile(wb,'غایبین_نیازمند_رسیدگی_'+today().replace(/\//g,'-')+'.xlsx');
@@ -13763,6 +13764,7 @@ window.printAbsenteesNeedsAttention=function(){
  setTimeout(function(){window.print();},120);
 };
 })();
+
 
 
 </script>\n</body>
