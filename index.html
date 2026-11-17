@@ -14042,5 +14042,49 @@ if(typeof oldOpen==='function')window.openStudentDossier=function(id){var out=ol
 try{if(typeof buildReport==='function'){var oldReport=buildReport;buildReport=function(id){var html=oldReport.apply(this,arguments);try{var mini=makeHtml(id,true);var at=html.indexOf('</div><div class="rc-att">');if(at>=0)html=html.slice(0,at)+mini+html.slice(at);}catch(e){console.warn('student growth trends print',e);}return html;};}}catch(e){}
 })();
 </script>
+<script id="subject-specific-feedback-v1">
+(function(){
+var levels={excellent:'خیلی خوب',good:'خوب',acceptable:'قابل قبول',needs:'نیاز به تلاش'};
+var common={
+excellent:['مفهوم اصلی را با دقت و تسلط به کار برد.','پاسخ کامل ارائه داد و آموخته‌ها را مستقل به کار گرفت.'],
+good:['بخش اصلی موضوع را درست انجام داد؛ با کمی دقت پاسخ کامل‌تر می‌شود.','با تمرین بیشتر به تسلط بالاتری می‌رسد.'],
+acceptable:['بخشی از موضوع را فراگرفته و برای تثبیت آن به تمرین هدفمند نیاز دارد.','مرور نکات کلیدی و تمرین مرحله‌به‌مرحله توصیه می‌شود.'],
+needs:['برای رسیدن به هدف یادگیری، آموزش گام‌به‌گام و تمرین منظم لازم است.','بهتر است از تمرین‌های ساده‌تر آغاز و نکات پایه مرور شود.']};
+var data={
+'ریاضی':{excellent:['راه‌حل را مرحله‌به‌مرحله و با محاسبات دقیق ارائه کرد.','در حل مسئله، راهبرد مناسب انتخاب و دلیل آن را توضیح داد.'],good:['روش حل درست بود؛ کنترل محاسبات و نوشتن مراحل پاسخ را کامل‌تر می‌کند.'],acceptable:['برای تثبیت مفهوم، حل نمونه‌های مشابه و نوشتن مراحل محاسبه لازم است.'],needs:['مرور پیش‌نیازها و تمرین محاسبات ساده پیش از مسئله‌های چندمرحله‌ای ضروری است.']},
+'فارسی':{excellent:['روان و صحیح خواند و پیام متن را با واژگان مناسب بیان کرد.','در نوشتن، املا و نشانه‌گذاری دقت بسیار خوبی داشت.'],good:['متن را به‌درستی خواند؛ بهبود لحن و روان‌خوانی پیشنهاد می‌شود.'],acceptable:['برای روان‌خوانی و درک جزئیات متن، خواندن روزانه کوتاه توصیه می‌شود.'],needs:['برای تقویت املا و جمله‌نویسی، تمرین کوتاه و بازخورد مرحله‌ای لازم است.']},
+'علوم':{excellent:['مشاهده‌ها را دقیق بیان کرد و نتیجه‌گیری علمی مناسبی داشت.','مفاهیم علمی را به پدیده‌های روزمره پیوند داد.'],good:['مفهوم علمی را دریافت کرد؛ توضیح علت و معلول می‌تواند کامل‌تر شود.'],acceptable:['برای تثبیت مفاهیم، مشاهده محیط و بیان نمونه‌های واقعی توصیه می‌شود.'],needs:['مرور واژه‌های کلیدی و فعالیت‌های ساده مشاهده و آزمایش پیشنهاد می‌شود.']},
+'قرآن':{excellent:['آیات را روان و با رعایت صحیح تلفظ و قواعد خواند.','در پیام آیات و ارتباط آن با رفتار روزمره درک خوبی نشان داد.'],good:['روخوانی خوبی داشت؛ تمرین مکث‌ها و تلفظ برخی واژه‌ها مفید است.'],acceptable:['تمرین کوتاه و پیوسته روخوانی و مرور واژه‌های دشوار توصیه می‌شود.'],needs:['روخوانی واژه‌ها به‌صورت بخش‌بخش و تمرین با الگوی شنیداری پیشنهاد می‌شود.']},
+'هدیه‌های آسمان':{excellent:['پیام درس را درک کرد و نمونه‌ای از کاربرد آن در زندگی بیان کرد.'],good:['مفهوم اصلی درس را دریافت کرد؛ بیان نمونه‌های بیشتر مفید است.'],acceptable:['مرور پیام درس و گفت‌وگو درباره نمونه‌های رفتاری روزمره توصیه می‌شود.'],needs:['برای فهم بهتر پیام درس، بازگویی ساده و مثال‌های عینی پیشنهاد می‌شود.']},
+'هنر':{excellent:['با خلاقیت، ترکیب‌بندی مناسب و دقت در اجرای اثر عمل کرد.'],good:['ایده مناسبی داشت؛ توجه بیشتر به جزئیات و تکمیل اثر پیشنهاد می‌شود.'],acceptable:['تمرین مهارت‌های پایه و تکمیل مرحله‌به‌مرحله اثر به پیشرفت کمک می‌کند.'],needs:['برای تقویت مهارت، تمرین‌های ساده و فرصت تجربه ابزارها لازم است.']},
+'تربیت بدنی':{excellent:['مهارت حرکتی را با هماهنگی، تعادل و رعایت اصول ایمنی اجرا کرد.','در فعالیت گروهی مشارکت فعال داشت و روحیه جوانمردی نشان داد.'],good:['مهارت را به‌خوبی اجرا کرد؛ تمرین هماهنگی و کنترل حرکت مفید است.'],acceptable:['برای بهبود تعادل، هماهنگی و اجرای مهارت، تمرین تدریجی توصیه می‌شود.'],needs:['تمرین متناسب با توان فردی و آموزش مرحله‌ای مهارت‌های پایه پیشنهاد می‌شود.']},
+'اجتماعی':{excellent:['روابط علت و معلولی رویدادها و مفاهیم اجتماعی را درست توضیح داد.','نقشه یا اطلاعات اجتماعی را با دقت خواند و تفسیر کرد.'],good:['مفهوم درس را دریافت کرد؛ استفاده از شواهد و مثال مفید است.'],acceptable:['مرور واژه‌های کلیدی و پیوند دادن موضوع درس با محیط زندگی توصیه می‌شود.'],needs:['برای درک مفاهیم، استفاده از تصویر، نقشه و مثال‌های ملموس پیشنهاد می‌شود.']},
+'تفکر و پژوهش':{excellent:['پرسش مناسبی طرح کرد و برای نتیجه‌گیری از دلیل و شواهد استفاده کرد.'],good:['در طرح پرسش و بیان نظر موفق بود؛ توضیح شواهد می‌تواند کامل‌تر شود.'],acceptable:['تمرین مشاهده، پرسیدن پرسش‌های روشن و بیان دلیل توصیه می‌شود.'],needs:['فعالیت‌های کوتاهِ مشاهده، مقایسه و توضیح دلیل لازم است.']},
+'کار و فناوری':{excellent:['مراحل ساخت یا کار با ابزار را دقیق و ایمن انجام داد.'],good:['فعالیت را درست انجام داد؛ ثبت مراحل و توجه به جزئیات پیشنهاد می‌شود.'],acceptable:['برای تقویت مهارت عملی، تمرین مرحله‌ای و رعایت ترتیب کار لازم است.'],needs:['آموزش گام‌به‌گام ابزار و تمرین عملی ساده با رعایت ایمنی توصیه می‌شود.']}
+};
+function norm(s){return String(s||'').replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/\s+/g,' ').trim();}
+function key(s){var v=norm(s);return Object.keys(data).find(function(k){return v===k||v.indexOf(k)===0;})||'';}
+function list(l,s){var lv=levels[l]?l:'acceptable',k=key(s);return ((k&&data[k][lv])||[]).concat(common[lv]);}
+function fill(sel,l,s){if(!sel)return;var old=sel.value,k=key(s),items=list(l,s);sel.innerHTML='<option value="">— بازخورد '+(k||norm(s)||'عمومی')+' / '+(levels[l]||levels.acceptable)+' —</option>'+items.map(function(t){return '<option value="'+escHtml(t)+'">'+escHtml(t)+'</option>';}).join('');if(items.indexOf(old)>=0)sel.value=old;}
+window.schoolSubjectFeedback=list;
+window.qaFeedbackForLevel=function(l,s){return list(l,s||(document.getElementById('ac-sub')||{}).value);};
+window.qaRefreshFeedbackSelect=function(sel,l,s){fill(sel,l,s||(document.getElementById('ac-sub')||{}).value);};
+window.qaRefreshFeedbackOptions=function(scoreId,levelId,feedbackId){var sc=document.getElementById(scoreId),lv=document.getElementById(levelId),sel=document.getElementById(feedbackId);if(!lv||!sel)return;var n=sc&&qaLevelFromScore(sc.value);if(n)lv.value=n;fill(sel,n||lv.value,(document.getElementById('ac-sub')||{}).value);};
+window.qaRefreshGroupFeedback=function(sc){var w=sc&&sc.closest('.ac-group-fields');if(!w)return;var lv=w.querySelector('.ac-group-level'),n=qaLevelFromScore(sc.value);if(n&&lv)lv.value=n;fill(w.querySelector('.ac-group-feedback'),n||(lv&&lv.value),(document.getElementById('ac-sub')||{}).value);};
+window.qaRefreshGroupFeedbackFromLevel=function(lv){var w=lv&&lv.closest('.ac-group-fields');if(!w)return;var sc=w.querySelector('.ac-group-score'),n=sc&&qaLevelFromScore(sc.value);if(n)lv.value=n;fill(w.querySelector('.ac-group-feedback'),n||lv.value,(document.getElementById('ac-sub')||{}).value);};
+window.refreshLevelFeedback=function(prefix){fill(document.getElementById(prefix+'-feedback-ready'),(document.getElementById(prefix+'-lv')||{}).value,(document.getElementById(prefix==='ev'?'ev-sub':'ac-sub')||{}).value);};
+var dis={
+positive:['رفتار مسئولانه و همکاری سازنده دانش‌آموز شایسته قدردانی و تشویق است.','در رعایت نوبت، احترام به دیگران و قوانین کلاس الگوی مناسبی بود.','برای کمک به هم‌کلاسی‌ها و مشارکت مثبت، از او قدردانی می‌شود.'],
+reminder:['موضوع با لحنی محترمانه بررسی و انتظار رفتاری روشن شد.','دانش‌آموز فرصت یافت دیدگاه خود را بیان کند و راه اصلاح را بشناسد.','پس از یادآوری قانون، بر رعایت آن در موقعیت‌های بعدی تأکید شد.'],
+commit:['برای اصلاح رفتار، توافق روشن و قابل پیگیری با دانش‌آموز انجام شد.','انتظارهای رفتاری و گام‌های جبران با دانش‌آموز مرور شد.'],
+family:['برای هماهنگی حمایتی میان خانه و مدرسه، گفت‌وگو با خانواده پیشنهاد می‌شود.','موضوع با هدف حمایت از دانش‌آموز و بدون قضاوت با خانواده مطرح شود.'],
+learning:['برای تقویت یادگیری، تمرین کوتاه و هدفمند در مبحث مربوط پیشنهاد می‌شود.','پیشرفت درسی با مرور پیش‌نیازها و پیگیری مرحله‌ای دنبال شود.'],
+attendance:['بر اهمیت حضور به‌موقع و آمادگی برای شروع کلاس تأکید شد.','علت غیبت یا تأخیر بررسی و راهکار عملی برای بهبود حضور پیشنهاد شد.'],
+general:['موضوع با دانش‌آموز بررسی و اقدام متناسب با شرایط ثبت شد.','پیگیری منصفانه و حمایت از دانش‌آموز برای پیشگیری از تکرار پیشنهاد می‌شود.']};
+function fillDis(){var cat=(document.getElementById('di-category')||{}).value||'انضباطی',act=(document.getElementById('di-feedback')||{}).value||'',a;if(act==='تشویق')a=dis.positive;else if(act==='دعوت اولیا')a=dis.family.concat(cat==='درسی'?dis.learning:cat==='حضور و غیاب'?dis.attendance:dis.general);else if(act==='تذکر و صحبت')a=dis.reminder;else if(act==='تعهد شفاهی'||act==='تعهد کتبی'||act==='اخراج')a=dis.commit.concat(dis.reminder);else a=cat==='درسی'?dis.learning:cat==='حضور و غیاب'?dis.attendance:cat==='انضباطی'?dis.reminder.concat(dis.positive):dis.general.concat(dis.positive);var s=document.getElementById('di-feedback-ready');if(!s)return;var old=s.value;s.innerHTML='<option value="">— بازخورد متناسب با موضوع و اقدام —</option>'+a.map(function(t){return '<option value="'+escHtml(t)+'">'+escHtml(t)+'</option>';}).join('');if(a.indexOf(old)>=0)s.value=old;}
+function init(){['di-category','di-feedback'].forEach(function(id){var e=document.getElementById(id);if(e)e.addEventListener('change',fillDis);});var ac=document.getElementById('ac-sub');if(ac)ac.addEventListener('change',function(){qaRefreshFeedbackOptions('ac-score','ac-lv','ac-feedback-ready');document.querySelectorAll('.ac-group-score').forEach(qaRefreshGroupFeedback);});var ev=document.getElementById('ev-sub');if(ev)ev.addEventListener('change',function(){refreshLevelFeedback('ev');});var el=document.getElementById('ev-lv');if(el)el.addEventListener('change',function(){refreshLevelFeedback('ev');});fillDis();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})();
+</script>
 </body>
 </html>
