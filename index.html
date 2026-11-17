@@ -3114,63 +3114,82 @@ function doLogout(){
   document.getElementById('login-screen').classList.remove('hidden');
 }
 
+var __dastyarNavigationSequence=window.__dastyarNavigationSequence||0;
 function go(p){
-  if(p==='teacherreport'){ try{ if(typeof initTeacherReportPage==='function') initTeacherReportPage(); }catch(e){} }
-  if(p==='parentcontact'){ try{ if(typeof initParentContactPage==='function') initParentContactPage(); }catch(e){} }
-  if(p==='monthlyreport'){
-    if(!user||(user.role!=='admin'&&user.role!=='manager')){toast('گزارش ماهانه فقط برای مدیر است');return;}
-    try{ if(typeof initMonthlyReportPage==='function') initMonthlyReportPage(); }catch(e){}
-  }
-  if(p==='dashboard'){ try{ if(typeof refreshSyncStatusPanel==='function') refreshSyncStatusPanel(); }catch(e){} }
-  if(p==='evaluation'){
-    try{ if(typeof applyParentLinkPermissionUI==='function') applyParentLinkPermissionUI(); }catch(e){}
-    setTimeout(function(){ try{ if(typeof applyParentLinkPermissionUI==='function') applyParentLinkPermissionUI(); }catch(e){} }, 200);
-  }
-  if(p==='absentees'){
-    try{ jdateInitAll(); fillAbsenteesClassSelect(); loadAbsenteesReport(); if(typeof loadAbsenteesNeedsAttention==='function') loadAbsenteesNeedsAttention(); }catch(e){}
-  }
-  // صدور و چاپ دعوتنامه فقط در اختیار مدیر است.
-  if(p==='invitation' && (!user || user.role!=='admin')){toast('صدور و چاپ دعوتنامه فقط در پنل مدیر مجاز است');return;}
-  if(p==='studentdata' && (!user || user.role!=='admin')){toast('ورود و خروجی اطلاعات فقط در پنل مدیر مجاز است');return;}
-  if(p==='studentdata')initExportPrincipalName();
-  if(p==='teacherperformance' && (!user || user.role!=='admin')){toast('بخش عملکرد معلمان فقط در پنل مدیر مجاز است');return;}
-  applyAdminInvitationAccess();
-  // دعوتنامه صفحه مستقل ندارد؛ آن را به بخش انضباطی هدایت کن و پنل دعوتنامه را نمایش بده.
-  const openInvitation = p==='invitation';
-  if(openInvitation) p='discipline';
+  // Reject unauthorized destinations before changing the visible page.
+  if(p==='monthlyreport'&&(!user||(user.role!=='admin'&&user.role!=='manager'))){toast('گزارش ماهانه فقط برای مدیر است');return;}
+  if(p==='invitation'&&(!user||user.role!=='admin')){toast('صدور و چاپ دعوتنامه فقط در پنل مدیر مجاز است');return;}
+  if(p==='studentdata'&&(!user||user.role!=='admin')){toast('ورود و خروجی اطلاعات فقط در پنل مدیر مجاز است');return;}
+  if((p==='teacherperformance'||p==='teacheraccounts')&&(!user||user.role!=='admin')){toast('این بخش فقط برای مدیر است');return;}
+
+  // Switch the visible page immediately; defer page-specific work until after paint.
+  const openInvitation=p==='invitation';
+  if(openInvitation)p='discipline';
+  const navigationToken=++window.__dastyarNavigationSequence;
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));
   document.querySelectorAll('.ni').forEach(x=>x.classList.remove('on'));
   const page=document.getElementById('page-'+p);
-  if(page) page.classList.add('on');
+  if(page)page.classList.add('on');
   const n=document.querySelector('.ni[data-p="'+p+'"]');if(n)n.classList.add('on');
   const titles={dashboard:'داشبورد',studentfile:'پرونده دانش‌آموز',studentdata:'ورود و خروجی اطلاعات دانش‌آموزان',teacherperformance:'عملکرد و ارزیابی معلمان',discipline:'موارد انضباطی',finance:'مالی و حسابداری',teacheraccounts:'مدیریت معلمان و رمزها',students:'دانش‌آموزان',attendance:'حضور و غیاب',activity:'پرسش و فعالیت روزانه',evaluation:'ارزشیابی',charts:'نمودار پیشرفت',report:'کارنامه',documents:'ارسال فایل و برگه',chat:'گفت‌وگوی معلم و مدیر',about:'درباره برنامه',weekly:'برنامه هفتگی',parentmeet:'ارتباط با اولیا و جلسات',monthlyreport:'گزارش ماهانه مدیر',absentees:'گزارش غایبین',parentcontact:'دفتر تماس با اولیا',teacherreport:'گزارش کلاس من'};
-  document.getElementById('ht').textContent=titles[p]||p;
-  if(p==='dashboard'){refreshDash();if(user&&user.role==='teacher'){renderTeacherNotices();renderTeacherTodaySchedule();}else{var ts=document.getElementById('teacher-today-schedule');if(ts)ts.style.display='none';}}
-  if(p==='teacheraccounts'){if(!user||user.role!=='admin'){go('dashboard');toast('این بخش فقط برای مدیر است');return;}renderTeacherAdminList();}
-  if(p==='teacherperformance'){if(!user||user.role!=='admin'){go('dashboard');toast('این بخش فقط برای مدیر است');return;}fillTeacherPerformanceSelects();renderTeacherPerformance();}
-  if(p==='studentdata'){if(!user||user.role!=='admin'){go('dashboard');toast('این بخش فقط برای مدیر است');return;}document.getElementById('student-import-preview').innerHTML='';document.getElementById('student-import-status').textContent='';document.getElementById('student-import-commit').classList.add('hidden');if(!navigator.onLine||window.isOffline){restoreOfflineSnapshot().then(()=>{renderStudents();refreshDash();}).catch(()=>{});}else{Promise.race([reloadAll(),new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),2500))]).catch(async()=>{globalStatus(true);await restoreOfflineSnapshot();renderStudents();refreshDash();});}}
-  if(p==='students'){fillSelects();renderStudents();}
-  if(p==='studentfile'){reloadAll().then(searchStudentFile);}
-  if(p==='attendance'){fillSelects();loadAttendance();}
-  if(p==='finance'){fillSelects();if(!document.getElementById('fin-date').value)document.getElementById('fin-date').value=today();fillFinanceStudents();loadFinance();}
-  if(p==='discipline'){try{jdateInitAll();}catch(e){}fillSelects();fillDisciplineStudents();fillInviteClasses();if(!document.getElementById('di-date').value)document.getElementById('di-date').value=today();onDateChange('di-date','di-weekday');if(!document.getElementById('iv-date').value)document.getElementById('iv-date').value=today();loadDiscipline();if(openInvitation){setTimeout(()=>{const panel=document.getElementById('invite-maker');if(panel){panel.scrollIntoView({behavior:'smooth',block:'start'});panel.style.outline='2px solid #f59e0b';setTimeout(()=>panel.style.outline='',1800);}},120);}}
-  if(p==='activity'){
-    fillSelects();
-    const fd=document.getElementById('ac-filter-dt');
-    const fw=document.getElementById('ac-filter-wd');
-    if(fd&&!fd.value) fd.value=today();
-    if(fw){const now=weekdayNow();for(let i=0;i<fw.options.length;i++){if(fw.options[i].text===now||fw.options[i].value===now){fw.selectedIndex=i;break;}}}
-    onDateChange('ac-filter-dt','ac-filter-wd');
-    loadActivities();
-    document.getElementById('ac-form').innerHTML='';
-  }
-  if(p==='evaluation'){fillSelects();const ed=document.getElementById('ev-filter-date');if(ed&&!ed.value)ed.value=today();toggleEvDateFilter();loadEvals();document.getElementById('ev-form').innerHTML='';}
-  if(p==='charts'){fillSelects();loadChartStudents();renderChartView();}
-  if(p==='documents'){fillDocumentClassSelect();loadSchoolDocuments();}
-  if(p==='chat'){loadSchoolMessages();}
-  if(p==='weekly'){fillSelects();fillWeeklyClasses();renderWeeklyEditor();}
-  if(p==='parentmeet'){fillParentClasses();if(!document.getElementById('pm-date').value)document.getElementById('pm-date').value=today();syncParentWeekday();if(!document.getElementById('pm-comments').children.length)addParentComment();renderParentMeetings();}
-  if(p==='report'){fillSelects();loadReportStudents();document.getElementById('rp-edit').innerHTML='';}
+  const title=document.getElementById('ht');if(title)title.textContent=titles[p]||p;
+
+  window.setTimeout(function(){
+    // Ignore stale work if the user has already navigated elsewhere.
+    if(navigationToken!==window.__dastyarNavigationSequence)return;
+    try{
+      if(p==='teacherreport'){try{if(typeof initTeacherReportPage==='function')initTeacherReportPage();}catch(e){}}
+      if(p==='parentcontact'){try{if(typeof initParentContactPage==='function')initParentContactPage();}catch(e){}}
+      if(p==='monthlyreport'){try{if(typeof initMonthlyReportPage==='function')initMonthlyReportPage();}catch(e){}}
+      if(p==='dashboard'){try{if(typeof refreshSyncStatusPanel==='function')refreshSyncStatusPanel();}catch(e){}}
+      if(p==='evaluation'){
+        try{if(typeof applyParentLinkPermissionUI==='function')applyParentLinkPermissionUI();}catch(e){}
+        setTimeout(function(){try{if(typeof applyParentLinkPermissionUI==='function')applyParentLinkPermissionUI();}catch(e){}},200);
+      }
+      if(p==='absentees'){try{jdateInitAll();fillAbsenteesClassSelect();loadAbsenteesReport();if(typeof loadAbsenteesNeedsAttention==='function')loadAbsenteesNeedsAttention();}catch(e){}}
+      if(p==='studentdata')initExportPrincipalName();
+      applyAdminInvitationAccess();
+
+      if(p==='dashboard'){refreshDash();if(user&&user.role==='teacher'){renderTeacherNotices();renderTeacherTodaySchedule();}else{var ts=document.getElementById('teacher-today-schedule');if(ts)ts.style.display='none';}}
+      if(p==='teacheraccounts')renderTeacherAdminList();
+      if(p==='teacherperformance'){fillTeacherPerformanceSelects();renderTeacherPerformance();}
+      if(p==='studentdata'){
+        document.getElementById('student-import-preview').innerHTML='';
+        document.getElementById('student-import-status').textContent='';
+        document.getElementById('student-import-commit').classList.add('hidden');
+        if(!navigator.onLine||window.isOffline){restoreOfflineSnapshot().then(()=>{renderStudents();refreshDash();}).catch(()=>{});}
+        else{Promise.race([reloadAll(),new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),2500))]).catch(async()=>{globalStatus(true);await restoreOfflineSnapshot();renderStudents();refreshDash();});}
+      }
+      if(p==='students'){fillSelects();renderStudents();}
+      if(p==='studentfile'){reloadAll().then(searchStudentFile);}
+      if(p==='attendance'){fillSelects();loadAttendance();}
+      if(p==='finance'){fillSelects();if(!document.getElementById('fin-date').value)document.getElementById('fin-date').value=today();fillFinanceStudents();loadFinance();}
+      if(p==='discipline'){
+        try{jdateInitAll();}catch(e){}
+        fillSelects();fillDisciplineStudents();fillInviteClasses();
+        if(!document.getElementById('di-date').value)document.getElementById('di-date').value=today();
+        onDateChange('di-date','di-weekday');
+        if(!document.getElementById('iv-date').value)document.getElementById('iv-date').value=today();
+        loadDiscipline();
+        if(openInvitation)setTimeout(()=>{const panel=document.getElementById('invite-maker');if(panel){panel.scrollIntoView({behavior:'smooth',block:'start'});panel.style.outline='2px solid #f59e0b';setTimeout(()=>panel.style.outline='',1800);}},120);
+      }
+      if(p==='activity'){
+        fillSelects();
+        const fd=document.getElementById('ac-filter-dt'),fw=document.getElementById('ac-filter-wd');
+        if(fd&&!fd.value)fd.value=today();
+        if(fw){const now=weekdayNow();for(let i=0;i<fw.options.length;i++){if(fw.options[i].text===now||fw.options[i].value===now){fw.selectedIndex=i;break;}}}
+        onDateChange('ac-filter-dt','ac-filter-wd');loadActivities();
+        document.getElementById('ac-form').innerHTML='';
+      }
+      if(p==='evaluation'){fillSelects();const ed=document.getElementById('ev-filter-date');if(ed&&!ed.value)ed.value=today();toggleEvDateFilter();loadEvals();document.getElementById('ev-form').innerHTML='';}
+      if(p==='charts'){fillSelects();loadChartStudents();renderChartView();}
+      if(p==='documents'){fillDocumentClassSelect();loadSchoolDocuments();}
+      if(p==='chat')loadSchoolMessages();
+      if(p==='weekly'){fillSelects();fillWeeklyClasses();renderWeeklyEditor();}
+      if(p==='parentmeet'){fillParentClasses();if(!document.getElementById('pm-date').value)document.getElementById('pm-date').value=today();syncParentWeekday();if(!document.getElementById('pm-comments').children.length)addParentComment();renderParentMeetings();}
+      if(p==='report'){fillSelects();loadReportStudents();document.getElementById('rp-edit').innerHTML='';}
+    }catch(e){console.warn('بارگذاری بخش پس از نمایش صفحه با خطا روبه‌رو شد:',e);}
+  },0);
 }
 
 function fillSelects(){
