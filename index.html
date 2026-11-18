@@ -14354,7 +14354,7 @@ function install(){
  }catch(e){console.warn('teacher referral followup install',e);}
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(install,700);});else setTimeout(install,700);
-window.addEventListener('focus',function(){setTimeout(install,150);});
+window.addEventListener('focus',function(){setTimeout(function(){install();if(isManager())refreshFromServer(true);},150);});
 })();
 </script>
 </body>
