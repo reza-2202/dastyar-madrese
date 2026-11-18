@@ -3152,7 +3152,12 @@ function go(p){
       if(p==='dashboard'){try{if(typeof refreshSyncStatusPanel==='function')refreshSyncStatusPanel();}catch(e){}}
       if(p==='evaluation'){
         try{if(typeof applyParentLinkPermissionUI==='function')applyParentLinkPermissionUI();}catch(e){}
-        setTimeout(function(){try{if(typeof applyParentLinkPermissionUI==='function')applyParentLinkPermissionUI();}catch(e){}},200);
+        setTimeout(function(){
+          try{
+            if(typeof loadTeacherParentLinkAllowed==='function')loadTeacherParentLinkAllowed(true);
+            else if(typeof applyParentLinkPermissionUI==='function')applyParentLinkPermissionUI();
+          }catch(e){}
+        },200);
       }
       if(p==='absentees'){try{jdateInitAll();fillAbsenteesClassSelect();loadAbsenteesReport();if(typeof loadAbsenteesNeedsAttention==='function')loadAbsenteesNeedsAttention();}catch(e){}}
       if(p==='studentdata')initExportPrincipalName();
@@ -6804,8 +6809,6 @@ async function buildClosedMonthQaEvaluations(){
   return true;
 }
 async function loadEvals(){
-  // ابتدا مجوز سراسری معلمان را مستقیم از سرور تازه‌سازی کن؛ منتظر بارگذاری همه اطلاعات مدرسه نمان.
-  try{ if(typeof loadTeacherParentLinkAllowed==='function') await loadTeacherParentLinkAllowed(true); }catch(e){}
   await reloadAll();
   try{if(typeof applyParentLinkPermissionUI==='function')applyParentLinkPermissionUI();}catch(e){}
   try{ if(typeof applyStudentPhotosFromLocal==='function') applyStudentPhotosFromLocal(); }catch(e){}
