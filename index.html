@@ -3095,7 +3095,7 @@ function applyAdminInvitationAccess(){
   const isAdmin=!!(user&&user.role==='admin');
   ['public-invite-panel','invite-maker'].forEach(id=>{
     const el=document.getElementById(id);
-    if(el) el.style.display=isAdmin?(id==='invitation-tile'?'flex':'block'):'none';
+    if(el) el.style.display=isAdmin?'block':'none';
   });
   const dataTile=document.getElementById('student-data-tools-tile');
   if(dataTile)dataTile.style.display=isAdmin?'flex':'none';
