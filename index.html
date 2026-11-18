@@ -14279,7 +14279,7 @@ async function sendReferral(id,v,key){
  if(!isTeacher()||!allowed(id)){toast('فقط معلم همان کلاس می‌تواند ارجاع ثبت کند');return;}
  var st=student(id),u=U();if(!st)return;
  if(refs(id).some(function(r){var m=meta(r);return m&&m.sourceKey===key&&m.status!=='done';})){toast('این بخش قبلاً ارجاع شده و هنوز باز است');return;}
- var m={tag:TAG,status:'open',sourceKey:key,sourceType:v.key,sourceTitle:v.title,sourceSummary:v.detail,teacherName:(u.full_name||u.username||'معلم'),referredAt:new Date().toISOString(),followupBy:'',followupResult:'',followupAt:'',updatedBy:''};
+ var m={tag:TAG,status:'open',sourceKey:key,sourceType:v.key,sourceTitle:v.title,sourceSummary:v.detail,sourceRecords:A(v.rows).slice().sort(function(a,b){return String(b.date||b.created_at||'').localeCompare(String(a.date||a.created_at||''));}).slice(0,10).map(function(r){return {date:r.date||r.created_at||'',subject:r.subject||r.category||r.feedback||r.exam_name||'',score:r.score==null?'':r.score,level:r.level||'',status:r.status||'',details:r.details||'',notes:r.notes||'',recordedBy:r.recorded_by||r.created_by||''};}),teacherName:(u.full_name||u.username||'معلم'),referredAt:new Date().toISOString(),followupBy:'',followupResult:'',followupAt:'',updatedBy:''};
  var row={id:typeof uid==='function'?uid():'ref_'+Date.now(),student_id:String(id),class_id:String(st.class_id||''),type:'student_support',subject:'ارجاع مدیریتی — '+v.title,weekday:typeof weekdayNow==='function'?weekdayNow():'',date:typeof today==='function'?today():'',level:v.flag?'needs':'acceptable',notes:JSON.stringify(m),recorded_by:m.teacherName};
  try{var out=await sb.from('sa_activities').insert(row);if(out&&out.error)throw new Error(out.error.message);localPut(row);toast(out&&out.offline?'ارجاع ذخیره شد و پس از اتصال همگام می‌شود.':'ارجاع برای مدیر ارسال شد');renderDossier(id);renderManagerPanel();}
  catch(e){toast('ارسال ارجاع انجام نشد: '+(e.message||e));}
@@ -14302,6 +14302,7 @@ function renderCard(row){
  box.appendChild(node('b','',(st?st.first_name+' '+st.last_name:'دانش‌آموز')+' — '+classLabel(row.class_id)));
  box.appendChild(node('div','', 'بخش: '+(m.sourceTitle||row.subject||'—')+' | وضعیت: '+statusText(m.status)));
  box.appendChild(node('div','', 'خلاصه ثبت معلم: '+(m.sourceSummary||'—')));
+ A(m.sourceRecords).forEach(function(x){var line=[x.date,x.subject,x.score!==''?'نمره '+x.score:'',x.level,x.status,x.details||x.notes,x.recordedBy].filter(Boolean).join(' | ');if(line)box.appendChild(node('div','meta','• '+line.slice(0,260)));});
  box.appendChild(node('div','meta','ارجاع‌دهنده: '+(m.teacherName||row.recorded_by||'—')+' | تاریخ: '+(row.date||'—')));
  if(m.followupBy)box.appendChild(node('div','meta','پیگیری‌کننده: '+m.followupBy));
  if(m.followupResult)box.appendChild(node('div','', 'نتیجه پیگیری: '+m.followupResult));
