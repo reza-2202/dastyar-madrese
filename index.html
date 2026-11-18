@@ -1275,7 +1275,6 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <button class="home-tile" onclick="go('attendance')"><span class="tile-icon">✅</span><span class="tile-label">حضور و غیاب</span></button>
 <button class="home-tile" onclick="go('absentees')"><span class="tile-icon" style="background:#fee2e2">🚫📋</span><span class="tile-label">گزارش غایبین</span></button>
 <button class="home-tile" onclick="go('discipline')"><span class="tile-icon" style="background:#fee2e2">🛡️📋</span><span class="tile-label">موارد انضباطی</span></button>
-<button class="home-tile" id="invitation-tile" onclick="go('invitation')"><span class="tile-icon" style="background:#fef3c7">✉️</span><span class="tile-label">دعوتنامه حضوری اولیا</span></button>
 <button class="home-tile" id="parent-contact-tile" onclick="go('parentcontact')"><span class="tile-icon" style="background:#fff7ed">📞👨‍👩‍👧</span><span class="tile-label">دفتر تماس با اولیا</span></button>
 </div>
 </section>
@@ -3094,7 +3093,7 @@ async function setTeacherPassword(userId){
 
 function applyAdminInvitationAccess(){
   const isAdmin=!!(user&&user.role==='admin');
-  ['invitation-tile','public-invite-panel','invite-maker'].forEach(id=>{
+  ['public-invite-panel','invite-maker'].forEach(id=>{
     const el=document.getElementById(id);
     if(el) el.style.display=isAdmin?(id==='invitation-tile'?'flex':'block'):'none';
   });
