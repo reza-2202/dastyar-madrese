@@ -14212,6 +14212,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 (function(){
 'use strict';
 var TAG='DASTYAR_MANAGER_REFERRAL_V1',PANEL='dastyar-manager-referrals-panel',DOSSIER='dastyar-teacher-referral-dossier';
+var selectInteractionUntil=0;
 var PEOPLE=['مدیر مدرسه — سید حسین نورایی انور','معاون آموزشی — پژمان سامانی‌پور','معاون اجرایی — رضا فلاحتکار'];
 function A(v){return Array.isArray(v)?v:[];}
 function U(){try{return window.user||user||null;}catch(e){return window.user||null;}}
@@ -14336,7 +14337,7 @@ function renderManagerPanel(){
  if(!isManager())return;
  ensurePanel();
  var list=document.getElementById('dastyar-smart-followup-list');if(!list)return;
- var wrapId=PANEL+'-embedded-referrals',old=document.getElementById(wrapId);if(old&&document.activeElement&&old.contains(document.activeElement)){var activeTag=document.activeElement.tagName;if(activeTag==='SELECT'||activeTag==='INPUT'||activeTag==='TEXTAREA')return;}if(old)old.remove();
+ var wrapId=PANEL+'-embedded-referrals',old=document.getElementById(wrapId);if(Date.now()<selectInteractionUntil)return;if(old&&document.activeElement&&old.contains(document.activeElement)){var activeTag=document.activeElement.tagName;if(activeTag==='SELECT'||activeTag==='INPUT'||activeTag==='TEXTAREA')return;}if(old)old.remove();
  var all=refs(),open=all.filter(function(r){var m=meta(r);return m&&m.status!=='done';});
  var supportOpen=A(C().activities).filter(function(r){if(!r||r.type!=='student_support')return false;try{var x=JSON.parse(String(r.notes||''));return x&&x.tag==='DASYTAR_STUDENT_SUPPORT_V1'&&x.state!=='done';}catch(e){return false;}});
  var summary=document.getElementById('dastyar-smart-followup-summary');
@@ -14360,6 +14361,8 @@ function install(){
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(install,700);});else setTimeout(install,700);
 window.addEventListener('focus',function(){setTimeout(function(){var active=document.activeElement;var tag=active&&active.tagName;if(tag==='SELECT'||tag==='INPUT'||tag==='TEXTAREA')return;if(isManager())refreshFromServer(true);},150);});
+document.addEventListener('pointerdown',function(e){var t=e.target;if(t&&t.tagName==='SELECT'&&t.closest&&t.closest('#dastyar-smart-followup-list'))selectInteractionUntil=Date.now()+30000;else if(Date.now()>=selectInteractionUntil)selectInteractionUntil=0;},true);
+document.addEventListener('change',function(e){var t=e.target;if(t&&t.tagName==='SELECT'&&t.closest&&t.closest('#dastyar-smart-followup-list'))selectInteractionUntil=0;},true);
 })();
 </script>
 </body>
