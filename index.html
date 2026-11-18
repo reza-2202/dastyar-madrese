@@ -2576,6 +2576,7 @@ async function flushPendingAttendanceToServer(){
 }
 
 async function reloadAll(){
+  var reloadSessionGeneration=window.__dastyarSessionGeneration||0;
   const [u,c,s,a,sc,co,ac,ev,di,fi,pc] = await Promise.all([
     sb.from('sa_users').select('*'),
     sb.from('sa_classes').select('*').order('grade'),
@@ -2589,6 +2590,7 @@ async function reloadAll(){
     sb.from('sa_finance').select('*').order('created_at',{ascending:false}),
     sb.from('sa_parent_contacts').select('*').order('created_at',{ascending:false})
   ]);
+  if(reloadSessionGeneration!==(window.__dastyarSessionGeneration||0))return;
   if(a&&!a.error&&Array.isArray(a.data)) window.__dastyarAttendanceAuthoritative=true;
   const previous={users:cache.users,classes:cache.classes,students:cache.students,attendance:cache.attendance,scores:cache.scores,competencies:cache.competencies,activities:cache.activities,evaluations:cache.evaluations,discipline:cache.discipline,finance:cache.finance,parent_contacts:cache.parent_contacts};
   const results=[u,c,s,a,sc,co,ac,ev,di,fi,pc];
@@ -2813,6 +2815,7 @@ function normalizeLoginName(value){
   return String(value||'').trim().replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/\s+/g,' ').toLowerCase();
 }
 async function doLogin(){
+  var authAttempt=window.__dastyarAuthAttempt=(window.__dastyarAuthAttempt||0)+1;
   const err=document.getElementById('login-error');
   if(err){ err.classList.add('hidden'); err.textContent=''; }
   let username='', password='';
@@ -2840,6 +2843,7 @@ async function doLogin(){
   if(navigator.onLine && sb){
     try{
       const r=await withTimeout(sb.from('sa_users').select('*').limit(500),12000,'users');
+      if(authAttempt!==(window.__dastyarAuthAttempt||0))return;
       if(r&&!r.error&&Array.isArray(r.data)&&r.data.length){
         cache.users = typeof dedupeUsers==='function' ? dedupeUsers(r.data) : r.data;
         networkFailed=false;
@@ -2850,9 +2854,11 @@ async function doLogin(){
       console.warn(e);
     }
   }
+  if(authAttempt!==(window.__dastyarAuthAttempt||0))return;
   if(networkFailed||!navigator.onLine){
     try{ await restoreOfflineSnapshot(); }catch(e){}
   }
+  if(authAttempt!==(window.__dastyarAuthAttempt||0))return;
 
   try{ cache.users=applyTeacherPasswordOverrides(cache.users||[]); }catch(e){}
   const wanted=normalizeLoginName(username);
@@ -2888,7 +2894,9 @@ async function doLogin(){
     return;
   }
 
-  user=u; try{ window.user=u; window.__dastyarSessionPassword=password; }catch(e){}
+  user=u; try{ window.user=u; window.__dastyarSessionPassword=password; window.__dastyarSessionGeneration=(window.__dastyarSessionGeneration||0)+1; }catch(e){}
+  var activeSessionGeneration=window.__dastyarSessionGeneration||0;
+  var activeSessionRole=u.role;
   try{ saveRememberedLogin(loginRole, username, password); }catch(e){}
   try{ if(typeof applyAdminInvitationAccess==='function') applyAdminInvitationAccess(); }catch(e){}
 
@@ -2902,6 +2910,8 @@ async function doLogin(){
     if(hu) hu.textContent=(user.full_name||user.username)+(user.role==='admin'?' (مدیر)':' (معلم)');
     const wn=document.getElementById('wn');
     if(wn) wn.textContent='سلام، '+(user.full_name||user.username);
+    var managerOnlyIds=['manager-performance-center','dastyar-smart-followup-panel'];
+    managerOnlyIds.forEach(function(id){var el=document.getElementById(id);if(el)el.style.display=(user.role==='admin'||user.role==='manager')?'':'none';});
     if(user.role==='teacher'){
       const cl=(typeof myClasses==='function' && myClasses()[0]) || null;
       const ws=document.getElementById('ws');
@@ -2931,10 +2941,13 @@ async function doLogin(){
     (async function(){
       try{
         await reloadAll();
+        if(activeSessionGeneration!==(window.__dastyarSessionGeneration||0)||!user||user.role!==activeSessionRole)return;
         try{ if(typeof mergeLocalSchoolCacheIntoMemory==='function') mergeLocalSchoolCacheIntoMemory(); }catch(e){}
         try{ if(navigator.onLine&&typeof flushPendingAttendanceToServer==='function') await flushPendingAttendanceToServer(); }catch(e){}
         if(typeof loadSchoolDocuments==='function') await loadSchoolDocuments();
+        if(activeSessionGeneration!==(window.__dastyarSessionGeneration||0)||!user||user.role!==activeSessionRole)return;
         if(typeof ensureStudentsFromServer==='function') await ensureStudentsFromServer();
+        if(activeSessionGeneration!==(window.__dastyarSessionGeneration||0)||!user||user.role!==activeSessionRole)return;
         /* ensureClass4BStudents disabled — no auto student injection */
         try{if(typeof refreshStudentPhotosFromServer==='function')await refreshStudentPhotosFromServer(true);}catch(photoSyncError){console.warn('student photos sync skipped',photoSyncError);}
         if(typeof refreshDash==='function') refreshDash();
@@ -3107,7 +3120,10 @@ function applyAdminInvitationAccess(){
 }
 
 function doLogout(){
-  user=null; try{window.__dastyarSessionPassword='';}catch(e){}
+  window.__dastyarAuthAttempt=(window.__dastyarAuthAttempt||0)+1;
+  window.__dastyarSessionGeneration=(window.__dastyarSessionGeneration||0)+1;
+  user=null; try{window.user=null;window.__dastyarSessionPassword='';}catch(e){}
+  ['manager-performance-center','dastyar-smart-followup-panel'].forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none';});
   applyAdminInvitationAccess();
   document.getElementById('app').classList.add('hidden');
   document.getElementById('login-screen').classList.remove('hidden');
@@ -14213,6 +14229,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 'use strict';
 var TAG='DASTYAR_MANAGER_REFERRAL_V1',PANEL='dastyar-manager-referrals-panel',DOSSIER='dastyar-teacher-referral-dossier';
 var selectInteractionUntil=0;
+function selectBusy(){return Date.now()<selectInteractionUntil;}
 var PEOPLE=['مدیر مدرسه — سید حسین نورایی انور','معاون آموزشی — پژمان سامانی‌پور','معاون اجرایی — رضا فلاحتکار'];
 function A(v){return Array.isArray(v)?v:[];}
 function U(){try{return window.user||user||null;}catch(e){return window.user||null;}}
@@ -14323,6 +14340,7 @@ function ensurePanel(){
  return document.getElementById('dastyar-smart-followup-panel');
 }
 async function refreshFromServer(silent){
+ if(selectBusy())return;
  if(!isManager()||!sb||!navigator.onLine||window.isOffline){if(!silent&&typeof toast==='function')toast('برای دریافت ارجاع‌های تازه، اتصال آنلاین لازم است');return;}
  try{
   var res=await sb.from('sa_activities').select('*').eq('type','student_support').order('created_at',{ascending:false});
@@ -14337,7 +14355,7 @@ function renderManagerPanel(){
  if(!isManager())return;
  ensurePanel();
  var list=document.getElementById('dastyar-smart-followup-list');if(!list)return;
- var wrapId=PANEL+'-embedded-referrals',old=document.getElementById(wrapId);if(Date.now()<selectInteractionUntil)return;if(old&&document.activeElement&&old.contains(document.activeElement)){var activeTag=document.activeElement.tagName;if(activeTag==='SELECT'||activeTag==='INPUT'||activeTag==='TEXTAREA')return;}if(old)old.remove();
+ var wrapId=PANEL+'-embedded-referrals',old=document.getElementById(wrapId);if(selectBusy())return;if(old&&document.activeElement&&old.contains(document.activeElement)){var activeTag=document.activeElement.tagName;if(activeTag==='SELECT'||activeTag==='INPUT'||activeTag==='TEXTAREA')return;}if(old)old.remove();
  var all=refs(),open=all.filter(function(r){var m=meta(r);return m&&m.status!=='done';});
  var supportOpen=A(C().activities).filter(function(r){if(!r||r.type!=='student_support')return false;try{var x=JSON.parse(String(r.notes||''));return x&&x.tag==='DASYTAR_STUDENT_SUPPORT_V1'&&x.state!=='done';}catch(e){return false;}});
  var summary=document.getElementById('dastyar-smart-followup-summary');
@@ -14354,15 +14372,17 @@ function install(){
  try{
   title();
   if(typeof window.openStudentDossier==='function'&&!window.openStudentDossier.__referralWrapped){var old=window.openStudentDossier;var w=function(id){var out=old.apply(this,arguments);try{renderDossier(id);}catch(e){console.warn(e);}return out;};w.__referralWrapped=true;window.openStudentDossier=w;}
-  ['refreshManagerPerformanceCenter','refreshDash','toggleDashboardFeature'].forEach(function(k){if(typeof window[k]==='function'&&!window[k].__referralWrapped){var old=window[k];var w=function(){var out=old.apply(this,arguments);try{renderManagerPanel();title();if(k==='toggleDashboardFeature'&&arguments[0]==='performance')refreshFromServer(true);}catch(e){}return out;};w.__referralWrapped=true;window[k]=w;}});
+  ['refreshManagerPerformanceCenter','refreshDash','toggleDashboardFeature'].forEach(function(k){if(typeof window[k]==='function'&&!window[k].__referralWrapped){var old=window[k];var w=function(){if(selectBusy())return;var out=old.apply(this,arguments);try{renderManagerPanel();title();if(k==='toggleDashboardFeature'&&arguments[0]==='performance')refreshFromServer(true);}catch(e){}return out;};w.__referralWrapped=true;window[k]=w;}});
   window.__dastyarAppendTeacherReferrals=renderManagerPanel;
   renderManagerPanel();
  }catch(e){console.warn('teacher referral followup install',e);}
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(install,700);});else setTimeout(install,700);
 window.addEventListener('focus',function(){setTimeout(function(){var active=document.activeElement;var tag=active&&active.tagName;if(tag==='SELECT'||tag==='INPUT'||tag==='TEXTAREA')return;if(isManager())refreshFromServer(true);},150);});
-document.addEventListener('pointerdown',function(e){var t=e.target;if(t&&t.tagName==='SELECT'&&t.closest&&t.closest('#dastyar-smart-followup-list'))selectInteractionUntil=Date.now()+30000;else if(Date.now()>=selectInteractionUntil)selectInteractionUntil=0;},true);
+document.addEventListener('focusin',function(e){var t=e.target;if(t&&t.tagName==='SELECT'&&t.closest&&t.closest('#dastyar-smart-followup-list'))selectInteractionUntil=Date.now()+45000;},true);
+document.addEventListener('pointerdown',function(e){var t=e.target;if(t&&t.tagName==='SELECT'&&t.closest&&t.closest('#dastyar-smart-followup-list'))selectInteractionUntil=Date.now()+45000;},true);
 document.addEventListener('change',function(e){var t=e.target;if(t&&t.tagName==='SELECT'&&t.closest&&t.closest('#dastyar-smart-followup-list'))selectInteractionUntil=0;},true);
+document.addEventListener('focusout',function(e){var t=e.target;if(t&&t.tagName==='SELECT'&&t.closest&&t.closest('#dastyar-smart-followup-list'))setTimeout(function(){if(!document.activeElement||document.activeElement.tagName!=='SELECT')selectInteractionUntil=0;},500);},true);
 })();
 </script>
 </body>
