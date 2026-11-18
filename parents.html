@@ -249,10 +249,22 @@ button{width:100%;margin-top:14px;padding:12px;border:0;border-radius:12px;backg
     html+=list("سایر مشخصات دانش‌آموز",customRows,function(x){return "<div class=\"item\"><b>"+esc(x.title||"مشخصه")+":</b> "+esc(x.value)+"</div>";});
     html+=list("حضور و غیاب",dateSort(p.attendance),function(a){return "<div class=\"item\">"+faDigits(esc(a.weekday||""))+" "+faDigits(esc(a.date||""))+" — "+esc(trStatus(a.status))+(a.notice_approved?" — تأیید مدیر ثبت شده":"")+(a.recorded_by?" — ثبت‌کننده: "+esc(a.recorded_by):"")+(a.note?(" — "+esc(a.note)):"")+"</div>";});
     var allActivities=arr(p.activities);
+    function managerReferralMeta(a){try{var m=JSON.parse(String(a&&a.notes||""));return m&&m.tag==="DASTYAR_MANAGER_REFERRAL_V1"?m:null;}catch(e){return null;}}
     var exams=arr(p.exams);if(!exams.length)exams=allActivities.filter(function(a){return a&&a.type==="exam";});
     var followups=arr(p.absence_followups);if(!followups.length)followups=allActivities.filter(function(a){return a&&(a.type==="absence_followup"||a.subject==="پیگیری غیبت مدیر");});
-    var activities=allActivities.filter(function(a){return a&&a.type!=="exam"&&a.type!=="absence_followup"&&a.subject!=="پیگیری غیبت مدیر";});
+    var activities=allActivities.filter(function(a){return a&&a.type!=="exam"&&a.type!=="absence_followup"&&a.subject!=="پیگیری غیبت مدیر"&&!managerReferralMeta(a);});
     html+=list("پرسش و پاسخ / فعالیت",dateSort(activities),function(a){return "<div class=\"item\">"+faDigits(esc(a.date||""))+" — "+esc(trSubject(a.subject||a.lesson||""))+" — "+esc(trLevel(a.level||a.score||a.result||""))+(a.notes?(" — "+esc(a.notes)):"")+(a.recorded_by?(" — ثبت‌کننده: "+esc(a.recorded_by)):"")+"</div>";});
+    var managerReferrals=allActivities.filter(function(a){return !!managerReferralMeta(a);});
+    html+=list("ارجاع و پیگیری مدیریت مدرسه",dateSort(managerReferrals),function(a){
+      var m=managerReferralMeta(a)||{},st=m.status==="done"?"پایان‌یافته":m.status==="in_progress"?"در حال پیگیری":"در انتظار پیگیری";
+      return "<div class=\"item\"><b>"+esc(m.sourceTitle||a.subject||"ارجاع مدرسه")+"</b> — "+faDigits(esc(a.date||""))+" — وضعیت: "+esc(st)
+        +(m.sourceSummary?"<div>خلاصه ثبت‌های معلم: "+esc(m.sourceSummary)+"</div>":"")
+        +(m.teacherName?"<div>ارجاع‌دهنده: "+esc(m.teacherName)+"</div>":"")
+        +(m.followupBy?"<div><b>پیگیری‌کننده: "+esc(m.followupBy)+"</b></div>":"")
+        +(m.followupAt?" — تاریخ پیگیری: "+faDigits(esc(m.followupAt)):"")
+        +(m.followupResult?"<div><b>نتیجه پیگیری مدیریت:</b> "+esc(m.followupResult)+"</div>":"<div>نتیجه پیگیری هنوز ثبت نشده است.</div>")
+        +"</div>";
+    });
     html+=list("آزمون‌های کتبی / مدادکاغذی",dateSort(exams),function(a){return "<div class=\"item\"><b>"+esc(a.exam_name||a.name||a.subject||"آزمون")+"</b> — "+faDigits(esc(a.weekday||""))+" "+faDigits(esc(a.date||""))+" — درس: "+esc(trSubject(a.subject||a.lesson||""))+" — نمره: "+esc(a.score==null||a.score===""?"—":a.score)+" — "+esc(trLevel(a.level||""))+(a.chapters?(" — مباحث: "+esc(a.chapters)):"")+(a.notes||a.desc_text||a.description?(" — "+esc(a.notes||a.desc_text||a.description)):"")+(a.recorded_by?(" — ثبت‌کننده: "+esc(a.recorded_by)):"")+"</div>";});
     html+=list("سوابق پیگیری غیبت",dateSort(followups),function(a){var raw=String(a.notes||"");var token=raw.match(/\[ABSENCE_CYCLE:([^|\]]+)\|([^\]]+)\]/);var range=raw.match(/چرخه پیگیری:\s*([^\n]+)/);var count=raw.match(/تعداد غیبت\/تأخیر در این چرخه:\s*([^\n]+)/);var clean=raw.replace(/^\[ABSENCE_CYCLE:[^\]]+\]\s*/,"").replace(/چرخه پیگیری:[^\n]*\n?/,"").replace(/تعداد غیبت\/تأخیر در این چرخه:[^\n]*\n?/,"").replace(/^توضیحات مدیر:\s*/,"").trim();return "<div class=\"item\"><b>رسیدگی مستقل</b>"+(token?" — "+esc(token[1])+" تا "+esc(token[2]):"")+" — "+faDigits(esc(range?range[1]:(a.date||"")))+(count?" — "+esc(count[1]):"")+(clean?"<div>"+esc(clean)+"</div>":"")+(a.recorded_by?" — ثبت‌کننده: "+esc(a.recorded_by):"")+"</div>";});
     html+=list("ارزشیابی",dateSort(p.evaluations),function(a){return "<div class=\"item\">"+faDigits(esc(a.month||a.date||""))+" — "+esc(trSubject(a.subject||""))+" — "+esc(trLevel(a.level||a.score||""))+(a.score!=null?(" — نمره: "+esc(a.score)):"")+(a.notes?(" — "+esc(a.notes)):"")+(a.recorded_by?(" — ثبت‌کننده: "+esc(a.recorded_by)):"")+"</div>";});
