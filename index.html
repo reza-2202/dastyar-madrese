@@ -5859,7 +5859,6 @@ async function clearAttendance(studentId){
 }
 async function deleteAttendanceRecord(id){
  if(!user){toast('ابتدا وارد برنامه شوید');return;}
-  if(user.role==='teacher'){var okT=false;try{okT=localStorage.getItem('dastyar_teacher_parent_link_allowed_v1')==='1';}catch(e){} if(!okT){toast('ساخت لینک پرونده اولیا توسط مدیر غیرفعال است');return;}}
   if(!classId){try{classId=(document.getElementById('ev-class')||{}).value||'';}catch(e){}}
   if(!classId){toast('ابتدا کلاس را انتخاب کنید');return;}
  const row=(cache.attendance||[]).find(a=>String(a.id)===String(id));
@@ -12936,21 +12935,29 @@ window.isSchoolAdminUser=function(){
     return false;
   }catch(e){ return false; }
 }
+var teacherParentLinkPermissionCache=null;
 window.isTeacherParentLinkAllowed=function(){
-  try{
-    if(isSchoolAdminUser()) return true;
-    return localStorage.getItem('dastyar_teacher_parent_link_allowed_v1')==='1';
-  }catch(e){ return isSchoolAdminUser(); }
+  try{if(isSchoolAdminUser())return true;}catch(e){}
+  if(teacherParentLinkPermissionCache!==null)return teacherParentLinkPermissionCache===true;
+  try{return localStorage.getItem('dastyar_teacher_parent_link_allowed_v1')==='1';}catch(e){return false;}
 }
-window.setTeacherParentLinkAllowed=function(on){
-  try{ localStorage.setItem('dastyar_teacher_parent_link_allowed_v1', on?'1':'0'); }catch(e){}
-  try{ if(typeof toast==='function') toast(on?'صدور لینک برای معلمان فعال شد':'صدور لینک برای معلمان غیرفعال شد'); }catch(e){}
-  try{ applyParentLinkPermissionUI(); }catch(e){}
+window.setTeacherParentLinkAllowed=async function(on){
+  try{
+    if(!isSchoolAdminUser()){if(typeof toast==='function')toast('فقط مدیر می‌تواند این دسترسی را تغییر دهد');return false;}
+    if(!sb||!navigator.onLine||window.isOffline){if(typeof toast==='function')toast('برای ثبت مجوز معلمان، اتصال اینترنت لازم است');applyParentLinkPermissionUI();return false;}
+    var cred=parentSessionCredentials();
+    var result=await sb.rpc('set_teacher_parent_link_permission',{p_username:cred.p_username,p_password:cred.p_password,p_enabled:!!on});
+    if(result&&result.error)throw result.error;
+    var data=result&&result.data||{};teacherParentLinkPermissionCache=data.enabled===true;
+    try{localStorage.setItem('dastyar_teacher_parent_link_allowed_v1',teacherParentLinkPermissionCache?'1':'0');}catch(e){}
+    applyParentLinkPermissionUI();
+    if(typeof toast==='function')toast(teacherParentLinkPermissionCache?'اجازه صدور لینک برای معلمان در سرور فعال شد':'اجازه صدور لینک برای معلمان در سرور غیرفعال شد');
+    return true;
+  }catch(e){console.error('set teacher parent link permission',e);if(typeof toast==='function')toast('ثبت اجازه در سرور انجام نشد؛ اتصال و اطلاعات ورود مدیر را بررسی کنید');try{applyParentLinkPermissionUI();}catch(x){}return false;}
 }
 window.applyParentLinkPermissionUI=function(){
   var isAdmin=isSchoolAdminUser();
-  var teacherAllowed=false;
-  try{ teacherAllowed=localStorage.getItem('dastyar_teacher_parent_link_allowed_v1')==='1'; }catch(e){}
+  var teacherAllowed=window.isTeacherParentLinkAllowed();
   var adminBox=document.getElementById('parent-teacher-link-admin-only');
   var blocked=document.getElementById('parent-teacher-link-blocked');
   var btn=document.getElementById('parent-generate-link-btn');
@@ -12978,7 +12985,18 @@ window.applyParentLinkPermissionUI=function(){
     }
   }
 }
-async function loadTeacherParentLinkAllowed(){ try{ applyParentLinkPermissionUI(); }catch(e){} }
+async function loadTeacherParentLinkAllowed(force){
+  try{
+    if(!user||!sb||!navigator.onLine||window.isOffline){applyParentLinkPermissionUI();return teacherParentLinkPermissionCache===true;}
+    if(!force&&teacherParentLinkPermissionCache!==null){applyParentLinkPermissionUI();return teacherParentLinkPermissionCache;}
+    var cred=parentSessionCredentials();
+    var result=await sb.rpc('get_teacher_parent_link_permission',{p_username:cred.p_username,p_password:cred.p_password});
+    if(result&&result.error)throw result.error;
+    var data=result&&result.data||{};teacherParentLinkPermissionCache=data.enabled===true;
+    try{localStorage.setItem('dastyar_teacher_parent_link_allowed_v1',teacherParentLinkPermissionCache?'1':'0');}catch(e){}
+    applyParentLinkPermissionUI();return teacherParentLinkPermissionCache;
+  }catch(e){console.warn('load teacher parent link permission',e);applyParentLinkPermissionUI();return teacherParentLinkPermissionCache===true;}
+}
 
 window.generateParentPortalLink=async function(classId,studentId){
  var requestContext=parentPortalContextVersion;
@@ -13002,9 +13020,8 @@ window.generateParentPortalLink=async function(classId,studentId){
   var roleStr=String((user&&user.role)||'');
   var isAdm=(roleStr==='admin'||roleStr==='manager'||(typeof loginRole!=='undefined'&&loginRole==='admin'));
   if(roleStr==='teacher' && !isAdm){
-    var okTeacher=false;
-    try{ okTeacher=localStorage.getItem('dastyar_teacher_parent_link_allowed_v1')==='1'; }catch(e){}
-    if(!okTeacher){showStatus('ساخت لینک برای معلمان توسط مدیر غیرفعال است',true);return;}
+    await loadTeacherParentLinkAllowed(true);
+    if(!isTeacherParentLinkAllowed()){showStatus('ساخت لینک برای معلمان توسط مدیر غیرفعال است یا مجوز از سرور دریافت نشد',true);return;}
   }
   if(classId && typeof classId==='object') classId=null;
   if(!classId){ try{ classId=(document.getElementById('ev-class')||{}).value||''; }catch(e){} }
