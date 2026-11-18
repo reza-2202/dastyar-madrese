@@ -5420,7 +5420,31 @@ function openStudentDossier(id){
    const clean=raw.replace(/^\[ABSENCE_CYCLE:[^\]]+\]\s*/,'').replace(/چرخه پیگیری:[^\n]*\n?/,'').replace(/تعداد غیبت\/تأخیر در این چرخه:[^\n]*\n?/,'').replace(/^توضیحات مدیر:\s*/,'').trim();
    return '<div style="padding:10px;margin:7px 0;border:1px solid #cbd5e1;border-right:4px solid #2563eb;border-radius:7px;break-inside:avoid"><div style="font-weight:800;color:#1e40af">رسیدگی مستقل'+(token?' — '+escHtml(token[1])+' تا '+escHtml(token[2]):'')+'</div><div class="meta" style="margin-top:4px">📅 '+escHtml(range?range[1]:(a.date||'—'))+(count?' | '+escHtml(count[1]):'')+' | ثبت‌کننده: '+escHtml(a.recorded_by||'مدیر')+'</div><div style="white-space:pre-wrap;margin-top:7px;line-height:1.8">'+escHtml(clean||'توضیحی ثبت نشده است')+'</div></div>';
  }).join('');
- const actHtml=acts.map(a=>'<div style="padding:8px;border-bottom:1px solid #e2e8f0"><b>'+escHtml(a.type==='qa'?'پرسش و پاسخ':'فعالیت کلاسی')+' — '+escHtml(a.subject||'')+'</b><div class="meta">'+escHtml(a.weekday||'')+' '+escHtml(a.date||'')+' | '+escHtml(levelLabel[a.level]||a.level||'')+'</div>'+(a.notes?'<div>'+escHtml(a.notes)+'</div>':'')+(a.recorded_by?'<small>ثبت‌کننده: '+escHtml(a.recorded_by)+'</small>':'')+'</div>').join('');
+ const actHtml=acts.map(function(a){
+   var isSupport=a.type==='student_support',support=null;
+   if(isSupport){try{support=JSON.parse(String(a.notes||''));}catch(e){support=null;}}
+   var title=isSupport?'پرونده حمایت آموزشی':(a.type==='qa'?'پرسش و پاسخ':'فعالیت کلاسی');
+   var levelText=levelLabel[a.level]||a.level||'';
+   var body='';
+   if(isSupport){
+     if(support&&typeof support==='object'){
+       var states={open:'در انتظار پیگیری',in_progress:'در حال پیگیری',done:'پایان‌یافته'};
+       var priorities={high:'فوری',normal:'مهم',low:'عادی'};
+       var fields=[];
+       fields.push('<div class="meta">وضعیت: <b>'+escHtml(states[support.state]||'در انتظار پیگیری')+'</b> | اولویت: '+escHtml(priorities[support.priority]||'مهم')+'</div>');
+       if(support.reason)fields.push('<div>موضوع نیاز به رسیدگی: '+escHtml(support.reason)+'</div>');
+       if(support.plan)fields.push('<div>اقدام پیشنهادی: '+escHtml(support.plan)+'</div>');
+       if(support.detail)fields.push('<div>توضیحات: '+escHtml(support.detail)+'</div>');
+       if(support.assignedTo)fields.push('<div class="meta">مسئول رسیدگی: '+escHtml(support.assignedTo)+'</div>');
+       if(support.followupResult)fields.push('<div>نتیجه پیگیری: '+escHtml(support.followupResult)+'</div>');
+       body=fields.join('');
+     }else body='<div class="meta">جزئیات پرونده حمایت آموزشی قابل خواندن نیست.</div>';
+   }else{
+     if(levelText)body+='<div class="meta">'+escHtml(levelText)+'</div>';
+     if(a.notes)body+='<div style="white-space:pre-wrap">'+escHtml(a.notes)+'</div>';
+   }
+   return '<div style="padding:8px;border-bottom:1px solid #e2e8f0"><b>'+escHtml(title)+' — '+escHtml(isSupport?'':(a.subject||''))+'</b><div class="meta">'+escHtml(a.weekday||'')+' '+escHtml(a.date||'')+'</div>'+body+(a.recorded_by?'<small>ثبت‌کننده: '+escHtml(a.recorded_by)+'</small>':'')+'</div>';
+ }).join('');
  const examHtml=exams.map(a=>'<div style="padding:8px;border-bottom:1px solid #e2e8f0"><b>'+escHtml(a.exam_name||a.name||a.subject||'آزمون')+'</b><div class="meta">'+escHtml(a.weekday||'')+' '+escHtml(a.date||'')+' | درس: '+escHtml(a.subject||a.lesson||'')+' | نمره: '+(a.score==null||a.score===''?'—':escHtml(a.score))+' | '+escHtml(levelLabel[a.level]||a.level||'')+'</div>'+(a.notes||a.desc_text||a.description?'<div>'+escHtml(a.notes||a.desc_text||a.description||'')+'</div>':'')+(a.recorded_by?'<small>ثبت‌کننده: '+escHtml(a.recorded_by)+'</small>':'')+'</div>').join('');
  const contactHtml=contacts.map(c=>'<div style="padding:8px;border-bottom:1px solid #e2e8f0"><b>'+escHtml({call:'تماس',message:'پیام',inperson:'حضوری',other:'سایر'}[c.contact_type]||c.contact_type||'تماس')+'</b> — '+escHtml(c.date||'')+' | '+(c.phone?escHtml(c.phone):'')+'<div class="meta">موضوع: '+escHtml(c.subject||'')+' | نتیجه: '+escHtml(c.result||'')+(c.follow_up_date?(' | پیگیری: '+escHtml(c.follow_up_date)):'')+'</div>'+(c.notes?'<div>'+escHtml(c.notes)+'</div>':'')+'<small>ثبت‌کننده: '+escHtml(c.recorded_by||'')+'</small></div>').join('');
  const finHtml=fins.map(f=>'<div style="padding:8px;border-bottom:1px solid #e2e8f0"><b>'+escHtml(f.topic||f.title||'مالی')+'</b> — '+escHtml(f.date||'')+' | مبلغ: '+escHtml(String(f.amount!=null?f.amount:'—'))+'<div class="meta">'+(f.notes?escHtml(f.notes):'')+'</div>'+(f.created_by?'<small>ثبت‌کننده: '+escHtml(f.created_by)+'</small>':'')+'</div>').join('');
