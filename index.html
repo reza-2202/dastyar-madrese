@@ -13008,7 +13008,10 @@ async function loadTeacherParentLinkAllowed(force){
 var teacherParentLinkPermissionPollTimer=null;
 var teacherParentLinkPermissionPollBusy=false;
 function refreshTeacherParentLinkPermissionIfVisible(){
-  if(!user||user.role!=='teacher')return;
+  if(!user||user.role!=='teacher'){
+    if(teacherParentLinkPermissionPollTimer!==null){window.clearInterval(teacherParentLinkPermissionPollTimer);teacherParentLinkPermissionPollTimer=null;}
+    return;
+  }
   var page=document.getElementById('page-evaluation');
   if(document.hidden||!page||!page.classList.contains('on')||teacherParentLinkPermissionPollBusy)return;
   teacherParentLinkPermissionPollBusy=true;
@@ -13022,8 +13025,15 @@ window.startTeacherParentLinkPermissionPolling=function(){
 window.stopTeacherParentLinkPermissionPolling=function(){
   if(teacherParentLinkPermissionPollTimer!==null){window.clearInterval(teacherParentLinkPermissionPollTimer);teacherParentLinkPermissionPollTimer=null;}
 };
-window.addEventListener('focus',refreshTeacherParentLinkPermissionIfVisible);
-document.addEventListener('visibilitychange',function(){if(!document.hidden)refreshTeacherParentLinkPermissionIfVisible();});
+window.addEventListener('focus',function(){
+  var page=document.getElementById('page-evaluation');
+  if(!document.hidden&&user&&user.role==='teacher'&&page&&page.classList.contains('on'))window.startTeacherParentLinkPermissionPolling();
+});
+document.addEventListener('visibilitychange',function(){
+  if(document.hidden){window.stopTeacherParentLinkPermissionPolling();return;}
+  var page=document.getElementById('page-evaluation');
+  if(user&&user.role==='teacher'&&page&&page.classList.contains('on'))window.startTeacherParentLinkPermissionPolling();
+});
 
 window.generateParentPortalLink=async function(classId,studentId){
  var requestContext=parentPortalContextVersion;
