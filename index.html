@@ -6806,7 +6806,7 @@ async function buildClosedMonthQaEvaluations(){
 async function loadEvals(){
   await reloadAll();
   try{if(typeof applyParentLinkPermissionUI==='function')applyParentLinkPermissionUI();}catch(e){}
-  try{ if(typeof loadTeacherParentLinkAllowed==='function') await loadTeacherParentLinkAllowed(); }catch(e){}
+  try{ if(typeof loadTeacherParentLinkAllowed==='function') await loadTeacherParentLinkAllowed(true); }catch(e){}
   try{ if(typeof applyStudentPhotosFromLocal==='function') applyStudentPhotosFromLocal(); }catch(e){}
   try{await buildClosedMonthQaEvaluations();}catch(e){console.warn('خلاصه خودکار ماهانه پرسش‌وپاسخ ناموفق بود',e);}
   const classId=document.getElementById('ev-class').value;
@@ -12937,7 +12937,7 @@ window.isSchoolAdminUser=function(){
 }
 var teacherParentLinkPermissionCache=null;
 window.isTeacherParentLinkAllowed=function(){
-  try{if(isSchoolAdminUser())return true;}catch(e){}
+  // این تابع فقط وضعیت مجوز سراسری معلمان را برمی‌گرداند؛ مدیر برای ساخت لینک خودش جداگانه مجاز است.
   if(teacherParentLinkPermissionCache!==null)return teacherParentLinkPermissionCache===true;
   try{return localStorage.getItem('dastyar_teacher_parent_link_allowed_v1')==='1';}catch(e){return false;}
 }
@@ -12948,7 +12948,9 @@ window.setTeacherParentLinkAllowed=async function(on){
     var cred=parentSessionCredentials();
     var result=await sb.rpc('set_teacher_parent_link_permission',{p_username:cred.p_username,p_password:cred.p_password,p_enabled:!!on});
     if(result&&result.error)throw result.error;
-    var data=result&&result.data||{};teacherParentLinkPermissionCache=data.enabled===true;
+    var data=result&&result.data;if(Array.isArray(data))data=data[0];
+    if(!data||typeof data.enabled!=='boolean'||data.enabled!==!!on)throw new Error('پاسخ سرور با مجوز درخواستی مطابقت ندارد');
+    teacherParentLinkPermissionCache=data.enabled;
     try{localStorage.setItem('dastyar_teacher_parent_link_allowed_v1',teacherParentLinkPermissionCache?'1':'0');}catch(e){}
     applyParentLinkPermissionUI();
     if(typeof toast==='function')toast(teacherParentLinkPermissionCache?'اجازه صدور لینک برای معلمان در سرور فعال شد':'اجازه صدور لینک برای معلمان در سرور غیرفعال شد');
