@@ -12990,7 +12990,7 @@ window.applyParentLinkPermissionUI=function(){
 }
 async function loadTeacherParentLinkAllowed(force){
   try{
-    if(!user||!sb||!navigator.onLine){applyParentLinkPermissionUI();return teacherParentLinkPermissionCache===true;}
+    if(!user||!sb){applyParentLinkPermissionUI();return teacherParentLinkPermissionCache===true;}
     if(!force&&teacherParentLinkPermissionCache!==null){applyParentLinkPermissionUI();return teacherParentLinkPermissionCache;}
     var cred=parentSessionCredentials();
     var result=await sb.rpc('get_teacher_parent_link_permission',{p_username:cred.p_username,p_password:cred.p_password});
