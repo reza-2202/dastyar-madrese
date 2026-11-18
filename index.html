@@ -14336,7 +14336,7 @@ function renderManagerPanel(){
  if(!isManager())return;
  ensurePanel();
  var list=document.getElementById('dastyar-smart-followup-list');if(!list)return;
- var wrapId=PANEL+'-embedded-referrals',old=document.getElementById(wrapId);if(old)old.remove();
+ var wrapId=PANEL+'-embedded-referrals',old=document.getElementById(wrapId);if(old&&document.activeElement&&old.contains(document.activeElement)){var activeTag=document.activeElement.tagName;if(activeTag==='SELECT'||activeTag==='INPUT'||activeTag==='TEXTAREA')return;}if(old)old.remove();
  var all=refs(),open=all.filter(function(r){var m=meta(r);return m&&m.status!=='done';});
  var supportOpen=A(C().activities).filter(function(r){if(!r||r.type!=='student_support')return false;try{var x=JSON.parse(String(r.notes||''));return x&&x.tag==='DASYTAR_STUDENT_SUPPORT_V1'&&x.state!=='done';}catch(e){return false;}});
  var summary=document.getElementById('dastyar-smart-followup-summary');
