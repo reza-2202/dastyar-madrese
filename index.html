@@ -14322,8 +14322,20 @@ function ensurePanel(){
  p=node('section');p.id=PANEL;p.style.cssText='margin:12px 0;padding:11px;border:1px solid #cbd5e1;border-radius:11px;background:#fbfdff';
  p.appendChild(node('b','','📨 ارجاع معلمان و پیگیری مدیریت'));
  p.appendChild(node('div','meta','موارد از ثبت‌های واقعی دانش‌آموزان ارجاع می‌شوند؛ نتیجه پیگیری در پرونده دانش‌آموز و بسته پرونده اولیا ثبت می‌شود.'));
+ var refresh=node('button','btn btn-o btn-sm','دریافت ارجاع‌های تازه از سرور');refresh.type='button';refresh.style.margin='7px 0';refresh.onclick=function(){refreshFromServer(false);};p.appendChild(refresh);
  var sum=node('div');sum.id=PANEL+'-summary';sum.style.cssText='font-weight:800;margin:8px 0;color:#334155';
  var list=node('div');list.id=PANEL+'-list';p.appendChild(sum);p.appendChild(list);body.appendChild(p);return p;
+}
+async function refreshFromServer(silent){
+ if(!isManager()||!sb||!navigator.onLine||window.isOffline){if(!silent&&typeof toast==='function')toast('برای دریافت ارجاع‌های تازه، اتصال آنلاین لازم است');return;}
+ try{
+  var res=await sb.from('sa_activities').select('*').eq('type','student_support').order('created_at',{ascending:false});
+  if(!res||res.error||!Array.isArray(res.data))throw new Error((res&&res.error&&res.error.message)||'دریافت ارجاع‌ها ناموفق بود');
+  var c=C(),other=A(c.activities).filter(function(r){return r.type!=='student_support';});
+  c.activities=other.concat(res.data);
+  persist();renderManagerPanel();
+  if(!silent&&typeof toast==='function')toast('ارجاع‌های تازه از سرور دریافت شد');
+ }catch(e){console.warn('refresh manager referrals',e);if(!silent&&typeof toast==='function')toast('دریافت ارجاع‌ها انجام نشد: '+(e.message||e));}
 }
 function renderManagerPanel(){
  if(!isManager())return;ensurePanel();
@@ -14337,7 +14349,7 @@ function install(){
  try{
   title();
   if(typeof window.openStudentDossier==='function'&&!window.openStudentDossier.__referralWrapped){var old=window.openStudentDossier;var w=function(id){var out=old.apply(this,arguments);try{renderDossier(id);}catch(e){console.warn(e);}return out;};w.__referralWrapped=true;window.openStudentDossier=w;}
-  ['refreshManagerPerformanceCenter','refreshDash','toggleDashboardFeature'].forEach(function(k){if(typeof window[k]==='function'&&!window[k].__referralWrapped){var old=window[k];var w=function(){var out=old.apply(this,arguments);try{renderManagerPanel();title();}catch(e){}return out;};w.__referralWrapped=true;window[k]=w;}});
+  ['refreshManagerPerformanceCenter','refreshDash','toggleDashboardFeature'].forEach(function(k){if(typeof window[k]==='function'&&!window[k].__referralWrapped){var old=window[k];var w=function(){var out=old.apply(this,arguments);try{renderManagerPanel();title();if(k==='toggleDashboardFeature'&&arguments[0]==='performance')refreshFromServer(true);}catch(e){}return out;};w.__referralWrapped=true;window[k]=w;}});
   renderManagerPanel();
  }catch(e){console.warn('teacher referral followup install',e);}
 }
