@@ -2906,7 +2906,7 @@ async function doLogin(){
     const loginEl=document.getElementById('login-screen');
     const appEl=document.getElementById('app');
     if(loginEl) loginEl.classList.add('hidden');
-    if(appEl) appEl.classList.remove('hidden');
+    if(appEl){appEl.style.visibility='hidden';appEl.classList.remove('hidden');}
     try{ document.body.classList.add('app-ready'); }catch(e){}
     const hu=document.getElementById('hu');
     if(hu) hu.textContent=(user.full_name||user.username)+(user.role==='admin'?' (مدیر)':' (معلم)');
@@ -2928,7 +2928,9 @@ async function doLogin(){
       try{ var mt=document.getElementById('monthly-report-tile'); if(mt) mt.style.display='flex'; }catch(e){}
       try{ if(typeof renderTeacherAdminList==='function') renderTeacherAdminList(); }catch(e){}
     }
-    if(typeof go==='function') go('dashboard'); try{if(window.refreshSharedInboxPanels)window.refreshSharedInboxPanels();}catch(e){}
+    if(typeof go==='function') go('dashboard');
+    if(appEl)appEl.style.visibility='';
+    try{if(window.refreshSharedInboxPanels)window.refreshSharedInboxPanels();}catch(e){}
     try{ if(typeof loadSchoolDocuments==='function') loadSchoolDocuments(); }catch(e){}
     try{ updateOfflineBadgeSafe(); }catch(e){}
   }catch(e){
@@ -14379,11 +14381,12 @@ function install(){
  }catch(e){console.warn('teacher referral followup install',e);}
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(install,700);});else setTimeout(install,700);
-window.addEventListener('focus',function(){setTimeout(function(){var active=document.activeElement;var tag=active&&active.tagName;if(tag==='SELECT'||tag==='INPUT'||tag==='TEXTAREA')return;if(isManager())refreshFromServer(true);},150);});
+window.addEventListener('focus',function(){if(selectBusy()||(window.__dastyarFollowupSelectLockUntil||0)>Date.now())return;setTimeout(function(){if(selectBusy()||(window.__dastyarFollowupSelectLockUntil||0)>Date.now())return;var active=document.activeElement;var tag=active&&active.tagName;if(tag==='SELECT'||tag==='INPUT'||tag==='TEXTAREA')return;if(isManager())refreshFromServer(true);},150);});
 document.addEventListener('focusin',function(e){var t=e.target;if(t&&t.tagName==='SELECT'&&t.closest&&t.closest('#dastyar-smart-followup-list')){selectInteractionUntil=Date.now()+45000;window.__dastyarFollowupSelectLockUntil=selectInteractionUntil;}},true);
-document.addEventListener('pointerdown',function(e){var t=e.target;if(t&&t.tagName==='SELECT'&&t.closest&&t.closest('#dastyar-smart-followup-list')){selectInteractionUntil=Date.now()+45000;window.__dastyarFollowupSelectLockUntil=selectInteractionUntil;}},true);
+document.addEventListener('pointerdown',function(e){var t=e.target;if(t&&t.tagName==='SELECT'&&t.closest&&t.closest('#dastyar-smart-followup-list')){selectInteractionUntil=Date.now()+60000;window.__dastyarFollowupSelectLockUntil=selectInteractionUntil;}else if(t&&!(t.closest&&t.closest('#dastyar-smart-followup-list select'))){selectInteractionUntil=0;window.__dastyarFollowupSelectLockUntil=0;}},true);
+document.addEventListener('touchstart',function(e){var t=e.target;if(t&&t.tagName==='SELECT'&&t.closest&&t.closest('#dastyar-smart-followup-list')){selectInteractionUntil=Date.now()+60000;window.__dastyarFollowupSelectLockUntil=selectInteractionUntil;}},true);
 document.addEventListener('change',function(e){var t=e.target;if(t&&t.tagName==='SELECT'&&t.closest&&t.closest('#dastyar-smart-followup-list')){selectInteractionUntil=0;window.__dastyarFollowupSelectLockUntil=0;}},true);
-document.addEventListener('focusout',function(e){var t=e.target;if(t&&t.tagName==='SELECT'&&t.closest&&t.closest('#dastyar-smart-followup-list'))setTimeout(function(){if(!document.activeElement||document.activeElement.tagName!=='SELECT'){selectInteractionUntil=0;window.__dastyarFollowupSelectLockUntil=0;}},700);},true);
+
 })();
 </script>
 </body>
