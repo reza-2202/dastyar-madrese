@@ -6804,9 +6804,10 @@ async function buildClosedMonthQaEvaluations(){
   return true;
 }
 async function loadEvals(){
+  // ابتدا مجوز سراسری معلمان را مستقیم از سرور تازه‌سازی کن؛ منتظر بارگذاری همه اطلاعات مدرسه نمان.
+  try{ if(typeof loadTeacherParentLinkAllowed==='function') await loadTeacherParentLinkAllowed(true); }catch(e){}
   await reloadAll();
   try{if(typeof applyParentLinkPermissionUI==='function')applyParentLinkPermissionUI();}catch(e){}
-  try{ if(typeof loadTeacherParentLinkAllowed==='function') await loadTeacherParentLinkAllowed(true); }catch(e){}
   try{ if(typeof applyStudentPhotosFromLocal==='function') applyStudentPhotosFromLocal(); }catch(e){}
   try{await buildClosedMonthQaEvaluations();}catch(e){console.warn('خلاصه خودکار ماهانه پرسش‌وپاسخ ناموفق بود',e);}
   const classId=document.getElementById('ev-class').value;
