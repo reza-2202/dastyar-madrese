@@ -3154,7 +3154,7 @@ function go(p){
         try{if(typeof applyParentLinkPermissionUI==='function')applyParentLinkPermissionUI();}catch(e){}
         setTimeout(function(){
           try{
-            if(typeof loadTeacherParentLinkAllowed==='function')loadTeacherParentLinkAllowed(true);
+            if(typeof window.loadTeacherParentLinkAllowed==='function')window.loadTeacherParentLinkAllowed(true);
             else if(typeof applyParentLinkPermissionUI==='function')applyParentLinkPermissionUI();
           }catch(e){}
         },200);
@@ -13201,6 +13201,7 @@ try{
   window.setTeacherParentLinkAllowed=setTeacherParentLinkAllowed;
   window.applyParentLinkPermissionUI=applyParentLinkPermissionUI;
   window.isTeacherParentLinkAllowed=isTeacherParentLinkAllowed;
+  window.loadTeacherParentLinkAllowed=loadTeacherParentLinkAllowed;
   window.isSchoolAdminUser=isSchoolAdminUser;
   if(typeof window.generateParentPortalLink!=='function' && typeof generateParentPortalLink==='function') window.generateParentPortalLink=generateParentPortalLink;
 }catch(e){}
