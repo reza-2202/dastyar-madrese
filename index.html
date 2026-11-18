@@ -3115,11 +3115,6 @@ function doLogout(){
 }
 
 var __dastyarNavigationSequence=window.__dastyarNavigationSequence||0;
-// Keep only the currently active page/navigation node; avoid scanning every page on each tap.
-var __dastyarActivePage=document.querySelector('.page.on');
-var __dastyarActiveNav=document.querySelector('.ni.on');
-var __dastyarNavNodes=Object.create(null);
-document.querySelectorAll('.ni[data-p]').forEach(function(node){__dastyarNavNodes[node.getAttribute('data-p')]=node;});
 function go(p){
   // Reject unauthorized destinations before changing the visible page.
   if(p==='monthlyreport'&&(!user||(user.role!=='admin'&&user.role!=='manager'))){toast('گزارش ماهانه فقط برای مدیر است');return;}
@@ -3130,19 +3125,21 @@ function go(p){
   // Switch the visible page immediately; defer page-specific work until after paint.
   const openInvitation=p==='invitation';
   if(openInvitation)p='discipline';
-  const navigationToken=++window.__dastyarNavigationSequence;
   const page=document.getElementById('page-'+p);
-  const n=__dastyarNavNodes[p]||null;
-  if(__dastyarActivePage&&__dastyarActivePage!==page)__dastyarActivePage.classList.remove('on');
-  if(__dastyarActiveNav&&__dastyarActiveNav!==n)__dastyarActiveNav.classList.remove('on');
-  if(page)page.classList.add('on');
+  if(!page){console.warn('صفحه مقصد پیدا نشد:',p);return;}
+  const n=document.querySelector('.ni[data-p="'+p+'"]');
+  const navigationToken=++window.__dastyarNavigationSequence;
+  document.querySelectorAll('.page.on').forEach(function(active){if(active!==page)active.classList.remove('on');});
+  document.querySelectorAll('.ni.on').forEach(function(active){if(active!==n)active.classList.remove('on');});
+  page.classList.add('on');
   if(n)n.classList.add('on');
-  __dastyarActivePage=page||null;
-  __dastyarActiveNav=n||null;
+  try{
+    if(p!=='evaluation'&&typeof window.stopTeacherParentLinkPermissionPolling==='function')window.stopTeacherParentLinkPermissionPolling();
+  }catch(e){}
   const titles={dashboard:'داشبورد',studentfile:'پرونده دانش‌آموز',studentdata:'ورود و خروجی اطلاعات دانش‌آموزان',teacherperformance:'عملکرد و ارزیابی معلمان',discipline:'موارد انضباطی',finance:'مالی و حسابداری',teacheraccounts:'مدیریت معلمان و رمزها',students:'دانش‌آموزان',attendance:'حضور و غیاب',activity:'پرسش و فعالیت روزانه',evaluation:'ارزشیابی',charts:'نمودار پیشرفت',report:'کارنامه',documents:'ارسال فایل و برگه',chat:'گفت‌وگوی معلم و مدیر',about:'درباره برنامه',weekly:'برنامه هفتگی',parentmeet:'ارتباط با اولیا و جلسات',monthlyreport:'گزارش ماهانه مدیر',absentees:'گزارش غایبین',parentcontact:'دفتر تماس با اولیا',teacherreport:'گزارش کلاس من'};
   const title=document.getElementById('ht');if(title)title.textContent=titles[p]||p;
 
-  window.setTimeout(function(){
+  var runNavigationWork=function(){
     // Ignore stale work if the user has already navigated elsewhere.
     if(navigationToken!==window.__dastyarNavigationSequence)return;
     try{
@@ -3154,7 +3151,8 @@ function go(p){
         try{if(typeof applyParentLinkPermissionUI==='function')applyParentLinkPermissionUI();}catch(e){}
         setTimeout(function(){
           try{
-            if(typeof window.loadTeacherParentLinkAllowed==='function')window.loadTeacherParentLinkAllowed(true);
+            if(user&&user.role==='teacher'&&typeof window.startTeacherParentLinkPermissionPolling==='function')window.startTeacherParentLinkPermissionPolling();
+            else if(typeof window.loadTeacherParentLinkAllowed==='function')window.loadTeacherParentLinkAllowed(true);
             else if(typeof applyParentLinkPermissionUI==='function')applyParentLinkPermissionUI();
           }catch(e){}
         },200);
@@ -3202,7 +3200,9 @@ function go(p){
       if(p==='parentmeet'){fillParentClasses();if(!document.getElementById('pm-date').value)document.getElementById('pm-date').value=today();syncParentWeekday();if(!document.getElementById('pm-comments').children.length)addParentComment();renderParentMeetings();}
       if(p==='report'){fillSelects();loadReportStudents();document.getElementById('rp-edit').innerHTML='';}
     }catch(e){console.warn('بارگذاری بخش پس از نمایش صفحه با خطا روبه‌رو شد:',e);}
-  },0);
+  };
+  if(typeof window.requestAnimationFrame==='function')window.requestAnimationFrame(function(){window.setTimeout(runNavigationWork,0);});
+  else window.setTimeout(runNavigationWork,0);
 }
 
 function fillSelects(){
@@ -11110,8 +11110,8 @@ if(typeof _go==='function'){
   window.go = function(p){
     var r = _go.apply(this, arguments);
     try{
-      if(p==='dashboard') renderTeacherNotices();
-      if(p==='documents'){ setTimeout(function(){ loadSchoolDocuments(); renderPaperStats(); }, 50); }
+      if(p==='dashboard'&&!(window.user&&window.user.role==='teacher')) renderTeacherNotices();
+      if(p==='documents'){ setTimeout(function(){ renderPaperStats(); }, 50); }
     }catch(e){}
     return r;
   };
@@ -13003,6 +13003,27 @@ async function loadTeacherParentLinkAllowed(force){
     applyParentLinkPermissionUI();return teacherParentLinkPermissionCache;
   }catch(e){console.warn('load teacher parent link permission',e);applyParentLinkPermissionUI();return teacherParentLinkPermissionCache===true;}
 }
+
+// Refresh only while a teacher is viewing the link controls; no background polling elsewhere.
+var teacherParentLinkPermissionPollTimer=null;
+var teacherParentLinkPermissionPollBusy=false;
+function refreshTeacherParentLinkPermissionIfVisible(){
+  if(!user||user.role!=='teacher')return;
+  var page=document.getElementById('page-evaluation');
+  if(document.hidden||!page||!page.classList.contains('on')||teacherParentLinkPermissionPollBusy)return;
+  teacherParentLinkPermissionPollBusy=true;
+  loadTeacherParentLinkAllowed(true).then(function(){}).finally(function(){teacherParentLinkPermissionPollBusy=false;});
+}
+window.startTeacherParentLinkPermissionPolling=function(){
+  if(!user||user.role!=='teacher'||teacherParentLinkPermissionPollTimer)return;
+  refreshTeacherParentLinkPermissionIfVisible();
+  teacherParentLinkPermissionPollTimer=window.setInterval(refreshTeacherParentLinkPermissionIfVisible,2000);
+};
+window.stopTeacherParentLinkPermissionPolling=function(){
+  if(teacherParentLinkPermissionPollTimer!==null){window.clearInterval(teacherParentLinkPermissionPollTimer);teacherParentLinkPermissionPollTimer=null;}
+};
+window.addEventListener('focus',refreshTeacherParentLinkPermissionIfVisible);
+document.addEventListener('visibilitychange',function(){if(!document.hidden)refreshTeacherParentLinkPermissionIfVisible();});
 
 window.generateParentPortalLink=async function(classId,studentId){
  var requestContext=parentPortalContextVersion;
