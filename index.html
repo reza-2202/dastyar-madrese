@@ -14355,7 +14355,7 @@ async function refreshFromServer(silent){
   if(!silent&&typeof toast==='function')toast('ارجاع‌های تازه از سرور دریافت شد');
  }catch(e){console.warn('refresh manager referrals',e);if(!silent&&typeof toast==='function')toast('دریافت ارجاع‌ها انجام نشد: '+(e.message||e));}
 }
-function supportOpenCount(){return A(C().activities).filter(function(r){if(!r||r.type!=='student_support')return false;try{var x=JSON.parse(String(r.notes||''));return x&&x.tag==='DASTYAR_STUDENT_SUPPORT_V1'&&x.state!=='done';}catch(e){return false;}}).length;}
+function supportOpenCount(){return A(C().activities).filter(function(r){if(!r||r.type!=='student_support')return false;try{var x=JSON.parse(String(r.notes||''));return x&&x.tag==='DASYTAR_STUDENT_SUPPORT_V1'&&x.state!=='done';}catch(e){return false;}}).length;}
 function renderManagerPanel(){
  if(!isManager())return;
  ensurePanel();
