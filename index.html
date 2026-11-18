@@ -12917,13 +12917,16 @@ function safeParentStudent(s){let x=s.custom_fields||{};if(typeof x==='string'){
 function escParent(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 const PARENT_SETTINGS_KEY='dastyar_parent_access_settings_v1';
 function readParentSettings(){try{return JSON.parse(localStorage.getItem(PARENT_SETTINGS_KEY)||'{}')||{};}catch(e){return {};}}
-function applyParentSettings(){const sel=document.getElementById('ev-class'),mode=document.getElementById('parent-login-mode'),enabled=document.getElementById('parent-access-enabled'),duration=document.getElementById('parent-link-duration');if(!sel||!mode||!enabled)return;const cfg=readParentSettings()[String(sel.value)]||{};mode.value=cfg.mode||'code_password';enabled.checked=cfg.enabled!==false;if(duration)duration.value=String(cfg.duration_hours==null?24:cfg.duration_hours);}
+var parentPortalContextVersion=0;
+function clearParentPortalClassContext(){parentPortalContextVersion++;window.__dastyarParentContextVersion=parentPortalContextVersion;window.__dastyarParentLink='';window.__dastyarParentLinkClassId='';window.__dastyarParentCredentials=[];var box=document.getElementById('parent-portal-evaluation-result');if(box)box.innerHTML='';var dossierBox=document.getElementById('parent-portal-dossier-result');if(dossierBox)dossierBox.innerHTML='';}
+function applyParentSettings(){const sel=document.getElementById('ev-class'),mode=document.getElementById('parent-login-mode'),enabled=document.getElementById('parent-access-enabled'),duration=document.getElementById('parent-link-duration');if(!sel||!mode||!enabled)return;clearParentPortalClassContext();const cfg=readParentSettings()[String(sel.value)]||{};mode.value=cfg.mode||'code_password';enabled.checked=cfg.enabled!==false;if(duration)duration.value=String(cfg.duration_hours==null?24:cfg.duration_hours);}
 function saveParentSettings(){const sel=document.getElementById('ev-class'),mode=document.getElementById('parent-login-mode'),enabled=document.getElementById('parent-access-enabled'),duration=document.getElementById('parent-link-duration');if(!sel||!mode||!enabled||!sel.value)return;const all=readParentSettings();all[String(sel.value)]={mode:mode.value,enabled:!!enabled.checked,duration_hours:duration?Number(duration.value||24):24,updated_at:new Date().toISOString()};try{localStorage.setItem(PARENT_SETTINGS_KEY,JSON.stringify(all));}catch(e){}}
 function parentMode(){return (document.getElementById('parent-login-mode')||{}).value||'code_password';}
 function parentIdentity(st,mode){const code=digits(st.code||st.national_id||st.nationality_id||'');const name=String((st.first_name||'')+' '+(st.last_name||'')).trim().replace(/[\s\u200c]+/g,' ').toLowerCase();if(mode==='password_only')return '';if(mode==='code_only'||mode==='code_password')return code;if(mode==='name_only'||mode==='name_password')return name;return code;}
 function parentSecret(identity,password,mode){if(mode==='password_only')return password;if(mode==='code_only')return identity;if(mode==='name_only')return identity;return identity+':'+password;}
 function parentDurationHours(){const el=document.getElementById('parent-link-duration');const n=Number(el&&el.value||24);return Number.isFinite(n)&&n>=0?Math.min(8760,Math.floor(n)):24;}
 function parentSessionCredentials(){return {p_username:String(user&&(user.username||user.full_name)||''),p_password:String(window.__dastyarSessionPassword||'')};}
+function parentRowsForStudent(rows,student,classId){return (Array.isArray(rows)?rows:[]).filter(function(x){return x&&String(x.student_id)===String(student.id)&&(x.class_id==null||String(x.class_id)===String(classId));});}
 
 window.isSchoolAdminUser=function(){
   try{
@@ -12978,10 +12981,14 @@ window.applyParentLinkPermissionUI=function(){
 async function loadTeacherParentLinkAllowed(){ try{ applyParentLinkPermissionUI(); }catch(e){} }
 
 window.generateParentPortalLink=async function(classId,studentId){
+ var requestContext=parentPortalContextVersion;
  try{
   var resultBox=document.getElementById(studentId?'parent-portal-dossier-result':'parent-portal-evaluation-result')||document.getElementById('parent-portal-evaluation-result');
   var btn=document.getElementById('parent-generate-link-btn');
+  window.__dastyarParentLink='';window.__dastyarParentLinkClassId='';window.__dastyarParentCredentials=[];
+  if(resultBox)resultBox.innerHTML='';
   function showStatus(msg,isErr){
+    if(requestContext!==parentPortalContextVersion)return;
     try{
       if(resultBox) resultBox.innerHTML='<div style="padding:10px;border-radius:10px;background:'+(isErr?'#fef2f2':'#eff6ff')+';color:'+(isErr?'#991b1b':'#1e40af')+';font-size:.85rem;line-height:1.8;margin-top:8px">'+msg+'</div>';
       if(typeof toast==='function') toast(msg);
@@ -13002,7 +13009,9 @@ window.generateParentPortalLink=async function(classId,studentId){
   if(classId && typeof classId==='object') classId=null;
   if(!classId){ try{ classId=(document.getElementById('ev-class')||{}).value||''; }catch(e){} }
   if(!classId){showStatus('ابتدا کلاس را انتخاب کنید',true);return;}
+  if(requestContext!==parentPortalContextVersion)return '';
   if(sb&&navigator.onLine&&!window.isOffline){try{await reloadAll();}catch(e){console.warn(e);}}
+  if(requestContext!==parentPortalContextVersion)return '';
   const cls=(cache.classes||[]).find(c=>String(c.id)===String(classId));
   if(!cls){showStatus('کلاس انتخاب‌شده پیدا نشد',true);return;}
   if(user.role==='teacher'&&!(user.class_ids||[]).map(String).includes(String(classId))){showStatus('فقط برای کلاس خودتان می‌توانید لینک بسازید',true);return;}
@@ -13043,16 +13052,16 @@ window.generateParentPortalLink=async function(classId,studentId){
     const payload={
       student:safeParentStudent(st),
       updated_at:new Date().toISOString(),
-      attendance:(cache.attendance||[]).filter(x=>String(x.student_id)===String(st.id)),
-      activities:(cache.activities||[]).filter(x=>x&&String(x.student_id)===String(st.id)&&x.type!=='exam'&&x.type!=='absence_followup'&&x.subject!=='پیگیری غیبت مدیر'),
-      exams:(cache.activities||[]).filter(x=>x&&String(x.student_id)===String(st.id)&&x.type==='exam'),
-      absence_followups:(cache.activities||[]).filter(x=>x&&String(x.student_id)===String(st.id)&&(x.type==='absence_followup'||x.subject==='پیگیری غیبت مدیر')),
-      evaluations:(cache.evaluations||[]).filter(x=>String(x.student_id)===String(st.id)),
-      scores:(cache.scores||[]).filter(x=>String(x.student_id)===String(st.id)),
-      competencies:(cache.competencies||[]).filter(x=>String(x.student_id)===String(st.id)),
-      discipline:(cache.discipline||[]).filter(x=>String(x.student_id)===String(st.id)),
-      parent_contacts:(cache.parent_contacts||[]).filter(x=>String(x.student_id)===String(st.id)),
-      finance:(cache.finance||[]).filter(x=>String(x.student_id)===String(st.id))
+      attendance:parentRowsForStudent(cache.attendance,st,classId),
+      activities:parentRowsForStudent(cache.activities,st,classId).filter(x=>x.type!=='exam'&&x.type!=='absence_followup'&&x.subject!=='پیگیری غیبت مدیر'),
+      exams:parentRowsForStudent(cache.activities,st,classId).filter(x=>x.type==='exam'),
+      absence_followups:parentRowsForStudent(cache.activities,st,classId).filter(x=>x.type==='absence_followup'||x.subject==='پیگیری غیبت مدیر'),
+      evaluations:parentRowsForStudent(cache.evaluations,st,classId),
+      scores:parentRowsForStudent(cache.scores,st,classId),
+      competencies:parentRowsForStudent(cache.competencies,st,classId),
+      discipline:parentRowsForStudent(cache.discipline,st,classId),
+      parent_contacts:parentRowsForStudent(cache.parent_contacts,st,classId),
+      finance:parentRowsForStudent(cache.finance,st,classId)
     };
     const salt=randomBytes(16), iv=randomBytes(12), key=await deriveParentKey(secret,salt);
     const plain=await compressBytes(new TextEncoder().encode(JSON.stringify(payload)));
@@ -13061,7 +13070,8 @@ window.generateParentPortalLink=async function(classId,studentId){
     credentialRows.push({name:(st.first_name||'')+' '+(st.last_name||''),class_name:cls.label,student_code:nid,password:password,login_mode:mode,login_identity:identity});
   }
   localStorage.setItem(PASSWORDS_KEY,JSON.stringify(passwordMap));
-  const pkg={v:2,school:'دبستان شهید فتح‌الله فلاح‌پور',class_name:cls.label,created_at:new Date().toISOString(),package_salt:packageSalt,login_mode:mode,records:records};
+  if(requestContext!==parentPortalContextVersion)return '';
+   const pkg={v:2,school:'دبستان شهید فتح‌الله فلاح‌پور',class_id:String(classId),class_name:cls.label,created_at:new Date().toISOString(),package_salt:packageSalt,login_mode:mode,records:records};
   showStatus('ارسال به سرور... لطفاً صبر کنید');
   const published=await sb.rpc('publish_parent_portal_package',{
     p_class_id:String(classId),
@@ -13081,6 +13091,7 @@ window.generateParentPortalLink=async function(classId,studentId){
   const base=new URL(PARENT_PORTAL_RELATIVE,'https://reza-2202.github.io/dastyar-madrese/');
   base.hash='t='+encodeURIComponent(shortToken);
   const link=base.href;
+  if(requestContext!==parentPortalContextVersion)return '';
   const resultId=studentId?'parent-portal-dossier-result':'parent-portal-evaluation-result';
   let box=document.getElementById(resultId);
   if(!box&&studentId){
@@ -13093,10 +13104,12 @@ window.generateParentPortalLink=async function(classId,studentId){
     box.innerHTML='<div style="font-weight:700;color:#1e40af;margin-bottom:6px">لینک مشترک پرونده اولیا — '+escParent(cls.label)+'</div><div style="font-size:.82rem;line-height:1.8;word-break:break-all">'+escParent(link)+'</div><div class="meta">'+records.length+' پرونده رمزگذاری‌شده در سرور ثبت شد. اعتبار لینک تا: '+escParent(expiry)+'. این لینک برای تمام اولیای کلاس یکسان است.</div><button class="btn btn-p btn-sm" style="margin:6px 4px 0 0" onclick="copyParentPortalLink()">کپی لینک و متن رسمی</button><button class="btn btn-o btn-sm" style="margin:6px 4px 0 0" onclick="downloadParentCredentials()">دریافت رمزهای اختصاصی</button><button class="btn btn-o btn-sm" style="margin:6px 4px 0 0" onclick="shareParentPortalLink()">اشتراک‌گذاری</button>';
   }
   window.__dastyarParentLink=link;
+  window.__dastyarParentLinkClassId=String(classId);
   window.__dastyarParentCredentials=credentialRows;
   toast('لینک کوتاه و مشترک کلاس آماده شد. رمز اختصاصی هر دانش‌آموز را فقط خصوصی برای ولی خودش ارسال کنید.');
   return link;
  }catch(e){
+  if(requestContext!==parentPortalContextVersion)return '';
   console.error('Parent portal package',e);
   try{
     var msg='ساخت لینک پرونده اولیا ناموفق بود: '+(e&&e.message?e.message:e);
@@ -13123,10 +13136,10 @@ window.injectParentDossierLink=function(studentId){
  const cl=(cache.classes||[]).find(c=>String(c.id)===String(st.class_id));const first=document.querySelector('#print-student-dossier > section.card');if(!first)return;
  const b=document.createElement('button');b.type='button';b.className='btn btn-p btn-sm no-print';b.style.cssText='margin:8px 4px 0 0';b.textContent='🔗 ساخت لینک مشترک پرونده اولیای کلاس';b.addEventListener('click',()=>generateParentPortalLink(st.class_id));first.appendChild(b);
 };
-window.parentPortalShareText=function(){var link=window.__dastyarParentLink||'';return 'لینک دسترسی به پرونده الکترونیکی اولیا\nلطفاً برای مشاهده پرونده آموزشی دانش‌آموز، از طریق نشانی زیر اقدام فرمایید.\n'+link;};
+window.parentPortalShareText=function(){var link=window.__dastyarParentLink||'';if(!link||!window.__dastyarParentLinkClassId)return '';return 'لینک دسترسی به پرونده الکترونیکی اولیا\nلطفاً برای مشاهده پرونده آموزشی دانش‌آموز، از طریق نشانی زیر اقدام فرمایید.\n'+link;};
 window.copyParentPortalLink=async function(){if(!window.__dastyarParentLink){toast('ابتدا لینک پرونده اولیا را ایجاد کنید.');return;}var text=window.parentPortalShareText();try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(text);toast('متن رسمی همراه لینک کپی شد؛ آن را در گروه شاد جای‌گذاری کنید.');return;}}catch(e){console.warn('Clipboard API unavailable',e);}try{var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');ta.style.position='fixed';ta.style.opacity='0';ta.style.left='-9999px';document.body.appendChild(ta);ta.focus();ta.select();ta.setSelectionRange(0,ta.value.length);var ok=document.execCommand('copy');document.body.removeChild(ta);if(ok){toast('متن رسمی همراه لینک کپی شد؛ آن را در گروه شاد جای‌گذاری کنید.');return;}}catch(e){console.warn('Legacy clipboard fallback failed',e);}prompt('متن زیر را انتخاب و کپی کنید:',text);};
 window.shareParentPortalLink=async function(){if(!window.__dastyarParentLink){toast('ابتدا لینک پرونده اولیا را ایجاد کنید.');return;}var text=window.parentPortalShareText();if(navigator.share){try{await navigator.share({title:'لینک دسترسی به پرونده الکترونیکی اولیا',text:text});return;}catch(e){if(e&&e.name==='AbortError')return;console.warn('Native share failed',e);}}await window.copyParentPortalLink();};
-window.downloadParentCredentials=function(){const rows=window.__dastyarParentCredentials||[];if(!rows.length)return;const csv='نام دانش‌آموز\tکلاس\tکد دانش‌آموزی\tروش ورود\tشناسه ورود\tرمز اختصاصی\n'+rows.map(x=>[x.name,x.class_name,x.student_code,x.login_mode,x.login_identity,x.password].join('\t')).join('\n');const blob=new Blob(['\ufeff'+csv],{type:'text/tab-separated-values;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='رمزهای-اختصاصی-اولیا-'+Date.now()+'.txt';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
+window.downloadParentCredentials=function(){const rows=window.__dastyarParentCredentials||[];if(!rows.length||!window.__dastyarParentLinkClassId)return;const csv='نام دانش‌آموز\tکلاس\tکد دانش‌آموزی\tروش ورود\tشناسه ورود\tرمز اختصاصی\n'+rows.map(x=>[x.name,x.class_name,x.student_code,x.login_mode,x.login_identity,x.password].join('\t')).join('\n');const blob=new Blob(['\ufeff'+csv],{type:'text/tab-separated-values;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='رمزهای-اختصاصی-اولیا-'+Date.now()+'.txt';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
 window.renderParentInvitationSummary=function(){
  const box=document.getElementById('parent-invitation-summary-content');if(!box)return;
  const current=window.user||user||{};const isAdmin=current.role==='admin';
