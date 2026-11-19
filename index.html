@@ -14080,7 +14080,7 @@ function categories(id){
  var activity=acts.filter(function(r){return r.type==='activity'&&isNeeds(r);});
  var evaluations=A(c.evaluations).filter(function(r){return String(r.student_id)===String(id)&&isNeeds(r);});
  var scores=A(c.scores).filter(function(r){return String(r.student_id)===String(id)&&isNeeds(r);});
- var discipline=A(c.discipline).filter(function(r){return String(r.student_id)===String(id)&&String(r.status||'pending').toLowerCase()==='pending';});
+ var discipline=A(c.discipline).filter(function(r){return String(r.student_id)===String(id);});
  var competencies=A(c.competencies).filter(function(r){return String(r.student_id)===String(id)&&isNeeds(r);});
  return [
   {key:'attendance',title:'حضور و غیاب',rows:attendance,threshold:3},
