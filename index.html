@@ -13161,7 +13161,8 @@ window.generateParentPortalLink=async function(classId,studentId){
       competencies:(cache.competencies||[]).filter(x=>String(x.student_id)===String(st.id)),
       discipline:(cache.discipline||[]).filter(x=>String(x.student_id)===String(st.id)),
       parent_contacts:(cache.parent_contacts||[]).filter(x=>String(x.student_id)===String(st.id)),
-      finance:(cache.finance||[]).filter(x=>String(x.student_id)===String(st.id))
+      finance:(cache.finance||[]).filter(x=>String(x.student_id)===String(st.id)),
+      achievements:(cache.achievements||[]).filter(x=>String(x.student_id)===String(st.id)&&x.status==='approved')
     };
     const salt=randomBytes(16), iv=randomBytes(12), key=await deriveParentKey(secret,salt);
     const plain=await compressBytes(new TextEncoder().encode(JSON.stringify(payload)));
@@ -14524,3 +14525,217 @@ function toggleDashboardStatsRail(open){
 }
 #page-dashboard .home-tile:active{transform:none!important}
 </style>
+
+
+
+<style id="dastyar-achievements-safe-v1">
+#dastyar-achievement-modal{position:fixed;inset:0;z-index:2147482500;background:rgba(15,23,42,.62);display:none;align-items:flex-start;justify-content:center;padding:12px;overflow:auto}
+#dastyar-achievement-modal.show{display:flex}
+#dastyar-achievement-modal .da-panel{width:min(760px,100%);margin:auto;background:#fff;border-radius:18px;padding:16px;box-shadow:0 18px 60px rgba(0,0,0,.28);direction:rtl;color:#172554;max-height:94vh;overflow:auto}
+#dastyar-achievement-modal .da-field{display:block;width:100%;box-sizing:border-box;padding:10px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;font:inherit;margin:5px 0 11px}
+#dastyar-achievement-modal .da-btn{border:0;border-radius:10px;padding:10px 13px;font:inherit;font-weight:800;cursor:pointer}
+#dastyar-achievement-modal .da-primary{background:#1d4ed8;color:white}
+#dastyar-achievement-modal .da-soft{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe}
+#dastyar-achievement-modal .da-item{border:1px solid #dbeafe;border-right:4px solid #2563eb;border-radius:12px;padding:10px;margin:9px 0;background:#fff}
+#dastyar-achievement-modal .da-meta{font-size:.78rem;color:#64748b;line-height:1.8}
+#dastyar-achievement-modal .da-medal{display:inline-flex;padding:3px 9px;border-radius:20px;background:#fffbeb;color:#92400e;border:1px solid #fcd34d;font-size:.76rem;font-weight:800}
+#print-student-dossier .da-dossier{border:1px solid #dbeafe;border-right:5px solid #2563eb;border-radius:12px;padding:12px;margin:12px 0;background:#f8fbff;break-inside:avoid}
+#print-student-dossier .da-dossier .da-medal-img{width:46px;height:46px;object-fit:contain;vertical-align:middle;margin-left:8px}
+@media print{#dastyar-achievement-modal,.da-no-print{display:none!important}#print-student-dossier .da-dossier{background:#fff!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+</style>
+<script id="dastyar-achievements-safe-v1">
+(function(){
+'use strict';
+var KEY='dastyar_achievements_offline_v1', SNAP='dastyar_achievements_snapshot_v1';
+var activeStudent='', rows=[], busy=false, installed=false;
+function $(id){return document.getElementById(id)}
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function currentUser(){try{return window.user||user||null}catch(e){return window.user||null}}
+function password(){try{return String(window.__dastyarSessionPassword||'')}catch(e){return ''}}
+function client(){try{return typeof sb!=='undefined'?sb:null}catch(e){return null}}
+function online(){return !!(navigator.onLine&&client()&&password())}
+function localQueue(){try{var a=JSON.parse(localStorage.getItem(KEY)||'[]');return Array.isArray(a)?a:[]}catch(e){return []}}
+function saveQueue(a){try{localStorage.setItem(KEY,JSON.stringify(a))}catch(e){if(typeof toast==='function')toast('حافظه گوشی پر است؛ تشویق آفلاین ذخیره نشد.');}}
+function userCred(){var u=currentUser();return {p_username:String(u&&(u.username||u.full_name)||''),p_password:password()}}
+function allowedClasses(){
+ var u=currentUser(); if(!u)return [];
+ var all=Array.isArray(cache.classes)?cache.classes:[];
+ if(u.role==='admin'||u.role==='manager')return all;
+ var mine=[];
+ try{if(typeof myClasses==='function')mine=myClasses()||[]}catch(e){}
+ if(mine.length)return mine;
+ return all.filter(function(c){return (Array.isArray(u.class_ids)&&u.class_ids.map(String).indexOf(String(c.id))>=0)||String(c.teacher_user||'').toLowerCase()===String(u.username||'').toLowerCase()||String(c.teacher_name||'').toLowerCase()===String(u.full_name||'').toLowerCase()});
+}
+function escUrl(v){var s=String(v||'').trim();return /^https?:\/\//i.test(s)?esc(s):''}
+function nameOf(id){var s=(cache.students||[]).find(function(x){return String(x.id)===String(id)});return s?String((s.first_name||'')+' '+(s.last_name||'')).trim():'دانش‌آموز'}
+function className(id){var c=(cache.classes||[]).find(function(x){return String(x.id)===String(id)});return c?c.label||'':''}
+function statusName(s){return ({pending:'در انتظار بررسی',approved:'تأیید شده',rejected:'رد شده',answered:'پاسخ داده شده'})[s]||s||'—'}
+function kindName(k){return ({recognition:'تشویق مستقیم',nomination:'معرفی دانش‌آموز شاخص',nomination_request:'درخواست معرفی از معلم'})[k]||k}
+function medalName(m){return ({bronze:'مدال برنزی',silver:'مدال نقره‌ای',gold:'مدال طلایی',special:'نشان ویژه افتخار'})[m]||''}
+function saveSnapshot(a){try{localStorage.setItem(SNAP,JSON.stringify(a.filter(function(x){return x.status==='approved'})))}catch(e){}}
+async function refresh(){
+ var u=currentUser();if(!u)return [];
+ if(online()){
+  var c=userCred(),r=await client().rpc('sa_achievements_list',c);
+  if(r&&r.error)throw new Error(r.error.message||'دریافت سوابق تشویق ناموفق بود');
+  rows=Array.isArray(r.data)?r.data:(r.data?[r.data]:[]);
+  cache.achievements=rows.slice();saveSnapshot(rows);
+ }else{
+  try{rows=JSON.parse(localStorage.getItem(SNAP)||'[]');if(!Array.isArray(rows))rows=[]}catch(e){rows=[]}
+  cache.achievements=rows.slice();
+ }
+ var q=localQueue();q.forEach(function(x){if(x&&x.record&&!rows.some(function(y){return String(y.id)===String(x.record.id)})){var z=Object.assign({},x.record,{status:'pending',__offline:true});rows.push(z)}});
+ return rows;
+}
+async function flushQueue(){
+ if(!online()||busy)return;
+ busy=true;
+ try{
+  var q=localQueue(),keep=[],c=userCred();
+  for(var i=0;i<q.length;i++){
+   var item=q[i];try{
+    var r=await client().rpc('sa_achievements_save',{p_username:c.p_username,p_password:c.p_password,p_record:item.record});
+    if(r&&r.error)throw new Error(r.error.message||'ارسال تشویق ناموفق بود');
+   }catch(e){keep.push(item)}
+  }
+  saveQueue(keep);
+  if(!keep.length&&q.length&&typeof toast==='function')toast('تشویق‌های ذخیره‌شده آفلاین با موفقیت همگام شدند.');
+ }finally{busy=false}
+}
+function getModal(){
+ var m=$('dastyar-achievement-modal');if(m)return m;
+ m=document.createElement('div');m.id='dastyar-achievement-modal';m.innerHTML='<div class="da-panel" role="dialog" aria-modal="true" aria-label="سامانه افتخارات"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><div><div style="font-weight:900;font-size:1.15rem;color:#1e40af">🏅 افتخارات و تشویق‌ها</div><div class="da-meta">ثبت مستقل از نمرات؛ سوابق تأییدشده در پرونده دانش‌آموز نمایش داده می‌شوند.</div></div><button class="da-btn da-soft" type="button" onclick="window.closeAchievementCenter()">بستن ✕</button></div><div id="da-form-area"></div><div style="border-top:1px solid #e2e8f0;margin-top:12px;padding-top:10px"><div style="font-weight:900;margin-bottom:8px">سوابق و درخواست‌ها</div><div id="da-list"></div></div></div>';
+ m.addEventListener('click',function(e){if(e.target===m)close()});document.body.appendChild(m);return m;
+}
+function fillClasses(selected){
+ var u=currentUser(),cls=allowedClasses(),sel=$('da-class');if(!sel)return;
+ sel.innerHTML=cls.map(function(c){return '<option value="'+esc(c.id)+'">'+esc(c.label||c.id)+'</option>'}).join('');
+ if(selected&&cls.some(function(c){return String(c.id)===String(selected)}))sel.value=String(selected);
+ if(!sel.value&&cls[0])sel.value=String(cls[0].id);
+ fillStudents(activeStudent);
+}
+function fillStudents(selected){
+ var sel=$('da-student'),cl=$('da-class');if(!sel||!cl)return;
+ var list=(cache.students||[]).filter(function(s){return String(s.class_id)===String(cl.value)});
+ sel.innerHTML=list.map(function(s){return '<option value="'+esc(s.id)+'">'+esc((s.first_name||'')+' '+(s.last_name||''))+'</option>'}).join('');
+ if(selected&&list.some(function(s){return String(s.id)===String(selected)}))sel.value=String(selected);
+}
+function formHtml(){
+ var u=currentUser(),isAdmin=u&&(u.role==='admin'||u.role==='manager');
+ return '<div style="background:#f8fbff;border:1px solid #dbeafe;border-radius:13px;padding:12px;margin:12px 0"><div style="font-weight:900;margin-bottom:8px">ثبت مورد جدید</div>'+
+ '<label>کلاس</label><select id="da-class" class="da-field" onchange="window.refreshAchievementStudents()"></select>'+
+ '<label>دانش‌آموز</label><select id="da-student" class="da-field"></select>'+
+ '<label>نوع ثبت</label><select id="da-kind" class="da-field"><option value="recognition">ثبت تشویق</option><option value="nomination">معرفی دانش‌آموز شاخص</option>'+(isAdmin?'<option value="nomination_request">درخواست معرفی دانش‌آموز شاخص از معلم</option>':'')+'</select>'+
+ '<label>زمینه تشویق / منبع</label><select id="da-category" class="da-field"><option>تلاش و پشتکار</option><option>پیشرفت درسی</option><option>پرسش و پاسخ</option><option>ارزشیابی</option><option>فعالیت کلاسی</option><option>انضباط و مسئولیت‌پذیری</option><option>حضور و مشارکت</option><option>همکاری و رفتار اجتماعی</option><option>هنر و خلاقیت</option><option>ورزش</option><option>سایر</option></select>'+
+ '<label>بخش مرتبط</label><select id="da-source" class="da-field"><option value="general">عمومی</option><option value="qa">پرسش و پاسخ</option><option value="evaluation">ارزشیابی</option><option value="discipline">انضباط</option><option value="activity">فعالیت کلاسی</option><option value="attendance">حضور و غیاب</option><option value="other">سایر</option></select>'+
+ '<label>عنوان</label><input id="da-title" class="da-field" maxlength="120" placeholder="مثلاً تلاش پیوسته و پیشرفت چشمگیر"/>'+
+ '<label>دلیل و شرح تشویق / معرفی</label><textarea id="da-reason" class="da-field" rows="3" maxlength="1500" placeholder="رفتار، تلاش یا پیشرفت قابل تقدیر را توضیح دهید"></textarea>'+
+ '<button class="da-btn da-primary" type="button" onclick="window.saveAchievementRecord()">ثبت امن تشویق / معرفی</button><span id="da-save-status" class="da-meta" style="margin-right:8px"></span></div>';
+}
+function renderList(){
+ var box=$('da-list');if(!box)return;
+ var u=currentUser(),isAdmin=u&&(u.role==='admin'||u.role==='manager');
+ var list=rows.slice().sort(function(a,b){return String(b.created_at||b.date||'').localeCompare(String(a.created_at||a.date||''))});
+ if(!list.length){box.innerHTML='<div class="da-meta">هنوز سابقه‌ای ثبت نشده است.</div>';return}
+ box.innerHTML=list.map(function(a){
+  var pending=a.status==='pending',canReview=isAdmin&&pending&&!a.__offline;
+  var img=escUrl(a.medal_image_url);
+  return '<article class="da-item"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>'+esc(kindName(a.kind))+' — '+esc(nameOf(a.student_id))+'</b><span class="da-medal">'+esc(statusName(a.status))+'</span></div>'+
+   '<div class="da-meta">کلاس: '+esc(className(a.class_id))+' | تاریخ: '+esc(a.date||'')+' | ثبت‌کننده: '+esc(a.created_by||a.created_by_username||'')+'</div>'+
+   '<div style="margin-top:5px"><b>'+esc(a.title||'تشویق')+'</b> — '+esc(a.category||'')+'</div><div style="white-space:pre-wrap;margin-top:5px">'+esc(a.reason||'')+'</div>'+
+   (a.decision_text?'<div style="margin-top:6px;color:#166534"><b>نظر مدیر:</b> '+esc(a.decision_text)+'</div>':'')+
+   (a.award_type?'<div class="da-meta">نوع تقدیر: '+esc(a.award_type)+'</div>':'')+
+   (a.medal_level?'<div style="margin-top:6px"><span class="da-medal">'+esc(medalName(a.medal_level))+'</span>'+(img?'<img src="'+img+'" alt="تصویر مدال" style="width:48px;height:48px;object-fit:contain;vertical-align:middle;margin-right:8px">':'')+'</div>':'')+
+   (canReview?'<div class="da-no-print" style="border-top:1px solid #dbeafe;margin-top:9px;padding-top:8px"><label>نوع تقدیر</label><select class="da-field" id="da-award-'+esc(a.id)+'"><option value="">بدون تقدیر جداگانه</option><option>لوح سپاس</option><option>تقدیر کتبی</option><option>معرفی در مراسم</option><option>تشویق شفاهی</option><option>جایزه آموزشی</option></select><label>مدال / نشان</label><select class="da-field" id="da-medal-'+esc(a.id)+'"><option value="">بدون مدال</option><option value="bronze">برنزی</option><option value="silver">نقره‌ای</option><option value="gold">طلایی</option><option value="special">ویژه افتخار</option></select><label>نشانی تصویر مدال (اختیاری، لینک امن https)</label><input class="da-field" id="da-image-'+esc(a.id)+'" placeholder="https://..."/><label>توضیح و نتیجه بررسی</label><textarea class="da-field" id="da-decision-'+esc(a.id)+'" rows="2"></textarea><button class="da-btn da-primary" onclick="window.reviewAchievementRecord(\''+esc(a.id)+'\',\'approved\')">تأیید و ثبت تقدیر</button> <button class="da-btn da-soft" onclick="window.reviewAchievementRecord(\''+esc(a.id)+'\',\'rejected\')">رد درخواست</button></div>':'')+
+  '</article>';
+ }).join('');
+}
+async function open(studentId){
+ var u=currentUser();if(!u){if(typeof toast==='function')toast('ابتدا وارد برنامه شوید');return}
+ activeStudent=String(studentId||'');var m=getModal();
+ $('da-form-area').innerHTML=formHtml();fillClasses();
+ if(activeStudent){var st=(cache.students||[]).find(function(x){return String(x.id)===activeStudent});if(st)fillClasses(st.class_id)}
+ m.classList.add('show');
+ try{await refresh();renderList()}catch(e){if(typeof toast==='function')toast('دریافت سوابق تشویق: '+(e.message||e));renderList()}
+}
+function close(){var m=$('dastyar-achievement-modal');if(m)m.classList.remove('show')}
+window.closeAchievementCenter=close;
+window.refreshAchievementStudents=function(){fillStudents('')};
+window.openAchievementCenter=open;
+window.saveAchievementRecord=async function(){
+ var u=currentUser(),cl=$('da-class'),st=$('da-student'),status=$('da-save-status');
+ if(!u||!cl||!st||!st.value){if(typeof toast==='function')toast('کلاس و دانش‌آموز را انتخاب کنید');return}
+ var reason=String(($('da-reason')||{}).value||'').trim(),title=String(($('da-title')||{}).value||'').trim();
+ if(reason.length<3){if(typeof toast==='function')toast('دلیل تشویق را کامل‌تر بنویسید');return}
+ var rec={id:(typeof uid==='function'?uid():String(Date.now())+'-'+Math.random().toString(36).slice(2)),student_id:String(st.value),class_id:String(cl.value),kind:String(($('da-kind')||{}).value||'recognition'),title:title||'ثبت تشویق',category:String(($('da-category')||{}).value||''),reason:reason,source_section:String(($('da-source')||{}).value||'general'),date:new Date().toISOString().slice(0,10)};
+ if(u.role==='teacher'&&rec.kind==='nomination_request'){if(typeof toast==='function')toast('این نوع درخواست فقط برای مدیر است');return}
+ try{
+  if(online()){
+   var c=userCred(),r=await client().rpc('sa_achievements_save',{p_username:c.p_username,p_password:c.p_password,p_record:rec});
+   if(r&&r.error)throw new Error(r.error.message||'ثبت انجام نشد');
+   var saved=r.data;if(Array.isArray(saved))saved=saved[0];if(saved&&saved.id){rows=rows.filter(function(x){return String(x.id)!==String(saved.id)});rows.unshift(saved);cache.achievements=rows.slice();saveSnapshot(rows)}
+   if(typeof toast==='function')toast('تشویق / معرفی در سرور ثبت شد و برای بررسی مدیر ارسال گردید.');
+  }else{
+   var q=localQueue();q.push({record:rec,queued_at:new Date().toISOString()});saveQueue(q);rows.unshift(Object.assign({},rec,{status:'pending',__offline:true}));if(typeof toast==='function')toast('این مورد روی گوشی ذخیره شد و پس از اتصال اینترنت همگام می‌شود.');
+  }
+  $('da-reason').value='';$('da-title').value='';renderList();if(activeStudent)renderDossier(activeStudent);
+ }catch(e){if(typeof toast==='function')toast('ثبت تشویق انجام نشد: '+(e.message||e))}
+};
+window.reviewAchievementRecord=async function(id,status){
+ var u=currentUser();if(!u||u.role!=='admin'){if(typeof toast==='function')toast('بررسی درخواست فقط در اختیار مدیر است');return}
+ if(!online()){if(typeof toast==='function')toast('برای تأیید یا رد درخواست باید اینترنت و سرور وصل باشد');return}
+ var c=userCred(),award=String(($('da-award-'+id)||{}).value||''),medal=String(($('da-medal-'+id)||{}).value||''),image=String(($('da-image-'+id)||{}).value||'').trim(),decision=String(($('da-decision-'+id)||{}).value||'').trim();
+ if(image&&!/^https:\/\//i.test(image)){if(typeof toast==='function')toast('نشانی تصویر مدال باید با https شروع شود');return}
+ try{
+  var r=await client().rpc('sa_achievements_review',{p_username:c.p_username,p_password:c.p_password,p_id:String(id),p_status:status,p_decision_text:decision,p_award_type:award,p_medal_level:medal||null,p_medal_image_url:image||null});
+  if(r&&r.error)throw new Error(r.error.message||'ثبت تصمیم مدیر ناموفق بود');
+  var saved=r.data;if(Array.isArray(saved))saved=saved[0];
+  rows=rows.map(function(x){return String(x.id)===String(id)?saved:x});cache.achievements=rows.slice();saveSnapshot(rows);renderList();if(activeStudent)renderDossier(activeStudent);
+  if(typeof toast==='function')toast(status==='approved'?'تقدیر تأیید شد و نتیجه برای معلم قابل مشاهده است.':'درخواست رد شد و نتیجه برای معلم ثبت شد.');
+ }catch(e){if(typeof toast==='function')toast('ثبت تصمیم مدیر انجام نشد: '+(e.message||e))}
+};
+function renderDossier(studentId){
+ var root=$('print-student-dossier');if(!root)return;
+ var old=$('da-dossier-'+studentId);if(old)old.remove();
+ var items=rows.filter(function(a){return String(a.student_id)===String(studentId)&&a.status==='approved'}).sort(function(a,b){return String(b.created_at||b.date||'').localeCompare(String(a.created_at||a.date||''))});
+ var pending=rows.filter(function(a){return String(a.student_id)===String(studentId)&&a.status==='pending'}).length;
+ var html='<section class="da-dossier dossier-section" id="da-dossier-'+esc(studentId)+'"><div style="font-weight:900;color:#1e40af;margin-bottom:8px">🏅 افتخارات و تشویق‌ها <span style="font-size:.8rem">('+items.length+')</span></div>';
+ if(!items.length)html+='<div class="da-meta">هنوز تقدیر تأییدشده‌ای ثبت نشده است.</div>';
+ items.forEach(function(a){var img=escUrl(a.medal_image_url);html+='<div style="padding:8px;border-bottom:1px solid #dbeafe;break-inside:avoid">'+(img?'<img class="da-medal-img" src="'+img+'" alt="مدال"/>':'')+'<b>'+esc(a.title||kindName(a.kind))+'</b>'+(a.medal_level?'<span class="da-medal">'+esc(medalName(a.medal_level))+'</span>':'')+'<div class="da-meta">'+esc(a.date||'')+' | '+esc(a.category||'')+' | ثبت‌کننده: '+esc(a.created_by||'')+(a.reviewed_by?' | تأییدکننده: '+esc(a.reviewed_by):'')+'</div><div>'+esc(a.reason||'')+'</div>'+(a.decision_text?'<div>نتیجه: '+esc(a.decision_text)+'</div>':'')+(a.award_type?'<div>نوع تقدیر: '+esc(a.award_type)+'</div>':'')+'</div>'});
+ html+='</section>';
+ var anchor=root.querySelector('section.card');if(anchor)anchor.insertAdjacentHTML('afterend',html);else root.insertAdjacentHTML('afterbegin',html);
+ if(pending&&currentUser()&&currentUser().role==='admin'){}
+}
+async function refreshDossier(studentId){try{await refresh();renderDossier(studentId)}catch(e){renderDossier(studentId)}}
+function addDossierButton(){
+ var root=$('print-student-dossier');if(!root||$('da-open-dossier'))return;
+ var b=document.createElement('button');b.id='da-open-dossier';b.type='button';b.className='btn btn-o da-no-print';b.style.cssText='margin:8px 0;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe';b.textContent='🏅 ثبت تشویق / مشاهده افتخارات';
+ b.onclick=function(){var st=(cache.students||[]).find(function(x){return String(x.id)===String(activeStudent)});open(st?st.id:'')};
+ var top=root.querySelector('section.card');if(top)top.appendChild(b);
+}
+function wrapDossier(){
+ if(typeof window.openStudentDossier!=='function'||window.openStudentDossier.__daWrapped)return;
+ var old=window.openStudentDossier;
+ var wrap=function(id){activeStudent=String(id||'');var r=old.apply(this,arguments);setTimeout(function(){refreshDossier(activeStudent);addDossierButton()},0);return r};
+ wrap.__daWrapped=true;window.openStudentDossier=wrap;
+}
+function addDashboardEntry(){
+ var dash=$('page-dashboard');if(!dash||$('da-dashboard-open'))return;
+ var host=dash.querySelector('.home-tiles');if(!host)return;
+ var b=document.createElement('button');b.id='da-dashboard-open';b.type='button';b.className='btn btn-o';b.style.cssText='margin:10px 0;width:100%;padding:13px;border:1px solid #bfdbfe;background:#eff6ff;color:#1e40af;font-weight:900;border-radius:14px';b.textContent='🏅 سامانه افتخارات و تشویق‌ها';b.onclick=function(){open('')};host.appendChild(b);
+}
+function install(){
+ if(installed)return;installed=true;
+ wrapDossier();addDashboardEntry();
+ var oldLogin=window.doLogin;
+ if(typeof oldLogin==='function'&&!oldLogin.__daWrapped){
+  var wrapped=async function(){var r=await oldLogin.apply(this,arguments);setTimeout(function(){wrapDossier();addDashboardEntry();flushQueue().then(refresh).catch(function(){});},500);return r};
+  wrapped.__daWrapped=true;window.doLogin=wrapped;
+ }
+ window.addEventListener('online',function(){flushQueue().then(refresh).catch(function(){});});
+ document.addEventListener('visibilitychange',function(){if(!document.hidden&&currentUser()&&navigator.onLine)flushQueue().catch(function(){});});
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
+})();
+</script>
+
