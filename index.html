@@ -14438,6 +14438,7 @@ if(window.__dastyarAchievementSourceBridge)return;
 window.__dastyarAchievementSourceBridge=true;
 function getUser(){try{return typeof user!=='undefined'?user:window.user||null}catch(e){return window.user||null}}
 function getCache(){try{return typeof cache!=='undefined'?cache:window.cache||null}catch(e){return window.cache||null}}
+function getSb(){try{return typeof sb!=='undefined'?sb:window.sb||null}catch(e){return window.sb||null}}
 function notify(msg){try{if(typeof toast==='function')toast(msg);else if(window.toast)window.toast(msg)}catch(e){}}
 function storageKey(u){return 'dastyar_achievements_cache_v1_'+String(u&&(u.username||u.full_name)||'guest').toLowerCase().replace(/[^a-z0-9_-]/g,'_')}
 function ownClass(classId,u){
@@ -14453,9 +14454,9 @@ async function submitFromSource(source,section){
  if(!ownClass(source.class_id,u)){notify('ثبت تشویق فقط برای دانش‌آموز کلاس مجاز است');return false}
  var st=(c.students||[]).find(function(x){return String(x.id)===String(source.student_id)&&String(x.class_id)===String(source.class_id)});
  if(!st){notify('دانش‌آموز این فعالیت در کلاس انتخاب‌شده پیدا نشد');return false}
- var key=storageKey(u),list=[];
+ var key=storageKey(u),list=[],sourceSection=section;
  try{list=JSON.parse(localStorage.getItem(key)||'[]');if(!Array.isArray(list))list=[]}catch(e){list=[]}
- var sourceId=String(source.id),existing=list.find(function(x){return String(x.source_record_id||'')===sourceId&&String(x.created_by_username||'')===String(u.username||'')});
+ var sourceId=String(source.id),stableId='ach-src-'+sourceSection+'-'+sourceId,existing=list.find(function(x){return (String(x.id||'')===stableId||(String(x.source_record_id||'')===sourceId&&String(x.source_section||'')===sourceSection))&&String(x.created_by_username||'')===String(u.username||'')});
  if(existing){notify('برای این فعالیت قبلاً درخواست تشویق ثبت شده است');return true}
  var sourceLabel=section==='evaluation'?'ارزشیابی ماهانه':section==='exam'?'آزمون':'پرسش و فعالیت روزانه';
  var sourceTitle=safeText(source.exam_name||source.subject||source.lesson||source.type||sourceLabel)||sourceLabel;
@@ -14466,7 +14467,7 @@ async function submitFromSource(source,section){
  if(source.level)details.push('ارزشیابی: '+labelLevel(source.level));
  if(source.notes)details.push('توضیحات معلم: '+safeText(source.notes));
  var rec={
-  id:'ach-src-'+sourceId,
+  id:stableId,
   student_id:String(source.student_id),
   class_id:String(source.class_id),
   kind:'recognition',
@@ -14474,7 +14475,7 @@ async function submitFromSource(source,section){
   title:'درخواست تشویق بابت '+sourceLabel+' — '+sourceTitle.slice(0,75),
   category:section==='activity'?'حضور و مشارکت':'پیشرفت تحصیلی',
   reason:('دانش‌آموز: '+studentName+'؛ '+details.join('؛ ')).slice(0,1200),
-  source_section:section==='exam'?'evaluation':section,
+  source_section:sourceSection,
   source_record_id:sourceId,
   date:safeText(source.date)||(typeof today==='function'?today():new Date().toISOString().slice(0,10)),
   created_by:u.full_name||u.username||'معلم',
@@ -14482,14 +14483,15 @@ async function submitFromSource(source,section){
   created_role:u.role||'teacher',
   created_at:new Date().toISOString()
  };
- if(!navigator.onLine||window.isOffline||!window.sb){
+ var database=getSb();
+ if(!navigator.onLine||window.isOffline||!database){
   rec._localPending=true;list.unshift(rec);
   try{localStorage.setItem(key,JSON.stringify(list));window.__dastyarAchievementsRows=list;notify('درخواست تشویق در گوشی ذخیره شد و پس از اتصال برای مدیر ارسال می‌شود');return true}
   catch(e){notify('ذخیره درخواست تشویق انجام نشد؛ فعالیت اصلی محفوظ است');return false}
  }
  try{
   var credentials={p_username:String(u.username||u.full_name||''),p_password:String(window.__dastyarSessionPassword||'')};
-  var result=await window.sb.rpc('sa_achievements_save',{p_username:credentials.p_username,p_password:credentials.p_password,p_record:rec});
+  var result=await database.rpc('sa_achievements_save',{p_username:credentials.p_username,p_password:credentials.p_password,p_record:rec});
   if(result&&result.error)throw result.error;
   var saved=result&&result.data;
   if(Array.isArray(saved))saved=saved[0];
