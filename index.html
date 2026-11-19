@@ -14378,7 +14378,7 @@ async function saveFollowup(row,person,reason,method){
    var saved=Array.isArray(verify.data)?verify.data[0]:verify.data;
    if(!saved||String(saved.id)!==String(row.id)||String(saved.notes||'')!==notesPayload)throw new Error('سرور نتیجه پیگیری را تأیید نکرد؛ اطلاعات فرم حفظ شد و وضعیت تغییر نکرد.');
   }
-  row.notes=notesPayload;localPut(row);delete followupDrafts[String(row.id)];
+  row.notes=notesPayload;localPut(row);delete followupDrafts[String(row.id)];selectInteractionUntil=0;window.__dastyarFollowupSelectLockUntil=0;
   toast(out&&out.offline?'پیگیری ذخیره شد و پس از اتصال همگام می‌شود.':'نتیجه پیگیری با موفقیت ذخیره و برای معلم ارسال شد؛ وضعیت «رسیدگی شد» ثبت گردید.');
   renderManagerPanel();return true;
  }catch(e){console.error('saveFollowup failed',e);toast('ذخیره نتیجه پیگیری ناموفق بود؛ اطلاعات واردشده حفظ شد: '+(e.message||e));return false;}
