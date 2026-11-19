@@ -14407,10 +14407,9 @@ window.addEventListener('focus',function(){setTimeout(function(){if(M()&&panelOp
 <script id="dastyar-dashboard-stats-toggle-20261119">
 function toggleDashboardStatsRail(open){
  var rail=document.getElementById('dashboard-stats-rail');
- var quick=document.getElementById('dashboard-quick-access-card');
- if(rail)rail.style.display=open?'grid':'none';
- if(quick)quick.style.display=open?'none':'';
- if(open&&rail){rail.scrollIntoView({behavior:'smooth',block:'nearest'});}
+ if(!rail)return;
+ rail.style.display=open?'grid':'none';
+ if(open){rail.scrollIntoView({behavior:'smooth',block:'nearest'});}
 }
 </script>
 
