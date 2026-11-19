@@ -5369,27 +5369,75 @@ function injectExamSectionIntoDossier(studentId){
 function byDateProgressRows(studentId){const ids=new Set();(cache.activities||[]).concat(cache.evaluations||[],cache.scores||[],cache.attendance||[],cache.discipline||[]).forEach(function(r){if(r&&String(r.student_id)===String(studentId)&&r.date)ids.add(String(r.date));});return Array.from(ids);}
 function buildStudentProgressTimeline(studentId){
  const sid=String(studentId), byDate=new Map();
- function bucket(date){date=String(date||'').trim();if(!date)return null;let x=byDate.get(date);if(!x){x={academic:[],present:0,attendance:0,discipline:0};byDate.set(date,x);}return x;}
- function numeric(r){let v=r&&r.score;if(v!=null&&v!==''){v=Number(String(v).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/,/g,''));if(Number.isFinite(v))return Math.max(0,Math.min(100,v>20?v:v*5));}const lv={excellent:95,good:80,acceptable:60,needs:35};return r&&lv[String(r.level||'').toLowerCase()]!=null?lv[String(r.level).toLowerCase()]:null;}
- (cache.activities||[]).filter(a=>String(a.student_id)===sid&&(a.type==='qa'||a.type==='exam')).forEach(a=>{const b=bucket(a.date),v=numeric(a);if(b&&v!=null)b.academic.push(v);});
- (cache.evaluations||[]).filter(a=>String(a.student_id)===sid).forEach(a=>{const b=bucket(a.date),v=numeric(a);if(b&&v!=null)b.academic.push(v);});
- (cache.scores||[]).filter(a=>String(a.student_id)===sid).forEach(a=>{const b=bucket(a.date),v=numeric(a);if(b&&v!=null)b.academic.push(v);});
- (cache.attendance||[]).filter(a=>String(a.student_id)===sid).forEach(a=>{const b=bucket(a.date);if(!b)return;b.attendance++;const st=String(a.status||'').toLowerCase();if(st==='present'||st==='حاضر')b.present++;});
- (cache.discipline||[]).filter(a=>String(a.student_id)===sid).forEach(a=>{const b=bucket(a.date);if(b)b.discipline++;});
- const rows=Array.from(byDate.entries()).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))).map(([date,b])=>({date,academic:b.academic.length?b.academic.reduce((x,y)=>x+y,0)/b.academic.length:null,attendance:b.attendance?100*b.present/b.attendance:null,discipline:b.discipline}));
- if(!rows.length)return '<div class="empty">برای رسم روند، هنوز ثبت تاریخ‌دار در بخش‌های درسی، حضور و غیاب یا انضباط وجود ندارد.</div>';
- const W=760,H=300,L=54,R=54,T=24,B=58,plotW=W-L-R,plotH=H-T-B;
- const x=i=>L+(rows.length===1?plotW/2:i*plotW/(rows.length-1)), y=v=>T+plotH-(Math.max(0,Math.min(100,v))/100)*plotH;
- const maxD=Math.max(1,...rows.map(r=>r.discipline)), yd=v=>T+plotH-(v/maxD)*plotH;
- const poly=(key,fn)=>rows.map((r,i)=>r[key]==null?null:x(i).toFixed(1)+','+fn(r[key]).toFixed(1)).filter(Boolean).join(' ');
- const academic=poly('academic',y), attendance=poly('attendance',y), discipline=poly('discipline',yd);
- let grid='';[0,25,50,75,100].forEach(v=>{const yy=y(v);grid+='<line x1="'+L+'" y1="'+yy+'" x2="'+(W-R)+'" y2="'+yy+'" stroke="#e2e8f0" stroke-width="1"/><text x="'+(L-9)+'" y="'+(yy+4)+'" font-size="11" text-anchor="end" fill="#64748b">'+v+'</text>';});
- const labels=rows.map((r,i)=>'<text x="'+x(i)+'" y="'+(H-31)+'" font-size="10" text-anchor="middle" fill="#475569">'+escHtml(r.date.slice(-5))+'</text>').join('');
- const line=(points,color)=>points?'<polyline points="'+points+'" fill="none" stroke="'+color+'" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>':'';
- const dots=(key,fn,color)=>rows.map((r,i)=>r[key]==null?'':'<circle cx="'+x(i)+'" cy="'+fn(r[key])+'" r="4" fill="'+color+'" stroke="#fff" stroke-width="1.5"/>').join('');
- const legend='<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11px;margin:5px 0 10px"><span style="color:#2563eb">● پیشرفت درسی (از ۱۰۰)</span><span style="color:#059669">● حضور (درصد)</span><span style="color:#d97706">● تعداد موارد انضباطی (محور راست)</span></div>';
- return '<div style="padding:8px 4px;break-inside:avoid"><div style="font-size:11px;color:#64748b;margin-bottom:4px">روند زمانی بر پایه ثبت‌های تاریخ‌دار معلم؛ با تغییر سوابق و بازخوانی پرونده دوباره محاسبه می‌شود.</div>'+legend+'<svg role="img" aria-label="نمودار خطی روند درسی، حضور و انضباط" viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;max-height:340px;display:block" xmlns="http://www.w3.org/2000/svg">'+grid+'<line x1="'+L+'" y1="'+T+'" x2="'+L+'" y2="'+(T+plotH)+'" stroke="#94a3b8"/><line x1="'+(W-R)+'" y1="'+T+'" x2="'+(W-R)+'" y2="'+(T+plotH)+'" stroke="#94a3b8"/>'+line(academic,'#2563eb')+line(attendance,'#059669')+line(discipline,'#d97706')+dots('academic',y,'#2563eb')+dots('attendance',y,'#059669')+dots('discipline',yd,'#d97706')+labels+'<text x="'+(W-R+8)+'" y="'+(T+10)+'" font-size="10" fill="#d97706">۰–'+maxD+'</text></svg><div style="font-size:10px;color:#64748b">تعداد نقاط: '+fa(rows.length)+' تاریخ | داده‌های فاقد تاریخ در نمودار روند زمانی وارد نمی‌شوند.</div></div>';
+ const latin=v=>String(v==null?'':v).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+ const dateOf=r=>String((r&&(r.date||r.created_at||r.updated_at))||'').trim().slice(0,10);
+ const bucket=date=>{date=String(date||'').slice(0,10);if(!date)return null;let b=byDate.get(date);if(!b){b={academic:[],attendance:{total:0,present:0,absent:0,late:0,excused:0},discipline:0};byDate.set(date,b);}return b;};
+ const numeric=r=>{
+  let v=r&&r.score;
+  if(v!=null&&v!==''){v=Number(latin(v).replace(/,/g,''));if(Number.isFinite(v))return Math.max(0,Math.min(100,v>20?v:v*5));}
+  const lv={excellent:95,good:80,acceptable:60,needs:35,'خیلی خوب':95,'خوب':80,'قابل قبول':60,'نیاز به تلاش':35};
+  const k=String(r&&(r.level||r.result)||'').trim().toLowerCase();
+  return Object.prototype.hasOwnProperty.call(lv,k)?lv[k]:null;
+ };
+ const studentRows=list=>(list||[]).filter(r=>r&&String(r.student_id)===sid);
+ studentRows(cache.activities).filter(a=>a.type==='qa'||a.type==='exam').forEach(a=>{const b=bucket(dateOf(a)),v=numeric(a);if(b&&v!=null)b.academic.push(v);});
+ studentRows(cache.evaluations).forEach(a=>{const b=bucket(dateOf(a)),v=numeric(a);if(b&&v!=null)b.academic.push(v);});
+ studentRows(cache.scores).forEach(a=>{const b=bucket(dateOf(a)),v=numeric(a);if(b&&v!=null)b.academic.push(v);});
+ studentRows(cache.attendance).forEach(a=>{
+  const b=bucket(dateOf(a));if(!b)return;b.attendance.total++;
+  const st=String(a.status||'').trim().toLowerCase();
+  if(['present','حاضر','حضور'].includes(st))b.attendance.present++;
+  else if(['late','تأخیر','تاخیر'].includes(st))b.attendance.late++;
+  else if(['excused','غایب موجه','غیبت موجه','موجه'].includes(st))b.attendance.excused++;
+  else if(['absent','unexcused','غایب','غیبت','غیرموجه'].includes(st))b.attendance.absent++;
+ });
+ studentRows(cache.discipline).forEach(a=>{const b=bucket(dateOf(a));if(b)b.discipline++;});
+ const dates=Array.from(byDate.keys()).sort((a,b)=>a.localeCompare(b));
+ const rows=dates.map(date=>({date,...byDate.get(date),academic:byDate.get(date).academic.length?byDate.get(date).academic.reduce((x,y)=>x+y,0)/byDate.get(date).academic.length:null}));
+ const faNum=v=>typeof fa==='function'?fa(v):String(v);
+ const esc=v=>typeof escHtml==='function'?escHtml(v):String(v);
+ function chart(key,title,description,series,maxValue,tickSuffix){
+  const has=series.some(s=>rows.some(r=>s.value(r)!=null));
+  const W=780,H=310,L=58,R=22,T=28,B=58,pw=W-L-R,ph=H-T-B;
+  const max=Math.max(1,maxValue||0);
+  const x=i=>L+(rows.length<=1?pw/2:i*pw/(rows.length-1));
+  const y=v=>T+ph-(Math.max(0,Math.min(max,v))/max)*ph;
+  let grid='';
+  for(let n=0;n<=4;n++){const v=max*n/4,yy=y(v);grid+='<line x1="'+L+'" y1="'+yy.toFixed(1)+'" x2="'+(W-R)+'" y2="'+yy.toFixed(1)+'" stroke="#e8edf5" stroke-width="1"/><text x="'+(L-12)+'" y="'+(yy+4).toFixed(1)+'" text-anchor="end" font-size="11" fill="#64748b">'+faNum(Math.round(v*10)/10)+tickSuffix+'</text>';}
+  const labelStep=Math.max(1,Math.ceil(rows.length/7));
+  let labels='';
+  rows.forEach((r,i)=>{if(i%labelStep===0||i===rows.length-1)labels+='<text x="'+x(i).toFixed(1)+'" y="'+(H-27)+'" text-anchor="middle" font-size="10" fill="#64748b">'+esc(r.date.slice(5))+'</text>';});
+  const lineParts=series.map((ser,si)=>{
+   let segments=[],current=[];
+   rows.forEach((r,i)=>{const v=ser.value(r);if(v==null||!Number.isFinite(Number(v))){if(current.length)segments.push(current);current=[];}else current.push({x:x(i),y:y(Number(v)),v:Number(v),i});});
+   if(current.length)segments.push(current);
+   let paths=segments.map(seg=>seg.length===1?'<circle cx="'+seg[0].x.toFixed(1)+'" cy="'+seg[0].y.toFixed(1)+'" r="4.5" fill="'+ser.color+'"/>':'<polyline points="'+seg.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')+'" fill="none" stroke="'+ser.color+'" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>').join('');
+   let dots=segments.flat().map(p=>'<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="4.2" fill="'+ser.color+'" stroke="#fff" stroke-width="2"><title>'+esc(rows[p.i].date)+' — '+esc(ser.name)+': '+faNum(Math.round(p.v*10)/10)+tickSuffix+'</title></circle>').join('');
+   return paths+dots;
+  }).join('');
+  const legend=series.map(ser=>'<span style="display:inline-flex;align-items:center;gap:5px;margin:0 0 4px 14px;color:#334155"><i style="display:inline-block;width:17px;height:4px;border-radius:4px;background:'+ser.color+'"></i>'+esc(ser.name)+'</span>').join('');
+  const latest=series.map(ser=>{for(let i=rows.length-1;i>=0;i--){const v=ser.value(rows[i]);if(v!=null)return '<span style="display:inline-block;margin:2px 8px 2px 0;color:'+ser.color+'"><b>'+faNum(Math.round(v*10)/10)+tickSuffix+'</b> '+esc(ser.name)+'</span>';}return '';}).join('');
+  const empty='<div style="padding:18px 12px;text-align:center;color:#64748b;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:12px">برای این نمودار هنوز سابقهٔ تاریخ‌دار ثبت نشده است.</div>';
+  const svg=has?'<div style="width:100%;overflow:hidden"><svg role="img" aria-label="'+esc(title)+'" viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block" xmlns="http://www.w3.org/2000/svg">'+grid+'<line x1="'+L+'" y1="'+T+'" x2="'+L+'" y2="'+(T+ph)+'" stroke="#94a3b8"/><line x1="'+L+'" y1="'+(T+ph)+'" x2="'+(W-R)+'" y2="'+(T+ph)+'" stroke="#94a3b8"/>'+lineParts+labels+'</svg></div>':'';
+  return '<section class="card dossier-section" style="break-inside:avoid;page-break-inside:avoid;border:1px solid #dbe4f0;border-radius:14px;padding:12px;margin:10px 0;background:linear-gradient(180deg,#fff,#fbfdff)"><div class="ct" style="font-size:1rem;font-weight:900;color:#172554;margin-bottom:4px">'+title+'</div><div style="font-size:.76rem;color:#64748b;margin-bottom:9px">'+description+'</div>'+(has?'<div style="display:flex;flex-wrap:wrap;gap:3px 0;font-size:.72rem;margin:0 0 7px">'+legend+'</div>'+svg+'<div style="border-top:1px solid #edf1f6;margin-top:6px;padding-top:7px;font-size:.7rem;color:#475569">آخرین وضعیت ثبت‌شده: '+latest+'</div>':empty)+'</section>';
+ }
+ const academicRows=rows.filter(r=>r.academic!=null);
+ const academicMax=100;
+ const attendanceSeries=[
+  {name:'حضور',color:'#059669',value:r=>r.attendance.total?100*r.attendance.present/r.attendance.total:null},
+  {name:'غیبت',color:'#dc2626',value:r=>r.attendance.total?100*r.attendance.absent/r.attendance.total:null},
+  {name:'تأخیر',color:'#d97706',value:r=>r.attendance.total?100*r.attendance.late/r.attendance.total:null},
+  {name:'غیبت موجه',color:'#64748b',value:r=>r.attendance.total?100*r.attendance.excused/r.attendance.total:null}
+ ];
+ const disciplineMax=Math.max(1,...rows.map(r=>r.discipline));
+ const disciplineSeries=[{name:'تعداد ثبت‌های انضباطی در هر تاریخ',color:'#7c3aed',value:r=>r.discipline}];
+ return chart('academic','نمودار مستقل پیشرفت درسی','میانگین نمرات تاریخ‌دار پرسش‌وپاسخ، آزمون‌ها، ارزشیابی‌ها و نمرات کارنامه؛ مقیاس از ۰ تا ۱۰۰',[
+  {name:'میانگین پیشرفت درسی',color:'#2563eb',value:r=>r.academic}
+ ],academicMax,'')+
+ chart('attendance','نمودار مستقل حضور و غیاب','درصد هر وضعیت از کل ثبت‌های همان تاریخ؛ هر وضعیت خط جداگانه دارد',attendanceSeries,100,'%')+
+ chart('discipline','نمودار مستقل انضباط','تعداد موارد انضباطی ثبت‌شده در هر تاریخ؛ بدون تبدیل فرضی به نمره',disciplineSeries,disciplineMax,' مورد');
 }
+
 function openStudentDossier(id){
  try{ if(typeof applyStudentPhotosFromLocal==='function') applyStudentPhotosFromLocal(); }catch(e){}
  const s=cache.students.find(x=>x.id===id); if(!s)return;
@@ -5426,10 +5474,10 @@ function openStudentDossier(id){
  const finHtml=fins.map(f=>'<div style="padding:8px;border-bottom:1px solid #e2e8f0"><b>'+escHtml(f.topic||f.title||'مالی')+'</b> — '+escHtml(f.date||'')+' | مبلغ: '+escHtml(String(f.amount!=null?f.amount:'—'))+'<div class="meta">'+(f.notes?escHtml(f.notes):'')+'</div>'+(f.created_by?'<small>ثبت‌کننده: '+escHtml(f.created_by)+'</small>':'')+'</div>').join('');
  const scoreHtml=scores.map(x=>'<div class="meta" style="padding:6px;border-bottom:1px solid #e2e8f0">'+escHtml(x.subject||'درس')+' — '+(x.score==null?'—':escHtml(x.score))+' | '+escHtml(levelLabel[x.level]||x.level||'')+'</div>').join('');
  const compHtml=comps.map(x=>'<div class="meta" style="padding:6px;border-bottom:1px solid #e2e8f0">'+escHtml(x.name||'شایستگی')+' — '+escHtml(levelLabel[x.level]||x.level||'')+'</div>').join('');
- const progressHtml=buildStudentProgressTimeline(s.id);
+ const progressCharts=buildStudentProgressTimeline(s.id);
 
  const box=document.getElementById('sf-dossier');
- box.innerHTML='<div id="print-student-dossier"><section class="card"><div class="ct" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'+(s.photo?('<img class="student-dossier-photo" src="'+String(s.photo).replace(/"/g,'')+'" alt="" style="width:64px;height:64px;border-radius:10px;object-fit:cover;border:1px solid #94a3b8;flex-shrink:0"/>'):'')+'<span>📁 پرونده دانش‌آموز: '+escHtml((s.first_name||'')+' '+(s.last_name||''))+'</span></div><div class="meta">کلاس: '+escHtml(cl?.label||'')+' | کد: '+escHtml(s.code||'—')+' | نام پدر: '+escHtml(s.father_name||'—')+'</div><div class="meta">تلفن شاد: '+escHtml(s.shad_phone||'—')+' | تماس اضطراری ۱: '+escHtml(s.emergency_phone_1||'—')+' | ۲: '+escHtml(s.emergency_phone_2||'—')+' | ۳: '+escHtml(s.emergency_phone_3||'—')+'</div><button class="btn btn-p btn-sm no-print" style="margin-top:10px" onclick="printStudentDossier()">🖨️ چاپ پرونده دانش‌آموز</button> <button class="btn btn-o btn-sm no-print" style="margin-top:10px" onclick="exportStudentDossierWord()">📄 خروجی Word پرونده</button></section>'+section('حضور و غیاب',att,attHtml)+section('موارد انضباطی',dis,disHtml)+section('ارزشیابی‌های درسی',evs,evHtml)+section('سوابق پیگیری غیبت مدیر',absenceFollowups,followupHtml)+section('پرسش و فعالیت‌های روزانه',acts,actHtml)+section('آزمون‌ها',exams,examHtml)+section('تماس با اولیا',contacts,contactHtml)+section('سوابق مالی',fins,finHtml)+section('نمودار خطی یکپارچه پیشرفت درسی، حضور و انضباط',byDateProgressRows(s.id),progressHtml)+section('نمرات کارنامه',scores,scoreHtml)+section('شایستگی‌ها',comps,compHtml)+'</div>';
+ box.innerHTML='<div id="print-student-dossier"><section class="card"><div class="ct" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'+(s.photo?('<img class="student-dossier-photo" src="'+String(s.photo).replace(/"/g,'')+'" alt="" style="width:64px;height:64px;border-radius:10px;object-fit:cover;border:1px solid #94a3b8;flex-shrink:0"/>'):'')+'<span>📁 پرونده دانش‌آموز: '+escHtml((s.first_name||'')+' '+(s.last_name||''))+'</span></div><div class="meta">کلاس: '+escHtml(cl?.label||'')+' | کد: '+escHtml(s.code||'—')+' | نام پدر: '+escHtml(s.father_name||'—')+'</div><div class="meta">تلفن شاد: '+escHtml(s.shad_phone||'—')+' | تماس اضطراری ۱: '+escHtml(s.emergency_phone_1||'—')+' | ۲: '+escHtml(s.emergency_phone_2||'—')+' | ۳: '+escHtml(s.emergency_phone_3||'—')+'</div><button class="btn btn-p btn-sm no-print" style="margin-top:10px" onclick="printStudentDossier()">🖨️ چاپ پرونده دانش‌آموز</button> <button class="btn btn-o btn-sm no-print" style="margin-top:10px" onclick="exportStudentDossierWord()">📄 خروجی Word پرونده</button></section>'+section('حضور و غیاب',att,attHtml)+section('موارد انضباطی',dis,disHtml)+section('ارزشیابی‌های درسی',evs,evHtml)+section('سوابق پیگیری غیبت مدیر',absenceFollowups,followupHtml)+section('پرسش و فعالیت‌های روزانه',acts,actHtml)+section('آزمون‌ها',exams,examHtml)+section('تماس با اولیا',contacts,contactHtml)+section('سوابق مالی',fins,finHtml)+progressCharts+section('نمرات کارنامه',scores,scoreHtml)+section('شایستگی‌ها',comps,compHtml)+'</div>';
  try{ injectParentDossierLink(s.id); }catch(e){}
  try{ injectCustomFieldsUI(s.id); }catch(e){}
 }
@@ -14145,13 +14193,28 @@ function renderTeacher(id){
 }
 async function sendReferral(id,cat,key){
  if(!T()||!allowed(id)){if(typeof toast==='function')toast('فقط معلم همان کلاس می‌تواند ارجاع ثبت کند');return;}
+ if(!sb){if(typeof toast==='function')toast('اتصال پایگاه‌داده آماده نیست');return;}
  if(cat.rows.length<=THRESHOLD){if(typeof toast==='function')toast('تعداد موارد هنوز از حد مجاز سه مورد عبور نکرده است');return;}
  if(refs(id).some(function(r){var m=meta(r);return m&&m.source_key===key;})){if(typeof toast==='function')toast('این مجموعه قبلاً ارجاع شده است');return;}
  var st=student(id),u=U();if(!st)return;
  var m={tag:TAG,source_type:cat.key,source_title:cat.title,source_key:key,threshold:THRESHOLD,trigger_count:cat.rows.length,source_records:snapRecords(cat.rows),teacher_name:(u&&(u.full_name||u.username))||'معلم',status:'referred',assignee:'',followup_result:'',created_at:new Date().toISOString(),updated_at:''};
- var row={id:typeof uid==='function'?uid():'ref_'+Date.now(),student_id:String(id),class_id:String(st.class_id||''),type:TYPE,subject:'ارجاع مدیریتی — '+cat.title,weekday:'',date:dateNow(),level:'needs',notes:JSON.stringify(m),recorded_by:m.teacher_name};
- try{var out=await sb.from('sa_activities').insert(row);if(out&&out.error)throw out.error;if(out&&out.offline)row.pending_upload=true;localPut(row);renderTeacher(id);if(typeof toast==='function')toast(out&&out.offline?'ارجاع ثبت و برای همگام‌سازی نگهداری شد.':'ارجاع با موفقیت برای مدیریت ارسال شد.');}
- catch(e){if(typeof toast==='function')toast('ارسال ارجاع انجام نشد: '+(e.message||e));}
+ var row={id:typeof uid==='function'?uid():'ref_'+Date.now(),student_id:String(id),class_id:String(st.class_id||''),type:TYPE,subject:'ارجاع مدیریتی — '+cat.title,weekday:'',date:dateNow(),level:'needs',notes:JSON.stringify(m),recorded_by:m.teacher_name,pending_upload:true};
+ /* نمایش فوری در پرونده معلم؛ ارسال سروری هم‌زمان در پس‌زمینه همین عملیات انجام می‌شود. */
+ localPut(row);renderTeacher(id);
+ if(typeof toast==='function')toast('ارجاع ثبت شد؛ در حال ارسال به مدیریت…');
+ try{
+  var out=await sb.from('sa_activities').insert(row);
+  if(out&&out.error)throw out.error;
+  row.pending_upload=!!(out&&out.offline);
+  localPut(row);renderTeacher(id);
+  if(typeof toast==='function')toast(out&&out.offline?'ارجاع ذخیره شد و پس از اتصال همگام می‌شود.':'ارجاع با موفقیت برای مدیریت ارسال شد.');
+ }catch(e){
+  var c=C();c.activities=A(c.activities).filter(function(x){return String(x.id)!==String(row.id);});
+  try{if(typeof persistLocalSchoolCache==='function')persistLocalSchoolCache();}catch(ignore){}
+  try{if(window.DastyarOffline&&typeof DastyarOffline.saveSnapshot==='function')DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(c)));}catch(ignore){}
+  renderTeacher(id);
+  if(typeof toast==='function')toast('ارسال ارجاع انجام نشد: '+(e.message||e));
+ }
 }
 function managerCard(row){
  var m=meta(row),st=student(row.student_id);if(!m||!st)return null;
@@ -14165,7 +14228,7 @@ function managerCard(row){
  var state=node('select');state.style.cssText=select.style.cssText;[['referred','ارجاع‌شده'],['in_progress','در حال پیگیری'],['done','پیگیری انجام شد']].forEach(function(x){state.appendChild(new Option(x[1],x[0]));});state.value=m.status||'referred';
  var result=node('textarea');result.rows=3;result.value=m.followup_result||'';result.placeholder='شرح اقدام انجام‌شده و نتیجه پیگیری را بنویسید';result.style.cssText='width:100%;box-sizing:border-box;padding:8px;margin:5px 0;border:1px solid #cbd5e1;border-radius:8px;font:inherit';
  box.appendChild(node('label','','مسئول پیگیری'));box.appendChild(select);box.appendChild(node('label','','وضعیت رسیدگی'));box.appendChild(state);box.appendChild(node('label','','نتیجه و توضیحات پیگیری'));box.appendChild(result);
- var save=node('button','btn btn-p btn-sm','ثبت پیگیری و ارسال خودکار نتیجه به معلم');save.type='button';save.onclick=function(){if(!select.value){toast('مسئول پیگیری را انتخاب کنید');return;}if(!result.value.trim()){toast('نتیجه و توضیحات پیگیری را بنویسید');return;}save.disabled=true;saveFollowup(row,select.value,state.value,result.value.trim()).finally(function(){save.disabled=false;});};box.appendChild(save);
+ var save=node('button','btn btn-p btn-sm','ثبت پیگیری و ارسال خودکار نتیجه به معلم');save.type='button';save.onclick=function(){if(!select.value){toast('مسئول پیگیری را انتخاب کنید');return;}if(!result.value.trim()){toast('نتیجه و توضیحات پیگیری را بنویسید');return;}save.disabled=true;save.blur();saveFollowup(row,select.value,state.value,result.value.trim()).finally(function(){save.disabled=false;});};box.appendChild(save);
  return box;
 }
 function renderManager(){
@@ -14185,10 +14248,25 @@ function renderManager(){
  if(list){list.replaceChildren();if(!all.length)list.appendChild(node('div','empty','هنوز معلمی موردی را به مدیریت ارجاع نداده است.'));all.slice(0,100).forEach(function(r){var x=managerCard(r);if(x)list.appendChild(x);});}
 }
 async function saveFollowup(row,person,status,result){
- if(!M())return;var m=meta(row);if(!m)return;
+ if(!M()||!sb)return;var m=meta(row);if(!m)return;
+ var oldNotes=row.notes,oldPending=row.pending_upload;
  m.assignee=person;m.status=status;m.followup_result=result;m.followup_at=dateNow();m.updated_at=new Date().toISOString();m.updated_by=(U()&&(U().full_name||U().username))||'مدیریت';
- try{var out=await sb.from('sa_activities').update({notes:JSON.stringify(m)}).eq('id',row.id);if(out&&out.error)throw out.error;if(out&&out.offline)row.pending_upload=true;row.notes=JSON.stringify(m);localPut(row);renderManager();if(typeof toast==='function')toast(out&&out.offline?'پیگیری ثبت و برای همگام‌سازی نگهداری شد.':'پیگیری ثبت شد؛ نتیجه برای معلم قابل دریافت است.');}
- catch(e){if(typeof toast==='function')toast('ثبت پیگیری انجام نشد: '+(e.message||e));}
+ row.notes=JSON.stringify(m);row.pending_upload=true;
+ /* فرم فوراً نتیجه را در پنل مدیریت نشان می‌دهد؛ درخواست سرور بدون انتظار برای رندر مجدد ارسال می‌شود. */
+ localPut(row);renderManager();
+ if(typeof toast==='function')toast('نتیجه ثبت شد؛ در حال ارسال برای معلم…');
+ try{
+  var out=await sb.from('sa_activities').update({notes:row.notes}).eq('id',row.id);
+  if(out&&out.error)throw out.error;
+  row.pending_upload=!!(out&&out.offline);
+  localPut(row);renderManager();
+  if(typeof toast==='function')toast(out&&out.offline?'پیگیری ذخیره شد و پس از اتصال همگام می‌شود.':'پیگیری ثبت و نتیجه برای معلم ارسال شد.');
+ }catch(e){
+  row.notes=oldNotes;
+  if(oldPending===undefined)delete row.pending_upload;else row.pending_upload=oldPending;
+  localPut(row);renderManager();
+  if(typeof toast==='function')toast('ثبت پیگیری انجام نشد: '+(e.message||e));
+ }
 }
 function panelOpen(){var b=document.getElementById('manager-performance-center-body');return !!(b&&b.style.display!=='none'&&(!document.getElementById('page-dashboard')||document.getElementById('page-dashboard').classList.contains('on')));}
 function tick(){
@@ -14200,7 +14278,7 @@ function install(){
   if(typeof window.openStudentDossier==='function'&&!window.openStudentDossier.__dastyarReferralV2){var old=window.openStudentDossier;var wrap=function(id){teacherStudentId=String(id||'');var result=old.apply(this,arguments);try{renderTeacher(teacherStudentId);}catch(e){}if(T())fetchStudentRefs(teacherStudentId);return result;};wrap.__dastyarReferralV2=true;window.openStudentDossier=wrap;}
   if(typeof window.toggleDashboardFeature==='function'&&!window.toggleDashboardFeature.__dastyarReferralV2){var toggle=window.toggleDashboardFeature;var wrapped=function(key){var result=toggle.apply(this,arguments);if(key==='performance'&&M())setTimeout(function(){renderManager();fetchManagerRefs(true);},100);return result;};wrapped.__dastyarReferralV2=true;window.toggleDashboardFeature=wrapped;}
   if(M())renderManager();
-  if(!timer)timer=window.setInterval(tick,4500);
+  if(!timer)timer=window.setInterval(tick,2500);
  }catch(e){console.warn('unified referral workflow',e);}
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(install,1100);});else setTimeout(install,1100);
