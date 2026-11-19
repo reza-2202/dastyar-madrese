@@ -14314,12 +14314,12 @@ function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){retur
 function read(){try{var a=JSON.parse(localStorage.getItem(KEY)||'[]');return Array.isArray(a)?a:[]}catch(e){return []}}
 function write(a){rows=Array.isArray(a)?a:[];window.__dastyarAchievementsRows=rows;try{localStorage.setItem(KEY,JSON.stringify(rows));return true}catch(e){return false}}
 function creds(){return {p_username:String(user&&(user.username||user.full_name)||''),p_password:String(window.__dastyarSessionPassword||'')}}
-function isAdmin(){return !!(user&&(user.role==='admin'||user.role==='manager'))}
+function isAdmin(){return !!(user&&user.role==='admin')}
 function ownClass(id){if(isAdmin())return true;try{return (typeof myClasses==='function'?myClasses():[]).some(function(c){return String(c.id)===String(id)})}catch(e){return (user&&Array.isArray(user.class_ids)?user.class_ids:[]).map(String).includes(String(id))}}
 function studentsForClass(id){return (cache.students||[]).filter(function(x){return String(x.class_id)===String(id)})}
 function classLabel(id){var c=(cache.classes||[]).find(function(x){return String(x.id)===String(id)});return c&&c.label||'کلاس'}
 function medal(r){var map={bronze:['🥉','برنزی','#b45309'],silver:['🥈','نقره‌ای','#64748b'],gold:['🥇','طلایی','#b7791f'],special:['🏅','نشان ویژه افتخار','#7c3aed']};return map[r.medal_level]||['🌟','تشویق','#1d4ed8']}
-function studentLabel(id){var st=(cache.students||[]).find(function(x){return String(x.id)===String(id)});return st?((st.first_name||'')+' '+(st.last_name||'')):'دانش‌آموز'}
+function medalImage(level){var colors={bronze:['#b45309','#fcd34d'],silver:['#64748b','#e2e8f0'],gold:['#b7791f','#fde68a'],special:['#7c3aed','#ddd6fe']};var c=colors[level]||colors.gold;var svg='<svg xmlns="http://www.w3.org/2000/svg" width="120" height="140" viewBox="0 0 120 140"><path d="M35 8h20l5 42H35zM65 8h20L85 50H65z" fill="'+c[0]+'"/><circle cx="60" cy="82" r="39" fill="'+c[0]+'" stroke="'+c[1]+'" stroke-width="7"/><circle cx="60" cy="82" r="27" fill="'+c[1]+'"/><path d="M60 60l6 14 15 1-11 10 3 15-13-8-13 8 3-15-11-10 15-1z" fill="'+c[0]+'"/></svg>';return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)}\nfunction studentLabel(id){var st=(cache.students||[]).find(function(x){return String(x.id)===String(id)});return st?((st.first_name||'')+' '+(st.last_name||'')):'دانش‌آموز'}
 function normalize(a){return Array.isArray(a)?a.filter(function(x){return x&&x.id}).map(function(x){return Object.assign({},x)}):[]}
 async function rpc(name,args){if(!sb||!navigator.onLine||window.isOffline)throw new Error('اتصال آنلاین در دسترس نیست');var r=await sb.rpc(name,args);if(r&&r.error)throw r.error;return r&&r.data}
 async function syncPending(){
@@ -14362,7 +14362,7 @@ function renderPage(){
  document.getElementById('ach-list').innerHTML=visible.slice().sort(function(a,b){return String(b.created_at||'').localeCompare(String(a.created_at||''))}).map(function(r){
  var m=medal(r),status=r.status==='approved'?'تأیید مدیر':r.status==='rejected'?'رد شده':r.status==='answered'?'پاسخ مدیر':'در انتظار بررسی';
  var actions=isAdmin()&&r.status==='pending'?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button class="btn btn-s btn-sm" data-ach-approve="'+esc(r.id)+'">تأیید و ثبت تقدیر</button><button class="btn btn-o btn-sm" data-ach-reject="'+esc(r.id)+'">رد درخواست</button></div>':'';
- return '<div class="card" style="border-right:4px solid '+m[2]+'"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>'+esc(r.title||'تشویق')+' — '+esc(studentLabel(r.student_id))+'</b><span>'+m[0]+' '+esc(status)+'</span></div><div class="meta">'+esc(classLabel(r.class_id))+' | '+esc(r.date||'')+' | '+esc(r.created_by||'')+' | '+esc(r.category||'')+'</div><p style="white-space:pre-wrap;margin-top:7px">'+esc(r.reason||'')+'</p>'+(r.decision_text?'<div style="padding:7px;background:#f0fdf4;border-radius:8px;margin-top:7px">نتیجه مدیر: '+esc(r.decision_text)+'</div>':'')+(r.medal_level?'<div style="margin-top:6px;color:'+m[2]+';font-weight:800">'+m[0]+' نشان '+m[1]+'</div>':'')+actions+'</div>';
+ return '<div class="card" style="border-right:4px solid '+m[2]+'"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>'+esc(r.title||'تشویق')+' — '+esc(studentLabel(r.student_id))+'</b><span>'+m[0]+' '+esc(status)+'</span></div><div class="meta">'+esc(classLabel(r.class_id))+' | '+esc(r.date||'')+' | '+esc(r.created_by||'')+' | '+esc(r.category||'')+'</div><p style="white-space:pre-wrap;margin-top:7px">'+esc(r.reason||'')+'</p>'+(r.decision_text?'<div style="padding:7px;background:#f0fdf4;border-radius:8px;margin-top:7px">نتیجه مدیر: '+esc(r.decision_text)+'</div>':'')+(r.medal_level?'<div style="display:flex;align-items:center;gap:8px;margin-top:6px;color:'+m[2]+';font-weight:800"><img alt="مدال '+esc(m[1])+'" src="'+esc(r.medal_image_url||medalImage(r.medal_level))+'" style="width:42px;height:48px;object-fit:contain"/>'+m[0]+' نشان '+m[1]+'</div>':'')+actions+'</div>';
  }).join('')||'<div class="empty">هنوز تشویقی ثبت نشده است.</div>';
  root.querySelectorAll('[data-ach-approve]').forEach(function(btn){btn.onclick=function(){review(btn.getAttribute('data-ach-approve'),'approved')}});
  root.querySelectorAll('[data-ach-reject]').forEach(function(btn){btn.onclick=function(){review(btn.getAttribute('data-ach-reject'),'rejected')}});
@@ -14384,7 +14384,7 @@ async function review(id,status){
  var award=status==='approved'?(prompt('نوع تقدیر را وارد کنید (لوح سپاس، تقدیر کتبی، معرفی در مراسم و ...):','لوح سپاس')||''):'';
  var level=status==='approved'?(prompt('درجه نشان را وارد کنید: bronze / silver / gold / special یا خالی','')||'').trim().toLowerCase():null;
  if(level&&!['bronze','silver','gold','special'].includes(level)){toast('درجه نشان معتبر نیست');return}
- try{var data=await rpc('sa_achievements_review',{p_username:creds().p_username,p_password:creds().p_password,p_id:id,p_status:status,p_decision_text:textDecision,p_award_type:award,p_medal_level:level||null,p_medal_image_url:null});var a=read().filter(function(x){return String(x.id)!==String(id)});a.unshift(data);write(a);await load();renderPage();toast('تصمیم مدیر ثبت شد و برای معلم قابل مشاهده است');}
+ try{var data=await rpc('sa_achievements_review',{p_username:creds().p_username,p_password:creds().p_password,p_id:id,p_status:status,p_decision_text:textDecision,p_award_type:award,p_medal_level:level||null,p_medal_image_url:level?medalImage(level):null});var a=read().filter(function(x){return String(x.id)!==String(id)});a.unshift(data);write(a);await load();renderPage();toast('تصمیم مدیر ثبت شد و برای معلم قابل مشاهده است');}
  catch(e){toast('ثبت تصمیم مدیر ناموفق بود: '+(e.message||e))}
 }
 function renderDossier(id){
@@ -14412,7 +14412,7 @@ var oldGo=window.go;
 if(typeof oldGo==='function')window.go=function(p){if(p==='achievements'){installPage();oldGo.apply(this,arguments);load().then(renderPage);document.getElementById('ht').textContent='افتخارات و تشویق‌ها';return}return oldGo.apply(this,arguments)};
 var oldDossier=window.openStudentDossier;
 if(typeof oldDossier==='function')window.openStudentDossier=function(id){var r=oldDossier.apply(this,arguments);renderDossier(id);return r};
-window.refreshStudentAchievements=async function(){await load();renderPage();var d=document.getElementById('print-student-dossier');if(d){var id=(d.querySelector('[data-student-id]')||{}).dataset?.studentId;if(id)renderDossier(id)}};
+window.__dastyarLoadAchievements=load;\nwindow.refreshStudentAchievements=async function(){await load();renderPage();var d=document.getElementById('print-student-dossier');if(d){var id=(d.querySelector('[data-student-id]')||{}).dataset?.studentId;if(id)renderDossier(id)}};
 window.addEventListener('online',function(){setTimeout(async function(){await syncPending();await load();renderPage()},900)});
 window.addEventListener('focus',function(){if(user&&document.getElementById(PAGE)&&document.getElementById(PAGE).classList.contains('on'))load().then(renderPage)});
 document.addEventListener('DOMContentLoaded',function(){installPage();rows=read();window.__dastyarAchievementsRows=rows;});
