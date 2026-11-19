@@ -5418,7 +5418,7 @@ function buildStudentProgressTimeline(studentId){
  rows.forEach((r,i)=>{
   const xx=x(i)-barWidth/2,yy=y(r.percent),hh=T+ph-yy;
   bars+='<rect x="'+xx.toFixed(1)+'" y="'+yy.toFixed(1)+'" width="'+barWidth.toFixed(1)+'" height="'+Math.max(1,hh).toFixed(1)+'" rx="5" fill="url(#academicBarGradient)" stroke="#2563eb" stroke-opacity=".18"><title>'+esc(r.date)+' — '+faNum(r.grade20.toFixed(1))+' از ۲۰، '+faNum(r.percent.toFixed(1))+' درصد، '+faNum(r.count)+' ثبت</title></rect>';
-  if(rows.length<=12)bars+='<text x="'+x(i).toFixed(1)+'" y="'+Math.max(T+12,yy-8).toFixed(1)+'" text-anchor="middle" font-size="10" font-weight="700" fill="#1d4ed8">'+faNum(Math.round(r.percent))+'٪</text>';
+  if(rows.length<=12)bars+='<text x="'+x(i).toFixed(1)+'" y="'+Math.max(T+12,yy-20).toFixed(1)+'" text-anchor="middle" font-size="9" font-weight="700" fill="#1d4ed8">'+faNum(r.grade20.toFixed(1))+'/۲۰</text><text x="'+x(i).toFixed(1)+'" y="'+Math.max(T+23,yy-7).toFixed(1)+'" text-anchor="middle" font-size="9" font-weight="700" fill="#2563eb">'+faNum(Math.round(r.percent))+'٪</text>';
  });
  const barSvg='<svg role="img" aria-label="نمودار میله‌ای نمره و درصد پیشرفت درسی" viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="academicBarGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#60a5fa"/><stop offset="100%" stop-color="#2563eb"/></linearGradient></defs>'+grid()+axes()+bars+labels()+'</svg>';
  let segments=[],segment=[];
