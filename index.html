@@ -1224,6 +1224,7 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 </div>
 <div class="sg">
 <div class="sc"><div class="n" id="st-s">۰</div><div class="l">دانش‌آموز</div></div>
+<div id="parent-invitation-summary" class="sc" role="button" tabindex="0" onclick="toggleParentInvitationClassList()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleParentInvitationClassList()}" style="cursor:pointer"><div class="ct" style="display:flex;align-items:center;gap:8px">✉️ دعوت‌نامه‌های اولیا <span id="parent-invitation-count-badge" aria-label="تعداد درخواست‌های دعوتنامه امروز" style="display:none;min-width:21px;height:21px;padding:0 6px;box-sizing:border-box;border-radius:999px;background:#dc2626;color:#fff;font-size:11px;font-weight:800;line-height:21px;text-align:center;box-shadow:0 1px 3px #0002"></span></div><div id="parent-invitation-summary-content" class="meta">برای نمایش آمار، اطلاعات را بارگذاری کنید.</div><small style="display:block;color:#1d4ed8;margin-top:6px;text-decoration:underline">برای مشاهده کلاس‌های درخواست‌دهنده امروز ضربه بزنید</small></div>
 <div class="sc"><div class="n" id="st-c">۰</div><div class="l">کلاس</div></div>
 <div class="sc"><div class="n" id="st-p">۰</div><div class="l">حاضر امروز</div></div>
 <div class="sc" role="button" tabindex="0" onclick="toggleEvaluationClassList()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleEvaluationClassList()}" style="cursor:pointer"><div class="n" id="st-e">۰</div><div class="l">ارزشیابی<br><small>برای مشاهده کلاس‌ها بزنید</small></div></div>
@@ -1256,7 +1257,7 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 </div>
 <div id="evaluation-class-list" class="card" style="display:none"><div class="ct">📝 آمار ارزشیابی کلاس‌ها</div><div class="meta" style="margin-bottom:8px">سبز: دارای ارزشیابی | قرمز: بدون ارزشیابی</div><div id="evaluation-class-list-items" class="meta"></div></div>
 <div id="qa-class-list" class="card" style="display:none"><div class="ct">🗣️ آمار پرسش و پاسخ روزانه کلاس‌ها</div><div class="meta" style="margin-bottom:8px">سبز: دارای ثبت پرسش و پاسخ | خاکستری: بدون ثبت</div><div id="qa-class-list-items" class="meta"></div></div>
-<div id="parent-invitation-summary" class="card" role="button" tabindex="0" onclick="toggleParentInvitationClassList()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleParentInvitationClassList()}" style="cursor:pointer"><div class="ct" style="display:flex;align-items:center;gap:8px">✉️ دعوت‌نامه‌های اولیا <span id="parent-invitation-count-badge" aria-label="تعداد درخواست‌های دعوتنامه امروز" style="display:none;min-width:21px;height:21px;padding:0 6px;box-sizing:border-box;border-radius:999px;background:#dc2626;color:#fff;font-size:11px;font-weight:800;line-height:21px;text-align:center;box-shadow:0 1px 3px #0002"></span></div><div id="parent-invitation-summary-content" class="meta">برای نمایش آمار، اطلاعات را بارگذاری کنید.</div><small style="display:block;color:#1d4ed8;margin-top:6px;text-decoration:underline">برای مشاهده کلاس‌های درخواست‌دهنده امروز ضربه بزنید</small></div>
+
 <div id="parent-invitation-class-list" class="card" style="display:none"><div class="ct">✉️ کلاس‌های درخواست‌دهنده دعوت‌نامه امروز</div><div class="meta" style="margin-bottom:8px">فقط درخواست‌های ثبت‌شده در تاریخ امروز نمایش داده می‌شوند.</div><div id="parent-invitation-class-list-items" class="meta"></div></div>
 <div class="card">
 <div class="ct">دسترسی سریع به بخش‌های برنامه</div>
@@ -14065,4 +14066,60 @@ window.printAbsenteesNeedsAttention=function(){
 @keyframes dastyarDashboardPanelIn{from{opacity:.88;transform:translateY(-2px)}to{opacity:1;transform:translateY(0)}}
 #page-dashboard #attendance-class-list,#page-dashboard #discipline-dash-list,#page-dashboard #absent-dash-list,#page-dashboard #evaluation-class-list,#page-dashboard #qa-class-list,#page-dashboard #pending-file-class-list,#page-dashboard #admin-urgent-messages{animation:dastyarDashboardPanelIn .08s linear}
 @media(prefers-reduced-motion:reduce){#page-dashboard .sg>.sc,#page-dashboard .home-tile-group,#page-dashboard .home-tile-group *{transition:none!important;animation:none!important}}
+</style>
+
+<style id="dastyar-dashboard-smooth-rail-invite-20261119">
+/* نوار آماری یکپارچه و روان؛ بدون snap یا حرکت اجباری بین کارت‌ها */
+#page-dashboard .sg{
+  scroll-snap-type:none!important;
+  scroll-behavior:auto!important;
+  -webkit-overflow-scrolling:touch!important;
+  overscroll-behavior-x:contain!important;
+  overscroll-behavior-inline:contain!important;
+  touch-action:pan-x pan-y!important;
+  scrollbar-width:none!important;
+}
+#page-dashboard .sg::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
+#page-dashboard .sg>.sc{scroll-snap-align:none!important;will-change:transform;backface-visibility:hidden}
+#page-dashboard .sg>#parent-invitation-summary{
+  box-sizing:border-box!important;
+  flex:0 0 116px!important;width:116px!important;min-width:116px!important;max-width:116px!important;
+  min-height:104px!important;display:flex!important;flex-direction:column!important;
+  align-items:center!important;justify-content:center!important;gap:5px!important;
+  padding:9px 7px!important;text-align:center!important;cursor:pointer!important;
+  border:1px solid rgba(190,24,93,.18)!important;border-radius:15px!important;
+  background:linear-gradient(145deg,#fff1f2,#fce7f3)!important;color:#9d174d!important;
+  box-shadow:0 2px 7px rgba(136,19,55,.07)!important;
+  transition:transform .06s linear,box-shadow .06s linear!important;
+}
+#page-dashboard .sg>#parent-invitation-summary[style*="display: none"]{display:none!important}
+#page-dashboard .sg>#parent-invitation-summary .ct{
+  display:flex!important;flex-direction:column!important;align-items:center!important;
+  justify-content:center!important;gap:4px!important;font-size:.7rem!important;
+  line-height:1.45!important;font-weight:900!important;
+}
+#page-dashboard .sg>#parent-invitation-summary #parent-invitation-count-badge{
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  min-width:23px!important;height:23px!important;background:#be185d!important;
+  color:#fff!important;font-size:.75rem!important;line-height:1!important;
+}
+#page-dashboard .sg>#parent-invitation-summary #parent-invitation-summary-content{
+  font-size:.62rem!important;line-height:1.45!important;color:#831843!important;
+  max-height:32px!important;overflow:hidden!important;
+}
+#page-dashboard .sg>#parent-invitation-summary small{
+  margin-top:0!important;font-size:.58rem!important;line-height:1.35!important;
+  color:#9d174d!important;text-decoration:none!important;
+}
+#page-dashboard .sg>#parent-invitation-summary:active{transform:scale(.97)!important}
+#page-dashboard .home-tile-group,
+#page-dashboard .home-tile-group>summary,
+#page-dashboard .home-tile-group .home-tile{
+  transition-duration:.06s!important;transition-timing-function:linear!important;
+}
+#page-dashboard .home-tile-group .home-tiles-grid{animation-duration:.06s!important;animation-timing-function:linear!important}
+@media(prefers-reduced-motion:reduce){
+ #page-dashboard .sg>.sc,#page-dashboard .sg>#parent-invitation-summary,
+ #page-dashboard .home-tile-group,#page-dashboard .home-tile-group *{transition:none!important;animation:none!important}
+}
 </style>
