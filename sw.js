@@ -1,4 +1,4 @@
-const CACHE = 'dastyar-shell-v72-20261119-three-dossier-charts-fast-referrals';;
+const CACHE = 'dastyar-shell-v73-20261119-fast-sync-dossier-charts';
 const BASE = '/dastyar-madrese/';
 const SHELL = [
   BASE,
