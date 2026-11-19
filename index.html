@@ -5360,7 +5360,7 @@ function openStudentDossier(id){
  const evs=cache.evaluations.filter(x=>String(x.student_id)===String(id)).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
  const studentActivities=cache.activities.filter(x=>String(x.student_id)===String(id));
   const absenceFollowups=studentActivities.filter(x=>x.type==='absence_followup'||x.subject==='پیگیری غیبت مدیر').sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||String(b.created_at||'').localeCompare(String(a.created_at||'')));
-  const allActs=studentActivities.filter(x=>x.type!=='absence_followup'&&x.subject!=='پیگیری غیبت مدیر').sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+  const allActs=studentActivities.filter(x=>x.type!=='absence_followup'&&x.subject!=='پیگیری غیبت مدیر'&&x.type!=='school_followup_referral').sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
  const exams=allActs.filter(x=>x.type==='exam');
  const acts=allActs.filter(x=>x.type!=='exam');
  const scores=cache.scores.filter(x=>String(x.student_id)===String(id));
@@ -13062,7 +13062,8 @@ window.generateParentPortalLink=async function(classId,studentId){
       student:safeParentStudent(st),
       updated_at:new Date().toISOString(),
       attendance:(cache.attendance||[]).filter(x=>String(x.student_id)===String(st.id)),
-      activities:(cache.activities||[]).filter(x=>x&&String(x.student_id)===String(st.id)&&x.type!=='exam'&&x.type!=='absence_followup'&&x.subject!=='پیگیری غیبت مدیر'),
+      activities:(cache.activities||[]).filter(x=>x&&String(x.student_id)===String(st.id)&&x.type!=='exam'&&x.type!=='absence_followup'&&x.type!=='school_followup_referral'&&x.subject!=='پیگیری غیبت مدیر'),
+      school_followups:(cache.activities||[]).filter(x=>x&&String(x.student_id)===String(st.id)&&x.type==='school_followup_referral'),
       exams:(cache.activities||[]).filter(x=>x&&String(x.student_id)===String(st.id)&&x.type==='exam'),
       absence_followups:(cache.activities||[]).filter(x=>x&&String(x.student_id)===String(st.id)&&(x.type==='absence_followup'||x.subject==='پیگیری غیبت مدیر')),
       evaluations:(cache.evaluations||[]).filter(x=>String(x.student_id)===String(st.id)),
@@ -13759,7 +13760,7 @@ window.__refreshManagerPerformanceCenterCore=async function(){
   var todayActivities=activities.filter(function(r){return dateOf(r)===day;});
   var qa=todayActivities.filter(function(r){return r&&r.type==='qa';});
   var exams=todayActivities.filter(function(r){return r&&r.type==='exam';});
-  var daily=todayActivities.filter(function(r){return r&&r.type!=='qa'&&r.type!=='exam'&&r.type!=='absence_followup'&&r.subject!=='پیگیری غیبت مدیر';});
+  var daily=todayActivities.filter(function(r){return r&&r.type!=='qa'&&r.type!=='exam'&&r.type!=='absence_followup'&&r.type!=='school_followup_referral'&&r.subject!=='پیگیری غیبت مدیر';});
   var weekEvaluations=evaluations.filter(function(r){try{return typeof isEvaluationInCurrentWeek==='function'?isEvaluationInCurrentWeek(r):dateOf(r)===day;}catch(e){return dateOf(r)===day;}});
   function forClass(rows,cid){return rows.filter(function(r){return classForRecord(r,studentClass)===String(cid);});}
   var summary=document.getElementById(CARD_ID+'-summary');
@@ -14020,6 +14021,162 @@ window.printAbsenteesNeedsAttention=function(){
 @media(min-width:600px){#page-dashboard .home-tiles-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}#page-dashboard .home-tile-group .home-tile{min-height:132px}}
 @media(prefers-reduced-motion:reduce){#page-dashboard .home-tile-group .home-tile{transition:none!important}}
 </style>
+<script id="dastyar-unified-referral-workflow-v2-20261119">
+(function(){
+'use strict';
+var TYPE='school_followup_referral',TAG='DASTYAR_SCHOOL_FOLLOWUP_REFERRAL_V2',THRESHOLD=3;
+var PEOPLE=['مدیر مدرسه — سید حسین نورایی انور','معاون آموزشی — پژمان سامانی‌پور','معاون اجرایی — رضا فلاحتکار'];
+var PANEL='dastyar-manager-referrals-panel-v2',timer=null,teacherStudentId='',busyManager=false,busyTeacher=false;
+function A(x){return Array.isArray(x)?x:[];}
+function U(){try{return window.user||user||null;}catch(e){return window.user||null;}}
+function C(){try{return window.cache||cache||{};}catch(e){return window.cache||{};}}
+function M(){var u=U();return !!(u&&(u.role==='admin'||u.role==='manager'));}
+function T(){var u=U();return !!(u&&u.role==='teacher');}
+function allowed(id){if(M())return A(C().students).some(function(s){return String(s.id)===String(id);});try{return T()&&typeof myStudents==='function'&&A(myStudents()).some(function(s){return String(s.id)===String(id);});}catch(e){return false;}}
+function student(id){return A(C().students).find(function(s){return String(s.id)===String(id);})||null;}
+function meta(r){try{var m=JSON.parse(String(r&&r.notes||''));return m&&m.tag===TAG?m:null;}catch(e){return null;}}
+function refs(id){return A(C().activities).filter(function(r){return r&&r.type===TYPE&&(!id||String(r.student_id)===String(id))&&meta(r);}).sort(function(a,b){return String(b.created_at||b.date||'').localeCompare(String(a.created_at||a.date||''));});}
+function localPut(row){var c=C();c.activities=A(c.activities);var i=c.activities.findIndex(function(x){return String(x.id)===String(row.id);});if(i<0)c.activities.push(row);else c.activities[i]=Object.assign({},c.activities[i],row);try{if(typeof persistLocalSchoolCache==='function')persistLocalSchoolCache();}catch(e){}try{if(window.DastyarOffline&&typeof DastyarOffline.saveSnapshot==='function'){var p=DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(c)));if(p&&p.catch)p.catch(function(){});}}catch(e){}}
+function num(v){if(v==null||v==='')return null;var n=Number(String(v).replace(/[۰-۹]/g,function(d){return '۰۱۲۳۴۵۶۷۸۹'.indexOf(d);}).replace(/[٠-٩]/g,function(d){return '٠١٢٣٤٥٦٧٨٩'.indexOf(d);}).replace(/,/g,''));return Number.isFinite(n)?n:null;}
+function isNeeds(r){var l=String(r&& (r.level||r.result)||'').toLowerCase().trim();var n=num(r&&r.score);return ['needs','نیاز به تلاش','need effort','needs effort','needs_effort','poor','weak'].indexOf(l)>=0||(n!==null&&n<10);}
+function labelClass(id){var x=A(C().classes).find(function(c){return String(c.id)===String(id);});return x?(x.label||x.name||''):'—';}
+function dateNow(){try{return typeof today==='function'?today():new Date().toISOString().slice(0,10);}catch(e){return new Date().toISOString().slice(0,10);}}
+function categories(id){
+ var c=C(),acts=A(c.activities).filter(function(r){return String(r.student_id)===String(id);});
+ var attendance=A(c.attendance).filter(function(r){return String(r.student_id)===String(id)&&['unexcused','absent','late'].indexOf(String(r.status||'').toLowerCase())>=0;});
+ var qa=acts.filter(function(r){return r.type==='qa'&&isNeeds(r);});
+ var exams=acts.filter(function(r){return r.type==='exam'&&isNeeds(r);});
+ var activity=acts.filter(function(r){return r.type==='activity'&&isNeeds(r);});
+ var evaluations=A(c.evaluations).filter(function(r){return String(r.student_id)===String(id)&&isNeeds(r);});
+ var scores=A(c.scores).filter(function(r){return String(r.student_id)===String(id)&&isNeeds(r);});
+ var discipline=A(c.discipline).filter(function(r){return String(r.student_id)===String(id)&&String(r.status||'pending').toLowerCase()==='pending';});
+ var competencies=A(c.competencies).filter(function(r){return String(r.student_id)===String(id)&&isNeeds(r);});
+ return [
+  {key:'attendance',title:'حضور و غیاب',rows:attendance},
+  {key:'qa',title:'پرسش و پاسخ روزانه',rows:qa},
+  {key:'evaluation',title:'ارزشیابی درسی',rows:evaluations},
+  {key:'exam',title:'آزمون‌ها',rows:exams},
+  {key:'discipline',title:'انضباطی',rows:discipline},
+  {key:'scores',title:'نمرات کارنامه',rows:scores},
+  {key:'competencies',title:'شایستگی‌ها',rows:competencies},
+  {key:'activity',title:'فعالیت‌های کلاسی',rows:activity}
+ ];
+}
+function sourceKey(id,cat){return String(id)+'|'+cat.key+'|'+cat.rows.map(function(r){return String(r.id||r.date||'')+'#'+String(r.subject||r.category||r.feedback||'');}).sort().join('|');}
+function recordLine(r){return [r.date||r.created_at||'',r.subject||r.category||r.feedback||r.exam_name||r.name||'',r.status||'',r.level||'',r.score==null?'':'نمره '+r.score,r.details||r.notes||''].filter(Boolean).join(' — ').slice(0,300);}
+function snapRecords(rows){return rows.slice(0,30).map(function(r){return {id:String(r.id||''),date:String(r.date||r.created_at||''),subject:String(r.subject||r.category||r.feedback||r.exam_name||r.name||''),status:String(r.status||''),level:String(r.level||''),score:r.score==null?null:r.score,details:String(r.details||r.notes||'').slice(0,500),recorded_by:String(r.recorded_by||r.created_by||'')};});}
+function statusFa(s){return s==='done'?'پیگیری انجام شد':s==='in_progress'?'در حال پیگیری':'در انتظار پیگیری';}
+function node(tag,cls,txt){var n=document.createElement(tag);if(cls)n.className=cls;if(txt!=null)n.textContent=String(txt);return n;}
+function mergeRows(rows,id){var c=C();c.activities=A(c.activities).filter(function(r){return !(r&&r.type===TYPE&&(!id||String(r.student_id)===String(id)));}).concat(A(rows));try{if(typeof persistLocalSchoolCache==='function')persistLocalSchoolCache();}catch(e){}}
+async function fetchStudentRefs(id){
+ if(!sb||!navigator.onLine||window.isOffline||!id||busyTeacher)return;
+ busyTeacher=true;
+ try{var q=await sb.from('sa_activities').select('*').eq('type',TYPE).eq('student_id',String(id)).order('created_at',{ascending:false});if(q&&!q.error&&Array.isArray(q.data)){mergeRows(q.data,String(id));renderTeacher(id);}}
+ catch(e){console.warn('teacher referral refresh',e);}finally{busyTeacher=false;}
+}
+async function fetchManagerRefs(silent){
+ if(!M()||!sb||!navigator.onLine||window.isOffline||busyManager)return;
+ busyManager=true;
+ try{var q=await sb.from('sa_activities').select('*').eq('type',TYPE).order('created_at',{ascending:false});if(q&&q.error)throw q.error;if(Array.isArray(q.data)){mergeRows(q.data,null);renderManager();if(!silent&&typeof toast==='function')toast('ارجاع‌های تازه دریافت شد');}}
+ catch(e){if(!silent&&typeof toast==='function')toast('دریافت ارجاع‌ها انجام نشد: '+(e.message||e));console.warn('manager referrals refresh',e);}finally{busyManager=false;}
+}
+function teacherPanelFor(root,cat){
+ var all=root.querySelectorAll('.dossier-section'),target=null,need=cat.key;
+ var terms={attendance:['حضور و غیاب'],discipline:['موارد انضباطی'],evaluation:['ارزشیابی‌های درسی'],qa:['پرسش و فعالیت‌های روزانه'],exam:['آزمون‌ها'],scores:['نمرات کارنامه'],competencies:['شایستگی‌ها'],activity:['پرسش و فعالیت‌های روزانه']};
+ for(var i=0;i<all.length;i++){var h=all[i].querySelector('.ct');if(h&&(terms[need]||[]).some(function(t){return h.textContent.indexOf(t)>=0;})){target=all[i];break;}}
+ return target;
+}
+function referralBox(row){
+ var m=meta(row);if(!m)return null;
+ var box=node('div');box.setAttribute('data-dastyar-referral-card','1');box.style.cssText='margin:7px 0;padding:9px;border:1px solid #bfdbfe;border-right:4px solid #2563eb;border-radius:9px;background:#f8fbff;break-inside:avoid;font-size:.76rem;line-height:1.8';
+ box.appendChild(node('b','','📨 ارجاع به مدیریت — '+(m.source_title||'موضوع')));
+ box.appendChild(node('div','meta','ارجاع‌دهنده: '+(m.teacher_name||row.recorded_by||'معلم')+' | تاریخ: '+(row.date||'—')+' | مسئول پیگیری: '+(m.assignee||'تعیین نشده')));
+ box.appendChild(node('div','','وضعیت: '+statusFa(m.status)));
+ if(m.followup_result)box.appendChild(node('div','', 'نتیجه پیگیری مدیریت: '+m.followup_result));
+ else box.appendChild(node('div','meta','نتیجه پیگیری هنوز ثبت نشده است.'));
+ return box;
+}
+function renderTeacher(id){
+ var root=document.getElementById('print-student-dossier'),st=student(id);if(!root||!st||!allowed(id))return;
+ root.querySelectorAll('[data-dastyar-referral-ui="1"],[data-dastyar-referral-card="1"]').forEach(function(x){x.remove();});
+ var history=refs(id),cats=categories(id);
+ cats.forEach(function(cat){
+  var key=sourceKey(id,cat),prior=history.find(function(r){var m=meta(r);return m&&m.source_key===key;});
+  var openSame=history.find(function(r){var m=meta(r);return m&&m.source_type===cat.key&&m.status!=='done';});
+  if(!cat.rows.length&&!prior&&!openSame)return;
+  var target=teacherPanelFor(root,cat);
+  if(!target)target=root;
+  var box=node('div');box.setAttribute('data-dastyar-referral-ui','1');box.style.cssText='margin:7px 0;padding:9px;border:1px solid '+(cat.rows.length>THRESHOLD?'#f59e0b':'#dbe3ef')+';border-radius:9px;background:'+(cat.rows.length>THRESHOLD?'#fffbeb':'#f8fafc'); 
+  box.appendChild(node('b','','پایش هوشمند ارجاع — '+cat.title));
+  box.appendChild(node('div','meta','موارد نیازمند توجه: '+cat.rows.length+' | حد مجاز: '+THRESHOLD+' مورد'));
+  if(prior){var x=referralBox(prior);if(x)box.appendChild(x);}
+  else if(openSame){var m=meta(openSame);box.appendChild(node('div','meta','این بخش قبلاً ارجاع شده است؛ وضعیت: '+statusFa(m.status)+' | مسئول: '+(m.assignee||'تعیین نشده')));}
+  else if(cat.rows.length>THRESHOLD){
+   var b=node('button','btn btn-p btn-sm','ارجاع این موضوع به مدیریت');b.type='button';b.style.marginTop='6px';
+   b.onclick=function(){b.disabled=true;sendReferral(id,cat,key).finally(function(){b.disabled=false;});};box.appendChild(b);
+  }else if(cat.rows.length){box.appendChild(node('div','meta','هنوز از حد مجاز عبور نکرده است؛ با ثبت مورد چهارم امکان ارجاع فعال می‌شود.'));}
+  target.appendChild(box);
+ });
+ history.forEach(function(r){var m=meta(r);if(!m||cats.some(function(c){return c.key===m.source_type&&sourceKey(id,c)===m.source_key;}))return;var target=teacherPanelFor(root,{key:m.source_type});if(!target)target=root;var x=referralBox(r);if(x)target.appendChild(x);});
+}
+async function sendReferral(id,cat,key){
+ if(!T()||!allowed(id)){if(typeof toast==='function')toast('فقط معلم همان کلاس می‌تواند ارجاع ثبت کند');return;}
+ if(cat.rows.length<=THRESHOLD){if(typeof toast==='function')toast('تعداد موارد هنوز از حد مجاز سه مورد عبور نکرده است');return;}
+ if(refs(id).some(function(r){var m=meta(r);return m&&m.source_key===key;})){if(typeof toast==='function')toast('این مجموعه قبلاً ارجاع شده است');return;}
+ var st=student(id),u=U();if(!st)return;
+ var m={tag:TAG,source_type:cat.key,source_title:cat.title,source_key:key,threshold:THRESHOLD,trigger_count:cat.rows.length,source_records:snapRecords(cat.rows),teacher_name:(u&&(u.full_name||u.username))||'معلم',status:'referred',assignee:'',followup_result:'',created_at:new Date().toISOString(),updated_at:''};
+ var row={id:typeof uid==='function'?uid():'ref_'+Date.now(),student_id:String(id),class_id:String(st.class_id||''),type:TYPE,subject:'ارجاع مدیریتی — '+cat.title,weekday:'',date:dateNow(),level:'needs',notes:JSON.stringify(m),recorded_by:m.teacher_name};
+ try{var out=await sb.from('sa_activities').insert(row);if(out&&out.error)throw out.error;localPut(row);renderTeacher(id);if(typeof toast==='function')toast(out&&out.offline?'ارجاع ثبت و برای همگام‌سازی نگهداری شد.':'ارجاع با موفقیت برای مدیریت ارسال شد.');}
+ catch(e){if(typeof toast==='function')toast('ارسال ارجاع انجام نشد: '+(e.message||e));}
+}
+function managerCard(row){
+ var m=meta(row),st=student(row.student_id);if(!m||!st)return null;
+ var box=node('div');box.style.cssText='margin:8px 0;padding:10px;border:1px solid #dbe3ef;border-radius:10px;background:#fff;font-size:.76rem;line-height:1.85';
+ box.appendChild(node('b','',(st.first_name||'')+' '+(st.last_name||'')+' — '+labelClass(st.class_id)));
+ box.appendChild(node('div','','موضوع: '+(m.source_title||row.subject||'—')+' | موارد نیازمند توجه: '+(m.trigger_count||0)+' | حد مجاز: '+THRESHOLD));
+ box.appendChild(node('div','meta','ارجاع‌دهنده: '+(m.teacher_name||row.recorded_by||'معلم')+' | تاریخ: '+(row.date||'—')+' | وضعیت: '+statusFa(m.status)));
+ A(m.source_records).forEach(function(r){var line=recordLine(r);if(line)box.appendChild(node('div','meta','• '+line));});
+ var select=node('select');select.style.cssText='width:100%;padding:8px;margin:7px 0;border:1px solid #cbd5e1;border-radius:8px;font:inherit';
+ select.appendChild(new Option('انتخاب مسئول پیگیری',''));PEOPLE.forEach(function(p){select.appendChild(new Option(p,p));});select.value=m.assignee||'';
+ var state=node('select');state.style.cssText=select.style.cssText;[['referred','ارجاع‌شده'],['in_progress','در حال پیگیری'],['done','پیگیری انجام شد']].forEach(function(x){state.appendChild(new Option(x[1],x[0]));});state.value=m.status||'referred';
+ var result=node('textarea');result.rows=3;result.value=m.followup_result||'';result.placeholder='شرح اقدام انجام‌شده و نتیجه پیگیری را بنویسید';result.style.cssText='width:100%;box-sizing:border-box;padding:8px;margin:5px 0;border:1px solid #cbd5e1;border-radius:8px;font:inherit';
+ box.appendChild(node('label','','مسئول پیگیری'));box.appendChild(select);box.appendChild(node('label','','وضعیت رسیدگی'));box.appendChild(state);box.appendChild(node('label','','نتیجه و توضیحات پیگیری'));box.appendChild(result);
+ var save=node('button','btn btn-p btn-sm','ثبت پیگیری و ارسال خودکار نتیجه به معلم');save.type='button';save.onclick=function(){if(!select.value){toast('مسئول پیگیری را انتخاب کنید');return;}if(!result.value.trim()){toast('نتیجه و توضیحات پیگیری را بنویسید');return;}save.disabled=true;saveFollowup(row,select.value,state.value,result.value.trim()).finally(function(){save.disabled=false;});};box.appendChild(save);
+ return box;
+}
+function renderManager(){
+ if(!M())return;
+ var body=document.getElementById('manager-performance-center-body');if(!body)return;
+ var panel=document.getElementById(PANEL);if(!panel){panel=node('section');panel.id=PANEL;panel.style.cssText='margin:12px 0;padding:12px;border:1px solid #bfdbfe;border-radius:12px;background:#f8fbff';panel.appendChild(node('b','','📨 پرونده‌های نیازمند رسیدگی — ارجاع معلمان و پیگیری مدیریت'));panel.appendChild(node('p','meta','این بخش داخل مرکز پایش عملکرد مدیریت است. فقط مواردی نمایش داده می‌شود که تعداد ثبت‌های نیازمند توجه از حد مجاز سه مورد بیشتر شده و معلم آن را ارجاع داده باشد.'));var sum=node('div');sum.id=PANEL+'-summary';sum.style.cssText='display:flex;gap:6px;flex-wrap:wrap;margin:8px 0';panel.appendChild(sum);var analysis=node('div');analysis.id=PANEL+'-analysis';analysis.style.cssText='padding:8px;margin:8px 0;border:1px solid #dbe3ef;border-radius:9px;background:#fff';panel.appendChild(analysis);var list=node('div');list.id=PANEL+'-list';panel.appendChild(list);var note=node('div','meta','نتیجه ثبت‌شده از سرور دریافت می‌شود و با تازه‌سازی خودکار پنل معلم نمایش داده خواهد شد. پرونده الکترونیکی اولیا نیز هنگام بازتولید بسته رمزگذاری‌شده کلاس، نتیجه را دریافت می‌کند.');note.style.marginTop='8px';panel.appendChild(note);body.appendChild(panel);}
+ var all=refs(),open=all.filter(function(r){return meta(r).status!=='done';}),done=all.length-open.length;
+ var sum=document.getElementById(PANEL+'-summary'),analysis=document.getElementById(PANEL+'-analysis'),list=document.getElementById(PANEL+'-list');
+ if(sum){sum.replaceChildren();[['کل ارجاع‌ها',all.length],['در انتظار/در حال پیگیری',open.length],['پایان‌یافته',done]].forEach(function(x){var t=node('div');t.style.cssText='flex:1 1 100px;padding:8px;border:1px solid #e2e8f0;border-radius:9px;background:#fff;text-align:center';t.appendChild(node('b','',x[1]));t.appendChild(node('div','meta',x[0]));sum.appendChild(t);});}
+ if(analysis){analysis.replaceChildren();analysis.appendChild(node('b','','تحلیل ارجاع‌ها به تفکیک موضوع'));var by={};all.forEach(function(r){var m=meta(r),k=m.source_title||r.subject||'سایر';by[k]=(by[k]||0)+1;});var keys=Object.keys(by);if(!keys.length)analysis.appendChild(node('div','meta','هنوز ارجاعی برای تحلیل ثبت نشده است.'));keys.forEach(function(k){analysis.appendChild(node('div','meta',k+' : '+by[k]+' ارجاع'));});}
+ if(list){list.replaceChildren();if(!all.length)list.appendChild(node('div','empty','هنوز معلمی موردی را به مدیریت ارجاع نداده است.'));all.slice(0,100).forEach(function(r){var x=managerCard(r);if(x)list.appendChild(x);});}
+}
+async function saveFollowup(row,person,status,result){
+ if(!M())return;var m=meta(row);if(!m)return;
+ m.assignee=person;m.status=status;m.followup_result=result;m.followup_at=dateNow();m.updated_at=new Date().toISOString();m.updated_by=(U()&&(U().full_name||U().username))||'مدیریت';
+ try{var out=await sb.from('sa_activities').update({notes:JSON.stringify(m)}).eq('id',row.id);if(out&&out.error)throw out.error;row.notes=JSON.stringify(m);localPut(row);renderManager();if(typeof toast==='function')toast(out&&out.offline?'پیگیری ثبت و برای همگام‌سازی نگهداری شد.':'پیگیری ثبت شد؛ نتیجه برای معلم قابل دریافت است.');}
+ catch(e){if(typeof toast==='function')toast('ثبت پیگیری انجام نشد: '+(e.message||e));}
+}
+function panelOpen(){var b=document.getElementById('manager-performance-center-body');return !!(b&&b.style.display!=='none'&&(!document.getElementById('page-dashboard')||document.getElementById('page-dashboard').classList.contains('on')));}
+function tick(){
+ if(M()&&panelOpen()){fetchManagerRefs(true);}
+ if(T()&&teacherStudentId){var page=document.getElementById('page-studentfile');if(page&&page.classList.contains('on'))fetchStudentRefs(teacherStudentId);}
+}
+function install(){
+ try{
+  if(typeof window.openStudentDossier==='function'&&!window.openStudentDossier.__dastyarReferralV2){var old=window.openStudentDossier;var wrap=function(id){teacherStudentId=String(id||'');var result=old.apply(this,arguments);try{renderTeacher(teacherStudentId);}catch(e){}if(T())fetchStudentRefs(teacherStudentId);return result;};wrap.__dastyarReferralV2=true;window.openStudentDossier=wrap;}
+  if(typeof window.toggleDashboardFeature==='function'&&!window.toggleDashboardFeature.__dastyarReferralV2){var toggle=window.toggleDashboardFeature;var wrapped=function(key){var result=toggle.apply(this,arguments);if(key==='performance'&&M())setTimeout(function(){renderManager();fetchManagerRefs(true);},100);return result;};wrapped.__dastyarReferralV2=true;window.toggleDashboardFeature=wrapped;}
+  if(M())renderManager();
+  if(!timer)timer=window.setInterval(tick,4500);
+ }catch(e){console.warn('unified referral workflow',e);}
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(install,1100);});else setTimeout(install,1100);
+window.addEventListener('focus',function(){setTimeout(function(){if(M()&&panelOpen())fetchManagerRefs(true);if(T()&&teacherStudentId)fetchStudentRefs(teacherStudentId);},250);});
+})();
+</script>
 </body>
 </html>
 
