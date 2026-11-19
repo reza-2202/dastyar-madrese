@@ -1183,6 +1183,11 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <summary class="home-tile-group-title"><span class="home-tile-group-mark">📊</span><span>داشبورد</span></summary>
 </details>
 </div>
+<div class="card no-print" id="dastyar-achievements-lab-v1" style="margin:10px 0;padding:12px;border:1px solid #bfdbfe">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+<div><b style="color:#1d4ed8">🏅 تشویق و افتخارات — مرحله آزمایشی</b><div class="meta">ثبت تشویق، معرفی دانش‌آموز شاخص و بررسی مدیر</div></div>
+<button class="btn btn-p btn-sm" type="button" onclick="openAchievementsLabV1()">ورود به بخش آزمایشی</button>
+</div></div>
 <div class="sg" id="dashboard-stats-rail" style="display:none">
 <div class="sc"><div class="n" id="st-s">۰</div><div class="l">دانش‌آموز</div></div>
 <div class="sc"><div class="n" id="st-c">۰</div><div class="l">کلاس</div></div>
@@ -14417,6 +14422,129 @@ function toggleDashboardStatsRail(open){
  rail.classList.toggle('dashboard-stats-open',!!open);
  if(open){rail.scrollIntoView({behavior:'smooth',block:'nearest'});}
 }
+
+
+// ===== Dastyar Achievements: isolated test module v1 =====
+(function(){
+  'use strict';
+  function byId(id){return document.getElementById(id);}
+  function safeText(v){return typeof escHtml==='function'?escHtml(String(v==null?'':v)):String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function classesForUser(){
+    var all=Array.isArray(cache.classes)?cache.classes:[];
+    if(user&&user.role==='admin')return all;
+    var ids=(user&&Array.isArray(user.class_ids)?user.class_ids:[]).map(String);
+    return all.filter(function(c){return ids.indexOf(String(c.id))>=0 || String(c.teacher_user||'').toLowerCase()===String(user&&user.username||'').toLowerCase() || String(c.teacher_name||'').toLowerCase()===String(user&&user.full_name||'').toLowerCase();});
+  }
+  function teacherUsernameForClass(cl){
+    if(cl&&cl.teacher_user)return String(cl.teacher_user);
+    var t=(cache.users||[]).find(function(x){return x&&x.role==='teacher'&&String(x.full_name||'').toLowerCase()===String(cl&&cl.teacher_name||'').toLowerCase();});
+    return t?String(t.username||''):'';
+  }
+  function ensureModal(){
+    var el=byId('dastyar-achievements-modal-v1'); if(el)return el;
+    document.body.insertAdjacentHTML('beforeend',
+      '<div id="dastyar-achievements-modal-v1" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.62);padding:12px;overflow:auto">'+
+      '<div style="max-width:760px;margin:18px auto;background:#fff;border-radius:16px;padding:16px;box-shadow:0 20px 60px #0f172a55">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><b style="color:#1d4ed8;font-size:1.05rem">🏅 سامانه آزمایشی تشویق و افتخارات</b><button type="button" id="ach-v1-close" class="btn btn-o btn-sm">بستن</button></div>'+
+      '<div class="meta" style="margin:8px 0 12px">این مرحله برای آزمایش ثبت و گردش تأیید است؛ در حال حاضر به پرونده چاپی، پرونده والدین و ذخیره آفلاین متصل نیست.</div>'+
+      '<div id="ach-v1-status" class="meta" style="padding:8px;background:#eff6ff;border-radius:8px;margin-bottom:10px">در حال آماده‌سازی…</div>'+
+      '<div id="ach-v1-form" class="card" style="padding:12px;margin-bottom:12px">'+
+      '<b>ثبت تشویق یا درخواست معرفی</b>'+
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;margin-top:8px">'+
+      '<label>کلاس<select id="ach-v1-class" class="inp" style="width:100%;padding:9px"></select></label>'+
+      '<label>دانش‌آموز<select id="ach-v1-student" class="inp" style="width:100%;padding:9px"></select></label>'+
+      '<label>نوع ثبت<select id="ach-v1-kind" class="inp" style="width:100%;padding:9px"></select></label>'+
+      '<label>زمینه تشویق<select id="ach-v1-category" class="inp" style="width:100%;padding:9px"><option value="تلاش و پشتکار">تلاش و پشتکار</option><option value="پیشرفت درسی">پیشرفت درسی</option><option value="اخلاق و همکاری">اخلاق و همکاری</option><option value="مسئولیت‌پذیری">مسئولیت‌پذیری</option><option value="خلاقیت و فعالیت">خلاقیت و فعالیت</option><option value="حضور منظم">حضور منظم</option></select></label>'+
+      '</div>'+
+      '<label style="display:block;margin-top:8px">عنوان<input id="ach-v1-title" class="inp" style="width:100%;padding:9px" maxlength="120" placeholder="مثلاً تلاش چشمگیر در فعالیت گروهی"></label>'+
+      '<label style="display:block;margin-top:8px">دلیل و توضیحات<textarea id="ach-v1-reason" class="inp" style="width:100%;min-height:75px;padding:9px" maxlength="1000" placeholder="رفتار یا پیشرفت مشاهده‌شده را توضیح دهید"></textarea></label>'+
+      '<button type="button" id="ach-v1-save" class="btn btn-p btn-sm" style="margin-top:10px">ثبت در سامانه</button></div>'+
+      '<div class="card" style="padding:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b>سوابق و درخواست‌ها</b><button type="button" id="ach-v1-refresh" class="btn btn-o btn-sm">بازخوانی</button></div><div id="ach-v1-list" style="margin-top:10px"></div></div>'+
+      '</div></div>');
+    el=byId('dastyar-achievements-modal-v1');
+    byId('ach-v1-close').addEventListener('click',function(){el.style.display='none';});
+    byId('ach-v1-refresh').addEventListener('click',loadAchievementsV1);
+    byId('ach-v1-class').addEventListener('change',fillAchievementStudentsV1);
+    byId('ach-v1-save').addEventListener('click',saveAchievementV1);
+    return el;
+  }
+  function statusV1(msg,bad){var x=byId('ach-v1-status');if(x){x.textContent=msg;x.style.background=bad?'#fef2f2':'#eff6ff';x.style.color=bad?'#991b1b':'#1e40af';}}
+  function fillAchievementStudentsV1(){
+    var cid=String(byId('ach-v1-class').value||'');
+    var rows=(cache.students||[]).filter(function(s){return String(s.class_id)===cid;});
+    byId('ach-v1-student').innerHTML=rows.map(function(s){return '<option value="'+safeText(s.id)+'">'+safeText((s.first_name||'')+' '+(s.last_name||''))+'</option>';}).join('')||'<option value="">دانش‌آموزی در این کلاس نیست</option>';
+  }
+  async function openAchievementsLabV1(){
+    if(!user||!sb){if(typeof toast==='function')toast('ابتدا وارد برنامه شوید و اتصال سرور را بررسی کنید.');return;}
+    if(!navigator.onLine||window.isOffline){if(typeof toast==='function')toast('این مرحله آزمایشی فعلاً به اتصال اینترنت نیاز دارد.');return;}
+    var el=ensureModal();el.style.display='block';
+    var cls=classesForUser();
+    byId('ach-v1-class').innerHTML=cls.map(function(c){return '<option value="'+safeText(c.id)+'">'+safeText(c.label||c.name||c.id)+'</option>';}).join('')||'<option value="">کلاسی در دسترس نیست</option>';
+    var kind=byId('ach-v1-kind');
+    kind.innerHTML=user.role==='admin'?'<option value="nomination_request">درخواست مدیر از معلم برای معرفی دانش‌آموز شاخص</option>':'<option value="recognition">ثبت تشویق</option><option value="nomination">معرفی دانش‌آموز شاخص به مدیر</option>';
+    byId('ach-v1-form').style.display=cls.length?'block':'none';
+    fillAchievementStudentsV1();
+    statusV1('اتصال برقرار است؛ اطلاعات این بخش از جدول مستقل تشویق خوانده می‌شود.',false);
+    await loadAchievementsV1();
+  }
+  async function loadAchievementsV1(){
+    try{
+      if(!sb||!user)throw new Error('نشست کاربری در دسترس نیست.');
+      var r=await sb.rpc('sa_achievements_list',{p_username:user.username,p_password:window.__dastyarSessionPassword||''});
+      if(r.error)throw new Error(r.error.message||'دریافت سوابق ناموفق بود.');
+      var rows=Array.isArray(r.data)?r.data:[];
+      var box=byId('ach-v1-list'); if(!box)return;
+      if(!rows.length){box.innerHTML='<div class="meta">هنوز سابقه‌ای ثبت نشده است.</div>';return;}
+      var labels={pending:'در انتظار بررسی',approved:'تأییدشده',rejected:'ردشده',answered:'پاسخ داده‌شده'};
+      var kinds={recognition:'تشویق',nomination:'معرفی دانش‌آموز شاخص',nomination_request:'درخواست مدیر از معلم'};
+      box.innerHTML=rows.map(function(a){
+        var st=labels[a.status]||a.status||'—';
+        var student=(cache.students||[]).find(function(s){return String(s.id)===String(a.student_id);});
+        var sn=student?((student.first_name||'')+' '+(student.last_name||'')):('شناسه دانش‌آموز: '+a.student_id);
+        var html='<div style="border:1px solid #dbeafe;border-radius:10px;padding:10px;margin:8px 0"><div style="font-weight:700">'+safeText(a.title||kinds[a.kind]||'ثبت تشویق')+'</div><div class="meta">'+safeText(sn)+' | '+safeText(kinds[a.kind]||a.kind)+' | '+safeText(st)+'</div><div style="margin-top:5px;font-size:.88rem">'+safeText(a.reason||'')+'</div>';
+        if(a.decision_text)html+='<div class="meta" style="margin-top:5px;color:#166534">نظر مدیر: '+safeText(a.decision_text)+'</div>';
+        if(a.medal_level)html+='<div class="meta">نشان: '+safeText(({bronze:'برنزی',silver:'نقره‌ای',gold:'طلایی',special:'ویژه افتخار'})[a.medal_level]||a.medal_level)+'</div>';
+        if(user.role==='admin'&&a.status==='pending')html+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><input data-ach-note="'+safeText(a.id)+'" placeholder="توضیح مدیر (اختیاری)" style="flex:1;min-width:150px;padding:7px;border:1px solid #cbd5e1;border-radius:7px"><select data-ach-medal="'+safeText(a.id)+'" style="padding:7px;border:1px solid #cbd5e1;border-radius:7px"><option value="">بدون نشان</option><option value="bronze">برنزی</option><option value="silver">نقره‌ای</option><option value="gold">طلایی</option><option value="special">ویژه افتخار</option></select><button type="button" class="btn btn-p btn-sm" data-ach-review="approved" data-ach-id="'+safeText(a.id)+'">تأیید</button><button type="button" class="btn btn-o btn-sm" data-ach-review="rejected" data-ach-id="'+safeText(a.id)+'">رد</button></div>';
+        return html+'</div>';
+      }).join('');
+      box.querySelectorAll('[data-ach-review]').forEach(function(btn){btn.addEventListener('click',function(){reviewAchievementV1(btn.getAttribute('data-ach-id'),btn.getAttribute('data-ach-review'));});});
+    }catch(e){statusV1(e.message||String(e),true);}
+  }
+  async function saveAchievementV1(){
+    try{
+      if(!navigator.onLine||window.isOffline)throw new Error('برای ثبت آزمایشی اتصال اینترنت لازم است.');
+      var cid=String(byId('ach-v1-class').value||''),sid=String(byId('ach-v1-student').value||'');
+      var cl=(cache.classes||[]).find(function(c){return String(c.id)===cid;});
+      var kind=String(byId('ach-v1-kind').value||'recognition');
+      var title=String(byId('ach-v1-title').value||'').trim(),reason=String(byId('ach-v1-reason').value||'').trim();
+      if(!cl||!sid)throw new Error('کلاس و دانش‌آموز را انتخاب کنید.');
+      if(!title||!reason)throw new Error('عنوان و دلیل ثبت را کامل کنید.');
+      var record={id:uid(),student_id:sid,class_id:cid,kind:kind,title:title,category:byId('ach-v1-category').value,reason:reason,source_section:'manual',date:new Date().toISOString().slice(0,10)};
+      if(kind==='nomination_request'){
+        record.target_teacher_username=teacherUsernameForClass(cl);
+        if(!record.target_teacher_username)throw new Error('برای این کلاس نام کاربری معلم مشخص نیست؛ ابتدا اطلاعات کلاس را بررسی کنید.');
+      }
+      var r=await sb.rpc('sa_achievements_save',{p_username:user.username,p_password:window.__dastyarSessionPassword||'',p_record:record});
+      if(r.error)throw new Error(r.error.message||'ثبت ناموفق بود.');
+      byId('ach-v1-title').value='';byId('ach-v1-reason').value='';
+      statusV1('ثبت با موفقیت به سرور ارسال شد.',false);
+      await loadAchievementsV1();
+    }catch(e){statusV1(e.message||String(e),true);}
+  }
+  async function reviewAchievementV1(id,status){
+    try{
+      var note=document.querySelector('[data-ach-note="'+CSS.escape(String(id))+'"]');
+      var medal=document.querySelector('[data-ach-medal="'+CSS.escape(String(id))+'"]');
+      var r=await sb.rpc('sa_achievements_review',{p_username:user.username,p_password:window.__dastyarSessionPassword||'',p_id:String(id),p_status:status,p_decision_text:note?note.value:'',p_award_type:status==='approved'?'تقدیر مدیر':'',p_medal_level:medal&&status==='approved'?medal.value:null,p_medal_image_url:null});
+      if(r.error)throw new Error(r.error.message||'ثبت تصمیم مدیر ناموفق بود.');
+      statusV1(status==='approved'?'تصمیم مدیر ثبت شد و نتیجه برای معلم قابل مشاهده است.':'درخواست رد شد و نتیجه برای معلم قابل مشاهده است.',false);
+      await loadAchievementsV1();
+    }catch(e){statusV1(e.message||String(e),true);}
+  }
+  window.openAchievementsLabV1=openAchievementsLabV1;
+})();
+// ===== end isolated test module =====
+
 </script>
 
 
