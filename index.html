@@ -1232,9 +1232,10 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
  <div id="teacher-today-schedule-content" style="font-size:.84rem;line-height:1.9"></div>
  <button class="btn btn-o btn-sm" style="margin-top:8px" onclick="go('weekly')">مشاهده و تنظیم برنامه هفتگی</button>
 </div>
-<div class="sg">
+<div class="sg" id="dashboard-stats-rail">
+<button type="button" class="sc dashboard-rail-toggle" id="dashboard-rail-toggle" aria-expanded="true" aria-controls="dashboard-stats-rail" onclick="toggleDashboardStatsRail()"><span class="n">📊</span><span class="l">داشبورد<br><small class="dashboard-rail-hint">برای جمع کردن آمار بزنید</small></span></button>
+
 <div class="sc"><div class="n" id="st-s">۰</div><div class="l">دانش‌آموز</div></div>
-<div id="parent-invitation-summary" class="sc" role="button" tabindex="0" onclick="toggleParentInvitationClassList()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleParentInvitationClassList()}" style="cursor:pointer"><div class="ct" style="display:flex;align-items:center;gap:8px">✉️ دعوت‌نامه‌های اولیا <span id="parent-invitation-count-badge" aria-label="تعداد درخواست‌های دعوتنامه امروز" style="display:none;min-width:21px;height:21px;padding:0 6px;box-sizing:border-box;border-radius:999px;background:#dc2626;color:#fff;font-size:11px;font-weight:800;line-height:21px;text-align:center;box-shadow:0 1px 3px #0002"></span></div><div id="parent-invitation-summary-content" class="meta">برای نمایش آمار، اطلاعات را بارگذاری کنید.</div><small style="display:block;color:#1d4ed8;margin-top:6px;text-decoration:underline">برای مشاهده کلاس‌های درخواست‌دهنده امروز ضربه بزنید</small></div>
 <div class="sc"><div class="n" id="st-c">۰</div><div class="l">کلاس</div></div>
 <div class="sc"><div class="n" id="st-p">۰</div><div class="l">حاضر امروز</div></div>
 <div class="sc" role="button" tabindex="0" onclick="toggleEvaluationClassList()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleEvaluationClassList()}" style="cursor:pointer"><div class="n" id="st-e">۰</div><div class="l">ارزشیابی<br><small>برای مشاهده کلاس‌ها بزنید</small></div></div>
@@ -1244,9 +1245,9 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <div class="sc" role="button" tabindex="0" onclick="toggleDisciplineDashList()" style="cursor:pointer"><div class="n" id="st-d">۰</div><div class="l">موارد انضباطی<br><small>برای مشاهده جزئیات بزنید</small></div></div>
 <div class="sc" role="button" tabindex="0" onclick="toggleAbsentDashList()" style="cursor:pointer"><div class="n" id="st-abs">۰</div><div class="l">غایبین امروز<br><small>برای مشاهده کلاس‌ها بزنید</small></div></div>
 <div class="sc" id="st-urg-card" role="button" tabindex="0" onclick="toggleAdminUrgentPanel()" style="cursor:pointer;display:none"><div class="n" id="st-urg">📢</div><div class="l">پیام ضروری<br><small>انتخاب کلاس و ارسال</small></div></div>
-<div class="sc" id="st-offexp-card" role="button" tabindex="0" onclick="exportOfflineTeacherPack()" style="cursor:pointer"><div class="n">📦</div><div class="l">خروجی آفلاین<br><small>وقتی سرور قطع است</small></div></div>
 <div class="sc" id="st-offimp-card" role="button" tabindex="0" onclick="document.getElementById('offline-pack-import').click()" style="cursor:pointer;display:none"><div class="n">📥</div><div class="l">ورود بسته آفلاین<br><small>فقط مدیر</small></div></div>
-<input type="file" id="offline-pack-import" accept="application/json,.json" style="display:none" onchange="importOfflineTeacherPack(event)"/>
+<div id="parent-invitation-summary" class="sc" role="button" tabindex="0" onclick="toggleParentInvitationClassList()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleParentInvitationClassList()}" style="cursor:pointer"><div class="ct" style="display:flex;align-items:center;gap:8px">✉️ دعوت‌نامه‌های اولیا <span id="parent-invitation-count-badge" aria-label="تعداد درخواست‌های دعوتنامه امروز" style="display:none;min-width:21px;height:21px;padding:0 6px;box-sizing:border-box;border-radius:999px;background:#dc2626;color:#fff;font-size:11px;font-weight:800;line-height:21px;text-align:center;box-shadow:0 1px 3px #0002"></span></div><div id="parent-invitation-summary-content" class="meta">برای نمایش آمار، اطلاعات را بارگذاری کنید.</div><small style="display:block;color:#1d4ed8;margin-top:6px;text-decoration:underline">برای مشاهده کلاس‌های درخواست‌دهنده امروز ضربه بزنید</small></div>
+<div class="sc" id="st-offexp-card" role="button" tabindex="0" onclick="exportOfflineTeacherPack()" style="cursor:pointer"><div class="n">📦</div><div class="l">خروجی آفلاین<br><small>وقتی سرور قطع است</small></div></div><input type="file" id="offline-pack-import" accept="application/json,.json" style="display:none" onchange="importOfflineTeacherPack(event)"/>
 </div>
 <div id="pending-file-class-list" class="card" style="display:none"><div class="ct">📂 کلاس‌های دارای فایل در انتظار</div><div id="pending-file-class-list-items" class="meta"></div></div>
 <div id="attendance-class-list" class="card" style="display:none"><div class="ct">🏫 وضعیت حضور و غیاب امروز کلاس‌ها</div><div class="meta" style="margin-bottom:8px">سبز: ثبت شده | قرمز: ثبت نشده</div><div id="attendance-class-list-items" class="meta"></div><div id="attendance-remind-admin" style="display:none;margin-top:10px"><button type="button" class="btn btn-p btn-sm" onclick="sendAttendanceReminderToMissing()">📨 یادآوری ثبت حضور و غیاب به کلاس‌های ثبت‌نشده</button><div class="meta" style="margin-top:6px">فقط مدیر — پیام مشترک فقط به معلمان کلاس‌هایی که امروز حاضری ثبت نکرده‌اند.</div></div></div>
@@ -14395,5 +14396,48 @@ window.addEventListener('focus',function(){setTimeout(function(){if(M()&&panelOp
 @media(prefers-reduced-motion:reduce){
  #page-dashboard .sg>.sc,#page-dashboard .sg>#parent-invitation-summary,
  #page-dashboard .home-tile-group,#page-dashboard .home-tile-group *{transition:none!important;animation:none!important}
+}
+</style>
+
+<script id="dastyar-dashboard-rail-toggle-20261119">
+function toggleDashboardStatsRail(){
+ var rail=document.getElementById('dashboard-stats-rail');
+ var button=document.getElementById('dashboard-rail-toggle');
+ if(!rail||!button)return;
+ var collapsed=rail.classList.toggle('stats-collapsed');
+ button.setAttribute('aria-expanded',String(!collapsed));
+ var hint=button.querySelector('.dashboard-rail-hint');
+ if(hint)hint.textContent=collapsed?'برای نمایش آمار بزنید':'برای جمع کردن آمار بزنید';
+}
+</script>
+<style id="dastyar-dashboard-unified-blue-rail-20261119">
+/* تمام کارت‌های نوار آمار با یک تم آبی هماهنگ */
+#page-dashboard .sg>.sc,
+#page-dashboard .sg>#parent-invitation-summary{
+ background:linear-gradient(145deg,#eff6ff 0%,#dbeafe 100%)!important;
+ color:#1e40af!important;
+ border:1px solid #bfdbfe!important;
+ border-radius:15px!important;
+ box-shadow:0 2px 8px rgba(37,99,235,.09)!important;
+}
+#page-dashboard .sg>.sc .n,
+#page-dashboard .sg>.sc .ct{color:#1d4ed8!important}
+#page-dashboard .sg>.sc .l,
+#page-dashboard .sg>#parent-invitation-summary .meta,
+#page-dashboard .sg>#parent-invitation-summary small{color:#1e40af!important}
+#page-dashboard .sg>#parent-invitation-summary .ct{color:#1e40af!important}
+#page-dashboard .sg>#parent-invitation-summary #parent-invitation-count-badge{
+ background:#2563eb!important;color:#fff!important;
+}
+#page-dashboard .sg>.dashboard-rail-toggle{
+ appearance:none!important;-webkit-appearance:none!important;
+ font-family:inherit!important;cursor:pointer!important;
+ display:flex!important;align-items:center!important;justify-content:center!important;
+ gap:7px!important;text-align:center!important;
+}
+#page-dashboard .sg>.dashboard-rail-toggle:active{transform:scale(.97)!important}
+#page-dashboard .sg.stats-collapsed>.sc:not(#dashboard-rail-toggle){display:none!important}
+#page-dashboard .sg>.dashboard-rail-toggle .dashboard-rail-hint{
+ font-size:.58rem!important;line-height:1.4!important;font-weight:700!important;
 }
 </style>
