@@ -3178,6 +3178,11 @@ function go(p){
   if(page) page.classList.add('on');
   const n=document.querySelector('.ni[data-p="'+p+'"]');if(n)n.classList.add('on');
   const titles={dashboard:'داشبورد',studentfile:'پرونده دانش‌آموز',studentdata:'ورود و خروجی اطلاعات دانش‌آموزان',teacherperformance:'عملکرد و ارزیابی معلمان',discipline:'موارد انضباطی',finance:'مالی و حسابداری',teacheraccounts:'مدیریت معلمان و رمزها',students:'دانش‌آموزان',attendance:'حضور و غیاب',activity:'پرسش و فعالیت روزانه',evaluation:'ارزشیابی',charts:'نمودار پیشرفت',report:'کارنامه',documents:'ارسال فایل و برگه',chat:'گفت‌وگوی معلم و مدیر',about:'درباره برنامه',weekly:'برنامه هفتگی',parentmeet:'ارتباط با اولیا و جلسات',monthlyreport:'گزارش ماهانه مدیر',absentees:'گزارش غایبین',parentcontact:'دفتر تماس با اولیا',teacherreport:'گزارش کلاس من'};
+  // ابتدا تغییر صفحه را به مرورگر فرصت نمایش بده؛ بارگذاری‌های سنگین در فریم بعد انجام می‌شوند.
+  window.__dastyarNavPaintToken=(window.__dastyarNavPaintToken||0)+1;
+  var navPaintToken=window.__dastyarNavPaintToken;
+  requestAnimationFrame(function(){
+  if(navPaintToken!==window.__dastyarNavPaintToken)return;
   document.getElementById('ht').textContent=titles[p]||p;
   if(p==='dashboard'){refreshDash();if(user&&user.role==='teacher'){renderTeacherNotices();renderTeacherTodaySchedule();}else{var ts=document.getElementById('teacher-today-schedule');if(ts)ts.style.display='none';}}
   if(p==='teacheraccounts'){if(!user||user.role!=='admin'){go('dashboard');toast('این بخش فقط برای مدیر است');return;}renderTeacherAdminList();}
@@ -3205,6 +3210,7 @@ function go(p){
   if(p==='weekly'){fillSelects();fillWeeklyClasses();renderWeeklyEditor();}
   if(p==='parentmeet'){fillParentClasses();if(!document.getElementById('pm-date').value)document.getElementById('pm-date').value=today();syncParentWeekday();if(!document.getElementById('pm-comments').children.length)addParentComment();renderParentMeetings();}
   if(p==='report'){fillSelects();loadReportStudents();document.getElementById('rp-edit').innerHTML='';}
+  });
 }
 
 function fillSelects(){
@@ -14500,4 +14506,21 @@ function toggleDashboardStatsRail(open){
 @media(min-width:1150px){
  #page-dashboard>#dashboard-stats-rail{grid-template-columns:repeat(5,minmax(0,1fr))!important}
 }
+</style>
+
+<style id="dastyar-instant-section-taps-20261119">
+/* باز و بسته شدن فوری گروه‌ها و واکنش سریع لمس در داشبورد */
+#page-dashboard .home-tile-group,
+#page-dashboard .home-tile-group-title,
+#page-dashboard .home-tiles-grid,
+#page-dashboard .home-tile{
+ animation:none!important;
+ transition:none!important;
+}
+#page-dashboard .home-tile-group-title,
+#page-dashboard .home-tile{
+ touch-action:manipulation!important;
+ -webkit-tap-highlight-color:transparent!important;
+}
+#page-dashboard .home-tile:active{transform:none!important}
 </style>
