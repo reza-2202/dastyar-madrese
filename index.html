@@ -14411,7 +14411,7 @@ function installPage(){
  }
 }
 var oldGo=window.go;
-if(typeof oldGo==='function')window.go=function(p){if(p==='achievements'){installPage();oldGo.apply(this,arguments);load().then(renderPage);document.getElementById('ht').textContent='افتخارات و تشویق‌ها';return}return oldGo.apply(this,arguments)};
+if(typeof oldGo==='function')window.go=function(p){if(p==='achievements'){installPage();oldGo.apply(this,arguments);requestAnimationFrame(function(){var h=document.getElementById('ht');if(h)h.textContent='افتخارات و تشویق‌ها'});load().then(renderPage);return}return oldGo.apply(this,arguments)};
 var oldDossier=window.openStudentDossier;
 if(typeof oldDossier==='function')window.openStudentDossier=function(id){var r=oldDossier.apply(this,arguments);renderDossier(id);load().then(function(){renderDossier(id)});return r};
 var oldParentGenerate=window.generateParentPortalLink;
