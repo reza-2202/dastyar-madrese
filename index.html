@@ -14260,7 +14260,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 var TAG='DASTYAR_MANAGER_REFERRAL_V1',PANEL='dastyar-manager-referrals-panel',DOSSIER='dastyar-teacher-referral-dossier';
 var selectInteractionUntil=0,followupDrafts=Object.create(null),followupSaving=Object.create(null);
 function selectBusy(){return Date.now()<selectInteractionUntil;}
-function draftFor(row,m){var k=String(row.id),d=followupDrafts[k];if(!d){d=followupDrafts[k]={person:m.followupBy||'',reason:m.followupReason||'',method:m.followupMethod||m.followupResult||''};}return d;}
+function draftFor(row,m){var d=followupDrafts[String(row.id)];return d||{person:m.followupBy||'',reason:m.followupReason||'',method:m.followupMethod||m.followupResult||''};}
 function hasFollowupDrafts(){return Object.keys(followupDrafts).length>0;}
 var PEOPLE=['مدیر مدرسه — سید حسین نورایی انور','معاون آموزشی — پژمان سامانی‌پور','معاون اجرایی — رضا فلاحتکار'];
 function A(v){return Array.isArray(v)?v:[];}
