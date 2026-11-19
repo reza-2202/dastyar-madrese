@@ -3099,6 +3099,7 @@ async function setTeacherPassword(userId){
 
 function applyAdminInvitationAccess(){
   const isAdmin=!!(user&&user.role==='admin');
+  const isManager=!!(user&&(user.role==='admin'||user.role==='manager'));
   ['invitation-tile','public-invite-panel','invite-maker'].forEach(id=>{
     const el=document.getElementById(id);
     if(el) el.style.display=isAdmin?(id==='invitation-tile'?'flex':'block'):'none';
@@ -3107,6 +3108,12 @@ function applyAdminInvitationAccess(){
   if(dataTile)dataTile.style.display=isAdmin?'flex':'none';
   const performanceTile=document.getElementById('teacher-performance-tile');
   if(performanceTile)performanceTile.style.display=isAdmin?'flex':'none';
+  const schoolPerformanceGroup=document.querySelector('#page-dashboard .group-performance');
+  if(schoolPerformanceGroup)schoolPerformanceGroup.style.display=isManager?'':'none';
+  const managerPerformanceTile=document.getElementById('manager-performance-center-tile');
+  if(managerPerformanceTile)managerPerformanceTile.style.display=isManager?'flex':'none';
+  const managerPerformanceCard=document.getElementById('manager-performance-center');
+  if(managerPerformanceCard)managerPerformanceCard.style.display=isManager?'block':'none';
   const inbox=document.getElementById('teacher-notice-inbox');
   if(inbox)inbox.style.display=(!isAdmin&&user&&user.role==='teacher')?'block':'none';
   if(user&&user.role==='teacher')renderTeacherNotices();
@@ -13585,7 +13592,7 @@ document.addEventListener('DOMContentLoaded',function(){if(window.user)window.re
 .dastyar-feature-settings-panel{margin:7px 0 9px;padding:8px;border:1px dashed #cbd5e1;border-radius:9px;background:#fff;font-size:.72rem;line-height:1.8;color:#475569}
 .dastyar-feature-settings-panel button{margin:5px 4px 0 0;padding:5px 8px;min-height:30px;border:1px solid #dbe3ef;border-radius:7px;background:#f8fafc;color:#1e40af;font:inherit;cursor:pointer}
 .dastyar-feature-body{padding-top:8px;border-top:1px solid #e5edf7}
-#manager-performance-center{display:block!important;animation:none!important;transition:none!important}
+#manager-performance-center{display:block;animation:none!important;transition:none!important}
 @media(prefers-reduced-motion:reduce){.dastyar-feature-open,.dastyar-feature-settings{transition:none!important}}
 </style>
 <script id="dastyar-dashboard-feature-controls-js">
@@ -14147,7 +14154,13 @@ function managerCard(row){
 function renderManager(){
  if(!M())return;
  var body=document.getElementById('manager-performance-center-body');if(!body)return;
- var panel=document.getElementById(PANEL);if(!panel){panel=node('section');panel.id=PANEL;panel.style.cssText='margin:12px 0;padding:12px;border:1px solid #bfdbfe;border-radius:12px;background:#f8fbff';panel.appendChild(node('b','','📨 پرونده‌های نیازمند رسیدگی — ارجاع معلمان و پیگیری مدیریت'));panel.appendChild(node('p','meta','این بخش داخل مرکز پایش عملکرد مدیریت است. فقط مواردی نمایش داده می‌شود که تعداد ثبت‌های نیازمند توجه از حد مجاز سه مورد بیشتر شده و معلم آن را ارجاع داده باشد.'));var sum=node('div');sum.id=PANEL+'-summary';sum.style.cssText='display:flex;gap:6px;flex-wrap:wrap;margin:8px 0';panel.appendChild(sum);var analysis=node('div');analysis.id=PANEL+'-analysis';analysis.style.cssText='padding:8px;margin:8px 0;border:1px solid #dbe3ef;border-radius:9px;background:#fff';panel.appendChild(analysis);var list=node('div');list.id=PANEL+'-list';panel.appendChild(list);var note=node('div','meta','نتیجه ثبت‌شده از سرور دریافت می‌شود و با تازه‌سازی خودکار پنل معلم نمایش داده خواهد شد. پرونده الکترونیکی اولیا نیز هنگام بازتولید بسته رمزگذاری‌شده کلاس، نتیجه را دریافت می‌کند.');note.style.marginTop='8px';panel.appendChild(note);body.appendChild(panel);}
+ var panel=document.getElementById(PANEL);
+ /* هنگام کار با فرم، به‌روزرسانی پس‌زمینه نباید DOM را جایگزین کند؛ این کار انتخاب مسئول و متن در حال تایپ را پاک می‌کرد. */
+ var active=document.activeElement;
+ if(panel&&active&&panel.contains(active))return;
+ if(!panel){panel=node('section');panel.id=PANEL;panel.style.cssText='margin:12px 0;padding:12px;border:1px solid #bfdbfe;border-radius:12px;background:#f8fbff';panel.appendChild(node('b','','📨 پرونده‌های نیازمند رسیدگی — ارجاع معلمان و پیگیری مدیریت'));panel.appendChild(node('p','meta','این بخش داخل مرکز پایش عملکرد مدیریت است. فقط مواردی نمایش داده می‌شود که تعداد ثبت‌های نیازمند توجه از حد مجاز سه مورد بیشتر شده و معلم آن را ارجاع داده باشد.'));var sum=node('div');sum.id=PANEL+'-summary';sum.style.cssText='display:flex;gap:6px;flex-wrap:wrap;margin:8px 0';panel.appendChild(sum);var analysis=node('div');analysis.id=PANEL+'-analysis';analysis.style.cssText='padding:8px;margin:8px 0;border:1px solid #dbe3ef;border-radius:9px;background:#fff';panel.appendChild(analysis);var list=node('div');list.id=PANEL+'-list';panel.appendChild(list);var note=node('div','meta','نتیجه ثبت‌شده از سرور دریافت می‌شود و با تازه‌سازی خودکار پنل معلم نمایش داده خواهد شد. پرونده الکترونیکی اولیا نیز هنگام بازتولید بسته رمزگذاری‌شده کلاس، نتیجه را دریافت می‌کند.');note.style.marginTop='8px';panel.appendChild(note);body.appendChild(panel);
+  panel.addEventListener('focusout',function(){window.setTimeout(function(){var a=document.activeElement;if(!panel.contains(a))renderManager();},350);});
+ }
  var all=refs(),open=all.filter(function(r){return meta(r).status!=='done';}),done=all.length-open.length;
  var sum=document.getElementById(PANEL+'-summary'),analysis=document.getElementById(PANEL+'-analysis'),list=document.getElementById(PANEL+'-list');
  if(sum){sum.replaceChildren();[['کل ارجاع‌ها',all.length],['در انتظار/در حال پیگیری',open.length],['پایان‌یافته',done]].forEach(function(x){var t=node('div');t.style.cssText='flex:1 1 100px;padding:8px;border:1px solid #e2e8f0;border-radius:9px;background:#fff;text-align:center';t.appendChild(node('b','',x[1]));t.appendChild(node('div','meta',x[0]));sum.appendChild(t);});}
