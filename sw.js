@@ -1,4 +1,4 @@
-const CACHE = 'dastyar-shell-v69-20261115-qa-eval-count-separation';
+const CACHE = 'dastyar-shell-v70-20261119-teacher-link-permission';
 const BASE = '/dastyar-madrese/';
 const SHELL = [
   BASE,

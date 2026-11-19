@@ -3124,7 +3124,13 @@ function go(p){
   if(p==='dashboard'){ try{ if(typeof refreshSyncStatusPanel==='function') refreshSyncStatusPanel(); }catch(e){} }
   if(p==='evaluation'){
     try{ if(typeof applyParentLinkPermissionUI==='function') applyParentLinkPermissionUI(); }catch(e){}
-    setTimeout(function(){ try{ if(typeof applyParentLinkPermissionUI==='function') applyParentLinkPermissionUI(); }catch(e){} }, 200);
+    setTimeout(function(){
+      try{
+        if(user&&user.role==='teacher'&&typeof window.startTeacherParentLinkPermissionPolling==='function')window.startTeacherParentLinkPermissionPolling();
+        else if(typeof window.loadTeacherParentLinkAllowed==='function')window.loadTeacherParentLinkAllowed(true);
+        else if(typeof applyParentLinkPermissionUI==='function')applyParentLinkPermissionUI();
+      }catch(e){}
+    },200);
   }
   if(p==='absentees'){
     try{ jdateInitAll(); fillAbsenteesClassSelect(); loadAbsenteesReport(); if(typeof loadAbsenteesNeedsAttention==='function') loadAbsenteesNeedsAttention(); }catch(e){}
@@ -12888,21 +12894,31 @@ window.isSchoolAdminUser=function(){
     return false;
   }catch(e){ return false; }
 }
+var teacherParentLinkPermissionCache=null;
 window.isTeacherParentLinkAllowed=function(){
-  try{
-    if(isSchoolAdminUser()) return true;
-    return localStorage.getItem('dastyar_teacher_parent_link_allowed_v1')==='1';
-  }catch(e){ return isSchoolAdminUser(); }
+  // این تابع فقط وضعیت مجوز سراسری معلمان را برمی‌گرداند؛ مدیر برای ساخت لینک خودش جداگانه مجاز است.
+  if(teacherParentLinkPermissionCache!==null)return teacherParentLinkPermissionCache===true;
+  try{return localStorage.getItem('dastyar_teacher_parent_link_allowed_v1')==='1';}catch(e){return false;}
 }
-window.setTeacherParentLinkAllowed=function(on){
-  try{ localStorage.setItem('dastyar_teacher_parent_link_allowed_v1', on?'1':'0'); }catch(e){}
-  try{ if(typeof toast==='function') toast(on?'صدور لینک برای معلمان فعال شد':'صدور لینک برای معلمان غیرفعال شد'); }catch(e){}
-  try{ applyParentLinkPermissionUI(); }catch(e){}
+window.setTeacherParentLinkAllowed=async function(on){
+  try{
+    if(!isSchoolAdminUser()){if(typeof toast==='function')toast('فقط مدیر می‌تواند این دسترسی را تغییر دهد');return false;}
+    if(!sb||!navigator.onLine||window.isOffline){if(typeof toast==='function')toast('برای ثبت مجوز معلمان، اتصال اینترنت لازم است');applyParentLinkPermissionUI();return false;}
+    var cred=parentSessionCredentials();
+    var result=await sb.rpc('set_teacher_parent_link_permission',{p_username:cred.p_username,p_password:cred.p_password,p_enabled:!!on});
+    if(result&&result.error)throw result.error;
+    var data=result&&result.data;if(Array.isArray(data))data=data[0];
+    if(!data||typeof data.enabled!=='boolean'||data.enabled!==!!on)throw new Error('پاسخ سرور با مجوز درخواستی مطابقت ندارد');
+    teacherParentLinkPermissionCache=data.enabled;
+    try{localStorage.setItem('dastyar_teacher_parent_link_allowed_v1',teacherParentLinkPermissionCache?'1':'0');}catch(e){}
+    applyParentLinkPermissionUI();
+    if(typeof toast==='function')toast(teacherParentLinkPermissionCache?'اجازه صدور لینک برای معلمان در سرور فعال شد':'اجازه صدور لینک برای معلمان در سرور غیرفعال شد');
+    return true;
+  }catch(e){console.error('set teacher parent link permission',e);if(typeof toast==='function')toast('ثبت اجازه در سرور انجام نشد؛ اتصال و اطلاعات ورود مدیر را بررسی کنید');try{applyParentLinkPermissionUI();}catch(x){}return false;}
 }
 window.applyParentLinkPermissionUI=function(){
   var isAdmin=isSchoolAdminUser();
-  var teacherAllowed=false;
-  try{ teacherAllowed=localStorage.getItem('dastyar_teacher_parent_link_allowed_v1')==='1'; }catch(e){}
+  var teacherAllowed=window.isTeacherParentLinkAllowed();
   var adminBox=document.getElementById('parent-teacher-link-admin-only');
   var blocked=document.getElementById('parent-teacher-link-blocked');
   var btn=document.getElementById('parent-generate-link-btn');
@@ -12930,7 +12946,49 @@ window.applyParentLinkPermissionUI=function(){
     }
   }
 }
-async function loadTeacherParentLinkAllowed(){ try{ applyParentLinkPermissionUI(); }catch(e){} }
+async function loadTeacherParentLinkAllowed(force){
+  try{
+    if(!user||!sb){applyParentLinkPermissionUI();return teacherParentLinkPermissionCache===true;}
+    if(!force&&teacherParentLinkPermissionCache!==null){applyParentLinkPermissionUI();return teacherParentLinkPermissionCache;}
+    var cred=parentSessionCredentials();
+    var result=await sb.rpc('get_teacher_parent_link_permission',{p_username:cred.p_username,p_password:cred.p_password});
+    if(result&&result.error)throw result.error;
+    var data=result&&result.data||{};teacherParentLinkPermissionCache=data.enabled===true;
+    try{localStorage.setItem('dastyar_teacher_parent_link_allowed_v1',teacherParentLinkPermissionCache?'1':'0');}catch(e){}
+    applyParentLinkPermissionUI();return teacherParentLinkPermissionCache;
+  }catch(e){console.warn('load teacher parent link permission',e);applyParentLinkPermissionUI();return teacherParentLinkPermissionCache===true;}
+}
+
+// Refresh only while a teacher is viewing the link controls; no background polling elsewhere.
+var teacherParentLinkPermissionPollTimer=null;
+var teacherParentLinkPermissionPollBusy=false;
+function refreshTeacherParentLinkPermissionIfVisible(){
+  if(!user||user.role!=='teacher'){
+    if(teacherParentLinkPermissionPollTimer!==null){window.clearInterval(teacherParentLinkPermissionPollTimer);teacherParentLinkPermissionPollTimer=null;}
+    return;
+  }
+  var page=document.getElementById('page-evaluation');
+  if(document.hidden||!page||!page.classList.contains('on')||teacherParentLinkPermissionPollBusy)return;
+  teacherParentLinkPermissionPollBusy=true;
+  loadTeacherParentLinkAllowed(true).then(function(){}).finally(function(){teacherParentLinkPermissionPollBusy=false;});
+}
+window.startTeacherParentLinkPermissionPolling=function(){
+  if(!user||user.role!=='teacher'||teacherParentLinkPermissionPollTimer)return;
+  refreshTeacherParentLinkPermissionIfVisible();
+  teacherParentLinkPermissionPollTimer=window.setInterval(refreshTeacherParentLinkPermissionIfVisible,2000);
+};
+window.stopTeacherParentLinkPermissionPolling=function(){
+  if(teacherParentLinkPermissionPollTimer!==null){window.clearInterval(teacherParentLinkPermissionPollTimer);teacherParentLinkPermissionPollTimer=null;}
+};
+window.addEventListener('focus',function(){
+  var page=document.getElementById('page-evaluation');
+  if(!document.hidden&&user&&user.role==='teacher'&&page&&page.classList.contains('on'))window.startTeacherParentLinkPermissionPolling();
+});
+document.addEventListener('visibilitychange',function(){
+  if(document.hidden){window.stopTeacherParentLinkPermissionPolling();return;}
+  var page=document.getElementById('page-evaluation');
+  if(user&&user.role==='teacher'&&page&&page.classList.contains('on'))window.startTeacherParentLinkPermissionPolling();
+});
 
 window.generateParentPortalLink=async function(classId,studentId){
  try{
