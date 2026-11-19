@@ -14378,7 +14378,7 @@ async function saveFollowup(row,person,reason,method){
    var saved=Array.isArray(verify.data)?verify.data[0]:verify.data;
    if(!saved||String(saved.id)!==String(row.id)||String(saved.notes||'')!==notesPayload)throw new Error('سرور نتیجه پیگیری را تأیید نکرد؛ اطلاعات فرم حفظ شد و وضعیت تغییر نکرد.');
   }
-  row.notes=notesPayload;localPut(row);delete followupDrafts[String(row.id)];
+  row.notes=notesPayload;localPut(row);delete followupDrafts[String(row.id)];selectInteractionUntil=0;window.__dastyarFollowupSelectLockUntil=0;
   toast(out&&out.offline?'پیگیری ذخیره شد و پس از اتصال همگام می‌شود.':'نتیجه پیگیری با موفقیت ذخیره و برای معلم ارسال شد؛ وضعیت «رسیدگی شد» ثبت گردید.');
   renderManagerPanel();return true;
  }catch(e){console.error('saveFollowup failed',e);toast('ذخیره نتیجه پیگیری ناموفق بود؛ اطلاعات واردشده حفظ شد: '+(e.message||e));return false;}
@@ -14401,16 +14401,17 @@ function renderCard(row){
  if(m.followupBy)box.appendChild(node('div','meta','پیگیری‌کننده: '+m.followupBy));
  if(m.followupResult&&!followupDrafts[String(row.id)])box.appendChild(node('div','', 'نتیجه پیگیری قبلی: '+m.followupResult));
  if(isManager()){
-  var sel=node('select');sel.style.cssText='width:100%;padding:8px;margin:6px 0;border:1px solid #cbd5e1;border-radius:8px;font:inherit';sel.appendChild(new Option('انتخاب پیگیری‌کننده',''));PEOPLE.forEach(function(p){sel.appendChild(new Option(p,p));});sel.value=d.person||'';
+  var person=node('input');person.type='text';person.placeholder='نام پیگیری‌کننده را وارد کنید';person.value=d.person||'';person.autocomplete='off';person.style.cssText='width:100%;box-sizing:border-box;padding:9px;margin:6px 0;border:1px solid #cbd5e1;border-radius:8px;font:inherit';
+  var peopleList=node('datalist');peopleList.id='dastyar-followup-people-'+String(row.id).replace(/[^a-zA-Z0-9_-]/g,'_');PEOPLE.forEach(function(p){var option=node('option');option.value=p;peopleList.appendChild(option);});person.setAttribute('list',peopleList.id);
   var reason=node('textarea');reason.rows=2;reason.placeholder='علت یا موضوع پیگیری را دقیق بنویسید';reason.value=d.reason||'';reason.style.cssText='width:100%;box-sizing:border-box;padding:8px;margin:4px 0;border:1px solid #cbd5e1;border-radius:8px;font:inherit';
   var method=node('textarea');method.rows=3;method.placeholder='نحوه پیگیری، اقدام انجام‌شده و نتیجه بررسی را بنویسید';method.value=d.method||'';method.style.cssText='width:100%;box-sizing:border-box;padding:8px;margin:4px 0;border:1px solid #cbd5e1;border-radius:8px;font:inherit';
-  function keepDraft(){followupDrafts[String(row.id)]={person:sel.value,reason:reason.value,method:method.value};selectInteractionUntil=Date.now()+60000;window.__dastyarFollowupSelectLockUntil=selectInteractionUntil;}
-  sel.addEventListener('change',function(){keepDraft();});reason.addEventListener('input',keepDraft);method.addEventListener('input',keepDraft);
-  box.appendChild(node('label','','نام پیگیری‌کننده'));box.appendChild(sel);
+  function keepDraft(){followupDrafts[String(row.id)]={person:person.value,reason:reason.value,method:method.value};selectInteractionUntil=Date.now()+60000;window.__dastyarFollowupSelectLockUntil=selectInteractionUntil;}
+  person.addEventListener('input',keepDraft);person.addEventListener('change',keepDraft);reason.addEventListener('input',keepDraft);reason.addEventListener('change',keepDraft);method.addEventListener('input',keepDraft);method.addEventListener('change',keepDraft);
+  box.appendChild(node('label','','نام پیگیری‌کننده'));box.appendChild(person);box.appendChild(peopleList);
   box.appendChild(node('label','','علت یا موضوع پیگیری'));box.appendChild(reason);
   box.appendChild(node('label','','نحوه پیگیری و اقدام انجام‌شده'));box.appendChild(method);
   var saveBtn=node('button','btn btn-p btn-sm','ثبت نهایی نتیجه پیگیری');saveBtn.type='button';saveBtn.style.margin='4px';saveBtn.disabled=!!followupSaving[String(row.id)];
-  saveBtn.onclick=function(){keepDraft();if(!sel.value){toast('نام پیگیری‌کننده را انتخاب کنید');return;}if(!reason.value.trim()){toast('علت یا موضوع پیگیری را بنویسید');return;}if(!method.value.trim()){toast('نحوه پیگیری و اقدام انجام‌شده را بنویسید');return;}if(!confirm('نام پیگیری‌کننده، علت و نحوه پیگیری ثبت و نتیجه برای معلم ارسال شود؟'))return;saveBtn.disabled=true;saveFollowup(row,sel.value,reason.value,method.value).finally(function(){saveBtn.disabled=false;});};box.appendChild(saveBtn);
+  saveBtn.onclick=function(){keepDraft();if(!person.value.trim()){toast('نام پیگیری‌کننده را وارد کنید');return;}if(!reason.value.trim()){toast('علت یا موضوع پیگیری را بنویسید');return;}if(!method.value.trim()){toast('نحوه پیگیری و اقدام انجام‌شده را بنویسید');return;}if(!confirm('نام پیگیری‌کننده، علت و نحوه پیگیری ثبت و نتیجه برای معلم ارسال شود؟'))return;saveBtn.disabled=true;saveFollowup(row,person.value.trim(),reason.value,method.value).finally(function(){saveBtn.disabled=false;});};box.appendChild(saveBtn);
   var cancel=node('button','btn btn-o btn-sm','پاک‌کردن پیش‌نویس');cancel.type='button';cancel.style.margin='4px';cancel.onclick=function(){delete followupDrafts[String(row.id)];renderManagerPanel();};box.appendChild(cancel);
   var del=node('button','btn btn-o btn-sm','حذف این ارجاع');del.type='button';del.style.cssText='margin:4px;color:#b91c1c;border-color:#fecaca';del.onclick=function(){deleteReferral(row);};box.appendChild(del);
  }
