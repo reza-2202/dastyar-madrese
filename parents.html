@@ -222,6 +222,15 @@ button{width:100%;margin-top:14px;padding:12px;border:0;border-radius:12px;backg
     var exams=arr(p.exams);if(!exams.length)exams=allActivities.filter(function(a){return a&&a.type==="exam";});
     var followups=arr(p.absence_followups);if(!followups.length)followups=allActivities.filter(function(a){return a&&(a.type==="absence_followup"||a.subject==="پیگیری غیبت مدیر");});
     var activities=allActivities.filter(function(a){return a&&a.type!=="exam"&&a.type!=="absence_followup"&&a.subject!=="پیگیری غیبت مدیر";});
+    var achievements=arr(p.achievements);
+    function achievementMeta(a){try{var raw=String(a&&a.notes||"");if(raw.indexOf("ACHIEVEMENT_V1:")===0)return JSON.parse(raw.slice(15))||{};}catch(e){}return {};}
+    var visibleAchievements=achievements.filter(function(a){var m=achievementMeta(a);return m.status==="approved"||m.status==="recorded";});
+    html+=list("افتخارات و تشویق‌ها",dateSort(visibleAchievements),function(a){
+      var m=achievementMeta(a),medal=String(m.medal||""),color=medal.indexOf("طلایی")>=0||medal.indexOf("ویژه")>=0?"#d4a017":medal.indexOf("نقره‌ای")>=0?"#94a3b8":"#b7793d";
+      var icon='<svg viewBox="0 0 64 72" width="42" height="48" role="img" aria-label="نشان افتخار" style="vertical-align:middle;margin-left:7px"><path d="M18 3h12l7 27-12 8z" fill="#2563eb"/><path d="M46 3H34l-7 27 12 8z" fill="#60a5fa"/><circle cx="32" cy="45" r="18" fill="'+color+'" stroke="#7c5a20" stroke-width="2"/><path d="M32 33l3.5 7 7.5 1.1-5.5 5.3 1.3 7.5-6.8-3.6-6.8 3.6 1.3-7.5-5.5-5.3 7.5-1.1z" fill="#fff4c2"/></svg>';
+      var label=a.type==="achievement_nomination"?"معرفی دانش‌آموز شاخص":"تشویق معلم";
+      return '<div class="item" style="border:1px solid #e6d5a8;border-right:4px solid '+color+';border-radius:10px;padding:9px;background:#fffdf6">'+icon+'<b>'+esc(label)+(medal?" — "+esc(medal):"")+'</b><div class="meta">'+faDigits(esc(a.date||""))+" — "+esc(a.subject||"")+'</div><div>'+esc(m.reason||a.subject||"")+'</div>'+(m.manager_note?'<div>توضیح مدیر: '+esc(m.manager_note)+'</div>':"")+(m.approved_by?'<div class="meta">تأییدکننده: '+esc(m.approved_by)+'</div>':"")+'</div>';
+    });
     html+=list("پرسش و پاسخ / فعالیت",dateSort(activities),function(a){return "<div class=\"item\">"+faDigits(esc(a.date||""))+" — "+esc(trSubject(a.subject||a.lesson||""))+" — "+esc(trLevel(a.level||a.score||a.result||""))+(a.notes?(" — "+esc(a.notes)):"")+(a.recorded_by?(" — ثبت‌کننده: "+esc(a.recorded_by)):"")+"</div>";});
     html+=referralList("پرسش و پاسخ و فعالیت کلاسی",["qa","activity"]);
     html+=list("آزمون‌های کتبی / مدادکاغذی",dateSort(exams),function(a){return "<div class=\"item\"><b>"+esc(a.exam_name||a.name||a.subject||"آزمون")+"</b> — "+faDigits(esc(a.weekday||""))+" "+faDigits(esc(a.date||""))+" — درس: "+esc(trSubject(a.subject||a.lesson||""))+" — نمره: "+esc(a.score==null||a.score===""?"—":a.score)+" — "+esc(trLevel(a.level||""))+(a.chapters?(" — مباحث: "+esc(a.chapters)):"")+(a.notes||a.desc_text||a.description?(" — "+esc(a.notes||a.desc_text||a.description)):"")+(a.recorded_by?(" — ثبت‌کننده: "+esc(a.recorded_by)):"")+"</div>";});
