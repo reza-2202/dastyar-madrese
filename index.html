@@ -14624,15 +14624,28 @@ function setCardOpen(card,open){
  var arrow=btn.querySelector('.dastyar-section-arrow');if(arrow)arrow.textContent=open?'⌃':'⌄';
  card.setAttribute('data-dastyar-accordion-open',open?'true':'false');
 }
+function inferredCardTitle(card){
+ var id=String(card.id||'');
+ var map={'weekly-status':'وضعیت برنامه هفتگی','monthly-report-output':'گزارش ماهانه آماده‌شده','teacher-report-output':'گزارش کلاس آماده‌شده','ch-legend':'راهنمای نمودار پیشرفت','alist':'فهرست حضور و غیاب','att-history':'جستجوی سوابق حضور و غیاب','fin-list':'فهرست دریافت‌های مالی','di-list':'سوابق انضباطی','rp-list':'فهرست کارنامه‌ها','rp-edit':'ویرایش کارنامه','doc-list':'فهرست فایل‌های ارسالی'};
+ if(map[id])return map[id];
+ if(card.querySelector(':scope > canvas'))return '📈 نمایش نمودار و تحلیل پیشرفت';
+ var h=card.querySelector(':scope > h2,:scope > h3,:scope > summary');
+ if(h&&h.textContent.trim())return h.textContent.trim();
+ var empty=card.querySelector(':scope > .empty');
+ if(empty&&empty.textContent.trim())return 'جزئیات و خروجی';
+ var txt=String(card.textContent||'').replace(/\s+/g,' ').trim();
+ return txt?txt.slice(0,58):'جزئیات این بخش';
+}
 function initCard(card,page){
  if(!card||card.dataset.dastyarAccordionReady==='1'||card.classList.contains('dastyar-dashboard-feature'))return;
  var heading=Array.prototype.find.call(card.children,function(ch){return ch.classList&&ch.classList.contains('ct');});
- if(!heading)return;
+ var label=heading?String(heading.textContent||'').trim():inferredCardTitle(card);
+ if(!label)return;
  card.dataset.dastyarAccordionReady='1';
  card.classList.add('dastyar-accordion-card');
  var btn=document.createElement('button');btn.type='button';btn.className='dastyar-section-toggle';btn.setAttribute('aria-expanded','false');
  var title=document.createElement('span');title.className='dastyar-section-title';
- title.appendChild(heading);
+ if(heading)title.appendChild(heading);else title.textContent=label;
  var arrow=document.createElement('span');arrow.className='dastyar-section-arrow';arrow.setAttribute('aria-hidden','true');arrow.textContent='⌄';
  btn.appendChild(title);btn.appendChild(arrow);
  card.insertBefore(btn,card.firstChild);
