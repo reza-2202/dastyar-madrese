@@ -14310,8 +14310,8 @@ window.addEventListener('focus',function(){setTimeout(function(){if(M()&&panelOp
 'use strict';
 var KEY='dastyar_achievements_cache_v1',PAGE='page-achievements',busy=false,rows=[];
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
-function read(){try{var a=JSON.parse(localStorage.getItem(KEY)||'[]');return Array.isArray(a)?a:[]}catch(e){return []}}
-function write(a){rows=Array.isArray(a)?a:[];window.__dastyarAchievementsRows=rows;try{localStorage.setItem(KEY,JSON.stringify(rows));return true}catch(e){return false}}
+function storageKey(){return KEY+'_'+String(user&&(user.username||user.full_name)||'guest').toLowerCase().replace(/[^a-z0-9_-]/g,'_')}\nfunction read(){try{var a=JSON.parse(localStorage.getItem(storageKey())||'[]');return Array.isArray(a)?a:[]}catch(e){return []}}
+function write(a){rows=Array.isArray(a)?a:[];window.__dastyarAchievementsRows=rows;try{localStorage.setItem(storageKey(),JSON.stringify(rows));return true}catch(e){return false}}
 function creds(){return {p_username:String(user&&(user.username||user.full_name)||''),p_password:String(window.__dastyarSessionPassword||'')}}
 function isAdmin(){return !!(user&&user.role==='admin')}
 function ownClass(id){if(isAdmin())return true;try{return (typeof myClasses==='function'?myClasses():[]).some(function(c){return String(c.id)===String(id)})}catch(e){return (user&&Array.isArray(user.class_ids)?user.class_ids:[]).map(String).includes(String(id))}}
@@ -14419,7 +14419,7 @@ window.__dastyarLoadAchievements=load;
 window.refreshStudentAchievements=async function(){await load();renderPage();var d=document.getElementById('print-student-dossier');if(d){var id=(d.querySelector('[data-student-id]')||{}).dataset?.studentId;if(id)renderDossier(id)}};
 window.addEventListener('online',function(){setTimeout(async function(){await syncPending();await load();renderPage()},900)});
 window.addEventListener('focus',function(){if(user&&document.getElementById(PAGE)&&document.getElementById(PAGE).classList.contains('on'))load().then(renderPage)});
-window.setInterval(function(){var p=document.getElementById(PAGE);if(user&&user.role==='teacher'&&p&&p.classList.contains('on')&&!document.hidden)load().then(renderPage)},10000);
+window.setInterval(function(){if(user&&navigator.onLine)syncPending();var p=document.getElementById(PAGE);if(user&&user.role==='teacher'&&p&&p.classList.contains('on')&&!document.hidden)load().then(renderPage)},10000);
 document.addEventListener('DOMContentLoaded',function(){installPage();rows=read();window.__dastyarAchievementsRows=rows;});
 setTimeout(function(){installPage();rows=read();window.__dastyarAchievementsRows=rows},1200);
 })();
