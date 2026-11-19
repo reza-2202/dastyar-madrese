@@ -1,4 +1,4 @@
-const CACHE = 'dastyar-shell-v73-20261119-fast-sync-dossier-charts';
+const CACHE = 'dastyar-shell-v74-20261119-dashboard-blue-rail';
 const BASE = '/dastyar-madrese/';
 const SHELL = [
   BASE,
