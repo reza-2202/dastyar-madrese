@@ -14408,7 +14408,7 @@ window.addEventListener('focus',function(){setTimeout(function(){if(M()&&panelOp
 function toggleDashboardStatsRail(open){
  var rail=document.getElementById('dashboard-stats-rail');
  if(!rail)return;
- rail.style.display=open?'grid':'none';
+ rail.classList.toggle('dashboard-stats-open',!!open);
  if(open){rail.scrollIntoView({behavior:'smooth',block:'nearest'});}
 }
 </script>
@@ -14460,5 +14460,44 @@ function toggleDashboardStatsRail(open){
 }
 @media(min-width:1150px){
  #page-dashboard>#dashboard-stats-rail{grid-template-columns:repeat(5,minmax(0,1fr))}
+}
+</style>
+
+<style id="dastyar-dashboard-stats-grid-final-fix-20261119">
+/* فقط آمار داشبورد: نمایش شبکه‌ای کامل، نه ریل افقی */
+#page-dashboard>#dashboard-stats-rail{
+ display:none!important;
+ grid-template-columns:repeat(2,minmax(0,1fr))!important;
+ flex-flow:row wrap!important;
+ align-items:stretch!important;
+ justify-content:initial!important;
+ overflow:visible!important;
+ overflow-x:visible!important;
+ overflow-y:visible!important;
+ width:100%!important;
+ max-width:100%!important;
+ gap:11px!important;
+ padding:3px 2px 10px!important;
+ margin:10px 0 14px!important;
+ direction:rtl!important;
+ touch-action:auto!important;
+}
+#page-dashboard>#dashboard-stats-rail.dashboard-stats-open{
+ display:grid!important;
+}
+#page-dashboard>#dashboard-stats-rail>.sc,
+#page-dashboard>#dashboard-stats-rail>#parent-invitation-summary{
+ flex:initial!important;
+ width:auto!important;
+ min-width:0!important;
+ max-width:none!important;
+ min-height:142px!important;
+ scroll-snap-align:none!important;
+}
+@media(min-width:760px){
+ #page-dashboard>#dashboard-stats-rail{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:12px!important}
+}
+@media(min-width:1150px){
+ #page-dashboard>#dashboard-stats-rail{grid-template-columns:repeat(5,minmax(0,1fr))!important}
 }
 </style>
