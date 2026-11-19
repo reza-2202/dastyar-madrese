@@ -14431,6 +14431,128 @@ setTimeout(function(){installPage();rows=read();window.__dastyarAchievementsRows
 #student-achievements-section .meta{font-size:.76rem;color:#475569;margin-top:4px}
 @media print{#student-achievements-section{break-inside:avoid!important;background:#fff!important;border:2px solid #93c5fd!important}#student-achievements-section .no-print{display:none!important}}
 </style>
+<script id="dastyar-achievement-source-bridge-v1">
+(function(){
+'use strict';
+if(window.__dastyarAchievementSourceBridge)return;
+window.__dastyarAchievementSourceBridge=true;
+function getUser(){try{return typeof user!=='undefined'?user:window.user||null}catch(e){return window.user||null}}
+function getCache(){try{return typeof cache!=='undefined'?cache:window.cache||null}catch(e){return window.cache||null}}
+function notify(msg){try{if(typeof toast==='function')toast(msg);else if(window.toast)window.toast(msg)}catch(e){}}
+function storageKey(u){return 'dastyar_achievements_cache_v1_'+String(u&&(u.username||u.full_name)||'guest').toLowerCase().replace(/[^a-z0-9_-]/g,'_')}
+function ownClass(classId,u){
+ if(!u)return false;
+ if(u.role==='admin')return true;
+ try{return typeof myClasses==='function'&&myClasses().some(function(c){return String(c.id)===String(classId)})}catch(e){return false}
+}
+function labelLevel(v){return ({excellent:'خیلی خوب',good:'خوب',acceptable:'قابل قبول',needs:'نیاز به تلاش'})[String(v||'')]||String(v||'')}
+function safeText(v){return String(v==null?'':v).replace(/\s+/g,' ').trim()}
+async function submitFromSource(source,section){
+ var u=getUser(),c=getCache();
+ if(!u||!c||!source||!source.id||!source.student_id||!source.class_id){notify('اطلاعات فعالیت برای ثبت تشویق کامل نیست');return false}
+ if(!ownClass(source.class_id,u)){notify('ثبت تشویق فقط برای دانش‌آموز کلاس مجاز است');return false}
+ var st=(c.students||[]).find(function(x){return String(x.id)===String(source.student_id)&&String(x.class_id)===String(source.class_id)});
+ if(!st){notify('دانش‌آموز این فعالیت در کلاس انتخاب‌شده پیدا نشد');return false}
+ var key=storageKey(u),list=[];
+ try{list=JSON.parse(localStorage.getItem(key)||'[]');if(!Array.isArray(list))list=[]}catch(e){list=[]}
+ var sourceId=String(source.id),existing=list.find(function(x){return String(x.source_record_id||'')===sourceId&&String(x.created_by_username||'')===String(u.username||'')});
+ if(existing){notify('برای این فعالیت قبلاً درخواست تشویق ثبت شده است');return true}
+ var sourceLabel=section==='evaluation'?'ارزشیابی ماهانه':section==='exam'?'آزمون':'پرسش و فعالیت روزانه';
+ var sourceTitle=safeText(source.exam_name||source.subject||source.lesson||source.type||sourceLabel)||sourceLabel;
+ var studentName=safeText((st.first_name||'')+' '+(st.last_name||''))||'دانش‌آموز';
+ var details=[sourceLabel+': '+sourceTitle];
+ if(source.date)details.push('تاریخ: '+safeText(source.date));
+ if(source.score!==undefined&&source.score!==null&&source.score!=='')details.push('نمره: '+String(source.score)+' از ۲۰');
+ if(source.level)details.push('ارزشیابی: '+labelLevel(source.level));
+ if(source.notes)details.push('توضیحات معلم: '+safeText(source.notes));
+ var rec={
+  id:'ach-src-'+sourceId,
+  student_id:String(source.student_id),
+  class_id:String(source.class_id),
+  kind:'recognition',
+  status:'pending',
+  title:'درخواست تشویق بابت '+sourceLabel+' — '+sourceTitle.slice(0,75),
+  category:section==='activity'?'حضور و مشارکت':'پیشرفت تحصیلی',
+  reason:('دانش‌آموز: '+studentName+'؛ '+details.join('؛ ')).slice(0,1200),
+  source_section:section==='exam'?'evaluation':section,
+  source_record_id:sourceId,
+  date:safeText(source.date)||(typeof today==='function'?today():new Date().toISOString().slice(0,10)),
+  created_by:u.full_name||u.username||'معلم',
+  created_by_username:u.username||'',
+  created_role:u.role||'teacher',
+  created_at:new Date().toISOString()
+ };
+ if(!navigator.onLine||window.isOffline||!window.sb){
+  rec._localPending=true;list.unshift(rec);
+  try{localStorage.setItem(key,JSON.stringify(list));window.__dastyarAchievementsRows=list;notify('درخواست تشویق در گوشی ذخیره شد و پس از اتصال برای مدیر ارسال می‌شود');return true}
+  catch(e){notify('ذخیره درخواست تشویق انجام نشد؛ فعالیت اصلی محفوظ است');return false}
+ }
+ try{
+  var credentials={p_username:String(u.username||u.full_name||''),p_password:String(window.__dastyarSessionPassword||'')};
+  var result=await window.sb.rpc('sa_achievements_save',{p_username:credentials.p_username,p_password:credentials.p_password,p_record:rec});
+  if(result&&result.error)throw result.error;
+  var saved=result&&result.data;
+  if(Array.isArray(saved))saved=saved[0];
+  if(!saved||!saved.id)throw new Error('پاسخ معتبر از سامانه تشویقی دریافت نشد');
+  list=list.filter(function(x){return String(x.id)!==String(saved.id)&&String(x.source_record_id||'')!==sourceId});
+  list.unshift(saved);localStorage.setItem(key,JSON.stringify(list));window.__dastyarAchievementsRows=list;
+  try{if(typeof window.refreshStudentAchievements==='function')await window.refreshStudentAchievements()}catch(e){}
+  notify('درخواست تشویق برای بررسی مدیر ارسال شد');
+  return true;
+ }catch(e){console.warn('achievement source bridge',e);notify('فعالیت ثبت شد؛ اما درخواست تشویق ارسال نشد: '+(e&&e.message||'خطای ارتباط'));return false}
+}
+function addOptIn(root,id,text){
+ if(!root||document.getElementById(id))return;
+ var card=root.querySelector('.card')||root;
+ var label=document.createElement('label');
+ label.id=id+'-wrap';label.style.cssText='display:flex;align-items:flex-start;gap:8px;margin:10px 0;padding:10px;border:1px solid #bfdbfe;border-radius:9px;background:#f8fbff;font-size:.82rem;line-height:1.8;cursor:pointer';
+ var input=document.createElement('input');input.type='checkbox';input.id=id;input.style.cssText='margin-top:5px;flex:0 0 auto';
+ var span=document.createElement('span');span.textContent=text;
+ label.appendChild(input);label.appendChild(span);
+ var firstButton=card.querySelector('button');
+ if(firstButton)card.insertBefore(label,firstButton);else card.appendChild(label);
+}
+function installActivityForm(){
+ var original=window.showActForm;if(typeof original!=='function'||original.__achSourceWrapped)return;
+ var wrapped=function(){var result=original.apply(this,arguments);if(!arguments[0])addOptIn(document.getElementById('ac-form'),'ach-source-activity','اگر عملکرد این دانش‌آموز یا دانش‌آموزان شایسته تقدیر است، درخواست تشویق برای بررسی مدیر ارسال شود.');return result};
+ wrapped.__achSourceWrapped=true;window.showActForm=wrapped;
+}
+function installEvaluationForm(){
+ var original=window.showEvForm;if(typeof original!=='function'||original.__achSourceWrapped)return;
+ var wrapped=function(){var result=original.apply(this,arguments);addOptIn(document.getElementById('ev-form'),'ach-source-evaluation','در صورت عملکرد شایسته، درخواست تشویق این دانش‌آموز برای بررسی مدیر ارسال شود.');return result};
+ wrapped.__achSourceWrapped=true;window.showEvForm=wrapped;
+}
+function wrapSave(name,checkboxId,collection,section,filter){
+ var original=window[name];if(typeof original!=='function'||original.__achSourceWrapped)return;
+ var wrapped=async function(){
+  var checked=!!(document.getElementById(checkboxId)&&document.getElementById(checkboxId).checked);
+  var c=getCache(),before=new Set(((c&&c[collection])||[]).map(function(x){return String(x&&x.id)}));
+  var result=await original.apply(this,arguments);
+  if(checked){
+   var afterCache=getCache(),items=((afterCache&&afterCache[collection])||[]).filter(function(x){return x&&x.id!=null&&!before.has(String(x.id))&&(!filter||filter(x))});
+   for(var i=0;i<items.length;i++)await submitFromSource(items[i],section);
+  }
+  return result;
+ };
+ wrapped.__achSourceWrapped=true;window[name]=wrapped;
+}
+function installExamOptIn(){
+ var panel=document.getElementById('qa-exam-panel');
+ if(panel&&!document.getElementById('ach-source-exam'))addOptIn(panel,'ach-source-exam','در صورت عملکرد شایسته در این آزمون، درخواست تشویق برای بررسی مدیر ارسال شود.');
+}
+function install(){
+ installActivityForm();installEvaluationForm();installExamOptIn();
+ wrapSave('saveAct','ach-source-activity','activities','activity',function(x){return x.type==='qa'||x.type==='activity'});
+ wrapSave('saveExamRecord','ach-source-exam','activities','exam',function(x){return x.type==='exam'});
+ wrapSave('saveEv','ach-source-evaluation','evaluations','evaluation');
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){install();setTimeout(install,900)});
+else{install();setTimeout(install,900)}
+var observer=new MutationObserver(function(){install()});
+observer.observe(document.documentElement,{childList:true,subtree:true});
+})();
+</script>
+
 </body>
 </html>
 
