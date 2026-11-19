@@ -1232,21 +1232,6 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
  <div id="teacher-today-schedule-content" style="font-size:.84rem;line-height:1.9"></div>
  <button class="btn btn-o btn-sm" style="margin-top:8px" onclick="go('weekly')">مشاهده و تنظیم برنامه هفتگی</button>
 </div>
-<div class="sg" id="dashboard-stats-rail" style="display:none">
-<div class="sc"><div class="n" id="st-s">۰</div><div class="l">دانش‌آموز</div></div>
-<div class="sc"><div class="n" id="st-c">۰</div><div class="l">کلاس</div></div>
-<div class="sc"><div class="n" id="st-p">۰</div><div class="l">حاضر امروز</div></div>
-<div class="sc" role="button" tabindex="0" onclick="toggleEvaluationClassList()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleEvaluationClassList()}" style="cursor:pointer"><div class="n" id="st-e">۰</div><div class="l">ارزشیابی<br><small>برای مشاهده کلاس‌ها بزنید</small></div></div>
-<div class="sc" role="button" tabindex="0" onclick="toggleQaClassList()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleQaClassList()}" style="cursor:pointer"><div class="n" id="st-qa">۰</div><div class="l">پرسش و پاسخ روزانه<br><small>برای مشاهده کلاس‌ها بزنید</small></div></div>
-<div class="sc"><div class="n" id="st-f">۰</div><div class="l">فایل در انتظار</div><small id="st-f-classes" role="button" tabindex="0" onclick="togglePendingFileClasses()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();togglePendingFileClasses()}" style="display:block;font-size:.65rem;line-height:1.5;color:#1d4ed8;margin-top:3px;text-decoration:underline;cursor:pointer">برای مشاهده کلاس‌ها بزنید</small></div>
-<div class="sc" role="button" tabindex="0" onclick="toggleAttendanceClassList()" style="cursor:pointer"><div class="n" id="st-a">۰</div><div class="l">کلاس حضورثبت‌شده<br><small>برای مشاهده نام کلاس‌ها بزنید</small></div></div>
-<div class="sc" role="button" tabindex="0" onclick="toggleDisciplineDashList()" style="cursor:pointer"><div class="n" id="st-d">۰</div><div class="l">موارد انضباطی<br><small>برای مشاهده جزئیات بزنید</small></div></div>
-<div class="sc" role="button" tabindex="0" onclick="toggleAbsentDashList()" style="cursor:pointer"><div class="n" id="st-abs">۰</div><div class="l">غایبین امروز<br><small>برای مشاهده کلاس‌ها بزنید</small></div></div>
-<div class="sc" id="st-urg-card" role="button" tabindex="0" onclick="toggleAdminUrgentPanel()" style="cursor:pointer;display:none"><div class="n" id="st-urg">📢</div><div class="l">پیام ضروری<br><small>انتخاب کلاس و ارسال</small></div></div>
-<div class="sc" id="st-offimp-card" role="button" tabindex="0" onclick="document.getElementById('offline-pack-import').click()" style="cursor:pointer;display:none"><div class="n">📥</div><div class="l">ورود بسته آفلاین<br><small>فقط مدیر</small></div></div>
-<div id="parent-invitation-summary" class="sc" role="button" tabindex="0" onclick="toggleParentInvitationClassList()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleParentInvitationClassList()}" style="cursor:pointer"><div class="ct" style="display:flex;align-items:center;gap:8px">✉️ دعوت‌نامه‌های اولیا <span id="parent-invitation-count-badge" aria-label="تعداد درخواست‌های دعوتنامه امروز" style="display:none;min-width:21px;height:21px;padding:0 6px;box-sizing:border-box;border-radius:999px;background:#dc2626;color:#fff;font-size:11px;font-weight:800;line-height:21px;text-align:center;box-shadow:0 1px 3px #0002"></span></div><div id="parent-invitation-summary-content" class="meta">برای نمایش آمار، اطلاعات را بارگذاری کنید.</div><small style="display:block;color:#1d4ed8;margin-top:6px;text-decoration:underline">برای مشاهده کلاس‌های درخواست‌دهنده امروز ضربه بزنید</small></div>
-<div class="sc" id="st-offexp-card" role="button" tabindex="0" onclick="exportOfflineTeacherPack()" style="cursor:pointer"><div class="n">📦</div><div class="l">خروجی آفلاین<br><small>وقتی سرور قطع است</small></div></div><input type="file" id="offline-pack-import" accept="application/json,.json" style="display:none" onchange="importOfflineTeacherPack(event)"/>
-</div>
 <div id="pending-file-class-list" class="card" style="display:none"><div class="ct">📂 کلاس‌های دارای فایل در انتظار</div><div id="pending-file-class-list-items" class="meta"></div></div>
 <div id="attendance-class-list" class="card" style="display:none"><div class="ct">🏫 وضعیت حضور و غیاب امروز کلاس‌ها</div><div class="meta" style="margin-bottom:8px">سبز: ثبت شده | قرمز: ثبت نشده</div><div id="attendance-class-list-items" class="meta"></div><div id="attendance-remind-admin" style="display:none;margin-top:10px"><button type="button" class="btn btn-p btn-sm" onclick="sendAttendanceReminderToMissing()">📨 یادآوری ثبت حضور و غیاب به کلاس‌های ثبت‌نشده</button><div class="meta" style="margin-top:6px">فقط مدیر — پیام مشترک فقط به معلمان کلاس‌هایی که امروز حاضری ثبت نکرده‌اند.</div></div></div>
 <div id="discipline-dash-list" class="card" style="display:none;border:1px solid #fca5a5;background:#fff7f7"><div class="ct">موارد انضباطی ثبت‌شده</div><div class="meta" style="margin-bottom:8px">مدیر: همه کلاس‌ها | معلم: فقط کلاس خود</div><div id="discipline-dash-list-items" class="meta"></div></div>
@@ -1273,6 +1258,21 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <div class="home-tiles" aria-label="دسترسی به امکانات برنامه">
 <details class="home-tile-group group-dashboard" id="dashboard-stats-toggle" name="dastyar-home-groups" aria-label="داشبورد آمار" ontoggle="toggleDashboardStatsRail(this.open)">
 <summary class="home-tile-group-title"><span class="home-tile-group-mark">📊</span><span>داشبورد</span></summary>
+<div class="sg" id="dashboard-stats-rail" style="display:none">
+<div class="sc"><div class="n" id="st-s">۰</div><div class="l">دانش‌آموز</div></div>
+<div class="sc"><div class="n" id="st-c">۰</div><div class="l">کلاس</div></div>
+<div class="sc"><div class="n" id="st-p">۰</div><div class="l">حاضر امروز</div></div>
+<div class="sc" role="button" tabindex="0" onclick="toggleEvaluationClassList()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleEvaluationClassList()}" style="cursor:pointer"><div class="n" id="st-e">۰</div><div class="l">ارزشیابی<br><small>برای مشاهده کلاس‌ها بزنید</small></div></div>
+<div class="sc" role="button" tabindex="0" onclick="toggleQaClassList()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleQaClassList()}" style="cursor:pointer"><div class="n" id="st-qa">۰</div><div class="l">پرسش و پاسخ روزانه<br><small>برای مشاهده کلاس‌ها بزنید</small></div></div>
+<div class="sc"><div class="n" id="st-f">۰</div><div class="l">فایل در انتظار</div><small id="st-f-classes" role="button" tabindex="0" onclick="togglePendingFileClasses()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();togglePendingFileClasses()}" style="display:block;font-size:.65rem;line-height:1.5;color:#1d4ed8;margin-top:3px;text-decoration:underline;cursor:pointer">برای مشاهده کلاس‌ها بزنید</small></div>
+<div class="sc" role="button" tabindex="0" onclick="toggleAttendanceClassList()" style="cursor:pointer"><div class="n" id="st-a">۰</div><div class="l">کلاس حضورثبت‌شده<br><small>برای مشاهده نام کلاس‌ها بزنید</small></div></div>
+<div class="sc" role="button" tabindex="0" onclick="toggleDisciplineDashList()" style="cursor:pointer"><div class="n" id="st-d">۰</div><div class="l">موارد انضباطی<br><small>برای مشاهده جزئیات بزنید</small></div></div>
+<div class="sc" role="button" tabindex="0" onclick="toggleAbsentDashList()" style="cursor:pointer"><div class="n" id="st-abs">۰</div><div class="l">غایبین امروز<br><small>برای مشاهده کلاس‌ها بزنید</small></div></div>
+<div class="sc" id="st-urg-card" role="button" tabindex="0" onclick="toggleAdminUrgentPanel()" style="cursor:pointer;display:none"><div class="n" id="st-urg">📢</div><div class="l">پیام ضروری<br><small>انتخاب کلاس و ارسال</small></div></div>
+<div class="sc" id="st-offimp-card" role="button" tabindex="0" onclick="document.getElementById('offline-pack-import').click()" style="cursor:pointer;display:none"><div class="n">📥</div><div class="l">ورود بسته آفلاین<br><small>فقط مدیر</small></div></div>
+<div id="parent-invitation-summary" class="sc" role="button" tabindex="0" onclick="toggleParentInvitationClassList()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleParentInvitationClassList()}" style="cursor:pointer"><div class="ct" style="display:flex;align-items:center;gap:8px">✉️ دعوت‌نامه‌های اولیا <span id="parent-invitation-count-badge" aria-label="تعداد درخواست‌های دعوتنامه امروز" style="display:none;min-width:21px;height:21px;padding:0 6px;box-sizing:border-box;border-radius:999px;background:#dc2626;color:#fff;font-size:11px;font-weight:800;line-height:21px;text-align:center;box-shadow:0 1px 3px #0002"></span></div><div id="parent-invitation-summary-content" class="meta">برای نمایش آمار، اطلاعات را بارگذاری کنید.</div><small style="display:block;color:#1d4ed8;margin-top:6px;text-decoration:underline">برای مشاهده کلاس‌های درخواست‌دهنده امروز ضربه بزنید</small></div>
+<div class="sc" id="st-offexp-card" role="button" tabindex="0" onclick="exportOfflineTeacherPack()" style="cursor:pointer"><div class="n">📦</div><div class="l">خروجی آفلاین<br><small>وقتی سرور قطع است</small></div></div><input type="file" id="offline-pack-import" accept="application/json,.json" style="display:none" onchange="importOfflineTeacherPack(event)"/>
+</div>
 </details>
 <details class="home-tile-group group-students" name="dastyar-home-groups" aria-label="امور دانش‌آموزان">
 <summary class="home-tile-group-title"><span class="home-tile-group-mark">🎓</span><span>امور دانش‌آموزان</span></summary>
@@ -14427,4 +14427,47 @@ function toggleDashboardStatsRail(open){
  background:#2563eb!important;color:#fff!important;
 }
 
+</style>
+
+<style id="dastyar-dashboard-fullscreen-stats-20261119">
+/* داشبورد مستقل تمام‌صفحه؛ تمام خانه‌های آماری داخل همین بخش قرار می‌گیرند */
+#page-dashboard .group-dashboard[open]{
+ position:fixed!important;inset:0!important;z-index:9999!important;
+ width:auto!important;height:100vh!important;height:100dvh!important;
+ max-height:100vh!important;max-height:100dvh!important;
+ margin:0!important;padding:12px!important;box-sizing:border-box!important;
+ overflow-y:auto!important;overscroll-behavior:contain!important;
+ border:0!important;border-radius:0!important;background:#f4f8ff!important;
+ box-shadow:none!important;
+}
+#page-dashboard .group-dashboard[open]>.home-tile-group-title{
+ position:sticky!important;top:0!important;z-index:2!important;
+ margin:-12px -12px 14px!important;padding:14px 12px!important;
+ background:#eaf3ff!important;border-bottom:1px solid #bfdbfe!important;
+ box-shadow:0 2px 8px rgba(37,99,235,.08)!important;
+}
+#page-dashboard .group-dashboard[open]>.home-tile-group-title:after{
+ content:"برای بستن داشبورد، دوباره همین عنوان را لمس کنید";
+ margin-right:auto;font-size:.68rem;font-weight:500;color:#1e40af;
+}
+#page-dashboard .group-dashboard #dashboard-stats-rail{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+ gap:10px;margin:0;padding:0;width:100%;box-sizing:border-box;
+}
+@media(min-width:700px){
+ #page-dashboard .group-dashboard #dashboard-stats-rail{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+#page-dashboard .group-dashboard #dashboard-stats-rail>.sc,
+#page-dashboard .group-dashboard #dashboard-stats-rail>#parent-invitation-summary{
+ min-height:104px;display:flex;flex-direction:column;justify-content:center;
+ box-sizing:border-box;padding:14px 10px!important;text-align:center;
+ background:#e6f1ff!important;border:1px solid #b8d4ff!important;
+ color:#1e40af!important;border-radius:16px!important;
+ box-shadow:0 3px 10px rgba(37,99,235,.09)!important;
+}
+#page-dashboard .group-dashboard #dashboard-stats-rail>.sc .n,
+#page-dashboard .group-dashboard #dashboard-stats-rail>.sc .ct{color:#1d4ed8!important}
+#page-dashboard .group-dashboard #dashboard-stats-rail>.sc .l,
+#page-dashboard .group-dashboard #dashboard-stats-rail>.sc small,
+#page-dashboard .group-dashboard #dashboard-stats-rail>#parent-invitation-summary .meta{color:#1e40af!important}
 </style>
