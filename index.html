@@ -9511,22 +9511,50 @@ window.addEventListener('afterprint',function(){const area=document.getElementBy
 </script>
 <script id="main-page-card-accordion-init">
 (function(){
+ 'use strict';
+ var scanQueued=false;
+ function titleOf(card){
+  var h=card.querySelector(':scope > .ct,:scope > h2,:scope > h3,:scope > h4');
+  return h?String(h.textContent||'').trim():'';
+ }
  function initMainPageAccordions(){
-  document.querySelectorAll('.page').forEach(function(page){
-   // Keep the dashboard and its home icons fully visible; only collapse sections inside opened modules.
-   if(page.id==='page-dashboard')return;
-   Array.from(page.children).forEach(function(card){
-    if(!card.classList||!card.classList.contains('card')||card.dataset.accordionReady==='1')return;
-    var heading=card.querySelector(':scope > .ct');
-    if(!heading)heading=card.querySelector(':scope > h2, :scope > h3, :scope > h4');
-    var title=heading?heading.textContent.trim():'';if(!title)return;
+  scanQueued=false;
+  document.querySelectorAll('.page:not(#page-dashboard)').forEach(function(page){
+   // Process titled cards at every nesting level, including cards added by later renders.
+   Array.from(page.querySelectorAll('.card')).forEach(function(card){
+    if(!card.isConnected||card.dataset.accordionReady==='1')return;
+    if(card.closest('#page-dashboard'))return;
+    var title=titleOf(card);if(!title)return;
     var details=document.createElement('details');details.className='app-section-accordion';
+    details.dataset.sectionTitle=title;
     var summary=document.createElement('summary');summary.textContent=title;
-    card.dataset.accordionReady='1';card.parentNode.insertBefore(details,card);details.appendChild(summary);details.appendChild(card);
+    card.dataset.accordionReady='1';
+    card.parentNode.insertBefore(details,card);
+    details.appendChild(summary);details.appendChild(card);
    });
   });
  }
+ function scheduleScan(){
+  if(scanQueued)return;scanQueued=true;
+  Promise.resolve().then(initMainPageAccordions);
+ }
+ document.addEventListener('click',function(ev){
+  var summary=ev.target&&ev.target.closest?ev.target.closest('.app-section-accordion > summary'):null;
+  if(!summary)return;
+  var current=summary.parentElement;
+  if(!current)return;
+  // Only one section at a time within the same level/container.
+  Array.from(current.parentElement.children).forEach(function(sibling){
+   if(sibling!==current&&sibling.matches&&sibling.matches('details.app-section-accordion'))sibling.open=false;
+  });
+ });
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initMainPageAccordions);else initMainPageAccordions();
+ if(window.MutationObserver&&document.body){
+  var observer=new MutationObserver(function(records){
+   if(records.some(function(r){return r.addedNodes&&r.addedNodes.length;}))scheduleScan();
+  });
+  observer.observe(document.body,{childList:true,subtree:true});
+ }
  window.addEventListener('beforeprint',function(){document.querySelectorAll('.app-section-accordion').forEach(function(d){d.dataset.wasOpen=d.open?'1':'0';d.open=true;});});
  window.addEventListener('afterprint',function(){document.querySelectorAll('.app-section-accordion').forEach(function(d){d.open=d.dataset.wasOpen==='1';delete d.dataset.wasOpen;});});
 })();
@@ -14260,7 +14288,9 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 var TAG='DASTYAR_MANAGER_REFERRAL_V1',PANEL='dastyar-manager-referrals-panel',DOSSIER='dastyar-teacher-referral-dossier';
 var selectInteractionUntil=0,followupDrafts=Object.create(null),followupSaving=Object.create(null);
 function selectBusy(){return Date.now()<selectInteractionUntil;}
-function draftFor(row,m){var d=followupDrafts[String(row.id)];return d||{person:m.followupBy||'',reason:m.followupReason||'',method:m.followupMethod||m.followupResult||''};}
+function draftKey(id){return 'dastyar-followup-draft-v1:'+String(id);}
+function draftFor(row,m){var id=String(row.id),d=followupDrafts[id];if(!d){try{var raw=sessionStorage.getItem(draftKey(id));if(raw){var saved=JSON.parse(raw);if(saved&&saved.savedAt&&Date.now()-saved.savedAt<43200000){d=saved;followupDrafts[id]=d;}else sessionStorage.removeItem(draftKey(id));}}catch(e){}}return d||{person:m.followupBy||'',reason:m.followupReason||'',method:m.followupMethod||m.followupResult||''};}
+function clearDraft(id){delete followupDrafts[String(id)];try{sessionStorage.removeItem(draftKey(id));}catch(e){}}
 function hasFollowupDrafts(){return Object.keys(followupDrafts).length>0;}
 var PEOPLE=['مدیر مدرسه — سید حسین نورایی انور','معاون آموزشی — پژمان سامانی‌پور','معاون اجرایی — رضا فلاحتکار'];
 function A(v){return Array.isArray(v)?v:[];}
@@ -14378,7 +14408,7 @@ async function saveFollowup(row,person,reason,method){
    var saved=Array.isArray(verify.data)?verify.data[0]:verify.data;
    if(!saved||String(saved.id)!==String(row.id)||String(saved.notes||'')!==notesPayload)throw new Error('سرور نتیجه پیگیری را تأیید نکرد؛ اطلاعات فرم حفظ شد و وضعیت تغییر نکرد.');
   }
-  row.notes=notesPayload;localPut(row);delete followupDrafts[String(row.id)];selectInteractionUntil=0;window.__dastyarFollowupSelectLockUntil=0;
+  row.notes=notesPayload;localPut(row);clearDraft(row.id);selectInteractionUntil=0;window.__dastyarFollowupSelectLockUntil=0;
   toast(out&&out.offline?'پیگیری ذخیره شد و پس از اتصال همگام می‌شود.':'نتیجه پیگیری با موفقیت ذخیره و برای معلم ارسال شد؛ وضعیت «رسیدگی شد» ثبت گردید.');
   renderManagerPanel();return true;
  }catch(e){console.error('saveFollowup failed',e);toast('ذخیره نتیجه پیگیری ناموفق بود؛ اطلاعات واردشده حفظ شد: '+(e.message||e));return false;}
@@ -14405,14 +14435,14 @@ function renderCard(row){
   var peopleList=node('datalist');peopleList.id='dastyar-followup-people-'+String(row.id).replace(/[^a-zA-Z0-9_-]/g,'_');PEOPLE.forEach(function(p){var option=node('option');option.value=p;peopleList.appendChild(option);});person.setAttribute('list',peopleList.id);
   var reason=node('textarea');reason.rows=2;reason.placeholder='علت یا موضوع پیگیری را دقیق بنویسید';reason.value=d.reason||'';reason.style.cssText='width:100%;box-sizing:border-box;padding:8px;margin:4px 0;border:1px solid #cbd5e1;border-radius:8px;font:inherit';
   var method=node('textarea');method.rows=3;method.placeholder='نحوه پیگیری، اقدام انجام‌شده و نتیجه بررسی را بنویسید';method.value=d.method||'';method.style.cssText='width:100%;box-sizing:border-box;padding:8px;margin:4px 0;border:1px solid #cbd5e1;border-radius:8px;font:inherit';
-  function keepDraft(){followupDrafts[String(row.id)]={person:person.value,reason:reason.value,method:method.value};selectInteractionUntil=Date.now()+60000;window.__dastyarFollowupSelectLockUntil=selectInteractionUntil;}
-  person.addEventListener('input',keepDraft);person.addEventListener('change',keepDraft);reason.addEventListener('input',keepDraft);reason.addEventListener('change',keepDraft);method.addEventListener('input',keepDraft);method.addEventListener('change',keepDraft);
+  function keepDraft(){var draft={person:person.value,reason:reason.value,method:method.value,savedAt:Date.now()};followupDrafts[String(row.id)]=draft;try{sessionStorage.setItem(draftKey(row.id),JSON.stringify(draft));}catch(e){}selectInteractionUntil=Date.now()+60000;window.__dastyarFollowupSelectLockUntil=selectInteractionUntil;}
+  [person,reason,method].forEach(function(field){field.addEventListener('focus',keepDraft);field.addEventListener('input',keepDraft);field.addEventListener('change',keepDraft);field.addEventListener('blur',keepDraft);});
   box.appendChild(node('label','','نام پیگیری‌کننده'));box.appendChild(person);box.appendChild(peopleList);
   box.appendChild(node('label','','علت یا موضوع پیگیری'));box.appendChild(reason);
   box.appendChild(node('label','','نحوه پیگیری و اقدام انجام‌شده'));box.appendChild(method);
   var saveBtn=node('button','btn btn-p btn-sm','ثبت نهایی نتیجه پیگیری');saveBtn.type='button';saveBtn.style.margin='4px';saveBtn.disabled=!!followupSaving[String(row.id)];
   saveBtn.onclick=function(){keepDraft();if(!person.value.trim()){toast('نام پیگیری‌کننده را وارد کنید');return;}if(!reason.value.trim()){toast('علت یا موضوع پیگیری را بنویسید');return;}if(!method.value.trim()){toast('نحوه پیگیری و اقدام انجام‌شده را بنویسید');return;}if(!confirm('نام پیگیری‌کننده، علت و نحوه پیگیری ثبت و نتیجه برای معلم ارسال شود؟'))return;saveBtn.disabled=true;saveFollowup(row,person.value.trim(),reason.value,method.value).finally(function(){saveBtn.disabled=false;});};box.appendChild(saveBtn);
-  var cancel=node('button','btn btn-o btn-sm','پاک‌کردن پیش‌نویس');cancel.type='button';cancel.style.margin='4px';cancel.onclick=function(){delete followupDrafts[String(row.id)];renderManagerPanel();};box.appendChild(cancel);
+  var cancel=node('button','btn btn-o btn-sm','پاک‌کردن پیش‌نویس');cancel.type='button';cancel.style.margin='4px';cancel.onclick=function(){clearDraft(row.id);renderManagerPanel();};box.appendChild(cancel);
   var del=node('button','btn btn-o btn-sm','حذف این ارجاع');del.type='button';del.style.cssText='margin:4px;color:#b91c1c;border-color:#fecaca';del.onclick=function(){deleteReferral(row);};box.appendChild(del);
  }
  return box;
