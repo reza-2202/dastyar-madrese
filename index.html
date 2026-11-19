@@ -1232,9 +1232,7 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
  <div id="teacher-today-schedule-content" style="font-size:.84rem;line-height:1.9"></div>
  <button class="btn btn-o btn-sm" style="margin-top:8px" onclick="go('weekly')">مشاهده و تنظیم برنامه هفتگی</button>
 </div>
-<div class="sg" id="dashboard-stats-rail">
-<button type="button" class="sc dashboard-rail-toggle" id="dashboard-rail-toggle" aria-expanded="true" aria-controls="dashboard-stats-rail" onclick="toggleDashboardStatsRail()"><span class="n">📊</span><span class="l">داشبورد<br><small class="dashboard-rail-hint">برای جمع کردن آمار بزنید</small></span></button>
-
+<div class="sg" id="dashboard-stats-rail" style="display:none">
 <div class="sc"><div class="n" id="st-s">۰</div><div class="l">دانش‌آموز</div></div>
 <div class="sc"><div class="n" id="st-c">۰</div><div class="l">کلاس</div></div>
 <div class="sc"><div class="n" id="st-p">۰</div><div class="l">حاضر امروز</div></div>
@@ -1273,6 +1271,9 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <div class="card">
 <div class="ct">دسترسی سریع به بخش‌های برنامه</div>
 <div class="home-tiles" aria-label="دسترسی به امکانات برنامه">
+<details class="home-tile-group group-dashboard" id="dashboard-stats-toggle" name="dastyar-home-groups" aria-label="داشبورد آمار" ontoggle="toggleDashboardStatsRail(this.open)">
+<summary class="home-tile-group-title"><span class="home-tile-group-mark">📊</span><span>داشبورد</span></summary>
+</details>
 <details class="home-tile-group group-students" name="dastyar-home-groups" aria-label="امور دانش‌آموزان">
 <summary class="home-tile-group-title"><span class="home-tile-group-mark">🎓</span><span>امور دانش‌آموزان</span></summary>
 <div class="home-tiles-grid">
@@ -14399,15 +14400,11 @@ window.addEventListener('focus',function(){setTimeout(function(){if(M()&&panelOp
 }
 </style>
 
-<script id="dastyar-dashboard-rail-toggle-20261119">
-function toggleDashboardStatsRail(){
+<script id="dastyar-dashboard-stats-toggle-20261119">
+function toggleDashboardStatsRail(open){
  var rail=document.getElementById('dashboard-stats-rail');
- var button=document.getElementById('dashboard-rail-toggle');
- if(!rail||!button)return;
- var collapsed=rail.classList.toggle('stats-collapsed');
- button.setAttribute('aria-expanded',String(!collapsed));
- var hint=button.querySelector('.dashboard-rail-hint');
- if(hint)hint.textContent=collapsed?'برای نمایش آمار بزنید':'برای جمع کردن آمار بزنید';
+ if(!rail)return;
+ rail.style.display=open?'':'none';
 }
 </script>
 <style id="dastyar-dashboard-unified-blue-rail-20261119">
@@ -14429,15 +14426,5 @@ function toggleDashboardStatsRail(){
 #page-dashboard .sg>#parent-invitation-summary #parent-invitation-count-badge{
  background:#2563eb!important;color:#fff!important;
 }
-#page-dashboard .sg>.dashboard-rail-toggle{
- appearance:none!important;-webkit-appearance:none!important;
- font-family:inherit!important;cursor:pointer!important;
- display:flex!important;align-items:center!important;justify-content:center!important;
- gap:7px!important;text-align:center!important;
-}
-#page-dashboard .sg>.dashboard-rail-toggle:active{transform:scale(.97)!important}
-#page-dashboard .sg.stats-collapsed>.sc:not(#dashboard-rail-toggle){display:none!important}
-#page-dashboard .sg>.dashboard-rail-toggle .dashboard-rail-hint{
- font-size:.58rem!important;line-height:1.4!important;font-weight:700!important;
-}
+
 </style>
