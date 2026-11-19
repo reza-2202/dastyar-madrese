@@ -1301,7 +1301,7 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 </details>
 <details class="home-tile-group group-performance" name="dastyar-home-groups" aria-label="پایش عملکرد هوشمند">
 <summary class="home-tile-group-title"><span class="home-tile-group-mark">📈</span><span>پایش عملکرد هوشمند مدرسه</span></summary>
-<div class="home-tiles-grid"><button class="home-tile" type="button" onclick="window.toggleDashboardFeature('performance',true)"><span class="tile-icon" style="background:#ede9fe;color:#5b21a5">📊</span><span class="tile-label">مرکز پایش عملکرد مدرسه</span></button></div>
+<div class="home-tiles-grid"><button class="home-tile" id="manager-performance-center-tile" type="button" style="display:none" onclick="window.toggleDashboardFeature('performance',true)"><span class="tile-icon" style="background:#ede9fe;color:#5b21a5">📊</span><span class="tile-label">مرکز پایش عملکرد مدرسه</span></button></div>
 </details>
 <details class="home-tile-group group-communication" name="dastyar-home-groups" aria-label="ارتباطات و اسناد">
 <summary class="home-tile-group-title"><span class="home-tile-group-mark">🤝</span><span>ارتباطات و اسناد</span></summary>
@@ -13702,6 +13702,7 @@ function buildTrendPrintHtml(report){
 function build(){
 
   if(!currentManager())return null;
+  var performanceTile=document.getElementById('manager-performance-center-tile');if(performanceTile)performanceTile.style.display='flex';
   var dashboard=document.getElementById('page-dashboard');
   if(!dashboard)return null;
   var card=document.getElementById(CARD_ID);
