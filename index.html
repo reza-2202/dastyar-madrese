@@ -14578,5 +14578,116 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 window.addEventListener('focus',function(){if(isM())refreshManager();else if(visible())refreshStudent(currentId);});
 })();
 </script>
+
+<script id="dastyar-universal-section-accordion-v1">
+(function(){
+'use strict';
+if(window.__dastyarUniversalAccordionInstalled)return;
+window.__dastyarUniversalAccordionInstalled=true;
+var STYLE_ID='dastyar-universal-accordion-style';
+if(!document.getElementById(STYLE_ID)){
+ var st=document.createElement('style');st.id=STYLE_ID;
+ st.textContent=
+ '.dastyar-section-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:right;border:0;border-radius:10px;background:linear-gradient(135deg,#f8fbff,#eef5ff);color:#173b70;padding:12px 13px;margin:0 0 2px;font:800 .88rem Vazirmatn,Tahoma,sans-serif;cursor:pointer;min-height:46px;box-sizing:border-box;}' +
+ '.dastyar-section-toggle .dastyar-section-title{flex:1;min-width:0;line-height:1.7;}' +
+ '.dastyar-section-toggle .dastyar-section-arrow{flex:0 0 auto;width:25px;height:25px;border-radius:8px;background:#dbeafe;color:#1d4ed8;display:inline-flex;align-items:center;justify-content:center;font-size:1rem;transition:transform .18s ease;}' +
+ '.dastyar-section-toggle[aria-expanded="true"]{background:linear-gradient(135deg,#eff6ff,#e0edff);margin-bottom:9px;}' +
+ '.dastyar-section-toggle[aria-expanded="true"] .dastyar-section-arrow{transform:rotate(180deg);}' +
+ '.dastyar-accordion-card{overflow:hidden;}' +
+ '.dastyar-accordion-card[ data-dastyar-accordion-open="true" ]{border-color:#bfdbfe;}' +
+ '.dastyar-dashboard-summary-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0;padding:10px 12px;border:1px solid #dbeafe;border-radius:11px;background:#f8fbff;color:#1e40af;font:800 .84rem Vazirmatn,Tahoma,sans-serif;text-align:right;cursor:pointer;}' +
+ '.dastyar-dashboard-summary-toggle .dastyar-section-arrow{width:23px;height:23px;border-radius:7px;background:#dbeafe;display:inline-flex;align-items:center;justify-content:center;}' +
+ '.dastyar-dashboard-summary-toggle[aria-expanded="true"] .dastyar-section-arrow{transform:rotate(180deg);}' +
+ '@media(prefers-reduced-motion:no-preference){.dastyar-section-toggle,.dastyar-dashboard-summary-toggle{transition:background .18s,border-color .18s;}}';
+ document.head.appendChild(st);
+}
+function restoreChild(el){
+ if(!el||!el.hasAttribute('data-dastyar-accordion-child'))return;
+ var was=el.getAttribute('data-dastyar-original-hidden')==='1';
+ if(was)el.hidden=true;else el.hidden=false;
+ el.removeAttribute('data-dastyar-accordion-child');
+ el.removeAttribute('data-dastyar-original-hidden');
+}
+function setCardOpen(card,open){
+ var btn=card.querySelector(':scope > .dastyar-section-toggle');
+ if(!btn)return;
+ Array.prototype.forEach.call(card.children,function(ch){
+  if(ch===btn)return;
+  if(open){restoreChild(ch);}
+  else if(!ch.hasAttribute('data-dastyar-accordion-child')){
+   ch.setAttribute('data-dastyar-original-hidden',ch.hidden?'1':'0');
+   ch.setAttribute('data-dastyar-accordion-child','1');
+   ch.hidden=true;
+  }else ch.hidden=true;
+ });
+ btn.setAttribute('aria-expanded',open?'true':'false');
+ var arrow=btn.querySelector('.dastyar-section-arrow');if(arrow)arrow.textContent=open?'⌃':'⌄';
+ card.setAttribute('data-dastyar-accordion-open',open?'true':'false');
+}
+function initCard(card,page){
+ if(!card||card.dataset.dastyarAccordionReady==='1'||card.classList.contains('dastyar-dashboard-feature'))return;
+ var heading=Array.prototype.find.call(card.children,function(ch){return ch.classList&&ch.classList.contains('ct');});
+ if(!heading)return;
+ card.dataset.dastyarAccordionReady='1';
+ card.classList.add('dastyar-accordion-card');
+ var btn=document.createElement('button');btn.type='button';btn.className='dastyar-section-toggle';btn.setAttribute('aria-expanded','false');
+ var title=document.createElement('span');title.className='dastyar-section-title';
+ title.appendChild(heading);
+ var arrow=document.createElement('span');arrow.className='dastyar-section-arrow';arrow.setAttribute('aria-hidden','true');arrow.textContent='⌄';
+ btn.appendChild(title);btn.appendChild(arrow);
+ card.insertBefore(btn,card.firstChild);
+ btn.addEventListener('click',function(ev){
+  ev.preventDefault();ev.stopPropagation();
+  var open=btn.getAttribute('aria-expanded')!=='true';
+  if(open){Array.prototype.forEach.call(page.querySelectorAll(':scope > .dastyar-accordion-card'),function(other){if(other!==card)setCardOpen(other,false);});}
+  setCardOpen(card,open);
+ });
+ setCardOpen(card,false);
+}
+function initDashboardSummary(page){
+ var sg=page.querySelector(':scope > .sg');
+ if(!sg||sg.dataset.dastyarAccordionReady==='1')return;
+ sg.dataset.dastyarAccordionReady='1';
+ var btn=document.createElement('button');btn.type='button';btn.className='dastyar-dashboard-summary-toggle';btn.setAttribute('aria-expanded','false');
+ var count=sg.querySelectorAll(':scope > .sc').length;
+ var label=document.createElement('span');label.textContent='📊 آمار سریع مدرسه · '+count+' شاخص';
+ var arrow=document.createElement('span');arrow.className='dastyar-section-arrow';arrow.textContent='⌄';
+ btn.appendChild(label);btn.appendChild(arrow);
+ page.insertBefore(btn,sg);
+ sg.hidden=true;
+ btn.addEventListener('click',function(ev){
+  ev.preventDefault();ev.stopPropagation();
+  var open=btn.getAttribute('aria-expanded')!=='true';
+  Array.prototype.forEach.call(page.querySelectorAll(':scope > .dastyar-dashboard-summary-toggle'),function(other){if(other!==btn){var target=other.nextElementSibling;if(target&&target.classList.contains('sg'))target.hidden=true;other.setAttribute('aria-expanded','false');var a=other.querySelector('.dastyar-section-arrow');if(a)a.textContent='⌄';}});
+  sg.hidden=!open;btn.setAttribute('aria-expanded',open?'true':'false');arrow.textContent=open?'⌃':'⌄';
+ });
+}
+function scan(){
+ var pages=document.querySelectorAll('.page');
+ Array.prototype.forEach.call(pages,function(page){
+  Array.prototype.forEach.call(page.children,function(child){if(child.classList&&child.classList.contains('card'))initCard(child,page);});
+  if(page.id==='page-dashboard')initDashboardSummary(page);
+ });
+}
+function start(){
+ scan();
+ var root=document.getElementById('app')||document.body;
+ if(window.MutationObserver){
+  var obs=new MutationObserver(function(records){
+   var changed=false;
+   for(var i=0;i<records.length;i++){
+    if(records[i].type==='childList'&&records[i].target.classList&&records[i].target.classList.contains('page')){
+     changed=true;break;
+    }
+   }
+   if(changed)scan();
+  });
+  obs.observe(root,{childList:true,subtree:true});
+ }
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
+})();
+</script>
+
 </body>
 </html>
