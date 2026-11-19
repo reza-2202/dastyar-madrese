@@ -1,4 +1,4 @@
-const CACHE = 'dastyar-shell-v71-20261119-progress-chart-touch-fix';
+const CACHE = 'dastyar-shell-v72-20261119-three-dossier-charts-fast-referrals';;
 const BASE = '/dastyar-madrese/';
 const SHELL = [
   BASE,
