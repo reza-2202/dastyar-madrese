@@ -1,4 +1,4 @@
-const CACHE = 'dastyar-shell-v74-20261119-dashboard-blue-rail';
+const CACHE = 'dastyar-shell-v75-20261120-navigation-timeout';
 const BASE = '/dastyar-madrese/';
 const SHELL = [
   BASE,
@@ -91,6 +91,34 @@ self.addEventListener('fetch', function (e) {
   var url = new URL(e.request.url);
   if (url.origin !== self.location.origin) return;
   if (url.pathname.indexOf(BASE) !== 0) return;
+
+  // Navigation requests must never wait forever behind the PWA splash screen.
+  if (e.request.mode === 'navigate') {
+    e.respondWith((async function () {
+      var controller = new AbortController();
+      var timeout = setTimeout(function () { controller.abort(); }, 7000);
+      try {
+        var response = await fetch(e.request, { signal: controller.signal });
+        clearTimeout(timeout);
+        if (response && response.ok) {
+          var copy = response.clone();
+          caches.open(CACHE).then(function (c) {
+            c.put(BASE + 'index.html', copy);
+          }).catch(function () {});
+        }
+        return response;
+      } catch (err) {
+        clearTimeout(timeout);
+        var cached = await caches.match(BASE + 'index.html') || await caches.match(BASE);
+        if (cached) return cached;
+        return new Response('<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>دستیار مدرسه</title><body style="font-family:tahoma;text-align:center;padding:24px">اتصال صفحه برقرار نشد. لطفاً اتصال اینترنت را بررسی و دوباره تلاش کنید.</body></html>', {
+          status: 503,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' }
+        });
+      }
+    })());
+    return;
+  }
 
   e.respondWith(
     fetch(e.request).then(function (res) {
