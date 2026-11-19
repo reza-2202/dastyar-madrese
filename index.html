@@ -14387,7 +14387,7 @@ window.submitStudentAchievement=async function(id){
  var kind=document.getElementById('ach-kind')?.value||'recognition',title=(document.getElementById('ach-title')?.value||'').trim(),reason=(document.getElementById('ach-reason')?.value||'').trim();
  if(!title||!reason){toast('عنوان و دلیل را کامل کنید');return;}
  var cl=arr(cache.classes).find(function(x){return String(x.id)===String(st.class_id);})||{};
- var row={id:uid(),student_id:String(st.id),class_id:String(st.class_id),kind:kind,title:title,category:document.getElementById('ach-category')?.value||'',reason:reason,source_section:'student_dossier',created_by:user.full_name||user.username,created_by_username:user.username,created_role:user.role,target_teacher_username:kind==='nomination_request'?(document.getElementById('ach-target')?.value||cl.teacher_user||''):null};
+ var row={id:uid(),student_id:String(st.id),class_id:String(st.class_id),kind:kind,title:title,category:document.getElementById('ach-category')?.value||'',reason:reason,date:typeof today==='function'?today():new Date().toISOString().slice(0,10),source_section:'student_dossier',created_by:user.full_name||user.username,created_by_username:user.username,created_role:user.role,target_teacher_username:kind==='nomination_request'?(document.getElementById('ach-target')?.value||cl.teacher_user||''):null};
  if(navigator.onLine&&sb){
   var c=credentials(),r=await sb.rpc('sa_achievements_save',{p_username:c.p_username,p_password:c.p_password,p_record:row});
   if(r&&r.error){toast('ثبت انجام نشد: '+r.error.message);return;}
