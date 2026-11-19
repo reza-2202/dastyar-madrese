@@ -13134,6 +13134,7 @@ window.generateParentPortalLink=async function(classId,studentId){
   const passwordMap=getPasswordMap();
   const missing=students.filter(s=>{const id=parentIdentity(s,mode);return !id && mode!=='password_only';});
   if(missing.length){showStatus('برای '+missing.length+' دانش‌آموز اطلاعات ورود کامل نیست',true);return;}
+  try{if(typeof window.refreshAchievementCache==='function')await window.refreshAchievementCache();}catch(achievementLoadError){console.warn('دریافت افتخارات برای پرونده اولیا ناموفق بود',achievementLoadError);}
   const packageSalt=bytesToB64u(randomBytes(16));
   const records=[];
   const credentialRows=[];
@@ -14664,6 +14665,7 @@ window.closeAchievementCenter=close;
 window.refreshAchievementStudents=function(){fillStudents('')};
 window.respondToAchievementRequest=function(id,studentId){var k=$('da-kind'),st=$('da-student'),rid=$('da-request-id'),title=$('da-title'),reason=$('da-reason');if(k)k.value='nomination';if(st&&studentId)st.value=String(studentId);if(rid)rid.value=String(id||'');if(title)title.value='معرفی دانش‌آموز در پاسخ به درخواست مدیر';if(reason)reason.focus();if(typeof toast==='function')toast('دلیل معرفی را بنویسید و ثبت کنید تا پاسخ برای مدیر ارسال شود.');};
 window.openAchievementCenter=open;
+window.refreshAchievementCache=refresh;
 window.saveAchievementRecord=async function(){
  var u=currentUser(),cl=$('da-class'),st=$('da-student'),status=$('da-save-status');
  if(!u||!cl||!st||!st.value){if(typeof toast==='function')toast('کلاس و دانش‌آموز را انتخاب کنید');return}
