@@ -14258,8 +14258,10 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 (function(){
 'use strict';
 var TAG='DASTYAR_MANAGER_REFERRAL_V1',PANEL='dastyar-manager-referrals-panel',DOSSIER='dastyar-teacher-referral-dossier';
-var selectInteractionUntil=0;
+var selectInteractionUntil=0,followupDrafts=Object.create(null),followupSaving=Object.create(null);
 function selectBusy(){return Date.now()<selectInteractionUntil;}
+function draftFor(row,m){var k=String(row.id),d=followupDrafts[k];if(!d){d=followupDrafts[k]={person:m.followupBy||'',reason:m.followupReason||'',method:m.followupMethod||m.followupResult||''};}return d;}
+function hasFollowupDrafts(){return Object.keys(followupDrafts).length>0;}
 var PEOPLE=['مدیر مدرسه — سید حسین نورایی انور','معاون آموزشی — پژمان سامانی‌پور','معاون اجرایی — رضا فلاحتکار'];
 function A(v){return Array.isArray(v)?v:[];}
 function U(){try{return window.user||user||null;}catch(e){return window.user||null;}}
@@ -14353,25 +14355,34 @@ async function sendReferral(id,v,key){
  try{var out=await sb.from('sa_activities').insert(row);if(out&&out.error)throw new Error(out.error.message);localPut(row);toast(out&&out.offline?'ارجاع ذخیره شد و پس از اتصال همگام می‌شود.':'ارجاع برای مدیر ارسال شد');renderDossier(id);renderManagerPanel();}
  catch(e){toast('ارسال ارجاع انجام نشد: '+(e.message||e));}
 }
-async function saveFollowup(row,person,result){
- var m=meta(row);if(!m||!isManager())return;
- var followupText=String(result||'').trim();
- if(!followupText){toast('نتیجه پیگیری را بنویسید');return;}
- m.followupBy=person;m.followupResult=followupText;m.followupAt=typeof today==='function'?today():'';m.status='done';m.updatedAt=new Date().toISOString();m.updatedBy=(U()&&(U().full_name||U().username))||'مدیریت';
+async function saveFollowup(row,person,reason,method){
+ var base=meta(row);if(!base||!isManager())return false;
+ var followupReason=String(reason||'').trim(),followupMethod=String(method||'').trim();
+ if(!person){toast('نام پیگیری‌کننده را انتخاب کنید');return false;}
+ if(!followupReason){toast('علت یا موضوع پیگیری را بنویسید');return false;}
+ if(!followupMethod){toast('نحوه پیگیری و اقدام انجام‌شده را بنویسید');return false;}
+ if(followupSaving[String(row.id)])return false;
+ followupSaving[String(row.id)]=true;
+ var m=Object.assign({},base);
+ m.followupBy=person;m.followupReason=followupReason;m.followupMethod=followupMethod;
+ m.followupResult='علت پیگیری: '+followupReason+String.fromCharCode(10)+'نحوه پیگیری: '+followupMethod;
+ m.followupAt=typeof today==='function'?today():'';m.status='done';m.updatedAt=new Date().toISOString();m.updatedBy=(U()&&(U().full_name||U().username))||'مدیریت';
  var notesPayload=JSON.stringify(m);
  try{
+  if(!sb)throw new Error('اتصال پایگاه‌داده آماده نیست');
   var out=await sb.from('sa_activities').update({notes:notesPayload}).eq('id',String(row.id));
   if(out&&out.error)throw new Error(out.error.message||'خطای به‌روزرسانی رکورد');
   if(!(out&&out.offline)){
    var verify=await sb.from('sa_activities').select('id,notes').eq('id',String(row.id)).limit(1);
    if(!verify||verify.error)throw new Error((verify&&verify.error&&verify.error.message)||'بررسی ذخیره نتیجه از سرور ناموفق بود');
    var saved=Array.isArray(verify.data)?verify.data[0]:verify.data;
-   if(!saved||String(saved.id)!==String(row.id)||String(saved.notes||'')!==notesPayload)throw new Error('سرور نتیجه پیگیری را تأیید نکرد؛ اطلاعات محلی به‌عنوان ذخیره موفق ثبت نشد.');
+   if(!saved||String(saved.id)!==String(row.id)||String(saved.notes||'')!==notesPayload)throw new Error('سرور نتیجه پیگیری را تأیید نکرد؛ اطلاعات فرم حفظ شد و وضعیت تغییر نکرد.');
   }
-  row.notes=notesPayload;localPut(row);
-  toast(out&&out.offline?'پیگیری ذخیره شد و پس از اتصال همگام می‌شود.':'نتیجه پیگیری ثبت شد؛ وضعیت به‌صورت خودکار «رسیدگی شد» شد و برای معلم ارسال گردید.');
-  renderManagerPanel();
- }catch(e){console.error('saveFollowup failed',e);toast('ذخیره نتیجه پیگیری ناموفق بود: '+(e.message||e));}
+  row.notes=notesPayload;localPut(row);delete followupDrafts[String(row.id)];
+  toast(out&&out.offline?'پیگیری ذخیره شد و پس از اتصال همگام می‌شود.':'نتیجه پیگیری با موفقیت ذخیره و برای معلم ارسال شد؛ وضعیت «رسیدگی شد» ثبت گردید.');
+  renderManagerPanel();return true;
+ }catch(e){console.error('saveFollowup failed',e);toast('ذخیره نتیجه پیگیری ناموفق بود؛ اطلاعات واردشده حفظ شد: '+(e.message||e));return false;}
+ finally{delete followupSaving[String(row.id)];}
 }
 async function deleteReferral(row){
  if(!isManager()||!meta(row))return;
@@ -14381,19 +14392,26 @@ async function deleteReferral(row){
 }
 function renderCard(row){
  var m=meta(row),st=student(row.student_id);if(!m)return null;
- var box=node('div');box.style.cssText='margin:7px 0;padding:10px;border:1px solid #dbe3ef;border-radius:10px;background:#fff;font-size:.76rem;line-height:1.85';
+ var d=draftFor(row,m),box=node('div');box.style.cssText='margin:7px 0;padding:10px;border:1px solid #dbe3ef;border-radius:10px;background:#fff;font-size:.76rem;line-height:1.85';
  box.appendChild(node('b','',(st?st.first_name+' '+st.last_name:'دانش‌آموز')+' — '+classLabel(row.class_id)));
  box.appendChild(node('div','', 'بخش: '+(m.sourceTitle||row.subject||'—')+' | وضعیت: '+statusText(m.status)));
  box.appendChild(node('div','', 'خلاصه ثبت معلم: '+(m.sourceSummary||'—')));
  A(m.sourceRecords).forEach(function(x){var line=[x.date,referralDisplay(x.subject,'subject'),x.score!==''?'نمره '+x.score:'',referralDisplay(x.level,'level'),referralDisplay(x.status,'status'),x.details||x.notes,x.recordedBy].filter(Boolean).join(' | ');if(line)box.appendChild(node('div','meta','• '+line.slice(0,260)));});
  box.appendChild(node('div','meta','ارجاع‌دهنده: '+(m.teacherName||row.recorded_by||'—')+' | تاریخ: '+(row.date||'—')));
  if(m.followupBy)box.appendChild(node('div','meta','پیگیری‌کننده: '+m.followupBy));
- if(m.followupResult)box.appendChild(node('div','', 'نتیجه پیگیری: '+m.followupResult));
+ if(m.followupResult&&!followupDrafts[String(row.id)])box.appendChild(node('div','', 'نتیجه پیگیری قبلی: '+m.followupResult));
  if(isManager()){
-  var sel=node('select');sel.style.cssText='width:100%;padding:8px;margin:6px 0;border:1px solid #cbd5e1;border-radius:8px;font:inherit';sel.appendChild(new Option('انتخاب پیگیری‌کننده',''));PEOPLE.forEach(function(p){sel.appendChild(new Option(p,p));});sel.value=m.followupBy||'';
-  var result=node('textarea');result.rows=2;result.placeholder='نتیجه پیگیری و اقدام انجام‌شده';result.value=m.followupResult||'';result.style.cssText='width:100%;box-sizing:border-box;padding:8px;margin:4px 0;border:1px solid #cbd5e1;border-radius:8px;font:inherit';
-  box.appendChild(node('label','','پیگیری‌کننده'));box.appendChild(sel);box.appendChild(node('label','','نتیجه پیگیری'));box.appendChild(result);
-  var save=node('button','btn btn-p btn-sm','ثبت نتیجه پیگیری');save.type='button';save.style.margin='4px';save.onclick=function(){if(!sel.value){toast('پیگیری‌کننده را انتخاب کنید');return;}if(!result.value.trim()){toast('نتیجه پیگیری را بنویسید');return;}save.disabled=true;saveFollowup(row,sel.value,result.value.trim()).finally(function(){save.disabled=false;});};box.appendChild(save);
+  var sel=node('select');sel.style.cssText='width:100%;padding:8px;margin:6px 0;border:1px solid #cbd5e1;border-radius:8px;font:inherit';sel.appendChild(new Option('انتخاب پیگیری‌کننده',''));PEOPLE.forEach(function(p){sel.appendChild(new Option(p,p));});sel.value=d.person||'';
+  var reason=node('textarea');reason.rows=2;reason.placeholder='علت یا موضوع پیگیری را دقیق بنویسید';reason.value=d.reason||'';reason.style.cssText='width:100%;box-sizing:border-box;padding:8px;margin:4px 0;border:1px solid #cbd5e1;border-radius:8px;font:inherit';
+  var method=node('textarea');method.rows=3;method.placeholder='نحوه پیگیری، اقدام انجام‌شده و نتیجه بررسی را بنویسید';method.value=d.method||'';method.style.cssText='width:100%;box-sizing:border-box;padding:8px;margin:4px 0;border:1px solid #cbd5e1;border-radius:8px;font:inherit';
+  function keepDraft(){followupDrafts[String(row.id)]={person:sel.value,reason:reason.value,method:method.value};selectInteractionUntil=Date.now()+60000;window.__dastyarFollowupSelectLockUntil=selectInteractionUntil;}
+  sel.addEventListener('change',function(){keepDraft();});reason.addEventListener('input',keepDraft);method.addEventListener('input',keepDraft);
+  box.appendChild(node('label','','نام پیگیری‌کننده'));box.appendChild(sel);
+  box.appendChild(node('label','','علت یا موضوع پیگیری'));box.appendChild(reason);
+  box.appendChild(node('label','','نحوه پیگیری و اقدام انجام‌شده'));box.appendChild(method);
+  var saveBtn=node('button','btn btn-p btn-sm','ثبت نهایی نتیجه پیگیری');saveBtn.type='button';saveBtn.style.margin='4px';saveBtn.disabled=!!followupSaving[String(row.id)];
+  saveBtn.onclick=function(){keepDraft();if(!sel.value){toast('نام پیگیری‌کننده را انتخاب کنید');return;}if(!reason.value.trim()){toast('علت یا موضوع پیگیری را بنویسید');return;}if(!method.value.trim()){toast('نحوه پیگیری و اقدام انجام‌شده را بنویسید');return;}if(!confirm('نام پیگیری‌کننده، علت و نحوه پیگیری ثبت و نتیجه برای معلم ارسال شود؟'))return;saveBtn.disabled=true;saveFollowup(row,sel.value,reason.value,method.value).finally(function(){saveBtn.disabled=false;});};box.appendChild(saveBtn);
+  var cancel=node('button','btn btn-o btn-sm','پاک‌کردن پیش‌نویس');cancel.type='button';cancel.style.margin='4px';cancel.onclick=function(){delete followupDrafts[String(row.id)];renderManagerPanel();};box.appendChild(cancel);
   var del=node('button','btn btn-o btn-sm','حذف این ارجاع');del.type='button';del.style.cssText='margin:4px;color:#b91c1c;border-color:#fecaca';del.onclick=function(){deleteReferral(row);};box.appendChild(del);
  }
  return box;
@@ -14434,7 +14452,7 @@ function renderManagerPanel(){
  ensurePanel();
  var list=document.getElementById('dastyar-smart-followup-list');if(!list)return;
  var wrapId=PANEL+'-embedded-referrals',old=document.getElementById(wrapId);
- if(selectBusy()||(window.__dastyarFollowupSelectLockUntil||0)>Date.now())return;
+ if(selectBusy()||(window.__dastyarFollowupSelectLockUntil||0)>Date.now()||hasFollowupDrafts())return;
  if(old&&document.activeElement&&old.contains(document.activeElement)){var activeTag=document.activeElement.tagName;if(activeTag==='SELECT'||activeTag==='INPUT'||activeTag==='TEXTAREA')return;}
  var all=refs(),open=all.filter(function(r){var m=meta(r);return m&&m.status!=='done';});
  var renderSignature=JSON.stringify(all.map(function(r){return [r.id,r.notes,r.date,r.subject];}));
@@ -14462,10 +14480,10 @@ function install(){
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(install,700);});else setTimeout(install,700);
 window.addEventListener('focus',function(){if(selectBusy()||(window.__dastyarFollowupSelectLockUntil||0)>Date.now())return;setTimeout(function(){if(selectBusy()||(window.__dastyarFollowupSelectLockUntil||0)>Date.now())return;var active=document.activeElement;var tag=active&&active.tagName;if(tag==='SELECT'||tag==='INPUT'||tag==='TEXTAREA')return;if(isManager())refreshFromServer(true);else if(teacherReferralPageVisible())refreshTeacherReferrals(currentTeacherDossierId);},150);});
 document.addEventListener('visibilitychange',function(){if(!document.hidden&&teacherReferralPageVisible())refreshTeacherReferrals(currentTeacherDossierId);});
-document.addEventListener('focusin',function(e){var t=e.target;if(t&&t.tagName==='SELECT'&&t.closest&&t.closest('#dastyar-smart-followup-list')){selectInteractionUntil=Date.now()+45000;window.__dastyarFollowupSelectLockUntil=selectInteractionUntil;}},true);
+document.addEventListener('focusin',function(e){var t=e.target;if(t&&t.closest&&t.closest('#dastyar-smart-followup-list')&&['SELECT','INPUT','TEXTAREA'].indexOf(t.tagName)>=0){selectInteractionUntil=Date.now()+60000;window.__dastyarFollowupSelectLockUntil=selectInteractionUntil;}},true);
 document.addEventListener('pointerdown',function(e){var t=e.target;if(t&&t.tagName==='SELECT'&&t.closest&&t.closest('#dastyar-smart-followup-list')){selectInteractionUntil=Date.now()+60000;window.__dastyarFollowupSelectLockUntil=selectInteractionUntil;}else if(t&&!(t.closest&&t.closest('#dastyar-smart-followup-list select'))){selectInteractionUntil=0;window.__dastyarFollowupSelectLockUntil=0;}},true);
 document.addEventListener('touchstart',function(e){var t=e.target;if(t&&t.tagName==='SELECT'&&t.closest&&t.closest('#dastyar-smart-followup-list')){selectInteractionUntil=Date.now()+60000;window.__dastyarFollowupSelectLockUntil=selectInteractionUntil;}},true);
-document.addEventListener('change',function(e){var t=e.target;if(t&&t.tagName==='SELECT'&&t.closest&&t.closest('#dastyar-smart-followup-list')){selectInteractionUntil=0;window.__dastyarFollowupSelectLockUntil=0;}},true);
+document.addEventListener('change',function(e){var t=e.target;if(t&&t.closest&&t.closest('#dastyar-smart-followup-list')&&['SELECT','INPUT','TEXTAREA'].indexOf(t.tagName)>=0){selectInteractionUntil=Date.now()+60000;window.__dastyarFollowupSelectLockUntil=selectInteractionUntil;}},true);
 
 })();
 </script>
