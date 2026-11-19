@@ -234,56 +234,45 @@ button{width:100%;margin-top:14px;padding:12px;border:0;border-radius:12px;backg
     html+=referralList("ارزشیابی درسی",["evaluation"]);
     html+=list("نمرات",dateSort(p.scores),function(a){return "<div class=\"item\">"+esc(trSubject(a.subject||""))+" — نمره: "+esc(a.score==null?"—":a.score)+" — "+esc(trLevel(a.level||""))+(a.notes?(" — "+esc(a.notes)):"")+"</div>";});
     html+=referralList("نمرات کارنامه",["scores"]);
-    var progressByDate=Object.create(null);
+    var progressByDate=Object.create(null),progressSubjects=[],progressSeen=Object.create(null);
     function progressValue(r){
       var raw=r&&r.score;
-      if(raw!=null&&raw!==""){
-        var n=Number(String(raw).replace(/[۰-۹]/g,function(d){return "۰۱۲۳۴۵۶۷۸۹".indexOf(d);}).replace(/[٠-٩]/g,function(d){return "٠١٢٣٤٥٦٧٨٩".indexOf(d);}).replace(/,/g,""));
-        if(Number.isFinite(n)){var pct=Math.max(0,Math.min(100,n>20?n:n*5));return {percent:pct,grade20:pct/5};}
-      }
-      var lv={"excellent":95,"good":80,"acceptable":60,"needs":35,"خیلی خوب":95,"خوب":80,"قابل قبول":60,"نیاز به تلاش":35};
-      var key=String(r&&(r.level||r.result)||"").trim().toLowerCase();
+      if(raw!=null&&raw!==""){var n=Number(String(raw).replace(/[۰-۹]/g,function(d){return "۰۱۲۳۴۵۶۷۸۹".indexOf(d);}).replace(/[٠-٩]/g,function(d){return "٠١٢٣٤٥٦٧٨٩".indexOf(d);}).replace(/,/g,""));if(Number.isFinite(n)){var pct=Math.max(0,Math.min(100,n>20?n:n*5));return {percent:pct,grade20:pct/5};}}
+      var lv={"excellent":95,"good":80,"acceptable":60,"needs":35,"خیلی خوب":95,"خوب":80,"قابل قبول":60,"نیاز به تلاش":35},key=String(r&&(r.level||r.result)||"").trim().toLowerCase();
       return Object.prototype.hasOwnProperty.call(lv,key)?{percent:lv[key],grade20:lv[key]/5}:null;
     }
     function addProgress(r){
-      if(!r)return;
-      var date=String(r.date||r.created_at||r.updated_at||"").slice(0,10),v=progressValue(r);
-      if(!date||!v)return;
-      if(!progressByDate[date])progressByDate[date]=[];
-      progressByDate[date].push(v);
+      if(!r)return;var rid=String(r.id||"");if(rid&&progressSeen[rid])return;if(rid)progressSeen[rid]=true;
+      var date=String(r.date||r.created_at||r.updated_at||"").slice(0,10),v=progressValue(r),subject=trSubject(r.subject||r.lesson||r.exam_name||r.name||"درس نامشخص")||"درس نامشخص";
+      if(!date||!v)return;if(!progressByDate[date])progressByDate[date]=Object.create(null);
+      if(!progressByDate[date][subject]){progressByDate[date][subject]=[];if(progressSubjects.indexOf(subject)<0)progressSubjects.push(subject);}
+      progressByDate[date][subject].push(v);
     }
-    arr(p.activities).filter(function(a){return a&&(a.type==="qa"||a.type==="exam");}).forEach(addProgress);
-    arr(p.exams).forEach(addProgress);
-    arr(p.evaluations).forEach(addProgress);
-    arr(p.scores).forEach(addProgress);
-    var progressRows=Object.keys(progressByDate).sort().map(function(date){
-      var values=progressByDate[date],n=values.length;
-      return {date:date,percent:values.reduce(function(a,v){return a+v.percent;},0)/n,grade20:values.reduce(function(a,v){return a+v.grade20;},0)/n,count:n};
-    });
+    arr(p.activities).filter(function(a){return a&&(a.type==="qa"||a.type==="exam");}).forEach(addProgress);arr(p.exams).forEach(addProgress);arr(p.evaluations).forEach(addProgress);arr(p.scores).forEach(addProgress);
+    var progressDates=Object.keys(progressByDate).sort(),progressSeries=progressSubjects.map(function(subject){return {subject:subject,values:progressDates.map(function(date){var values=progressByDate[date][subject]||[];if(!values.length)return null;return {percent:values.reduce(function(a,v){return a+v.percent;},0)/values.length,grade20:values.reduce(function(a,v){return a+v.grade20;},0)/values.length,count:values.length};})};});
     function progressChartSvg(kind){
-      var W=760,H=310,L=58,R=22,T=24,B=54,pw=W-L-R,ph=H-T-B;
-      function x(i){return L+(progressRows.length<=1?pw/2:i*pw/(progressRows.length-1));}
+      var W=760,H=330,L=58,R=22,T=24,B=54,pw=W-L-R,ph=H-T-B,palette=["#2563eb","#0f766e","#d97706","#7c3aed","#db2777","#0891b2","#65a30d","#dc2626"];
+      function x(i){return L+(progressDates.length<=1?pw/2:i*pw/(progressDates.length-1));}
       function y(v){return T+ph-Math.max(0,Math.min(100,v))/100*ph;}
-      var grid="";
-      for(var n=0;n<=4;n++){var v=n*25,yy=y(v);grid+='<line x1="'+L+'" y1="'+yy.toFixed(1)+'" x2="'+(W-R)+'" y2="'+yy.toFixed(1)+'" stroke="#e8edf5"/><text x="'+(L-10)+'" y="'+(yy+4).toFixed(1)+'" text-anchor="end" font-size="11" fill="#64748b">'+faDigits(v)+'٪</text>';}
-      var labels="",step=Math.max(1,Math.ceil(progressRows.length/8));
-      progressRows.forEach(function(r,i){if(i%step===0||i===progressRows.length-1)labels+='<text x="'+x(i).toFixed(1)+'" y="'+(H-22)+'" text-anchor="middle" font-size="10" fill="#64748b">'+esc(r.date.slice(5))+'</text>';});
+      var grid="";for(var n=0;n<=4;n++){var v=n*25,yy=y(v);grid+='<line x1="'+L+'" y1="'+yy.toFixed(1)+'" x2="'+(W-R)+'" y2="'+yy.toFixed(1)+'" stroke="#e8edf5"/><text x="'+(L-10)+'" y="'+(yy+4).toFixed(1)+'" text-anchor="end" font-size="11" fill="#64748b">'+faDigits(v)+'٪</text>';}
+      var labels="",step=Math.max(1,Math.ceil(progressDates.length/8));progressDates.forEach(function(date,i){if(i%step===0||i===progressDates.length-1)labels+='<text x="'+x(i).toFixed(1)+'" y="'+(H-22)+'" text-anchor="middle" font-size="10" fill="#64748b">'+esc(date.slice(5))+'</text>';});
       var axes='<line x1="'+L+'" y1="'+T+'" x2="'+L+'" y2="'+(T+ph)+'" stroke="#94a3b8"/><line x1="'+L+'" y1="'+(T+ph)+'" x2="'+(W-R)+'" y2="'+(T+ph)+'" stroke="#94a3b8"/>';
       var marks="";
       if(kind==="bar"){
-        var bw=Math.max(9,Math.min(32,pw/Math.max(1,progressRows.length)*.56));
-        progressRows.forEach(function(r,i){var xx=x(i)-bw/2,yy=y(r.percent),hh=T+ph-yy;marks+='<rect x="'+xx.toFixed(1)+'" y="'+yy.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+Math.max(1,hh).toFixed(1)+'" rx="5" fill="#3b82f6"><title>'+esc(r.date)+' — '+faDigits(r.grade20.toFixed(1))+' از ۲۰، '+faDigits(r.percent.toFixed(1))+' درصد</title></rect>';if(progressRows.length<=12)marks+='<text x="'+x(i).toFixed(1)+'" y="'+Math.max(T+12,yy-20).toFixed(1)+'" text-anchor="middle" font-size="9" font-weight="700" fill="#1d4ed8">'+faDigits(r.grade20.toFixed(1))+'/۲۰</text><text x="'+x(i).toFixed(1)+'" y="'+Math.max(T+23,yy-7).toFixed(1)+'" text-anchor="middle" font-size="9" font-weight="700" fill="#2563eb">'+faDigits(Math.round(r.percent))+'٪</text>';});
-        return '<svg role="img" aria-label="نمودار میله‌ای نمره و درصد پیشرفت درسی" viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block;print-color-adjust:exact;-webkit-print-color-adjust:exact" xmlns="http://www.w3.org/2000/svg">'+grid+axes+marks+labels+'</svg>';
+        var slot=pw/Math.max(1,progressDates.length),bw=Math.max(4,Math.min(23,slot/Math.max(1,progressSeries.length)*.72));
+        progressDates.forEach(function(date,di){var total=bw*progressSeries.length,start=x(di)-total/2;progressSeries.forEach(function(s,si){var r=s.values[di];if(!r)return;var xx=start+si*bw,yy=y(r.percent),hh=T+ph-yy,col=palette[si%palette.length];marks+='<rect x="'+xx.toFixed(1)+'" y="'+yy.toFixed(1)+'" width="'+Math.max(2,bw-1).toFixed(1)+'" height="'+Math.max(1,hh).toFixed(1)+'" rx="3" fill="'+col+'"><title>'+esc(s.subject)+' — '+esc(date)+' — '+faDigits(r.grade20.toFixed(1))+' از ۲۰، '+faDigits(r.percent.toFixed(1))+'٪</title></rect>';});});
+      }else{
+        var paths="";progressSeries.forEach(function(s,si){var col=palette[si%palette.length],segment=[];function draw(seg){if(!seg.length)return;if(seg.length===1){var p=seg[0];marks+='<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="4.5" fill="'+col+'"/>';return;}var d="M "+seg[0].x.toFixed(1)+" "+seg[0].y.toFixed(1);for(var k=1;k<seg.length;k++){var prev=seg[k-1],cur=seg[k],mx=(prev.x+cur.x)/2;d+=" Q "+mx.toFixed(1)+" "+prev.y.toFixed(1)+" "+cur.x.toFixed(1)+" "+cur.y.toFixed(1);}paths+='<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="3.3" stroke-linecap="round" stroke-linejoin="round"/>';}
+          s.values.forEach(function(r,i){if(!r){draw(segment);segment=[];return;}var point={x:x(i),y:y(r.percent),date:progressDates[i],r:r};segment.push(point);marks+='<circle cx="'+point.x.toFixed(1)+'" cy="'+point.y.toFixed(1)+'" r="4.2" fill="'+col+'" stroke="#fff" stroke-width="1.5"><title>'+esc(s.subject)+' — '+esc(point.date)+' — '+faDigits(r.grade20.toFixed(1))+' از ۲۰، '+faDigits(r.percent.toFixed(1))+'٪</title></circle>';});draw(segment);});
+        marks=paths+marks;
       }
-      var d="";
-      progressRows.forEach(function(r,i){var xx=x(i),yy=y(r.percent);if(i===0)d="M "+xx.toFixed(1)+" "+yy.toFixed(1);else{var mx=(x(i-1)+xx)/2;d+=" Q "+mx.toFixed(1)+" "+y(progressRows[i-1].percent).toFixed(1)+" "+xx.toFixed(1)+" "+yy.toFixed(1);}});
-      marks='<path d="'+d+'" fill="none" stroke="#0f766e" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>';
-      progressRows.forEach(function(r,i){marks+='<circle cx="'+x(i).toFixed(1)+'" cy="'+y(r.percent).toFixed(1)+'" r="4.5" fill="#0f766e" stroke="#fff" stroke-width="2"><title>'+esc(r.date)+' — '+faDigits(r.grade20.toFixed(1))+' از ۲۰، '+faDigits(r.percent.toFixed(1))+' درصد</title></circle>';});
-      return '<svg role="img" aria-label="نمودار خطی منحنی روند پیشرفت و افت درسی" viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block;print-color-adjust:exact;-webkit-print-color-adjust:exact" xmlns="http://www.w3.org/2000/svg">'+grid+axes+marks+labels+'</svg>';
+      return '<svg role="img" aria-label="'+(kind==="bar"?"نمودار میله‌ای نمرات هر درس در روزهای مختلف":"نمودار خطی روند هر درس در روزهای مختلف")+'" viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block;print-color-adjust:exact;-webkit-print-color-adjust:exact" xmlns="http://www.w3.org/2000/svg">'+grid+axes+marks+labels+'</svg>';
     }
-    if(progressRows.length){
-      var latestProgress=progressRows[progressRows.length-1];
-      html+='<div class="section"><h3>روند پیشرفت و افت تحصیلی</h3><div class="meta">فقط سوابق درسی تاریخ‌دار؛ نمرهٔ استانداردشده از ۲۰ و درصد معادل از ۱۰۰</div><div class="item"><b>نمودار میله‌ای نمره و درصد درسی</b><div class="meta">مقایسه نمره و درصد در تاریخ‌های ثبت‌شده</div>'+progressChartSvg("bar")+'</div><div class="item"><b>نمودار خطی منحنی روند پیشرفت و افت درسی</b><div class="meta">خط فقط بر اساس تاریخ‌های دارای سابقه درسی رسم می‌شود</div>'+progressChartSvg("line")+'</div><div class="meta">آخرین میانگین: '+faDigits(latestProgress.grade20.toFixed(1))+' از ۲۰ | '+faDigits(latestProgress.percent.toFixed(1))+'٪ | تعداد ثبت‌ها: '+faDigits(latestProgress.count)+'</div></div>';
+    if(progressDates.length&&progressSeries.length){
+      var latestValues=progressSeries.map(function(s){return s.values[s.values.length-1];}).filter(Boolean),latestCount=latestValues.reduce(function(a,v){return a+v.count;},0),latestPercent=latestValues.length?latestValues.reduce(function(a,v){return a+v.percent;},0)/latestValues.length:0,latestGrade=latestPercent/5;
+      var paletteLegend=["#2563eb","#0f766e","#d97706","#7c3aed","#db2777","#0891b2","#65a30d","#dc2626"];
+      var legend='<div class="meta" style="display:flex;flex-wrap:wrap;gap:5px 12px;margin:6px 0">'+progressSeries.map(function(s,i){return '<span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:'+paletteLegend[i%paletteLegend.length]+'"></i> '+esc(s.subject)+'</span>';}).join('')+'</div>';
+      html+='<div class="section"><h3>روند پیشرفت و افت تحصیلی</h3><div class="meta">نمره و درصد هر درس در روزهای مختلف؛ رنگ هر درس در راهنمای نمودار مشخص است.</div><div class="item"><b>نمودار میله‌ای نمره و درصد به تفکیک درس</b>'+legend+progressChartSvg("bar")+'</div><div class="item"><b>نمودار خطی روند هر درس در روزهای مختلف</b>'+legend+progressChartSvg("line")+'</div><div class="meta">آخرین میانگین درس‌های ثبت‌شده: '+faDigits(latestGrade.toFixed(1))+' از ۲۰ | '+faDigits(latestPercent.toFixed(1))+'٪ | تعداد ثبت‌ها: '+faDigits(latestCount)+'</div></div>';
     }else{
       html+='<div class="section"><h3>روند پیشرفت تحصیلی</h3><div class="item">برای رسم نمودار، هنوز نمره یا ارزشیابی درسی تاریخ‌دار ثبت نشده است.</div></div>';
     }
