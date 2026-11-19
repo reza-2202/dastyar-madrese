@@ -14533,9 +14533,9 @@ function toggleDashboardStatsRail(open){
   }
   async function reviewAchievementV1(id,status){
     try{
-      var note=document.querySelector('[data-ach-note="'+CSS.escape(String(id))+'"]');
-      var medal=document.querySelector('[data-ach-medal="'+CSS.escape(String(id))+'"]');
-      var r=await sb.rpc('sa_achievements_review',{p_username:user.username,p_password:window.__dastyarSessionPassword||'',p_id:String(id),p_status:status,p_decision_text:note?note.value:'',p_award_type:status==='approved'?'تقدیر مدیر':'',p_medal_level:medal&&status==='approved'?medal.value:null,p_medal_image_url:null});
+      var note=Array.prototype.find.call(document.querySelectorAll('[data-ach-note]'),function(x){return x.getAttribute('data-ach-note')===String(id);});
+      var medal=Array.prototype.find.call(document.querySelectorAll('[data-ach-medal]'),function(x){return x.getAttribute('data-ach-medal')===String(id);});
+      var r=await sb.rpc('sa_achievements_review',{p_username:user.username,p_password:window.__dastyarSessionPassword||'',p_id:String(id),p_status:status,p_decision_text:note?note.value:'',p_award_type:status==='approved'?'تقدیر مدیر':'',p_medal_level:medal&&status==='approved'?(medal.value||null):null,p_medal_image_url:null});
       if(r.error)throw new Error(r.error.message||'ثبت تصمیم مدیر ناموفق بود.');
       statusV1(status==='approved'?'تصمیم مدیر ثبت شد و نتیجه برای معلم قابل مشاهده است.':'درخواست رد شد و نتیجه برای معلم قابل مشاهده است.',false);
       await loadAchievementsV1();
