@@ -14351,14 +14351,14 @@ function renderPage(){
  html+='<div class="fg"><label>زمینه</label><select id="ach-category"><option value="تلاش و پشتکار">تلاش و پشتکار</option><option value="پیشرفت تحصیلی">پیشرفت تحصیلی</option><option value="اخلاق و همکاری">اخلاق و همکاری</option><option value="خلاقیت و مهارت">خلاقیت و مهارت</option><option value="مسئولیت‌پذیری">مسئولیت‌پذیری</option><option value="حضور و مشارکت">حضور و مشارکت</option><option value="سایر">سایر</option></select></div>';
  html+='<div class="fg"><label>توضیح و دلیل تشویق</label><textarea id="ach-reason" rows="3" maxlength="1200" placeholder="رفتار، تلاش یا پیشرفت قابل مشاهده را توضیح دهید"></textarea></div>';
  html+='<div class="fg"><label>ارتباط با کدام بخش؟</label><select id="ach-source"><option value="">تشویق مستقل</option><option value="activity">پرسش و فعالیت روزانه</option><option value="evaluation">ارزشیابی</option><option value="discipline">انضباط</option><option value="attendance">حضور و غیاب</option><option value="other">سایر فعالیت‌ها</option></select></div>';
- html+='<button class="btn btn-p" id="ach-save">ثبت تشویق مستقل</button>';
+ html+='<button class="btn btn-p" id="ach-save">ثبت تشویق مستقل</button><button class="btn btn-o" id="ach-nominate" style="margin-right:6px">معرفی دانش‌آموز شاخص به مدیر</button>';
  if(isAdmin())html+='<button class="btn btn-o" id="ach-request" style="margin-right:6px">درخواست معرفی از معلم کلاس</button>';
  html+='</div><div id="ach-list"></div>';
  root.innerHTML=html;
  var cs=document.getElementById('ach-class'),ss=document.getElementById('ach-student');
  function fillStudents(){var a=studentsForClass(cs.value);ss.innerHTML=a.map(function(st){return '<option value="'+esc(st.id)+'">'+esc((st.first_name||'')+' '+(st.last_name||''))+'</option>'}).join('')||'<option value="">دانش‌آموزی نیست</option>'}
  if(cs){cs.addEventListener('change',fillStudents);fillStudents();}
- document.getElementById('ach-save').onclick=function(){saveRecord('recognition')};
+ document.getElementById('ach-save').onclick=function(){saveRecord('recognition')};\n document.getElementById('ach-nominate').onclick=function(){saveRecord('nomination')};
  var req=document.getElementById('ach-request');if(req)req.onclick=function(){saveRecord('nomination_request')};
  document.getElementById('ach-list').innerHTML=visible.slice().sort(function(a,b){return String(b.created_at||'').localeCompare(String(a.created_at||''))}).map(function(r){
  var m=medal(r),status=r.status==='approved'?'تأیید مدیر':r.status==='rejected'?'رد شده':r.status==='answered'?'پاسخ مدیر':'در انتظار بررسی';
@@ -14374,7 +14374,7 @@ async function saveRecord(kind){
  if(!classId||!studentId||!allowedStudent(studentId)){toast('کلاس و دانش‌آموز مجاز را انتخاب کنید');return}
  if(!reason.value.trim()){toast('دلیل تشویق را بنویسید');return}
  var cl=(cache.classes||[]).find(function(c){return String(c.id)===String(classId)});
- var rec={id:(crypto&&crypto.randomUUID?crypto.randomUUID():('ach-'+Date.now()+'-'+Math.random().toString(36).slice(2))),student_id:String(studentId),class_id:String(classId),kind:kind,status:'pending',title:title.value.trim()||(kind==='nomination_request'?'درخواست معرفی دانش‌آموز شاخص':'ثبت تشویق'),category:document.getElementById('ach-category').value,reason:reason.value.trim(),source_section:document.getElementById('ach-source').value||null,date:typeof today==='function'?today():new Date().toISOString().slice(0,10),target_teacher_username:kind==='nomination_request'?(cl&&cl.teacher_user||''):null};
+ var rec={id:(crypto&&crypto.randomUUID?crypto.randomUUID():('ach-'+Date.now()+'-'+Math.random().toString(36).slice(2))),student_id:String(studentId),class_id:String(classId),kind:kind,status:'pending',title:title.value.trim()||(kind==='nomination_request'?'درخواست معرفی دانش‌آموز شاخص':kind==='nomination'?'معرفی دانش‌آموز شاخص':'ثبت تشویق'),category:document.getElementById('ach-category').value,reason:reason.value.trim(),source_section:document.getElementById('ach-source').value||null,date:typeof today==='function'?today():new Date().toISOString().slice(0,10),target_teacher_username:kind==='nomination_request'?(cl&&cl.teacher_user||''):null};
  if(kind==='nomination_request'&&!rec.target_teacher_username){toast('برای این کلاس حساب کاربری معلم مشخص نیست؛ درخواست ثبت نشد');return}
  if(!navigator.onLine||window.isOffline||!sb){rec._localPending=true;rec.created_by=user.full_name||user.username;rec.created_by_username=user.username;rec.created_role=user.role;var a=read();a.unshift(rec);if(!write(a)){toast('ذخیره محلی انجام نشد؛ فضای گوشی را بررسی کنید');return}toast('درخواست روی گوشی ذخیره شد و پس از اتصال همگام می‌شود');renderPage();return}
  try{var data=await rpc('sa_achievements_save',{p_username:creds().p_username,p_password:creds().p_password,p_record:rec});var a=read().filter(function(x){return String(x.id)!==String(rec.id)});a.unshift(data);write(a);toast(kind==='nomination_request'?'درخواست معرفی برای معلم ارسال شد':'تشویق ثبت شد و برای بررسی مدیر ارسال گردید');await load();renderPage();}
@@ -14418,7 +14418,7 @@ if(typeof oldParentGenerate==='function')window.generateParentPortalLink=async f
 window.__dastyarLoadAchievements=load;
 window.refreshStudentAchievements=async function(){await load();renderPage();var d=document.getElementById('print-student-dossier');if(d){var id=(d.querySelector('[data-student-id]')||{}).dataset?.studentId;if(id)renderDossier(id)}};
 window.addEventListener('online',function(){setTimeout(async function(){await syncPending();await load();renderPage()},900)});
-window.addEventListener('focus',function(){if(user&&document.getElementById(PAGE)&&document.getElementById(PAGE).classList.contains('on'))load().then(renderPage)});
+window.addEventListener('focus',function(){if(user&&document.getElementById(PAGE)&&document.getElementById(PAGE).classList.contains('on'))load().then(renderPage)});\nwindow.setInterval(function(){var p=document.getElementById(PAGE);if(user&&user.role==='teacher'&&p&&p.classList.contains('on')&&!document.hidden)load().then(renderPage)},10000);
 document.addEventListener('DOMContentLoaded',function(){installPage();rows=read();window.__dastyarAchievementsRows=rows;});
 setTimeout(function(){installPage();rows=read();window.__dastyarAchievementsRows=rows},1200);
 })();
