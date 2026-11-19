@@ -14484,6 +14484,14 @@ async function submitFromSource(source,section){
   created_at:new Date().toISOString()
  };
  var database=getSb();
+ if(section==='exam'){
+  if(!navigator.onLine||window.isOffline||!database){notify('آزمون در حالت آفلاین ثبت شده است؛ برای جلوگیری از درخواست بدون سابقه سروری، تشویق را پس از همگام‌سازی از بخش افتخارات ثبت کنید');return false}
+  try{
+   var verified=await database.from('sa_activities').select('id').eq('id',sourceId).limit(1);
+   var found=Array.isArray(verified&&verified.data)?verified.data.some(function(x){return String(x.id)===sourceId}):!!(verified&&verified.data&&String(verified.data.id)===sourceId);
+   if(!verified||verified.error||!found){notify('ثبت آزمون در سرور تأیید نشد؛ درخواست تشویق ارسال نشد و اطلاعات آزمون دست‌نخورده ماند');return false}
+  }catch(verifyError){notify('امکان تأیید ثبت آزمون در سرور نبود؛ درخواست تشویق ارسال نشد');return false}
+ }
  if(!navigator.onLine||window.isOffline||!database){
   rec._localPending=true;list.unshift(rec);
   try{localStorage.setItem(key,JSON.stringify(list));window.__dastyarAchievementsRows=list;notify('درخواست تشویق در گوشی ذخیره شد و پس از اتصال برای مدیر ارسال می‌شود');return true}
