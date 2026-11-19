@@ -1178,6 +1178,11 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <p style="font-size:.75rem;opacity:.9;margin-top:8px">مدیریت مدرسه شهید فتح‌الله فلاح‌پور</p>
 <p style="font-size:.72rem;opacity:.85">صاحب امتیاز و سازنده: رضا فلاحتکار</p>
 </div>
+<div class="home-tiles" aria-label="نمایش داشبورد">
+<details class="home-tile-group group-dashboard" id="dashboard-stats-toggle" aria-label="داشبورد آمار" ontoggle="toggleDashboardStatsRail(this.open)">
+<summary class="home-tile-group-title"><span class="home-tile-group-mark">📊</span><span>داشبورد</span></summary>
+</details>
+</div>
 <div class="sg" id="dashboard-stats-rail" style="display:none">
 <div class="sc"><div class="n" id="st-s">۰</div><div class="l">دانش‌آموز</div></div>
 <div class="sc"><div class="n" id="st-c">۰</div><div class="l">کلاس</div></div>
@@ -1270,12 +1275,9 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <div id="qa-class-list" class="card" style="display:none"><div class="ct">🗣️ آمار پرسش و پاسخ روزانه کلاس‌ها</div><div class="meta" style="margin-bottom:8px">سبز: دارای ثبت پرسش و پاسخ | خاکستری: بدون ثبت</div><div id="qa-class-list-items" class="meta"></div></div>
 
 <div id="parent-invitation-class-list" class="card" style="display:none"><div class="ct">✉️ کلاس‌های درخواست‌دهنده دعوت‌نامه امروز</div><div class="meta" style="margin-bottom:8px">فقط درخواست‌های ثبت‌شده در تاریخ امروز نمایش داده می‌شوند.</div><div id="parent-invitation-class-list-items" class="meta"></div></div>
-<div class="card">
+<div class="card" id="dashboard-quick-access-card">
 <div class="ct">دسترسی سریع به بخش‌های برنامه</div>
 <div class="home-tiles" aria-label="دسترسی به امکانات برنامه">
-<details class="home-tile-group group-dashboard" id="dashboard-stats-toggle" name="dastyar-home-groups" aria-label="داشبورد آمار" ontoggle="toggleDashboardStatsRail(this.open)">
-<summary class="home-tile-group-title"><span class="home-tile-group-mark">📊</span><span>داشبورد</span></summary>
-</details>
 <details class="home-tile-group group-students" name="dastyar-home-groups" aria-label="امور دانش‌آموزان">
 <summary class="home-tile-group-title"><span class="home-tile-group-mark">🎓</span><span>امور دانش‌آموزان</span></summary>
 <div class="home-tiles-grid">
@@ -14405,9 +14407,10 @@ window.addEventListener('focus',function(){setTimeout(function(){if(M()&&panelOp
 <script id="dastyar-dashboard-stats-toggle-20261119">
 function toggleDashboardStatsRail(open){
  var rail=document.getElementById('dashboard-stats-rail');
- if(!rail)return;
- rail.style.display=open?'grid':'none';
- if(open){rail.scrollIntoView({behavior:'smooth',block:'nearest'});}
+ var quick=document.getElementById('dashboard-quick-access-card');
+ if(rail)rail.style.display=open?'grid':'none';
+ if(quick)quick.style.display=open?'none':'';
+ if(open&&rail){rail.scrollIntoView({behavior:'smooth',block:'nearest'});}
 }
 </script>
 
