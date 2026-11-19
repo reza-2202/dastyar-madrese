@@ -14067,7 +14067,7 @@ function recordLine(r){return [r.date||r.created_at||'',r.subject||r.category||r
 function snapRecords(rows){return rows.slice(0,30).map(function(r){return {id:String(r.id||''),date:String(r.date||r.created_at||''),subject:String(r.subject||r.category||r.feedback||r.exam_name||r.name||''),status:String(r.status||''),level:String(r.level||''),score:r.score==null?null:r.score,details:String(r.details||r.notes||'').slice(0,500),recorded_by:String(r.recorded_by||r.created_by||'')};});}
 function statusFa(s){return s==='done'?'پیگیری انجام شد':s==='in_progress'?'در حال پیگیری':'در انتظار پیگیری';}
 function node(tag,cls,txt){var n=document.createElement(tag);if(cls)n.className=cls;if(txt!=null)n.textContent=String(txt);return n;}
-function mergeRows(rows,id){var c=C();c.activities=A(c.activities).filter(function(r){return !(r&&r.type===TYPE&&(!id||String(r.student_id)===String(id)));}).concat(A(rows));try{if(typeof persistLocalSchoolCache==='function')persistLocalSchoolCache();}catch(e){}}
+function mergeRows(rows,id){var c=C(),server=A(rows),serverIds=new Set(server.map(function(r){return String(r.id);}));var keep=A(c.activities).filter(function(r){return r&&r.type===TYPE&&(!id||String(r.student_id)===String(id))&&(r.pending_upload===true||r.sync_status==='pending_upload')&&!serverIds.has(String(r.id));});c.activities=A(c.activities).filter(function(r){return !(r&&r.type===TYPE&&(!id||String(r.student_id)===String(id)));}).concat(server,keep);try{if(typeof persistLocalSchoolCache==='function')persistLocalSchoolCache();}catch(e){}}
 async function fetchStudentRefs(id){
  if(!sb||!navigator.onLine||window.isOffline||!id||busyTeacher)return;
  busyTeacher=true;
@@ -14126,7 +14126,7 @@ async function sendReferral(id,cat,key){
  var st=student(id),u=U();if(!st)return;
  var m={tag:TAG,source_type:cat.key,source_title:cat.title,source_key:key,threshold:THRESHOLD,trigger_count:cat.rows.length,source_records:snapRecords(cat.rows),teacher_name:(u&&(u.full_name||u.username))||'معلم',status:'referred',assignee:'',followup_result:'',created_at:new Date().toISOString(),updated_at:''};
  var row={id:typeof uid==='function'?uid():'ref_'+Date.now(),student_id:String(id),class_id:String(st.class_id||''),type:TYPE,subject:'ارجاع مدیریتی — '+cat.title,weekday:'',date:dateNow(),level:'needs',notes:JSON.stringify(m),recorded_by:m.teacher_name};
- try{var out=await sb.from('sa_activities').insert(row);if(out&&out.error)throw out.error;localPut(row);renderTeacher(id);if(typeof toast==='function')toast(out&&out.offline?'ارجاع ثبت و برای همگام‌سازی نگهداری شد.':'ارجاع با موفقیت برای مدیریت ارسال شد.');}
+ try{var out=await sb.from('sa_activities').insert(row);if(out&&out.error)throw out.error;if(out&&out.offline)row.pending_upload=true;localPut(row);renderTeacher(id);if(typeof toast==='function')toast(out&&out.offline?'ارجاع ثبت و برای همگام‌سازی نگهداری شد.':'ارجاع با موفقیت برای مدیریت ارسال شد.');}
  catch(e){if(typeof toast==='function')toast('ارسال ارجاع انجام نشد: '+(e.message||e));}
 }
 function managerCard(row){
@@ -14157,7 +14157,7 @@ function renderManager(){
 async function saveFollowup(row,person,status,result){
  if(!M())return;var m=meta(row);if(!m)return;
  m.assignee=person;m.status=status;m.followup_result=result;m.followup_at=dateNow();m.updated_at=new Date().toISOString();m.updated_by=(U()&&(U().full_name||U().username))||'مدیریت';
- try{var out=await sb.from('sa_activities').update({notes:JSON.stringify(m)}).eq('id',row.id);if(out&&out.error)throw out.error;row.notes=JSON.stringify(m);localPut(row);renderManager();if(typeof toast==='function')toast(out&&out.offline?'پیگیری ثبت و برای همگام‌سازی نگهداری شد.':'پیگیری ثبت شد؛ نتیجه برای معلم قابل دریافت است.');}
+ try{var out=await sb.from('sa_activities').update({notes:JSON.stringify(m)}).eq('id',row.id);if(out&&out.error)throw out.error;if(out&&out.offline)row.pending_upload=true;row.notes=JSON.stringify(m);localPut(row);renderManager();if(typeof toast==='function')toast(out&&out.offline?'پیگیری ثبت و برای همگام‌سازی نگهداری شد.':'پیگیری ثبت شد؛ نتیجه برای معلم قابل دریافت است.');}
  catch(e){if(typeof toast==='function')toast('ثبت پیگیری انجام نشد: '+(e.message||e));}
 }
 function panelOpen(){var b=document.getElementById('manager-performance-center-body');return !!(b&&b.style.display!=='none'&&(!document.getElementById('page-dashboard')||document.getElementById('page-dashboard').classList.contains('on')));}
