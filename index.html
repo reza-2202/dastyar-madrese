@@ -1261,16 +1261,16 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <div class="card">
 <div class="ct">دسترسی سریع به بخش‌های برنامه</div>
 <div class="home-tiles" aria-label="دسترسی به امکانات برنامه">
-<section class="home-tile-group group-students" aria-label="امور دانش‌آموزان">
-<div class="home-tile-group-title"><span class="home-tile-group-mark">🎓</span><span>امور دانش‌آموزان</span></div>
+<details class="home-tile-group group-students" name="dastyar-home-groups" aria-label="امور دانش‌آموزان">
+<summary class="home-tile-group-title"><span class="home-tile-group-mark">🎓</span><span>امور دانش‌آموزان</span></summary>
 <div class="home-tiles-grid">
 <button class="home-tile" onclick="go('students')"><span class="tile-icon">👨‍🎓</span><span class="tile-label">دانش‌آموزان</span></button>
 <button class="home-tile" onclick="go('studentfile')"><span class="tile-icon" style="background:#dbeafe">📁👨‍🎓</span><span class="tile-label">پرونده دانش‌آموز</span></button>
 <button class="home-tile" id="student-data-tools-tile" onclick="go('studentdata')" style="display:none"><span class="tile-icon" style="background:#d1fae5">📥📊</span><span class="tile-label">ورود و خروجی اطلاعات دانش‌آموزان</span></button>
 </div>
-</section>
-<section class="home-tile-group group-attendance" aria-label="حضور، انضباط و پیگیری">
-<div class="home-tile-group-title"><span class="home-tile-group-mark">📌</span><span>حضور، انضباط و پیگیری</span></div>
+</details>
+<details class="home-tile-group group-attendance" name="dastyar-home-groups" aria-label="حضور، انضباط و پیگیری">
+<summary class="home-tile-group-title"><span class="home-tile-group-mark">📌</span><span>حضور، انضباط و پیگیری</span></summary>
 <div class="home-tiles-grid">
 <button class="home-tile" onclick="go('attendance')"><span class="tile-icon">✅</span><span class="tile-label">حضور و غیاب</span></button>
 <button class="home-tile" onclick="go('absentees')"><span class="tile-icon" style="background:#fee2e2">🚫📋</span><span class="tile-label">گزارش غایبین</span></button>
@@ -1278,9 +1278,9 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <button class="home-tile" id="invitation-tile" onclick="go('invitation')"><span class="tile-icon" style="background:#fef3c7">✉️</span><span class="tile-label">دعوتنامه حضوری اولیا</span></button>
 <button class="home-tile" id="parent-contact-tile" onclick="go('parentcontact')"><span class="tile-icon" style="background:#fff7ed">📞👨‍👩‍👧</span><span class="tile-label">دفتر تماس با اولیا</span></button>
 </div>
-</section>
-<section class="home-tile-group group-learning" aria-label="آموزش و ارزشیابی">
-<div class="home-tile-group-title"><span class="home-tile-group-mark">📚</span><span>آموزش و ارزشیابی</span></div>
+</details>
+<details class="home-tile-group group-learning" name="dastyar-home-groups" aria-label="آموزش و ارزشیابی">
+<summary class="home-tile-group-title"><span class="home-tile-group-mark">📚</span><span>آموزش و ارزشیابی</span></summary>
 <div class="home-tiles-grid">
 <button class="home-tile" onclick="go('activity')"><span class="tile-icon">🗣️</span><span class="tile-label">پرسش و فعالیت روزانه</span></button>
 <button class="home-tile" onclick="go('evaluation')"><span class="tile-icon">📝</span><span class="tile-label">ارزشیابی</span></button>
@@ -1289,24 +1289,28 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <button class="home-tile" onclick="go('weekly')"><span class="tile-icon" style="background:#dbeafe">🗓️</span><span class="tile-label">برنامه هفتگی</span></button>
 <button class="home-tile" id="teacher-class-report-tile" onclick="go('teacherreport')"><span class="tile-icon" style="background:#e0f2fe">📋📈</span><span class="tile-label">گزارش کلاس من</span></button>
 </div>
-</section>
-<section class="home-tile-group group-management" aria-label="مدیریت و امور اجرایی">
-<div class="home-tile-group-title"><span class="home-tile-group-mark">🏫</span><span>مدیریت و امور اجرایی</span></div>
+</details>
+<details class="home-tile-group group-management" name="dastyar-home-groups" aria-label="مدیریت و امور اجرایی">
+<summary class="home-tile-group-title"><span class="home-tile-group-mark">🏫</span><span>مدیریت و امور اجرایی</span></summary>
 <div class="home-tiles-grid">
 <button class="home-tile" onclick="go('finance')"><span class="tile-icon" style="background:#dcfce7">💰🧾</span><span class="tile-label">مالی و حسابداری</span></button>
 <button class="home-tile" id="teacher-accounts-tile" onclick="go('teacheraccounts')" style="display:none"><span class="tile-icon" style="background:#dbeafe">👩‍🏫🔐</span><span class="tile-label">مدیریت معلمان و رمزها</span></button>
 <button class="home-tile" id="teacher-performance-tile" onclick="go('teacherperformance')" style="display:none"><span class="tile-icon" style="background:#ede9fe;color:#5b21b6">🧑‍🏫📋</span><span class="tile-label">عملکرد و ارزیابی معلمان</span></button>
 <button class="home-tile" id="monthly-report-tile" onclick="go('monthlyreport')" style="display:none"><span class="tile-icon" style="background:#ecfdf5">📊📅</span><span class="tile-label">گزارش ماهانه مدیر</span></button>
 </div>
-</section>
-<section class="home-tile-group group-communication" aria-label="ارتباطات و اسناد">
-<div class="home-tile-group-title"><span class="home-tile-group-mark">🤝</span><span>ارتباطات و اسناد</span></div>
+</details>
+<details class="home-tile-group group-performance" name="dastyar-home-groups" aria-label="پایش عملکرد هوشمند">
+<summary class="home-tile-group-title"><span class="home-tile-group-mark">📈</span><span>پایش عملکرد هوشمند مدرسه</span></summary>
+<div class="home-tiles-grid"><button class="home-tile" id="manager-performance-center-tile" type="button" style="display:none" onclick="window.toggleDashboardFeature('performance',true)"><span class="tile-icon" style="background:#ede9fe;color:#5b21a5">📊</span><span class="tile-label">مرکز پایش عملکرد مدرسه</span></button></div>
+</details>
+<details class="home-tile-group group-communication" name="dastyar-home-groups" aria-label="ارتباطات و اسناد">
+<summary class="home-tile-group-title"><span class="home-tile-group-mark">🤝</span><span>ارتباطات و اسناد</span></summary>
 <div class="home-tiles-grid">
 <button class="home-tile" onclick="go('documents')"><span class="tile-icon">📎</span><span class="tile-label">ارسال و مدیریت فایل‌ها</span></button>
 <button class="home-tile" onclick="go('chat')"><span class="tile-icon">💬</span><span class="tile-label">گفت‌وگوی متنی و صوتی</span></button>
 <button class="home-tile" onclick="go('parentmeet')"><span class="tile-icon" style="background:#ccfbf1">👨‍👩‍👧‍👦</span><span class="tile-label">ارتباط با اولیا و جلسات</span></button>
 </div>
-</section>
+</details>
 </div>
 </div>
 <div class="card" style="text-align:center">
@@ -13698,11 +13702,12 @@ function buildTrendPrintHtml(report){
 function build(){
 
   if(!currentManager())return null;
+  var performanceTile=document.getElementById('manager-performance-center-tile');if(performanceTile)performanceTile.style.display='flex';
   var dashboard=document.getElementById('page-dashboard');
   if(!dashboard)return null;
   var card=document.getElementById(CARD_ID);
   if(card){card.style.display='block';return card;}
-  var anchor=document.getElementById('sync-status-card')||dashboard.querySelector('.sg')||dashboard.querySelector('.wel');
+  var anchor=dashboard.querySelector('.group-performance .home-tiles-grid')||document.getElementById('sync-status-card')||dashboard.querySelector('.sg')||dashboard.querySelector('.wel');
   if(!anchor)return null;
   card=el('section','margin:10px 0;padding:12px;border:1px solid #cbd5e1;border-radius:12px;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.05)');
   card.id=CARD_ID;
@@ -14016,3 +14021,18 @@ window.printAbsenteesNeedsAttention=function(){
 </style>
 </body>
 </html>
+
+<style id="dastyar-focused-home-accordion">
+#page-dashboard .home-tile-group{padding:0;overflow:hidden;transition:border-color .12s ease,box-shadow .12s ease}
+#page-dashboard .home-tile-group>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;min-height:56px;margin:0;padding:10px 13px;border:0;border-radius:17px;background:linear-gradient(180deg,#fff 0%,#f7faff 100%);user-select:none;-webkit-tap-highlight-color:transparent}
+#page-dashboard .home-tile-group>summary::-webkit-details-marker{display:none}
+#page-dashboard .home-tile-group>summary:after{content:"＋";margin-right:auto;display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:9px;background:#eef4ff;color:#2456a6;font-size:19px;font-weight:800;line-height:1;flex:0 0 28px}
+#page-dashboard .home-tile-group[open]>summary{border-bottom:1px solid #e8edf5;border-radius:0;background:#f8fbff}
+#page-dashboard .home-tile-group[open]>summary:after{content:"−"}
+#page-dashboard .home-tile-group .home-tile-group-mark{flex:0 0 34px;width:34px;height:34px}
+#page-dashboard .home-tile-group .home-tiles-grid{padding:11px;animation:dastyarGroupReveal .13s ease-out}
+#page-dashboard .group-performance .home-tile-group-mark{background:#f1ebff;color:#6544a5}
+#page-dashboard .group-performance .tile-icon{background:#ede9fe!important;color:#6544a5}
+@keyframes dastyarGroupReveal{from{opacity:.82;transform:translateY(-2px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){#page-dashboard .home-tile-group,#page-dashboard .home-tile-group .home-tiles-grid{transition:none!important;animation:none!important}}
+</style>
