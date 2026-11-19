@@ -13725,14 +13725,11 @@ function addMetric(parent,label,value){
   parent.appendChild(tile);
 }
 function addPerformanceSection(parent,title,content,id){
- var section=el('section','margin:8px 0;border:1px solid #dbe3ef;border-radius:11px;background:#fff;overflow:hidden');
- section.className='dastyar-performance-section';if(id)section.id=id;
- var btn=el('button','width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 12px;border:0;background:#f8fbff;color:#1e3a8a;text-align:right;font:800 .78rem Vazirmatn,Tahoma,sans-serif;cursor:pointer',title);
- btn.type='button';btn.setAttribute('aria-expanded','false');
- var arrow=el('span','flex:0 0 auto;width:23px;height:23px;border-radius:7px;background:#dbeafe;display:inline-flex;align-items:center;justify-content:center','⌄');
- var panel=el('div','display:none;padding:9px;border-top:1px solid #e5edf7');panel.appendChild(content);btn.appendChild(arrow);
- btn.onclick=function(){var open=btn.getAttribute('aria-expanded')!=='true';Array.prototype.forEach.call(parent.querySelectorAll(':scope > .dastyar-performance-section'),function(other){if(other!==section){var b=other.querySelector(':scope > button'),p=other.querySelector(':scope > div');if(b&&p){b.setAttribute('aria-expanded','false');var a=b.querySelector('span');if(a)a.textContent='⌄';p.style.display='none';}}});btn.setAttribute('aria-expanded',open?'true':'false');arrow.textContent=open?'⌃':'⌄';panel.style.display=open?'block':'none';};
- section.appendChild(btn);section.appendChild(panel);parent.appendChild(section);return section;
+ var section=el('section','margin:8px 0;padding:9px;border:1px solid #dbe3ef;border-radius:11px;background:#fff;overflow:hidden');
+ section.className='card dastyar-performance-section';if(id)section.id=id;
+ section.appendChild(el('div','ct',title));
+ var panel=el('div','padding:7px 0 0');panel.appendChild(content);section.appendChild(panel);
+ parent.appendChild(section);return section;
 }
 function trendWeekKey(row){
   var raw=dateOf(row),p=null;
@@ -13810,17 +13807,16 @@ function build(){
   summary.id=CARD_ID+'-summary';addPerformanceSection(body,'📌 شاخص‌های سریع مدرسه',summary,CARD_ID+'-summary-section');
   var alerts=el('div','display:flex;flex-direction:column;gap:7px;margin:8px 0');
   alerts.id=CARD_ID+'-alerts';addPerformanceSection(body,'🚦 هشدارها و موارد نیازمند اقدام',alerts,CARD_ID+'-alerts-section');
-  var trendSection=el('section','margin:10px 0;padding:9px;border:1px solid #dbe3ef;border-radius:10px;background:#fbfdff');
-  var trendToggle=el('button','width:100%;text-align:right;border:0;background:transparent;color:#1e3a8a;padding:5px 2px;font:800 .8rem Vazirmatn,Tahoma,sans-serif;cursor:pointer','📈 نمایش داشبورد روند چهار هفته اخیر');
-  trendToggle.type='button';trendToggle.setAttribute('aria-expanded','false');
-  var trendBody=el('div','display:none;margin-top:8px');trendBody.id=CARD_ID+'-trend-body';
-  trendToggle.onclick=function(){var open=trendBody.style.display==='none';trendBody.style.display=open?'block':'none';trendToggle.setAttribute('aria-expanded',open?'true':'false');trendToggle.textContent=open?'📈 بستن داشبورد روند':'📈 نمایش داشبورد روند چهار هفته اخیر';};
+  var trendSection=el('section','margin:8px 0;padding:9px;border:1px solid #dbe3ef;border-radius:10px;background:#fbfdff;overflow:hidden');
+  trendSection.className='card dastyar-performance-section';
+  trendSection.appendChild(el('div','ct','📈 داشبورد روند چهار هفته اخیر'));
+  var trendBody=el('div','margin-top:8px');trendBody.id=CARD_ID+'-trend-body';
   var trendSummary=el('div','font-size:.72rem;line-height:1.8;color:#475569;margin-bottom:8px','روندها پس از بارگذاری سوابق محاسبه می‌شوند.');trendSummary.id=CARD_ID+'-trend-summary';trendBody.appendChild(trendSummary);
   var trendWeeks=el('div','overflow:hidden');trendWeeks.id=CARD_ID+'-trend-weeks';trendBody.appendChild(trendWeeks);
   var trendClasses=el('div','margin-top:10px');trendClasses.id=CARD_ID+'-trend-classes';trendBody.appendChild(trendClasses);
   var trendPrint=el('button','margin-top:9px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#1e40af;padding:6px 10px;font:inherit;font-size:.72rem;cursor:pointer','چاپ گزارش روند');trendPrint.type='button';
   trendPrint.onclick=function(){var w=window.open('','_blank');if(!w){if(typeof toast==='function')toast('مرورگر اجازه باز کردن صفحه چاپ را نداد');return;}w.document.open();w.document.write(buildTrendPrintHtml(latestTrendReport));w.document.close();w.onload=function(){w.focus();w.print();};};trendBody.appendChild(trendPrint);
-  trendSection.appendChild(trendToggle);trendSection.appendChild(trendBody);body.appendChild(trendSection);
+  trendSection.appendChild(trendBody);body.appendChild(trendSection);
   var source=el('div','font-size:.72rem;line-height:1.8;color:#475569;padding:7px 8px;border-radius:8px;background:#f8fafc;margin-bottom:9px');
   source.id=CARD_ID+'-source';body.appendChild(source);
   var rows=el('div','display:flex;flex-direction:column;gap:7px');
