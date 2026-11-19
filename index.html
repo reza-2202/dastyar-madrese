@@ -14567,9 +14567,10 @@ function drawManager(){
  var signature=JSON.stringify(all.map(function(r){return [r.id,r.notes,r.date];}));
  var old=document.getElementById(PID);
  if(old){
+  var pendingKeys=Object.create(null);pending.forEach(function(g){pendingKeys[String(g.studentId)+'|'+String(g.cycleNo)]=1;});
   old.querySelectorAll('[data-recognition-key]').forEach(function(card){
    var key=card.getAttribute('data-recognition-key'),sel=card.querySelector('[data-reviewer]'),txt=card.querySelector('[data-result]');
-   if(key&&(sel||txt))managerDrafts[key]={person:sel?sel.value:'',result:txt?txt.value:''};
+   if(key&&pendingKeys[key]&&(sel||txt))managerDrafts[key]={person:sel?sel.value:'',result:txt?txt.value:''};else if(key&&!pendingKeys[key])delete managerDrafts[key];
   });
   if(old.getAttribute('data-signature')===signature)return;
   old.remove();
@@ -14682,7 +14683,7 @@ function prepare(card){
  card.dataset.dastyarAccordionReady='1';card.classList.add('dastyar-accordion-card');
  var btn=document.createElement('button');btn.type='button';btn.className='dastyar-section-toggle';btn.setAttribute('aria-expanded','false');
  var title=document.createElement('span');title.className='dastyar-section-title';
- if(info.node)title.appendChild(info.node);else title.textContent=info.text;
+ if(info.node&&!info.node.querySelector('button,input,select,textarea,a,[onclick]'))title.appendChild(info.node);else{title.textContent=info.text;if(info.node)info.node.hidden=true;}
  var arrow=document.createElement('span');arrow.className='dastyar-section-arrow';arrow.setAttribute('aria-hidden','true');arrow.textContent='⌄';
  btn.appendChild(title);btn.appendChild(arrow);card.insertBefore(btn,card.firstChild);
  btn.addEventListener('click',function(ev){
