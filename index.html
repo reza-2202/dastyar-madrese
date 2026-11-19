@@ -14203,7 +14203,7 @@ async function sendReferral(id,cat,key){
  localPut(row);renderTeacher(id);
  if(typeof toast==='function')toast('ارجاع ثبت شد؛ در حال ارسال به مدیریت…');
  try{
-  var out=await sb.from('sa_activities').insert(row);
+  var payload=Object.assign({},row);delete payload.pending_upload;var out=await sb.from('sa_activities').insert(payload);
   if(out&&out.error)throw out.error;
   row.pending_upload=!!(out&&out.offline);
   localPut(row);renderTeacher(id);
@@ -14250,6 +14250,8 @@ function renderManager(){
 async function saveFollowup(row,person,status,result){
  if(!M()||!sb)return;var m=meta(row);if(!m)return;
  var oldNotes=row.notes,oldPending=row.pending_upload;
+ if(busyManager){if(typeof toast==='function')toast('در حال به‌روزرسانی فهرست؛ چند لحظه دیگر دوباره ثبت کنید.');return;}
+ busyManager=true;
  m.assignee=person;m.status=status;m.followup_result=result;m.followup_at=dateNow();m.updated_at=new Date().toISOString();m.updated_by=(U()&&(U().full_name||U().username))||'مدیریت';
  row.notes=JSON.stringify(m);row.pending_upload=true;
  /* فرم فوراً نتیجه را در پنل مدیریت نشان می‌دهد؛ درخواست سرور بدون انتظار برای رندر مجدد ارسال می‌شود. */
@@ -14266,7 +14268,7 @@ async function saveFollowup(row,person,status,result){
   if(oldPending===undefined)delete row.pending_upload;else row.pending_upload=oldPending;
   localPut(row);renderManager();
   if(typeof toast==='function')toast('ثبت پیگیری انجام نشد: '+(e.message||e));
- }
+ }finally{busyManager=false;}
 }
 function panelOpen(){var b=document.getElementById('manager-performance-center-body');return !!(b&&b.style.display!=='none'&&(!document.getElementById('page-dashboard')||document.getElementById('page-dashboard').classList.contains('on')));}
 function tick(){
