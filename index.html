@@ -285,7 +285,8 @@
         var row=clone(rows[r]);if(!row||typeof row!=='object')continue;
         if(row.id==null||row.id==='')row.id=uid();
         // Check the exact primary key before insert; existing rows are never overwritten.
-        if(await recordExists(item,row))continue;
+        /* رکوردهای عادی با شناسهٔ ثابت و پاسخ 23505 به‌صورت idempotent ارسال می‌شوند؛ بررسی GET جداگانه برای هر رکورد فقط تأخیر شبکه ایجاد می‌کرد. کنترل کد ملی و شناسهٔ دانش‌آموز حفظ می‌شود. */
+        if(item.table==='sa_students' && await recordExists(item,row))continue;
         var payloadRow=row,completed=false,lastMessage='';
         for(var attempt=0;attempt<18;attempt++){
           var res=await fetch(baseForItem(item),{method:'POST',headers:Object.assign({},item.headers,{'Prefer':'return=representation'}),body:JSON.stringify(payloadRow)});
@@ -384,7 +385,8 @@ async function syncQueue(){if(!global.navigator.onLine)return;if(syncRunning){sy
       if(!probe||probe.error)throw new Error(probe&&probe.error&&probe.error.message||'سرور پاسخ معتبر نداد');
       // فقط پس از پاسخ موفق سرور، حالت آنلاین اعلام شود؛ خطای ثبت یک ردیف به معنی قطع اینترنت نیست.
       forceLocal=false;global.isOffline=false;
-      try{await compactQueue();await purgeQueueAlreadyOnServer();}catch(e){console.warn('پاک‌سازی مقدماتی صف انجام نشد؛ ادامه با حفظ صف:',e);}
+      /* فقط فشرده‌سازی محلی صف در مسیر سریع انجام می‌شود. پاک‌سازی قبلی برای تک‌تک ردیف‌ها GET ترتیبی می‌زد و ارسال را بسیار کند می‌کرد؛ تکراری‌های POST هنگام ارسال با شناسهٔ اصلی و پاسخ 23505 ایمن مدیریت می‌شوند. */
+      try{await compactQueue();}catch(e){console.warn('فشرده‌سازی صف انجام نشد؛ ادامه با حفظ صف:',e);}
       var items=await allQueue(), failedCount=0, firstFailure=null, sentCount=0, sentActivities=false, sentEvaluations=false, sentDiscipline=false;
       for(var i=0;i<items.length;i++){
         if(!global.navigator.onLine)break;
@@ -5490,6 +5492,9 @@ function printStudentDossier(){
  *{box-sizing:border-box}
  body{font-family:Tahoma,Arial,sans-serif;color:#111;direction:rtl;font-size:10pt;line-height:1.6;margin:0}
  /* Preserve the complete inline progress-chart appearance in the print window. */
+ .dossier-section{break-inside:avoid;page-break-inside:avoid}
+ .dossier-section svg{display:block!important;width:100%!important;height:auto!important;max-width:100%!important;overflow:visible!important}
+ .dossier-section [role="img"]{print-color-adjust:exact!important;-webkit-print-color-adjust:exact!important}
  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
  [style*="background:#2563eb"]{background:#2563eb!important;border:1px solid #1d4ed8!important}
  [style*="background:#e2e8f0"]{background:#e2e8f0!important;border:1px solid #cbd5e1}
