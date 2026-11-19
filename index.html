@@ -14622,7 +14622,7 @@ function fillStudents(selected){
 }
 function formHtml(){
  var u=currentUser(),isAdmin=u&&(u.role==='admin'||u.role==='manager');
- return '<div style="background:#f8fbff;border:1px solid #dbeafe;border-radius:13px;padding:12px;margin:12px 0"><div style="font-weight:900;margin-bottom:8px">ثبت مورد جدید</div>'+
+ return '<div style="background:#f8fbff;border:1px solid #dbeafe;border-radius:13px;padding:12px;margin:12px 0"><div style="font-weight:900;margin-bottom:8px">ثبت مورد جدید</div><input type="hidden" id="da-request-id" value=""/>'+
  '<label>کلاس</label><select id="da-class" class="da-field" onchange="window.refreshAchievementStudents()"></select>'+
  '<label>دانش‌آموز</label><select id="da-student" class="da-field"></select>'+
  '<label>نوع ثبت</label><select id="da-kind" class="da-field"><option value="recognition">ثبت تشویق</option><option value="nomination">معرفی دانش‌آموز شاخص</option>'+(isAdmin?'<option value="nomination_request">درخواست معرفی دانش‌آموز شاخص از معلم</option>':'')+'</select>'+
@@ -14646,6 +14646,7 @@ function renderList(){
    (a.decision_text?'<div style="margin-top:6px;color:#166534"><b>نظر مدیر:</b> '+esc(a.decision_text)+'</div>':'')+
    (a.award_type?'<div class="da-meta">نوع تقدیر: '+esc(a.award_type)+'</div>':'')+
    (a.medal_level?'<div style="margin-top:6px"><span class="da-medal">'+esc(medalName(a.medal_level))+'</span>'+(img?'<img src="'+img+'" alt="تصویر مدال" style="width:48px;height:48px;object-fit:contain;vertical-align:middle;margin-right:8px">':'')+'</div>':'')+
+   (u&&u.role==='teacher'&&a.kind==='nomination_request'&&pending?'<div class="da-no-print" style="margin-top:8px"><button class="da-btn da-soft" onclick="window.respondToAchievementRequest(\''+esc(a.id)+'\',\''+esc(a.student_id)+'\')">پاسخ به درخواست مدیر و معرفی دانش‌آموز</button></div>':'')+
    (canReview?'<div class="da-no-print" style="border-top:1px solid #dbeafe;margin-top:9px;padding-top:8px"><label>نوع تقدیر</label><select class="da-field" id="da-award-'+esc(a.id)+'"><option value="">بدون تقدیر جداگانه</option><option>لوح سپاس</option><option>تقدیر کتبی</option><option>معرفی در مراسم</option><option>تشویق شفاهی</option><option>جایزه آموزشی</option></select><label>مدال / نشان</label><select class="da-field" id="da-medal-'+esc(a.id)+'"><option value="">بدون مدال</option><option value="bronze">برنزی</option><option value="silver">نقره‌ای</option><option value="gold">طلایی</option><option value="special">ویژه افتخار</option></select><label>نشانی تصویر مدال (اختیاری، لینک امن https)</label><input class="da-field" id="da-image-'+esc(a.id)+'" placeholder="https://..."/><label>توضیح و نتیجه بررسی</label><textarea class="da-field" id="da-decision-'+esc(a.id)+'" rows="2"></textarea><button class="da-btn da-primary" onclick="window.reviewAchievementRecord(\''+esc(a.id)+'\',\'approved\')">تأیید و ثبت تقدیر</button> <button class="da-btn da-soft" onclick="window.reviewAchievementRecord(\''+esc(a.id)+'\',\'rejected\')">رد درخواست</button></div>':'')+
   '</article>';
  }).join('');
@@ -14661,13 +14662,14 @@ async function open(studentId){
 function close(){var m=$('dastyar-achievement-modal');if(m)m.classList.remove('show')}
 window.closeAchievementCenter=close;
 window.refreshAchievementStudents=function(){fillStudents('')};
+window.respondToAchievementRequest=function(id,studentId){var k=$('da-kind'),st=$('da-student'),rid=$('da-request-id'),title=$('da-title'),reason=$('da-reason');if(k)k.value='nomination';if(st&&studentId)st.value=String(studentId);if(rid)rid.value=String(id||'');if(title)title.value='معرفی دانش‌آموز در پاسخ به درخواست مدیر';if(reason)reason.focus();if(typeof toast==='function')toast('دلیل معرفی را بنویسید و ثبت کنید تا پاسخ برای مدیر ارسال شود.');};
 window.openAchievementCenter=open;
 window.saveAchievementRecord=async function(){
  var u=currentUser(),cl=$('da-class'),st=$('da-student'),status=$('da-save-status');
  if(!u||!cl||!st||!st.value){if(typeof toast==='function')toast('کلاس و دانش‌آموز را انتخاب کنید');return}
  var reason=String(($('da-reason')||{}).value||'').trim(),title=String(($('da-title')||{}).value||'').trim();
  if(reason.length<3){if(typeof toast==='function')toast('دلیل تشویق را کامل‌تر بنویسید');return}
- var rec={id:(typeof uid==='function'?uid():String(Date.now())+'-'+Math.random().toString(36).slice(2)),student_id:String(st.value),class_id:String(cl.value),kind:String(($('da-kind')||{}).value||'recognition'),title:title||'ثبت تشویق',category:String(($('da-category')||{}).value||''),reason:reason,source_section:String(($('da-source')||{}).value||'general'),date:new Date().toISOString().slice(0,10)};
+ var rec={id:(typeof uid==='function'?uid():String(Date.now())+'-'+Math.random().toString(36).slice(2)),student_id:String(st.value),class_id:String(cl.value),kind:String(($('da-kind')||{}).value||'recognition'),title:title||'ثبت تشویق',category:String(($('da-category')||{}).value||''),reason:reason,source_section:String(($('da-source')||{}).value||'general'),date:new Date().toISOString().slice(0,10),source_record_id:String(($('da-request-id')||{}).value||'')};
  if(u.role==='teacher'&&rec.kind==='nomination_request'){if(typeof toast==='function')toast('این نوع درخواست فقط برای مدیر است');return}
  try{
   if(online()){
