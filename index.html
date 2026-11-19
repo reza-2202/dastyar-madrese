@@ -3033,41 +3033,42 @@ async function setTeacherPasswordByUser(username){
   if(!inp){
     try{ inp=document.querySelector('input[data-teacher-user="'+uname.replace(/"/g,'\\"')+'"][id^="pw-user-"]'); }catch(e){}
   }
-  if(!inp){ toast('کادر رمز این معلم پیدا نشد'); return; }
+  if(!inp){toast('کادر رمز این معلم پیدا نشد');return;}
   var pw=String(inp.value==null?'':inp.value);
-  if(pw.length===0){ toast('رمز را وارد کنید'); return; }
-
-  var target=(cache.users||[]).find(function(x){ return x && x.role==='teacher' && String(x.username)===uname; });
-  if(!target){ toast('حساب معلم «'+uname+'» پیدا نشد'); return; }
-
-  var realId=String(target.id||'');
-  target.password=pw;
-  try{ saveTeacherPasswordOverride(realId, uname, pw); }catch(e){}
-  // فقط همین کاربر
-  cache.users=(cache.users||[]).map(function(u){
-    if(u && String(u.username)===uname){ u.password=pw; }
-    return u;
-  });
-  try{ if(window.DastyarOffline&&window.DastyarOffline.saveSnapshot) await window.DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache))); }catch(e){}
-
-  var remoteOk=false;
-  if(navigator.onLine && sb){
-    try{
-      var res=null;
-      if(realId){ res=await sb.from('sa_users').update({password:pw}).eq('id', realId); }
-      if((!res||res.error) && uname){ res=await sb.from('sa_users').update({password:pw}).eq('username', uname); }
-      if(res&&!res.error) remoteOk=true;
-    }catch(e){ console.warn(e); }
+  if(pw.length===0){toast('رمز را وارد کنید');return;}
+  if(!navigator.onLine||!sb){toast('برای تغییر رمز معلم، ابتدا اتصال اینترنت را برقرار کنید. هیچ تغییری انجام نشد.');return;}
+  try{
+    const lookup=await sb.from('sa_users').select('id,username,role,full_name,class_ids').eq('username',uname).limit(2);
+    if(!lookup||lookup.error)throw new Error((lookup&&lookup.error&&lookup.error.message)||'دریافت حساب معلم از سرور ناموفق بود.');
+    const serverTarget=(lookup.data||[]).find(x=>x&&x.role==='teacher');
+    if(!serverTarget)throw new Error('حساب این معلم در سرور پیدا نشد؛ رمز تغییر نکرد.');
+    var result=await sb.from('sa_users').update({password:pw}).eq('id',String(serverTarget.id||'')).select('id,username,role');
+    if(result&&result.error)throw new Error(result.error.message||'ذخیره رمز معلم ناموفق بود.');
+    var saved=Array.isArray(result&&result.data)?result.data:[];
+    if(!saved.some(x=>String(x.id)===String(serverTarget.id))){
+      result=await sb.from('sa_users').update({password:pw}).eq('username',uname).select('id,username,role');
+      if(result&&result.error)throw new Error(result.error.message||'ذخیره رمز معلم ناموفق بود.');
+      saved=Array.isArray(result&&result.data)?result.data:[];
+    }
+    if(saved.length!==1||String(saved[0].role)!=='teacher')throw new Error('سرور هیچ حساب معلمی را تغییر نداد؛ رمز قبلی حفظ شد.');
+    var target=(cache.users||[]).find(function(x){return x&&String(x.id)===String(serverTarget.id);});
+    if(!target)target=Object.assign({},serverTarget);
+    target.password=pw;
+    cache.users=(cache.users||[]).filter(function(x){return !(x&&String(x.id)===String(serverTarget.id));});
+    cache.users.push(target);
+    saveTeacherPasswordOverride(String(serverTarget.id||''),uname,pw);
+    if(window.DastyarOffline&&window.DastyarOffline.saveSnapshot)await window.DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));
+    var classIds=(target.class_ids||[]).map(String);
+    var cl=(cache.classes||[]).find(function(c){return classIds.indexOf(String(c.id))>=0;})
+      ||(cache.classes||[]).find(function(c){return String(c.teacher_user||'')===uname;});
+    var classLabel=cl&&cl.label?cl.label:'—';
+    try{if(typeof renderTeacherAdminList==='function')renderTeacherAdminList();}catch(e){}
+    try{if(typeof fillTeacherSelect==='function')fillTeacherSelect();}catch(e){}
+    toast('رمز معلم «'+(target.full_name||uname)+'» کلاس '+classLabel+' با تأیید سرور تغییر کرد.');
+  }catch(e){
+    console.error('setTeacherPasswordByUser',e);
+    toast('رمز معلم تغییر نکرد؛ سرور ذخیره را تأیید نکرد: '+(e.message||e));
   }
-
-  var classIds=(target.class_ids||[]).map(String);
-  var cl=(cache.classes||[]).find(function(c){return classIds.indexOf(String(c.id))>=0;})
-    || (cache.classes||[]).find(function(c){return String(c.teacher_user||'')===uname;});
-  var classLabel=cl&&cl.label?cl.label:'—';
-
-  try{ if(typeof renderTeacherAdminList==='function') renderTeacherAdminList(); }catch(e){}
-  try{ if(typeof fillTeacherSelect==='function') fillTeacherSelect(); }catch(e){}
-  toast('رمز معلم «'+(target.full_name||uname)+'» کلاس '+classLabel+' ثبت شد. ورود فقط با رمز جدید.');
 }
 
 async function saveTeacherUsernameByUser(oldUsername){
@@ -7015,46 +7016,39 @@ async function searchEvals(){
 
 async function changeAdminPassword(){
   if(!user||user.role!=='admin'){toast('فقط مدیر');return;}
-  const pw=(document.getElementById('admin-new-pw').value||'').trim();
+  const input=document.getElementById('admin-new-pw');
+  const pw=String((input&&input.value)||'').trim();
   if(pw.length<4){toast('رمز حداقل ۴ کاراکتر باشد');return;}
-  // همیشه تازه از سرور/کش
-  if(navigator.onLine && typeof ensureUsersFromServer==='function'){
-    try{ await ensureUsersFromServer(); }catch(e){}
-  }
-  let admin=(cache.users||[]).find(x=>x.role==='admin'||normalizeLoginName(x.username)==='admin');
-  if(!admin){
-    admin={id:'u_admin',username:'admin',password:pw,full_name:PRINCIPAL,role:'admin',class_ids:[]};
-    cache.users=(cache.users||[]).concat([admin]);
-  }
-  admin.password=pw;
-  admin.full_name=PRINCIPAL;
-  admin.role='admin';
-  if(!admin.username) admin.username='admin';
-  // به‌روزرسانی در کش
-  const ix=(cache.users||[]).findIndex(x=>String(x.id)===String(admin.id)||normalizeLoginName(x.username)==='admin');
-  if(ix>=0) cache.users[ix]=admin; else cache.users.push(admin);
-  try{ if(window.DastyarOffline&&window.DastyarOffline.saveSnapshot) await window.DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache))); }catch(e){}
-  let remoteOk=false;
-  if(navigator.onLine && sb){
-    try{
-      // اول update با id
-      let res=await sb.from('sa_users').update({password:pw,full_name:PRINCIPAL,username:'admin',role:'admin'}).eq('id', admin.id||'u_admin');
-      if(res&&res.error){
-        // upsert کامل
-        res=await sb.from('sa_users').upsert([{id:admin.id||'u_admin',username:'admin',password:pw,full_name:PRINCIPAL,role:'admin',class_ids:admin.class_ids||[]}]);
-      }
-      if(res&&res.error) throw new Error(res.error.message||'خطای سرور');
-      remoteOk=!(res&&res.offline);
-    }catch(e){
-      console.warn(e);
-      remoteOk=false;
+  if(!navigator.onLine||!sb){toast('برای تغییر رمز مدیر، ابتدا اتصال اینترنت را برقرار کنید. هیچ تغییری انجام نشد.');return;}
+  try{
+    const latest=await sb.from('sa_users').select('id,username,role,full_name,class_ids').limit(500);
+    if(!latest||latest.error)throw new Error((latest&&latest.error&&latest.error.message)||'دریافت حساب مدیر از سرور ناموفق بود.');
+    const admin=(latest.data||[]).find(x=>x&&(x.role==='admin'||normalizeLoginName(x.username)==='admin'));
+    if(!admin)throw new Error('حساب مدیر در سرور پیدا نشد؛ برای جلوگیری از ساخت حساب تکراری، تغییری انجام نشد.');
+    const patch={password:pw,full_name:PRINCIPAL,username:admin.username||'admin',role:'admin'};
+    let result=await sb.from('sa_users').update(patch).eq('id',String(admin.id||'')).select('id,username,role');
+    if(result&&result.error)throw new Error(result.error.message||'ذخیره رمز مدیر ناموفق بود.');
+    let saved=Array.isArray(result&&result.data)?result.data:[];
+    if(!saved.some(x=>String(x.id)===String(admin.id))){
+      result=await sb.from('sa_users').update(patch).eq('username',String(admin.username||'admin')).select('id,username,role');
+      if(result&&result.error)throw new Error(result.error.message||'ذخیره رمز مدیر ناموفق بود.');
+      saved=Array.isArray(result&&result.data)?result.data:[];
     }
+    if(saved.length!==1||String(saved[0].role)!=='admin')throw new Error('سرور هیچ حساب مدیری را تغییر نداد؛ رمز قبلی حفظ شد.');
+    cache.users=(cache.users||[]).map(x=>String(x.id)===String(admin.id)?Object.assign({},x,{password:pw,full_name:PRINCIPAL,role:'admin'}):x);
+    const cachedAdmin=cache.users.find(x=>String(x.id)===String(admin.id));
+    if(!cachedAdmin)cache.users.push(Object.assign({},admin,{password:pw,full_name:PRINCIPAL,role:'admin'}));
+    user=Object.assign({},user,{password:pw,full_name:PRINCIPAL});
+    window.user=user;
+    window.__dastyarSessionPassword=pw;
+    if(window.DastyarOffline&&window.DastyarOffline.saveSnapshot)await window.DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));
+    saveRememberedLogin('admin',admin.username||'admin',pw);
+    if(input)input.value='';
+    toast('رمز مدیر با تأیید تغییر ردیف در سرور ذخیره شد.');
+  }catch(e){
+    console.error('changeAdminPassword',e);
+    toast('رمز مدیر تغییر نکرد؛ سرور ذخیره را تأیید نکرد: '+(e.message||e));
   }
-  user.password=pw;
-  if(user.role==='admin') user=Object.assign({}, user, {password:pw, full_name:PRINCIPAL});
-  saveRememberedLogin('admin','admin',pw);
-  document.getElementById('admin-new-pw').value='';
-  toast(remoteOk?'رمز مدیر روی سرور و این گوشی ذخیره شد':'رمز مدیر روی گوشی ذخیره شد؛ پس از اتصال به سرور همگام می‌شود');
 }
 
 let chartInst=null;
@@ -7684,6 +7678,7 @@ async function loadSchoolDocuments(){
   box.innerHTML=warningHtml+data.map(function(d){
     const own=user&&user.role==='teacher'&&String(d.teacher_username||'')===String(user.username||'');
     const mime=(d.mime_type||'').toLowerCase();
+    const openFileUrl=d.local_archive_data_url||d.file_url||'';
     const isImage=mime.indexOf('image/')===0||/\.(png|jpe?g|webp|gif)$/i.test(d.file_name||'');
     const papers=d.papers_used||d.copies_count||1;
     const sides=(d.print_sides==='double')?'دو‌رو':'یک‌رو';
@@ -7713,10 +7708,10 @@ async function loadSchoolDocuments(){
       '<p>نام امتحان/برگه: '+safe(d.exam_name||d.title||'—')+' | تاریخ امتحان: '+safe(d.exam_date||'—')+'</p>'+
       '<p style="font-weight:700">تعداد برگه: '+safe(papers)+' | نوع چاپ: '+sides+' | نسخه: '+safe(d.copies_count||1)+'</p>'+
             '<div class="doc-actions" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">'+
-      (d.file_url?('<a class="btn btn-o btn-sm" href="'+safe(d.file_url)+'" target="_blank" rel="noopener">باز کردن</a>'):'')+
-      (d.file_url?('<a class="btn btn-o btn-sm" href="'+safe(d.file_url)+'" download>دانلود</a>'):'')+
-      (d.file_url?('<button type="button" class="btn btn-s btn-sm" onclick="printSchoolDocument(\''+String(d.file_url||'').replace(/'/g,'')+'\',\''+(isImage?'image':'document')+'\',\''+String(d.file_name||'فایل').replace(/'/g,'')+'\')">🖨️ چاپ</button>'):'')+
-      (user&&user.role==='admin'&&d.file_url&&(isImage||/pdf/i.test(mime)||/\.pdf$/i.test(d.file_name||''))?('<button type="button" class="btn btn-p btn-sm" onclick="openTeacherFileAsWord(\''+String(d.id).replace(/'/g,'')+'\',\''+String(d.file_url||'').replace(/'/g,'')+'\',\''+String(d.file_name||'فایل').replace(/'/g,'')+'\',\''+String(d.mime_type||'').replace(/'/g,'')+'\')">📝 تبدیل به Word و ویرایش</button>'):'')+(user&&user.role==='admin'&&d.file_url?('<button type="button" class="btn btn-p btn-sm" style="background:#0f766e;border-color:#0f766e" onclick="sfeOpenFromUrl(\''+String(d.file_url||'').replace(/'/g,'')+'\',\''+String(d.file_name||'فایل').replace(/'/g,'')+'\')">🛠️ ویرایشگر قدرتمند</button>'):'')+
+      (openFileUrl?('<a class="btn btn-o btn-sm" href="'+safe(openFileUrl)+'" target="_blank" rel="noopener">باز کردن</a>'):'')+
+      (openFileUrl?('<a class="btn btn-o btn-sm" href="'+safe(openFileUrl)+'" download>دانلود</a>'):'')+
+      (openFileUrl?('<button type="button" class="btn btn-s btn-sm" onclick="printSchoolDocument(\''+String(openFileUrl||'').replace(/'/g,'')+'\',\''+(isImage?'image':'document')+'\',\''+String(d.file_name||'فایل').replace(/'/g,'')+'\')">🖨️ چاپ</button>'):'')+
+      (user&&user.role==='admin'&&d.file_url&&(isImage||/pdf/i.test(mime)||/\.pdf$/i.test(d.file_name||''))?('<button type="button" class="btn btn-p btn-sm" onclick="openTeacherFileAsWord(\''+String(d.id).replace(/'/g,'')+'\',\''+String(openFileUrl||'').replace(/'/g,'')+'\',\''+String(d.file_name||'فایل').replace(/'/g,'')+'\',\''+String(d.mime_type||'').replace(/'/g,'')+'\')">📝 تبدیل به Word و ویرایش</button>'):'')+(user&&user.role==='admin'&&openFileUrl?('<button type="button" class="btn btn-p btn-sm" style="background:#0f766e;border-color:#0f766e" onclick="sfeOpenFromUrl(\''+String(openFileUrl||'').replace(/'/g,'')+'\',\''+String(d.file_name||'فایل').replace(/'/g,'')+'\')">🛠️ ویرایشگر قدرتمند</button>'):'')+
       '</div>'+adminBlock+
       (user&&user.role==='admin'?('<button type="button" class="btn" style="margin-top:8px;background:#fee2e2;color:#991b1b" onclick="deleteSchoolDocumentAdmin(\''+String(d.id).replace(/'/g,'')+'\',\''+String(d.storage_path||'').replace(/'/g,'')+'\')">🗑 حذف فایل (مدیر)</button>'):'')+
       (own?('<button type="button" class="btn" style="margin-top:8px" onclick="deleteSchoolDocument(\''+String(d.id).replace(/'/g,'')+'\',\''+String(d.storage_path||'').replace(/'/g,'')+'\')">حذف فایل من</button>'):'')+
@@ -9533,7 +9528,7 @@ window.addEventListener('afterprint',function(){const area=document.getElementBy
 (function(){
   // این نسخه همین فایل است — برای به‌روزرسانی واقعی باید فایل جدید را جایگزین کنید
     const CURRENT_VERSION = '2026.10.28.54';
-    const CURRENT_BUILD = '20261119r1';
+    const CURRENT_BUILD = '20261119r2';
     const VERSION_URL = 'https://reza-2202.github.io/dastyar-madrese/version.json?t=' + Date.now();
   const FALLBACK_APP_URL = 'https://reza-2202.github.io/dastyar-madrese/';
   const box = document.getElementById('dastyar-update-box');
