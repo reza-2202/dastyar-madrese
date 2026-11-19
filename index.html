@@ -14563,6 +14563,56 @@ observer.observe(document.documentElement,{childList:true,subtree:true});
 })();
 </script>
 
+
+<style id="dastyar-global-instant-tap-response-20261119">
+/* واکنش فوری لمس برای کنترل‌های تعاملی در همه بخش‌های برنامه؛ بدون تغییر منطق فرم‌ها */
+#app button,
+#app a,
+#app summary,
+#app [role="button"],
+#app [onclick],
+#app .ni,
+#app .home-tile,
+#app .home-tile-group-title {
+  touch-action: manipulation !important;
+  -webkit-tap-highlight-color: transparent !important;
+  transition-duration: .06s !important;
+  transition-timing-function: linear !important;
+}
+#app button:active,
+#app a:active,
+#app summary:active,
+#app [role="button"]:active,
+#app [onclick]:active,
+#app .ni:active,
+#app .home-tile:active,
+#app .home-tile-group-title:active {
+  filter: brightness(.97);
+}
+#app .page,
+#app .modal,
+#app [role="dialog"] {
+  transition-duration: .06s !important;
+  transition-timing-function: linear !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  #app button,
+  #app a,
+  #app summary,
+  #app [role="button"],
+  #app [onclick],
+  #app .ni,
+  #app .home-tile,
+  #app .home-tile-group-title,
+  #app .page,
+  #app .modal,
+  #app [role="dialog"] {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+  }
+}
+</style>
+
 </body>
 </html>
 
