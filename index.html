@@ -14350,11 +14350,25 @@ async function sendReferral(id,v,key){
  try{var out=await sb.from('sa_activities').insert(row);if(out&&out.error)throw new Error(out.error.message);localPut(row);toast(out&&out.offline?'ارجاع ذخیره شد و پس از اتصال همگام می‌شود.':'ارجاع برای مدیر ارسال شد');renderDossier(id);renderManagerPanel();}
  catch(e){toast('ارسال ارجاع انجام نشد: '+(e.message||e));}
 }
-async function saveFollowup(row,person,result,status){
+async function saveFollowup(row,person,result){
  var m=meta(row);if(!m||!isManager())return;
- m.followupBy=person;m.followupResult=String(result||'').trim();m.followupAt=typeof today==='function'?today():'';m.status=(status==='open'&&m.followupResult)?'done':status;m.updatedAt=new Date().toISOString();m.updatedBy=(U()&&(U().full_name||U().username))||'مدیریت';
- try{var out=await sb.from('sa_activities').update({notes:JSON.stringify(m)}).eq('id',row.id).select('id');if(out&&out.error)throw new Error(out.error.message);if(!(out&&out.offline)&&(!Array.isArray(out&&out.data)||!out.data.length))throw new Error('ارجاع در سرور به‌روزرسانی نشد؛ مجوز دسترسی یا وجود رکورد را بررسی کنید.');row.notes=JSON.stringify(m);localPut(row);toast(out&&out.offline?'پیگیری ذخیره شد و پس از اتصال همگام می‌شود.':'نتیجه پیگیری ثبت شد و برای معلم قابل مشاهده خواهد بود');renderManagerPanel();}
- catch(e){toast('ذخیره نتیجه پیگیری ناموفق بود: '+(e.message||e));}
+ var followupText=String(result||'').trim();
+ if(!followupText){toast('نتیجه پیگیری را بنویسید');return;}
+ m.followupBy=person;m.followupResult=followupText;m.followupAt=typeof today==='function'?today():'';m.status='done';m.updatedAt=new Date().toISOString();m.updatedBy=(U()&&(U().full_name||U().username))||'مدیریت';
+ var notesPayload=JSON.stringify(m);
+ try{
+  var out=await sb.from('sa_activities').update({notes:notesPayload}).eq('id',String(row.id));
+  if(out&&out.error)throw new Error(out.error.message||'خطای به‌روزرسانی رکورد');
+  if(!(out&&out.offline)){
+   var verify=await sb.from('sa_activities').select('id,notes').eq('id',String(row.id)).limit(1);
+   if(!verify||verify.error)throw new Error((verify&&verify.error&&verify.error.message)||'بررسی ذخیره نتیجه از سرور ناموفق بود');
+   var saved=Array.isArray(verify.data)?verify.data[0]:verify.data;
+   if(!saved||String(saved.id)!==String(row.id)||String(saved.notes||'')!==notesPayload)throw new Error('سرور نتیجه پیگیری را تأیید نکرد؛ اطلاعات محلی به‌عنوان ذخیره موفق ثبت نشد.');
+  }
+  row.notes=notesPayload;localPut(row);
+  toast(out&&out.offline?'پیگیری ذخیره شد و پس از اتصال همگام می‌شود.':'نتیجه پیگیری ثبت شد؛ وضعیت به‌صورت خودکار «رسیدگی شد» شد و برای معلم ارسال گردید.');
+  renderManagerPanel();
+ }catch(e){console.error('saveFollowup failed',e);toast('ذخیره نتیجه پیگیری ناموفق بود: '+(e.message||e));}
 }
 async function deleteReferral(row){
  if(!isManager()||!meta(row))return;
@@ -14374,10 +14388,9 @@ function renderCard(row){
  if(m.followupResult)box.appendChild(node('div','', 'نتیجه پیگیری: '+m.followupResult));
  if(isManager()){
   var sel=node('select');sel.style.cssText='width:100%;padding:8px;margin:6px 0;border:1px solid #cbd5e1;border-radius:8px;font:inherit';sel.appendChild(new Option('انتخاب پیگیری‌کننده',''));PEOPLE.forEach(function(p){sel.appendChild(new Option(p,p));});sel.value=m.followupBy||'';
-  var state=node('select');state.style.cssText=sel.style.cssText;[['open','در انتظار پیگیری'],['in_progress','در حال پیگیری'],['done','پایان‌یافته']].forEach(function(x){state.appendChild(new Option(x[1],x[0]));});state.value=m.status||'open';
   var result=node('textarea');result.rows=2;result.placeholder='نتیجه پیگیری و اقدام انجام‌شده';result.value=m.followupResult||'';result.style.cssText='width:100%;box-sizing:border-box;padding:8px;margin:4px 0;border:1px solid #cbd5e1;border-radius:8px;font:inherit';
-  box.appendChild(node('label','','پیگیری‌کننده'));box.appendChild(sel);box.appendChild(node('label','','وضعیت'));box.appendChild(state);box.appendChild(node('label','','نتیجه پیگیری'));box.appendChild(result);
-  var save=node('button','btn btn-p btn-sm','ثبت نتیجه پیگیری');save.type='button';save.style.margin='4px';save.onclick=function(){if(!sel.value){toast('پیگیری‌کننده را انتخاب کنید');return;}if(!result.value.trim()){toast('نتیجه پیگیری را بنویسید');return;}save.disabled=true;saveFollowup(row,sel.value,result.value.trim(),state.value).finally(function(){save.disabled=false;});};box.appendChild(save);
+  box.appendChild(node('label','','پیگیری‌کننده'));box.appendChild(sel);box.appendChild(node('label','','نتیجه پیگیری'));box.appendChild(result);
+  var save=node('button','btn btn-p btn-sm','ثبت نتیجه پیگیری');save.type='button';save.style.margin='4px';save.onclick=function(){if(!sel.value){toast('پیگیری‌کننده را انتخاب کنید');return;}if(!result.value.trim()){toast('نتیجه پیگیری را بنویسید');return;}save.disabled=true;saveFollowup(row,sel.value,result.value.trim()).finally(function(){save.disabled=false;});};box.appendChild(save);
   var del=node('button','btn btn-o btn-sm','حذف این ارجاع');del.type='button';del.style.cssText='margin:4px;color:#b91c1c;border-color:#fecaca';del.onclick=function(){deleteReferral(row);};box.appendChild(del);
  }
  return box;
