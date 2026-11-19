@@ -9509,56 +9509,7 @@ function printPublicInvitations(){
 <script id="print-area-hide-after-print">
 window.addEventListener('afterprint',function(){const area=document.getElementById('print-area');if(area)area.style.display='none';});
 </script>
-<script id="main-page-card-accordion-init">
-(function(){
- 'use strict';
- var scanQueued=false;
- function titleOf(card){
-  var h=card.querySelector(':scope > .ct,:scope > h2,:scope > h3,:scope > h4');
-  return h?String(h.textContent||'').trim():'';
- }
- function initMainPageAccordions(){
-  scanQueued=false;
-  document.querySelectorAll('.page:not(#page-dashboard)').forEach(function(page){
-   // Process titled cards at every nesting level, including cards added by later renders.
-   Array.from(page.querySelectorAll('.card')).forEach(function(card){
-    if(!card.isConnected||card.dataset.accordionReady==='1')return;
-    if(card.closest('#page-dashboard'))return;
-    var title=titleOf(card);if(!title)return;
-    var details=document.createElement('details');details.className='app-section-accordion';
-    details.dataset.sectionTitle=title;
-    var summary=document.createElement('summary');summary.textContent=title;
-    card.dataset.accordionReady='1';
-    card.parentNode.insertBefore(details,card);
-    details.appendChild(summary);details.appendChild(card);
-   });
-  });
- }
- function scheduleScan(){
-  if(scanQueued)return;scanQueued=true;
-  Promise.resolve().then(initMainPageAccordions);
- }
- document.addEventListener('click',function(ev){
-  var summary=ev.target&&ev.target.closest?ev.target.closest('.app-section-accordion > summary'):null;
-  if(!summary)return;
-  var current=summary.parentElement;
-  if(!current)return;
-  // Only one section at a time within the same level/container.
-  Array.from(current.parentElement.children).forEach(function(sibling){
-   if(sibling!==current&&sibling.matches&&sibling.matches('details.app-section-accordion'))sibling.open=false;
-  });
- });
- if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initMainPageAccordions);else initMainPageAccordions();
- if(window.MutationObserver&&document.body){
-  var observer=new MutationObserver(function(records){
-   if(records.some(function(r){return r.addedNodes&&r.addedNodes.length;}))scheduleScan();
-  });
-  observer.observe(document.body,{childList:true,subtree:true});
- }
- window.addEventListener('beforeprint',function(){document.querySelectorAll('.app-section-accordion').forEach(function(d){d.dataset.wasOpen=d.open?'1':'0';d.open=true;});});
- window.addEventListener('afterprint',function(){document.querySelectorAll('.app-section-accordion').forEach(function(d){d.open=d.dataset.wasOpen==='1';delete d.dataset.wasOpen;});});
-})();
-</script>
+
 <!-- Dastyar School update checker -->
 <style>
 #dastyar-update-box{position:fixed;z-index:999999;bottom:12px;left:12px;right:12px;max-width:680px;margin:auto;background:#fff;border:1px solid #d1d5db;border-radius:14px;box-shadow:0 6px 24px #0002;padding:12px 14px;direction:rtl;font:14px/1.8 Tahoma,Arial,sans-serif;color:#111827;display:none}
@@ -13773,6 +13724,16 @@ function addMetric(parent,label,value){
   tile.appendChild(el('div','font-size:.7rem;color:#475569;margin-top:2px',label));
   parent.appendChild(tile);
 }
+function addPerformanceSection(parent,title,content,id){
+ var section=el('section','margin:8px 0;border:1px solid #dbe3ef;border-radius:11px;background:#fff;overflow:hidden');
+ section.className='dastyar-performance-section';if(id)section.id=id;
+ var btn=el('button','width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 12px;border:0;background:#f8fbff;color:#1e3a8a;text-align:right;font:800 .78rem Vazirmatn,Tahoma,sans-serif;cursor:pointer',title);
+ btn.type='button';btn.setAttribute('aria-expanded','false');
+ var arrow=el('span','flex:0 0 auto;width:23px;height:23px;border-radius:7px;background:#dbeafe;display:inline-flex;align-items:center;justify-content:center','⌄');
+ var panel=el('div','display:none;padding:9px;border-top:1px solid #e5edf7');panel.appendChild(content);btn.appendChild(arrow);
+ btn.onclick=function(){var open=btn.getAttribute('aria-expanded')!=='true';Array.prototype.forEach.call(parent.querySelectorAll(':scope > .dastyar-performance-section'),function(other){if(other!==section){var b=other.querySelector(':scope > button'),p=other.querySelector(':scope > div');if(b&&p){b.setAttribute('aria-expanded','false');var a=b.querySelector('span');if(a)a.textContent='⌄';p.style.display='none';}}});btn.setAttribute('aria-expanded',open?'true':'false');arrow.textContent=open?'⌃':'⌄';panel.style.display=open?'block':'none';};
+ section.appendChild(btn);section.appendChild(panel);parent.appendChild(section);return section;
+}
 function trendWeekKey(row){
   var raw=dateOf(row),p=null;
   try{p=typeof parseJalali==='function'?parseJalali(raw):null;}catch(e){}
@@ -13846,9 +13807,9 @@ function build(){
   body.appendChild(el('p','font-size:.72rem;line-height:1.8;color:#64748b;margin:0 0 9px','گزارش فقط‌خواندنی از ثبت‌های موجود در حافظه برنامه؛ هیچ داده‌ای را تغییر یا حذف نمی‌کند.'));
   var refreshBtn=el('button','border:1px solid #cbd5e1;background:#f8fafc;color:#1e40af;border-radius:8px;padding:5px 9px;font:inherit;font-size:.72rem;cursor:pointer','به‌روزرسانی نمایش');refreshBtn.type='button';refreshBtn.onclick=function(){window.refreshManagerPerformanceCenter();};body.appendChild(refreshBtn);
   var summary=el('div','display:flex;flex-wrap:wrap;gap:6px;margin:8px 0');
-  summary.id=CARD_ID+'-summary';body.appendChild(summary);
+  summary.id=CARD_ID+'-summary';addPerformanceSection(body,'📌 شاخص‌های سریع مدرسه',summary,CARD_ID+'-summary-section');
   var alerts=el('div','display:flex;flex-direction:column;gap:7px;margin:8px 0');
-  alerts.id=CARD_ID+'-alerts';body.appendChild(alerts);
+  alerts.id=CARD_ID+'-alerts';addPerformanceSection(body,'🚦 هشدارها و موارد نیازمند اقدام',alerts,CARD_ID+'-alerts-section');
   var trendSection=el('section','margin:10px 0;padding:9px;border:1px solid #dbe3ef;border-radius:10px;background:#fbfdff');
   var trendToggle=el('button','width:100%;text-align:right;border:0;background:transparent;color:#1e3a8a;padding:5px 2px;font:800 .8rem Vazirmatn,Tahoma,sans-serif;cursor:pointer','📈 نمایش داشبورد روند چهار هفته اخیر');
   trendToggle.type='button';trendToggle.setAttribute('aria-expanded','false');
@@ -13863,7 +13824,7 @@ function build(){
   var source=el('div','font-size:.72rem;line-height:1.8;color:#475569;padding:7px 8px;border-radius:8px;background:#f8fafc;margin-bottom:9px');
   source.id=CARD_ID+'-source';body.appendChild(source);
   var rows=el('div','display:flex;flex-direction:column;gap:7px');
-  rows.id=CARD_ID+'-rows';body.appendChild(rows);
+  rows.id=CARD_ID+'-rows';addPerformanceSection(body,'🏫 عملکرد کلاس‌ها و معلمان',rows,CARD_ID+'-classes-section');
   body.appendChild(el('p','font-size:.68rem;line-height:1.8;color:#64748b;margin:9px 0 0','محدودیت گزارش: صف آفلاین گوشی‌های دیگر فقط پس از اتصال و همگام‌سازی قابل مشاهده است. تاریخچه تغییرات و حذف‌های گذشته نیز در ساختار فعلی ثبت حسابرسی مستقلی ندارد.'));
   anchor.insertAdjacentElement('afterend',card);
   return card;
@@ -14275,7 +14236,7 @@ async function add(id,f){var s=student(id),u=U();if(!s||!allowed(id)){toast('د�
 async function setState(r,next){var m=meta(r);if(!m)return; m.state=next;m.updatedAt=new Date().toISOString();try{var out=await sb.from('sa_activities').update({notes:JSON.stringify(m)}).eq('id',r.id);if(out&&out.error)throw new Error(out.error.message);r.notes=JSON.stringify(m);saveLocal(r);toast('وضعیت پیگیری به‌روز شد');renderPanel();renderDossier(r.student_id);}catch(e){toast('تغییر وضعیت انجام نشد: '+(e.message||e));}}
 async function saveAssignment(r,person,result){var m=meta(r);if(!m||!M())return;if(!person){toast('مسئول رسیدگی را انتخاب کنید');return;}m.assignedTo=person;m.followupResult=String(result||'').trim();m.followupAt=new Date().toISOString();m.updatedAt=m.followupAt;try{var out=await sb.from('sa_activities').update({notes:JSON.stringify(m)}).eq('id',r.id);if(out&&out.error)throw new Error(out.error.message);r.notes=JSON.stringify(m);saveLocal(r);toast('مسئول رسیدگی و نتیجه پیگیری ذخیره شد');renderPanel();renderDossier(r.student_id);}catch(e){toast('ذخیره مسئول رسیدگی ناموفق بود: '+(e.message||e));}}
 function item(r){var m=meta(r),s=student(r.student_id);if(!m||!s)return null;var d=N('div');d.style.cssText='padding:9px;margin:6px 0;border:1px solid #dbe3ef;border-radius:9px;background:white;font-size:.76rem;line-height:1.8';var h=N('b','',(s.first_name||'')+' '+(s.last_name||'')+' — '+cl(s.class_id));d.appendChild(h);d.appendChild(N('div','', 'وضعیت: '+state(m.state)+' | اولویت: '+({high:'فوری',normal:'مهم',low:'عادی'}[m.priority]||'مهم')+' | موعد: '+(m.due||'—')));if(m.reason)d.appendChild(N('div','', 'موضوع: '+m.reason));if(m.plan)d.appendChild(N('div','', 'اقدام: '+m.plan));if(m.detail)d.appendChild(N('div','', 'شرح اولیه: '+m.detail));if(m.assignedTo)d.appendChild(N('div','meta','مسئول رسیدگی: '+m.assignedTo));if(m.followupResult)d.appendChild(N('div','meta','نتیجه پیگیری: '+m.followupResult));if(M()){var sel=N('select');sel.style.cssText='width:100%;padding:8px;margin:6px 0;border:1px solid #cbd5e1;border-radius:8px;font:inherit';sel.appendChild(new Option('انتخاب مسئول رسیدگی',''));PEOPLE.forEach(function(p){sel.appendChild(new Option(p,p));});sel.value=m.assignedTo||'';var result=N('textarea');result.rows=2;result.placeholder='نتیجه پیگیری و اقدام انجام‌شده (اختیاری)';result.value=m.followupResult||'';result.style.cssText='width:100%;box-sizing:border-box;padding:8px;margin:4px 0;border:1px solid #cbd5e1;border-radius:8px;font:inherit';var save=N('button','btn btn-p btn-sm','ثبت مسئول رسیدگی');save.type='button';save.onclick=function(){save.disabled=true;saveAssignment(r,sel.value,result.value).finally(function(){save.disabled=false;});};d.appendChild(N('label','','مسئول رسیدگی'));d.appendChild(sel);d.appendChild(result);d.appendChild(save);}var a=N('div');a.style.cssText='display:flex;gap:5px;flex-wrap:wrap;margin-top:6px';var b=N('button','btn btn-o btn-sm','مشاهده پرونده');b.type='button';b.onclick=function(){showStudent(s.id);};a.appendChild(b);if(m.state!=='done'){var c=N('button','btn btn-o btn-sm',m.state==='open'?'شروع پیگیری':'پایان رسیدگی');c.type='button';c.onclick=function(){setState(r,m.state==='open'?'in_progress':'done');};a.appendChild(c);}else if(M()){var q=N('button','btn btn-o btn-sm','بازگشایی');q.type='button';q.onclick=function(){setState(r,'open');};a.appendChild(q);}d.appendChild(a);return d;}
-function ensure(){if(!M())return null;var body=document.getElementById('manager-performance-center-body');if(!body)return null;var p=document.getElementById(PANEL);if(p)return p;p=N('section');p.id=PANEL;p.style.cssText='margin:12px 0;padding:11px;border:1px solid #bfdbfe;border-radius:11px;background:#f8fbff';var h=N('b','', '🧭 میز هوشمند پیگیری امور مدرسه');h.style.color='#1e3a8a';p.appendChild(h);p.appendChild(N('p','', 'پرونده‌های حمایتی و امور نیازمند اقدام؛ بدون حذف یا جابه‌جایی سوابق اصلی.'));var q=N('input');q.type='search';q.placeholder='جستجوی سریع دانش‌آموز برای مشاهده همه سوابق';q.style.cssText='width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;font:inherit';var results=N('div');results.id='dastyar-smart-search-results';p.appendChild(q);p.appendChild(results);q.oninput=function(){results.replaceChildren();var term=q.value.trim().toLowerCase();if(!term)return;var hits=S().filter(function(s){return [s.first_name,s.last_name,s.code,s.father_name].some(function(v){return String(v||'').toLowerCase().includes(term);});}).slice(0,8);if(!hits.length)results.appendChild(N('div','', 'دانش‌آموزی پیدا نشد'));hits.forEach(function(s){var b=N('button','btn btn-o btn-sm',(s.first_name||'')+' '+(s.last_name||'')+' — '+(s.code||''));b.type='button';b.style.margin='3px';b.onclick=function(){showStudent(s.id);};results.appendChild(b);});};var sum=N('div');sum.id='dastyar-smart-followup-summary';sum.style.cssText='font-weight:800;margin:9px 0;color:#334155';var list=N('div');list.id='dastyar-smart-followup-list';p.appendChild(sum);p.appendChild(list);body.appendChild(p);return p;}
+function ensure(){if(!M())return null;var body=document.getElementById('manager-performance-center-body');if(!body)return null;var p=document.getElementById(PANEL);if(p)return p;p=N('section','card');p.id=PANEL;p.style.cssText='margin:12px 0;padding:11px;border:1px solid #bfdbfe;border-radius:11px;background:#f8fbff';var h=N('div','ct','🧭 میز هوشمند پیگیری امور مدرسه');h.style.color='#1e3a8a';p.appendChild(h);p.appendChild(N('p','', 'پرونده‌های حمایتی و امور نیازمند اقدام؛ بدون حذف یا جابه‌جایی سوابق اصلی.'));var q=N('input');q.type='search';q.placeholder='جستجوی سریع دانش‌آموز برای مشاهده همه سوابق';q.style.cssText='width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;font:inherit';var results=N('div');results.id='dastyar-smart-search-results';p.appendChild(q);p.appendChild(results);q.oninput=function(){results.replaceChildren();var term=q.value.trim().toLowerCase();if(!term)return;var hits=S().filter(function(s){return [s.first_name,s.last_name,s.code,s.father_name].some(function(v){return String(v||'').toLowerCase().includes(term);});}).slice(0,8);if(!hits.length)results.appendChild(N('div','', 'دانش‌آموزی پیدا نشد'));hits.forEach(function(s){var b=N('button','btn btn-o btn-sm',(s.first_name||'')+' '+(s.last_name||'')+' — '+(s.code||''));b.type='button';b.style.margin='3px';b.onclick=function(){showStudent(s.id);};results.appendChild(b);});};var sum=N('div');sum.id='dastyar-smart-followup-summary';sum.style.cssText='font-weight:800;margin:9px 0;color:#334155';var list=N('div');list.id='dastyar-smart-followup-list';p.appendChild(sum);p.appendChild(list);body.appendChild(p);return p;}
 function renderPanel(){if(!M())return;ensure();var open=rows().filter(function(r){return meta(r).state!=='done';});var box=document.getElementById('dastyar-smart-followup-list');if(box){var active=document.activeElement;var activeControl=active&&/^(SELECT|INPUT|TEXTAREA)$/.test(active.tagName)&&box.contains(active);if(!((window.__dastyarFollowupSelectLockUntil||0)>Date.now())&&!activeControl){var host=document.getElementById('dastyar-support-followup-items');if(!host){host=N('div');host.id='dastyar-support-followup-items';box.insertBefore(host,box.firstChild);}var sig=JSON.stringify(open.map(function(r){return [r.id,r.notes,r.date,r.subject];}));if(host.getAttribute('data-render-signature')!==sig){host.replaceChildren();if(!open.length)host.appendChild(N('div','', 'پرونده حمایت آموزشیِ باز ثبت نشده است.'));open.slice(0,30).forEach(function(r){var x=item(r);if(x)host.appendChild(x);});host.setAttribute('data-render-signature',sig);}}}try{if(typeof window.__dastyarAppendTeacherReferrals==='function')window.__dastyarAppendTeacherReferrals();else{var sum=document.getElementById('dastyar-smart-followup-summary');if(sum)sum.textContent='پرونده‌های باز نیازمند رسیدگی: '+(typeof fa==='function'?fa(open.length):open.length);}}catch(e){console.warn('نمایش ارجاع معلمان در فهرست پیگیری ناموفق بود',e);}}
 function renderDossier(id){var root=document.getElementById('print-student-dossier'),s=student(id);if(!root||!s||!allowed(id))return;var old=root.querySelector('[data-student-support="1"]');if(old)old.remove();var sec=N('section','card dossier-section');sec.setAttribute('data-student-support','1');sec.appendChild(N('div','ct','🧩 پرونده پیگیری و حمایت آموزشی ('+rows(id).length+')'));var rr=rows(id);if(!rr.length)sec.appendChild(N('div','empty','هنوز پرونده حمایتی ثبت نشده است.'));rr.forEach(function(r){var x=item(r);if(x)sec.appendChild(x);});var form=N('div','no-print');form.style.cssText='margin-top:10px;padding:10px;border:1px dashed #93c5fd;border-radius:9px;background:#f8fbff';form.appendChild(N('b','', 'ثبت اقدام یا نیاز جدید'));var reason=N('input');reason.placeholder='موضوع نیاز به رسیدگی';var plan=N('input');plan.placeholder='اقدام حمایتی پیشنهادی یا انجام‌شده';var detail=N('textarea');detail.placeholder='توضیحات، گفت‌وگو با خانواده و نتیجه پیگیری';detail.rows=2;[reason,plan,detail].forEach(function(x){x.style.cssText='width:100%;box-sizing:border-box;padding:8px;margin:5px 0;border:1px solid #cbd5e1;border-radius:7px;font:inherit';form.appendChild(x);});var row=N('div');row.style.cssText='display:flex;gap:6px;flex-wrap:wrap';var priority=N('select');[['normal','مهم'],['high','فوری'],['low','عادی']].forEach(function(v){var o=N('option','',v[1]);o.value=v[0];priority.appendChild(o);});var due=N('input');due.placeholder='موعد پیگیری (اختیاری، شمسی)';[priority,due].forEach(function(x){x.style.cssText='flex:1;min-width:110px;padding:8px;border:1px solid #cbd5e1;border-radius:7px;font:inherit';row.appendChild(x);});form.appendChild(row);var submit=N('button','btn btn-p btn-sm','ثبت در پرونده پیگیری');submit.type='button';submit.style.marginTop='7px';submit.onclick=function(){if(!reason.value.trim()){toast('موضوع نیاز به رسیدگی را بنویسید');return;}submit.disabled=true;add(id,{reason:reason.value.trim(),plan:plan.value.trim(),detail:detail.value.trim(),priority:priority.value,due:due.value.trim()}).finally(function(){submit.disabled=false;});};form.appendChild(submit);sec.appendChild(form);root.appendChild(sec);}
 function install(){try{var help=document.querySelector('#page-studentfile .card p');if(help)help.textContent='با جستجوی نام، نام خانوادگی یا کد دانش‌آموزی، پرونده یکپارچه شامل حضور و غیاب، انضباط، ارزشیابی، فعالیت‌ها، تماس با اولیا، امور مالی، شایستگی‌ها، نمودارها و پیگیری‌های حمایتی نمایش داده می‌شود.';if(typeof window.openStudentDossier==='function'&&!window.openStudentDossier.__supportWrapped){var old=window.openStudentDossier;var w=function(id){var x=old.apply(this,arguments);try{renderDossier(id);}catch(e){}return x;};w.__supportWrapped=true;window.openStudentDossier=w;}ensure();renderPanel();if(typeof window.refreshManagerPerformanceCenter==='function'&&!window.refreshManagerPerformanceCenter.__supportWrapped){var oldRefresh=window.refreshManagerPerformanceCenter;var wRefresh=function(){var x=oldRefresh.apply(this,arguments);Promise.resolve(x).then(renderPanel).catch(function(){});return x;};wRefresh.__supportWrapped=true;window.refreshManagerPerformanceCenter=wRefresh;}}catch(e){console.warn('smart followup install',e);}}
@@ -14491,8 +14452,8 @@ function renderManagerPanel(){
  if(summary)summary.textContent='پرونده‌های باز نیازمند رسیدگی: '+faNum(supportOpenCount()+open.length);
  if(old&&old.getAttribute('data-render-signature')===renderSignature)return;
  if(old)old.remove();
- var wrap=node('div');wrap.id=wrapId;wrap.style.cssText='margin-top:12px;padding-top:9px;border-top:1px solid #dbe3ef';
- wrap.appendChild(node('b','','ارجاع‌های معلمان'));
+ var wrap=node('div','card');wrap.id=wrapId;wrap.style.cssText='margin-top:12px;padding:9px;border:1px solid #dbe3ef;border-radius:10px;background:#fff';
+ wrap.appendChild(node('div','ct','ارجاع‌های معلمان'));
  wrap.appendChild(node('div','meta','ثبت‌های واقعی پرسش‌وپاسخ، آزمون، ارزشیابی، کارنامه، حضور و غیاب، انضباط و شایستگی‌ها که معلم برای رسیدگی ارجاع داده است.'));
  if(!all.length)wrap.appendChild(node('div','meta','هنوز ارجاعی از سوی معلمان ثبت نشده است.'));
  all.slice(0,80).forEach(function(r){var c=renderCard(r);if(c)wrap.appendChild(c);});
@@ -14524,14 +14485,14 @@ document.addEventListener('change',function(e){var t=e.target;if(t&&t.closest&&t
 var TAG='DASTYAR_STUDENT_RECOGNITION_V1',TYPE='student_recognition',PID='dastyar-recognition-manager-panel';
 var CATS=[['academic','پیشرفت درسی و آموزشی'],['qa','پرسش و پاسخ'],['exam','آزمون'],['discipline','اخلاقی و انضباطی'],['social','اجتماعی و همکاری'],['effort','تلاش و پشتکار'],['progress','پیشرفت فردی'],['responsibility','مسئولیت‌پذیری'],['artistic','فرهنگی و هنری'],['sports','ورزشی و مهارتی'],['creativity','خلاقیت و ابتکار'],['other','سایر موارد مثبت']];
  var REVIEWERS=['مدیر مدرسه — سید حسین نورایی انور','معاون آموزشی — پژمان سامانی‌پور','معاون اجرایی — رضا فلاحتکار'];
-var timer=null,busy=false,studentBusy=false,currentId='';
+var timer=null,busy=false,studentBusy=false,currentId='',managerDrafts=Object.create(null);
 function A(x){return Array.isArray(x)?x:[];}function C(){try{return window.cache||cache||{};}catch(e){return window.cache||{};}}
 function U(){try{return window.user||user||null;}catch(e){return window.user||null;}}function api(){try{return window.sb||sb||null;}catch(e){return null;}}
 function isT(){var u=U();return !!(u&&u.role==='teacher');}function isM(){var u=U();return !!(u&&(u.role==='admin'||u.role==='manager'));}
 function E(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function N(t,c,v){var x=document.createElement(t);if(c)x.className=c;if(v!=null)x.textContent=String(v);return x;}
 function meta(r){try{var m=JSON.parse(String(r&&r.notes||''));return m&&m.tag===TAG?m:null;}catch(e){return null;}}
-function rows(id){return A(C().activities).filter(function(r){return r&&r.type===TYPE&&(!id||String(r.student_id)===String(id))&&meta(r);});}
+function rows(id){var byId=new Map();A(C().activities).forEach(function(r){if(!r||r.type!==TYPE||(id&&String(r.student_id)!==String(id))||!meta(r))return;byId.set(String(r.id),r);});return Array.from(byId.values()).sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''));});}
 function st(id){return A(C().students).find(function(x){return String(x.id)===String(id);})||null;}
 function who(){var u=U();return u&&(u.full_name||u.username)||'معلم';}
 function classLabel(id){var c=A(C().classes).find(function(x){return String(x.id)===String(id);});return c?(c.label||c.name||'—'):'—';}
@@ -14546,7 +14507,7 @@ function inCycle(list,n){return A(list).filter(function(r){var m=meta(r);return 
 async function refreshStudent(id){var s=api();if(!s||!navigator.onLine||window.isOffline||studentBusy)return;studentBusy=true;try{var r=await s.from('sa_activities').select('*').eq('type',TYPE).eq('student_id',String(id));if(r&&!r.error&&Array.isArray(r.data))merge(r.data,id);else if(r&&r.error)console.warn('تشویقی: دریافت سوابق ناموفق',r.error);}catch(e){console.warn(e);}finally{studentBusy=false;drawStudent(id);}}
 function drawStudent(id){
  var root=document.getElementById('print-student-dossier'),student=st(id);if(!root||!student)return;
- var all=rows(id),cycle=cycleNo(all),active=inCycle(all,cycle),counts={},approvedCycles={};all.forEach(function(r){var m=meta(r);if(m){counts[m.category]=(counts[m.category]||0)+1;if(m.batchReady&&m.batchStatus==='approved')approvedCycles[String(m.cycleNo)]=1;}});
+ var all=rows(id),cycle=cycleNo(all),active=inCycle(all,cycle),counts={},cycleStates={};all.forEach(function(r){var m=meta(r);if(m){counts[m.category]=(counts[m.category]||0)+1;if(m.batchReady)cycleStates[String(m.cycleNo)]=m;}});
  var old=root.querySelector('[data-recognition-section]'),signature=JSON.stringify(all.map(function(r){return [r.id,r.notes,r.date];}))+'|'+cycle;
  if(old&&old.getAttribute('data-signature')===signature)return;
  if(old&&old.contains(document.activeElement)&&/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))return;
@@ -14557,7 +14518,7 @@ function drawStudent(id){
  var chips=N('div');chips.style.cssText='display:flex;gap:5px;flex-wrap:wrap;margin:7px 0';CATS.forEach(function(c){if(counts[c[0]]){var x=N('span','',c[1]+' : '+counts[c[0]]);x.style.cssText='font-size:11px;background:#f0fdf4;color:#166534;padding:4px 8px;border-radius:18px;border:1px solid #bbf7d0';chips.appendChild(x);}});if(chips.childNodes.length)sec.appendChild(chips);
  if(active.length>=3){var note=N('div','meta','سه تشویقی ثبت شده است؛ پرونده برای تأیید مدیریت آماده است. پس از تأیید، شمارش دوره بعد از صفر آغاز می‌شود.');note.style.cssText='padding:8px;background:#fffbeb;color:#92400e;border-radius:8px;margin:6px 0';sec.appendChild(note);}
  var history=N('div');if(!all.length)history.appendChild(N('div','empty','هنوز تشویقی ثبت نشده است.'));
- all.slice().sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''));}).forEach(function(r){var m=meta(r),x=N('div');x.style.cssText='padding:7px 0;border-bottom:1px solid #e2e8f0;line-height:1.8';x.appendChild(N('b','',label(m.category)));x.appendChild(N('div','meta',(r.date||'')+' | دوره '+m.cycleNo+' | '+(m.teacherName||r.recorded_by||'معلم')));if(m.reason)x.appendChild(N('div','',m.reason));if(m.batchReady){var state=m.batchStatus==='approved'?'نتیجه پیگیری مدیریت ثبت شد':'برای بررسی و پیگیری به مدیریت ارسال شد';x.appendChild(N('div','meta','📌 وضعیت: '+state));if(m.followupBy)x.appendChild(N('div','meta','مسئول پیگیری: '+m.followupBy+' | تاریخ: '+(m.followupAt||m.approvedAt||'—')));if(m.followupResult){var fr=N('div');fr.style.cssText='margin-top:5px;padding:7px;background:#eff6ff;border-right:3px solid #2563eb;border-radius:7px;white-space:pre-wrap';fr.appendChild(N('b','','نتیجه پیگیری مدیریت: '));fr.appendChild(document.createTextNode(m.followupResult));x.appendChild(fr);}}if(approvedCycles[String(m.cycleNo)])x.appendChild(N('div','meta','✅ این دوره توسط مدیریت تأیید شده است'+(m.approvedBy?' — '+m.approvedBy:'')));history.appendChild(x);});sec.appendChild(history);
+ all.slice().sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''));}).forEach(function(r){var m=meta(r),x=N('div');x.style.cssText='padding:7px 0;border-bottom:1px solid #e2e8f0;line-height:1.8';x.appendChild(N('b','',label(m.category)));x.appendChild(N('div','meta',(r.date||'')+' | دوره '+m.cycleNo+' | '+(m.teacherName||r.recorded_by||'معلم')));if(m.reason)x.appendChild(N('div','',m.reason));var cycleMeta=cycleStates[String(m.cycleNo)];if(cycleMeta){var state=cycleMeta.batchStatus==='approved'?'این دوره توسط مدیریت تأیید شده است':'این دوره در انتظار بررسی مدیریت است';x.appendChild(N('div','meta','📌 وضعیت دوره: '+state));if(cycleMeta.followupBy)x.appendChild(N('div','meta','مسئول پیگیری: '+cycleMeta.followupBy+' | تاریخ: '+(cycleMeta.followupAt||cycleMeta.approvedAt||'—')));if(cycleMeta.followupResult){var fr=N('div');fr.style.cssText='margin-top:5px;padding:7px;background:#eff6ff;border-right:3px solid #2563eb;border-radius:7px;white-space:pre-wrap';fr.appendChild(N('b','','نتیجه پیگیری مدیریت: '));fr.appendChild(document.createTextNode(cycleMeta.followupResult));x.appendChild(fr);}}history.appendChild(x);});sec.appendChild(history);
  if(isT()){var form=N('div','no-print');form.style.cssText='margin-top:12px;padding:10px;border:1px dashed #86efac;border-radius:10px;background:#f0fdf4';form.appendChild(N('b','','ثبت سریع تشویقی'));
  var help=N('div','meta','دانش‌آموز از پرونده انتخاب شده است؛ فقط موضوع و علت تشویق را وارد کنید.');form.appendChild(help);
  var sel=N('select');sel.style.cssText='width:100%;padding:10px;margin-top:7px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;background:white';CATS.forEach(function(c){var o=N('option','',c[1]);o.value=c[0];sel.appendChild(o);});form.appendChild(sel);
@@ -14571,7 +14532,9 @@ async function add(id,category,reason){var student=st(id),s=api();if(!isT()||!st
  var row={id:rid,student_id:String(student.id),class_id:String(student.class_id||''),type:TYPE,subject:'تشویق دانش‌آموز — '+label(category),weekday:typeof weekdayNow==='function'?weekdayNow():'',date:dateNow(),level:'positive',notes:JSON.stringify(m),recorded_by:name};
  try{if(!s)throw new Error('اتصال پایگاه‌داده آماده نیست');var out=await s.from('sa_activities').insert(row);if(out&&out.error)throw new Error(out.error.message);put(row);drawStudent(id);if(typeof toast==='function')toast(out&&out.offline?'تشویقی در گوشی ذخیره شد و پس از اتصال همگام می‌شود.':(ready?'تشویقی سوم ثبت شد؛ پرونده برای بررسی مدیریت آماده است.':'تشویقی ثبت شد.'));return true;}catch(e){if(typeof toast==='function')toast('ثبت تشویقی ناموفق بود: '+(e.message||e));return false;}
 }
-function groups(){var map={};rows().forEach(function(r){var m=meta(r);if(!m)return;var k=String(r.student_id)+'|'+(Number(m.cycleNo)||1);if(!map[k])map[k]={studentId:String(r.student_id),cycleNo:Number(m.cycleNo)||1,items:[],trigger:null};map[k].items.push(r);if(m.batchReady)map[k].trigger=r;});return Object.keys(map).map(function(k){return map[k];}).filter(function(g){var tm=meta(g.trigger);return g.items.length>=3&&tm&&tm.batchReady&&tm.batchStatus!=='approved';});}
+function allGroups(){var map={};rows().forEach(function(r){var m=meta(r);if(!m)return;var k=String(r.student_id)+'|'+(Number(m.cycleNo)||1);if(!map[k])map[k]={studentId:String(r.student_id),cycleNo:Number(m.cycleNo)||1,items:[],trigger:null};map[k].items.push(r);if(m.batchReady)map[k].trigger=r;});return Object.keys(map).map(function(k){return map[k];}).filter(function(g){var tm=meta(g.trigger);return g.items.length>=3&&tm&&tm.batchReady;});}
+function groups(){return allGroups().filter(function(g){return meta(g.trigger).batchStatus!=='approved';});}
+function approvedGroups(){return allGroups().filter(function(g){return meta(g.trigger).batchStatus==='approved';});}
 async function refreshManager(){var s=api();if(!isM()||!s||!navigator.onLine||window.isOffline||busy)return;busy=true;try{var r=await s.from('sa_activities').select('*').eq('type',TYPE);if(r&&!r.error&&Array.isArray(r.data)){merge(r.data);drawManager();}else if(r&&r.error)console.warn('دریافت تشویقی‌ها برای مدیر ناموفق',r.error);}catch(e){console.warn(e);}finally{busy=false;}}
 async function approve(g,person,result){
  if(!isM())return;
@@ -14592,16 +14555,68 @@ async function approve(g,person,result){
    var saved=Array.isArray(verify.data)?verify.data[0]:verify.data;
    if(!saved||String(saved.id)!==String(g.trigger.id)||String(saved.notes||'')!==payload)throw new Error('سرور نتیجه پیگیری را تأیید نکرد؛ شمارش مرحله تغییر داده نشد.');
   }
-  g.trigger.notes=payload;put(g.trigger);
-  if(typeof toast==='function')toast(r&&r.offline?'نتیجه پیگیری در صف همگام‌سازی قرار گرفت.':'نتیجه پیگیری مدیریت ثبت شد و برای معلم و پرونده اولیا قابل مشاهده است؛ دوره بعد از صفر آغاز می‌شود.');
+  g.trigger.notes=payload;put(g.trigger);delete managerDrafts[String(g.studentId)+'|'+String(g.cycleNo)];
+  if(typeof toast==='function')toast(r&&r.offline?'نتیجه پیگیری در صف همگام‌سازی قرار گرفت؛ سوابق قبلی در تاریخچه باقی می‌ماند.':'تأیید مدیریت ذخیره شد؛ این سه تشویقی به تاریخچه منتقل شدند، مجموع کل حفظ شد و دوره بعد از صفر آغاز می‌شود.');
   drawManager();
  }catch(e){console.error('save student recognition followup failed',e);if(typeof toast==='function')toast('ثبت نتیجه پیگیری ناموفق بود: '+(e.message||e));}
 }
-function drawManager(){if(!isM())return;var host=document.getElementById('dastyar-smart-followup-list')||document.getElementById('dastyar-smart-followup-panel');if(!host)return;var gs=groups(),signature=JSON.stringify(gs.map(function(g){return [g.studentId,g.cycleNo,g.items.map(function(r){return [r.id,r.notes];})];})),old=document.getElementById(PID);if(old&&old.getAttribute('data-signature')===signature)return;if(old)old.remove();var p=N('div');p.id=PID;p.style.cssText='margin-top:14px;padding:12px;border:1px solid #bbf7d0;border-right:4px solid #16a34a;border-radius:12px;background:#f7fef9';p.appendChild(N('b','','🌟 تشویقی‌های آماده تأیید مدیریت'));p.appendChild(N('div','meta','پس از ثبت سه تشویقی برای هر دانش‌آموز، پرونده در این بخش نمایش داده می‌شود. با تأیید مدیر، شمارش دوره بعد از صفر آغاز و سوابق قبلی حفظ می‌شود.'));p.setAttribute('data-signature',signature);p.appendChild(N('div','meta','پرونده‌های آماده بررسی: '+gs.length));if(!gs.length)p.appendChild(N('div','meta','پرونده تشویقی آماده تأیید وجود ندارد.'));gs.forEach(function(g){var s=st(g.studentId),card=N('div');card.style.cssText='margin-top:9px;padding:10px;border:1px solid #d1fae5;border-radius:10px;background:#fff';card.appendChild(N('b','',(s?(s.first_name+' '+s.last_name):'دانش‌آموز')+' — '+classLabel(g.items[0].class_id)));var allStudentRows=rows(g.studentId),categoryTotals={};
- allStudentRows.forEach(function(item){var im=meta(item),key=im&&im.category||'other';categoryTotals[key]=(categoryTotals[key]||0)+1;});
- card.appendChild(N('div','meta','دوره '+g.cycleNo+' | '+g.items.length+' تشویقی در این مرحله | مجموع کل: '+allStudentRows.length));
- var categorySummary=CATS.filter(function(cat){return categoryTotals[cat[0]];}).map(function(cat){return cat[1]+' '+categoryTotals[cat[0]];}).join(' | ');
- if(categorySummary)card.appendChild(N('div','meta','آمار موضوعی سوابق: '+categorySummary));g.items.slice().sort(function(a,b){return String(a.date||'').localeCompare(String(b.date||''));}).forEach(function(r){var m=meta(r),x=N('div');x.style.cssText='padding:6px 0;border-bottom:1px solid #f1f5f9';x.appendChild(N('b','',label(m.category)));x.appendChild(N('div','meta',(r.date||'')+' | '+(m.teacherName||r.recorded_by||'معلم')));x.appendChild(N('div','',m.reason||''));card.appendChild(x);});var reviewer=N('select');reviewer.style.cssText='width:100%;padding:9px;margin:8px 0 5px;border:1px solid #cbd5e1;border-radius:8px;font:inherit';reviewer.appendChild(new Option('انتخاب مسئول پیگیری',''));REVIEWERS.forEach(function(v){reviewer.appendChild(new Option(v,v));});var result=N('textarea');result.rows=3;result.placeholder='نتیجه بررسی، اقدام انجام‌شده و توضیح قابل ارسال برای معلم را بنویسید';result.style.cssText='width:100%;box-sizing:border-box;padding:9px;margin:5px 0;border:1px solid #cbd5e1;border-radius:8px;font:inherit';card.appendChild(N('div','meta','مسئول پیگیری'));card.appendChild(reviewer);card.appendChild(N('div','meta','نتیجه پیگیری مدیریت'));card.appendChild(result);var btn=N('button','btn btn-p btn-sm','ثبت پیگیری و ارسال نتیجه برای معلم');btn.type='button';btn.style.marginTop='7px';btn.onclick=function(){if(!reviewer.value){if(typeof toast==='function')toast('مسئول پیگیری را انتخاب کنید');return;}if(!result.value.trim()){if(typeof toast==='function')toast('نتیجه پیگیری را بنویسید');return;}if(!confirm('نتیجه پیگیری ثبت و برای معلم ارسال شود؟ پس از ثبت، شمارش دوره بعد از صفر آغاز می‌شود.'))return;btn.disabled=true;approve(g,reviewer.value,result.value.trim()).finally(function(){btn.disabled=false;});};card.appendChild(btn);p.appendChild(card);});host.appendChild(p);}
+function drawManager(){
+ if(!isM())return;
+ var host=document.getElementById('dastyar-smart-followup-list')||document.getElementById('dastyar-smart-followup-panel');if(!host)return;
+ var all=rows(),pending=groups(),approved=approvedGroups();
+ var signature=JSON.stringify(all.map(function(r){return [r.id,r.notes,r.date];}));
+ var old=document.getElementById(PID);
+ if(old){
+  old.querySelectorAll('[data-recognition-key]').forEach(function(card){
+   var key=card.getAttribute('data-recognition-key'),sel=card.querySelector('[data-reviewer]'),txt=card.querySelector('[data-result]');
+   if(key&&(sel||txt))managerDrafts[key]={person:sel?sel.value:'',result:txt?txt.value:''};
+  });
+  if(old.getAttribute('data-signature')===signature)return;
+  old.remove();
+ }
+ var p=N('section','card');p.id=PID;p.style.cssText='margin-top:14px;padding:12px;border:1px solid #bbf7d0;border-right:4px solid #16a34a;border-radius:12px;background:#f7fef9';
+ var title=N('div','ct','🌟 تشویقی‌های دانش‌آموزان');p.appendChild(title);
+ p.appendChild(N('div','meta','سوابق تشویقی حذف نمی‌شوند؛ پرونده‌های تأییدشده از فهرست انتظار به تاریخچه منتقل می‌شوند و مجموع کل و آمار موضوعی حفظ می‌شود.'));
+ var pendingBox=N('section','card');pendingBox.style.cssText='margin-top:10px;padding:9px;border:1px solid #fde68a;border-radius:10px;background:#fffcf3';
+ pendingBox.appendChild(N('div','ct','⏳ پرونده‌های نیازمند تأیید مدیریت ('+pending.length+')'));
+ if(!pending.length)pendingBox.appendChild(N('div','meta','در حال حاضر پرونده تشویقیِ منتظر تأیید وجود ندارد.'));
+ pending.forEach(function(g){
+  var s=st(g.studentId),key=String(g.studentId)+'|'+String(g.cycleNo),draft=managerDrafts[key]||{};
+  var card=N('div','card');card.style.cssText='margin-top:9px;padding:10px;border:1px solid #d1fae5;border-radius:10px;background:#fff';
+  card.appendChild(N('div','ct',(s?(s.first_name+' '+s.last_name):'دانش‌آموز')+' — '+classLabel(g.items[0].class_id)));
+  card.setAttribute('data-recognition-key',key);
+  var allStudentRows=rows(g.studentId),categoryTotals={};
+  allStudentRows.forEach(function(item){var im=meta(item),cat=im&&im.category||'other';categoryTotals[cat]=(categoryTotals[cat]||0)+1;});
+  card.appendChild(N('div','meta','دوره '+g.cycleNo+' | '+g.items.length+' تشویقی در این مرحله | مجموع کل سوابق: '+allStudentRows.length));
+  var categorySummary=CATS.filter(function(cat){return categoryTotals[cat[0]];}).map(function(cat){return cat[1]+' '+categoryTotals[cat[0]];}).join(' | ');
+  if(categorySummary)card.appendChild(N('div','meta','مجموع به تفکیک زمینه: '+categorySummary));
+  g.items.slice().sort(function(a,b){return String(a.date||'').localeCompare(String(b.date||''));}).forEach(function(r){var m=meta(r),x=N('div');x.style.cssText='padding:6px 0;border-bottom:1px solid #f1f5f9';x.appendChild(N('b','',label(m.category)));x.appendChild(N('div','meta',(r.date||'')+' | '+(m.teacherName||r.recorded_by||'معلم')));x.appendChild(N('div','',m.reason||''));card.appendChild(x);});
+  var reviewer=N('select');reviewer.setAttribute('data-reviewer','1');reviewer.style.cssText='width:100%;padding:9px;margin:8px 0 5px;border:1px solid #cbd5e1;border-radius:8px;font:inherit';reviewer.appendChild(new Option('انتخاب مسئول پیگیری',''));REVIEWERS.forEach(function(v){reviewer.appendChild(new Option(v,v));});reviewer.value=draft.person||'';
+  var result=N('textarea');result.setAttribute('data-result','1');result.rows=3;result.placeholder='نتیجه بررسی، اقدام انجام‌شده و توضیح قابل ارسال برای معلم را بنویسید';result.value=draft.result||'';result.style.cssText='width:100%;box-sizing:border-box;padding:9px;margin:5px 0;border:1px solid #cbd5e1;border-radius:8px;font:inherit';
+  function keep(){managerDrafts[key]={person:reviewer.value,result:result.value};}
+  reviewer.addEventListener('change',keep);result.addEventListener('input',keep);result.addEventListener('change',keep);
+  card.appendChild(N('div','meta','مسئول پیگیری'));card.appendChild(reviewer);card.appendChild(N('div','meta','نتیجه پیگیری مدیریت'));card.appendChild(result);
+  var btn=N('button','btn btn-p btn-sm','ثبت پیگیری و انتقال به تاریخچه');btn.type='button';btn.style.marginTop='7px';btn.onclick=function(){keep();if(!reviewer.value){if(typeof toast==='function')toast('مسئول پیگیری را انتخاب کنید');return;}if(!result.value.trim()){if(typeof toast==='function')toast('نتیجه پیگیری را بنویسید');return;}if(!confirm('نتیجه پیگیری ثبت شود؟ سوابق سه تشویقی در تاریخچه باقی می‌ماند و شمارش دوره بعد از صفر آغاز می‌شود.'))return;btn.disabled=true;approve(g,reviewer.value,result.value.trim()).finally(function(){btn.disabled=false;});};
+  card.appendChild(btn);pendingBox.appendChild(card);
+ });
+ p.appendChild(pendingBox);
+ var historyBox=N('section','card');historyBox.style.cssText='margin-top:10px;padding:9px;border:1px solid #bfdbfe;border-radius:10px;background:#f8fbff';
+ historyBox.appendChild(N('div','ct','📚 تاریخچه دوره‌های تأییدشده ('+approved.length+')'));
+ if(!approved.length)historyBox.appendChild(N('div','meta','هنوز دوره تأییدشده‌ای ثبت نشده است؛ پس از تأیید، سوابق در همین بخش باقی می‌مانند.'));
+ approved.slice().sort(function(a,b){return String(b.cycleNo).localeCompare(String(a.cycleNo))||String(a.studentId).localeCompare(String(b.studentId));}).forEach(function(g){
+  var s=st(g.studentId),m=meta(g.trigger),card=N('div','card');card.style.cssText='margin-top:8px;padding:9px;border:1px solid #dbeafe;border-radius:9px;background:#fff';
+  card.appendChild(N('div','ct',(s?(s.first_name+' '+s.last_name):'دانش‌آموز')+' — '+classLabel(g.items[0].class_id)+' | دوره '+g.cycleNo));
+  var studentRows=rows(g.studentId),totals={};studentRows.forEach(function(r){var rm=meta(r),cat=rm&&rm.category||'other';totals[cat]=(totals[cat]||0)+1;});
+  card.appendChild(N('div','meta','۳ تشویقی این دوره تأیید شده | مجموع کل سوابق دانش‌آموز: '+studentRows.length));
+  var cats=CATS.filter(function(cat){return totals[cat[0]];}).map(function(cat){return cat[1]+' '+totals[cat[0]];}).join(' | ');
+  if(cats)card.appendChild(N('div','meta','مجموع به تفکیک زمینه: '+cats));
+  card.appendChild(N('div','meta','تأییدکننده: '+(m.approvedBy||'—')+' | تاریخ: '+(m.approvedAt||'—')+' | مسئول پیگیری: '+(m.followupBy||'—')));
+  if(m.followupResult)card.appendChild(N('div','', 'نتیجه پیگیری: '+m.followupResult));
+  g.items.slice().sort(function(a,b){return String(a.date||'').localeCompare(String(b.date||''));}).forEach(function(r){var rm=meta(r),line=N('div');line.style.cssText='padding:5px 0;border-top:1px solid #eef2f7';line.appendChild(N('b','',label(rm.category)));line.appendChild(N('div','meta',(r.date||'')+' | '+(rm.teacherName||r.recorded_by||'معلم')+' | '+(rm.reason||'')));card.appendChild(line);});
+  historyBox.appendChild(card);
+ });
+ p.appendChild(historyBox);p.setAttribute('data-signature',signature);host.appendChild(p);
+}
 function visible(){var p=document.getElementById('page-studentfile');return !!(isT()&&!document.hidden&&p&&p.classList.contains('on')&&currentId);}
 function install(){try{if(typeof window.openStudentDossier==='function'&&!window.openStudentDossier.__recognitionWrapped){var old=window.openStudentDossier;var w=function(id){currentId=String(id);var out=old.apply(this,arguments);drawStudent(id);if(isT())refreshStudent(id);return out;};w.__recognitionWrapped=true;window.openStudentDossier=w;}if(isM()){drawManager();refreshManager();}if(timer===null)timer=window.setInterval(function(){if(isM()){drawManager();refreshManager();}else if(visible())refreshStudent(currentId);},15000);}catch(e){console.warn('سامانه تشویقی',e);}}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(install,900);});else setTimeout(install,900);
@@ -14609,123 +14624,100 @@ window.addEventListener('focus',function(){if(isM())refreshManager();else if(vis
 })();
 </script>
 
-<script id="dastyar-universal-section-accordion-v1">
+<script id="dastyar-universal-section-accordion-v2">
 (function(){
 'use strict';
-if(window.__dastyarUniversalAccordionInstalled)return;
-window.__dastyarUniversalAccordionInstalled=true;
-var STYLE_ID='dastyar-universal-accordion-style';
+if(window.__dastyarUniversalAccordionV2)return;
+window.__dastyarUniversalAccordionV2=true;
+var STYLE_ID='dastyar-universal-accordion-v2-style';
 if(!document.getElementById(STYLE_ID)){
  var st=document.createElement('style');st.id=STYLE_ID;
  st.textContent=
- '.dastyar-section-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:right;border:0;border-radius:10px;background:linear-gradient(135deg,#f8fbff,#eef5ff);color:#173b70;padding:12px 13px;margin:0 0 2px;font:800 .88rem Vazirmatn,Tahoma,sans-serif;cursor:pointer;min-height:46px;box-sizing:border-box;}' +
- '.dastyar-section-toggle .dastyar-section-title{flex:1;min-width:0;line-height:1.7;}' +
- '.dastyar-section-toggle .dastyar-section-arrow{flex:0 0 auto;width:25px;height:25px;border-radius:8px;background:#dbeafe;color:#1d4ed8;display:inline-flex;align-items:center;justify-content:center;font-size:1rem;transition:transform .18s ease;}' +
- '.dastyar-section-toggle[aria-expanded="true"]{background:linear-gradient(135deg,#eff6ff,#e0edff);margin-bottom:9px;}' +
- '.dastyar-section-toggle[aria-expanded="true"] .dastyar-section-arrow{transform:rotate(180deg);}' +
- '.dastyar-accordion-card{overflow:hidden;}' +
- '.dastyar-accordion-card[ data-dastyar-accordion-open="true" ]{border-color:#bfdbfe;}' +
- '.dastyar-dashboard-summary-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0;padding:10px 12px;border:1px solid #dbeafe;border-radius:11px;background:#f8fbff;color:#1e40af;font:800 .84rem Vazirmatn,Tahoma,sans-serif;text-align:right;cursor:pointer;}' +
- '.dastyar-dashboard-summary-toggle .dastyar-section-arrow{width:23px;height:23px;border-radius:7px;background:#dbeafe;display:inline-flex;align-items:center;justify-content:center;}' +
- '.dastyar-dashboard-summary-toggle[aria-expanded="true"] .dastyar-section-arrow{transform:rotate(180deg);}' +
- '@media(prefers-reduced-motion:no-preference){.dastyar-section-toggle,.dastyar-dashboard-summary-toggle{transition:background .18s,border-color .18s;}}';
+ '.dastyar-section-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:right;border:0;border-radius:10px;background:linear-gradient(135deg,#f8fbff,#eef5ff);color:#173b70;padding:12px 13px;margin:0 0 2px;font:800 .88rem Vazirmatn,Tahoma,sans-serif;cursor:pointer;min-height:46px;box-sizing:border-box}' +
+ '.dastyar-section-toggle .dastyar-section-title{flex:1;min-width:0;line-height:1.7}' +
+ '.dastyar-section-toggle .dastyar-section-arrow{flex:0 0 auto;width:25px;height:25px;border-radius:8px;background:#dbeafe;color:#1d4ed8;display:inline-flex;align-items:center;justify-content:center;font-size:1rem;transition:transform .18s ease}' +
+ '.dastyar-section-toggle[aria-expanded="true"]{background:linear-gradient(135deg,#eff6ff,#e0edff);margin-bottom:9px}' +
+ '.dastyar-section-toggle[aria-expanded="true"] .dastyar-section-arrow{transform:rotate(180deg)}' +
+ '.dastyar-accordion-card{overflow:hidden;min-width:0}' +
+ '.dastyar-accordion-card[data-dastyar-accordion-open="true"]{border-color:#bfdbfe}' +
+ '.dastyar-dashboard-summary-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0;padding:10px 12px;border:1px solid #dbeafe;border-radius:11px;background:#f8fbff;color:#1e40af;font:800 .84rem Vazirmatn,Tahoma,sans-serif;text-align:right;cursor:pointer}' +
+ '.dastyar-dashboard-summary-toggle .dastyar-section-arrow{width:23px;height:23px;border-radius:7px;background:#dbeafe;display:inline-flex;align-items:center;justify-content:center}' +
+ '.dastyar-dashboard-summary-toggle[aria-expanded="true"] .dastyar-section-arrow{transform:rotate(180deg)}';
  document.head.appendChild(st);
 }
-function restoreChild(el){
- if(!el||!el.hasAttribute('data-dastyar-accordion-child'))return;
- var was=el.getAttribute('data-dastyar-original-hidden')==='1';
- if(was)el.hidden=true;else el.hidden=false;
- el.removeAttribute('data-dastyar-accordion-child');
- el.removeAttribute('data-dastyar-original-hidden');
+function titleOf(card){
+ var h=Array.prototype.find.call(card.children,function(ch){return ch.classList&&ch.classList.contains('ct');});
+ if(h&&String(h.textContent||'').trim())return {node:h,text:String(h.textContent||'').trim()};
+ var direct=Array.prototype.find.call(card.children,function(ch){return /^(H2|H3|H4|SUMMARY)$/.test(ch.tagName)&&String(ch.textContent||'').trim();});
+ if(direct)return {node:direct,text:String(direct.textContent||'').trim()};
+ var id=String(card.id||'');
+ var labels={'weekly-status':'وضعیت برنامه هفتگی','monthly-report-output':'گزارش ماهانه آماده‌شده','teacher-report-output':'گزارش کلاس آماده‌شده','ch-legend':'راهنمای نمودار پیشرفت','alist':'فهرست حضور و غیاب','att-history':'جستجوی سوابق حضور و غیاب','fin-list':'فهرست دریافت‌های مالی','di-list':'سوابق انضباطی','rp-list':'فهرست کارنامه‌ها','rp-edit':'ویرایش کارنامه','doc-list':'فهرست فایل‌های ارسالی'};
+ if(labels[id])return {node:null,text:labels[id]};
+ if(card.querySelector(':scope > canvas'))return {node:null,text:'📈 نمودار و تحلیل پیشرفت'};
+ return null;
 }
-function setCardOpen(card,open){
- var btn=card.querySelector(':scope > .dastyar-section-toggle');
- if(!btn)return;
+function restoreChild(ch){
+ if(!ch||!ch.hasAttribute('data-dastyar-accordion-child'))return;
+ ch.hidden=ch.getAttribute('data-dastyar-original-hidden')==='1';
+ ch.removeAttribute('data-dastyar-accordion-child');ch.removeAttribute('data-dastyar-original-hidden');
+}
+function setOpen(card,open){
+ var btn=card.querySelector(':scope > .dastyar-section-toggle');if(!btn)return;
  Array.prototype.forEach.call(card.children,function(ch){
   if(ch===btn)return;
-  if(open){restoreChild(ch);}
+  if(open)restoreChild(ch);
   else if(!ch.hasAttribute('data-dastyar-accordion-child')){
    ch.setAttribute('data-dastyar-original-hidden',ch.hidden?'1':'0');
-   ch.setAttribute('data-dastyar-accordion-child','1');
-   ch.hidden=true;
+   ch.setAttribute('data-dastyar-accordion-child','1');ch.hidden=true;
   }else ch.hidden=true;
  });
  btn.setAttribute('aria-expanded',open?'true':'false');
- var arrow=btn.querySelector('.dastyar-section-arrow');if(arrow)arrow.textContent=open?'⌃':'⌄';
+ var a=btn.querySelector('.dastyar-section-arrow');if(a)a.textContent=open?'⌃':'⌄';
  card.setAttribute('data-dastyar-accordion-open',open?'true':'false');
 }
-function inferredCardTitle(card){
- var id=String(card.id||'');
- var map={'weekly-status':'وضعیت برنامه هفتگی','monthly-report-output':'گزارش ماهانه آماده‌شده','teacher-report-output':'گزارش کلاس آماده‌شده','ch-legend':'راهنمای نمودار پیشرفت','alist':'فهرست حضور و غیاب','att-history':'جستجوی سوابق حضور و غیاب','fin-list':'فهرست دریافت‌های مالی','di-list':'سوابق انضباطی','rp-list':'فهرست کارنامه‌ها','rp-edit':'ویرایش کارنامه','doc-list':'فهرست فایل‌های ارسالی'};
- if(map[id])return map[id];
- if(card.querySelector(':scope > canvas'))return '📈 نمایش نمودار و تحلیل پیشرفت';
- var h=card.querySelector(':scope > h2,:scope > h3,:scope > summary');
- if(h&&h.textContent.trim())return h.textContent.trim();
- var empty=card.querySelector(':scope > .empty');
- if(empty&&empty.textContent.trim())return 'جزئیات و خروجی';
- var txt=String(card.textContent||'').replace(/\s+/g,' ').trim();
- return txt?txt.slice(0,58):'جزئیات این بخش';
-}
-function initCard(card,page){
+function prepare(card){
  if(!card||card.dataset.dastyarAccordionReady==='1'||card.classList.contains('dastyar-dashboard-feature'))return;
- var heading=Array.prototype.find.call(card.children,function(ch){return ch.classList&&ch.classList.contains('ct');});
- var label=heading?String(heading.textContent||'').trim():inferredCardTitle(card);
- if(!label)return;
- card.dataset.dastyarAccordionReady='1';
- card.classList.add('dastyar-accordion-card');
+ if(card.closest('[data-no-section-accordion="true"]'))return;
+ var info=titleOf(card);if(!info||!info.text)return;
+ card.dataset.dastyarAccordionReady='1';card.classList.add('dastyar-accordion-card');
  var btn=document.createElement('button');btn.type='button';btn.className='dastyar-section-toggle';btn.setAttribute('aria-expanded','false');
  var title=document.createElement('span');title.className='dastyar-section-title';
- if(heading)title.appendChild(heading);else title.textContent=label;
+ if(info.node)title.appendChild(info.node);else title.textContent=info.text;
  var arrow=document.createElement('span');arrow.className='dastyar-section-arrow';arrow.setAttribute('aria-hidden','true');arrow.textContent='⌄';
- btn.appendChild(title);btn.appendChild(arrow);
- card.insertBefore(btn,card.firstChild);
+ btn.appendChild(title);btn.appendChild(arrow);card.insertBefore(btn,card.firstChild);
  btn.addEventListener('click',function(ev){
   ev.preventDefault();ev.stopPropagation();
-  var open=btn.getAttribute('aria-expanded')!=='true';
-  if(open){Array.prototype.forEach.call(page.querySelectorAll(':scope > .dastyar-accordion-card'),function(other){if(other!==card)setCardOpen(other,false);});}
-  setCardOpen(card,open);
+  var opening=btn.getAttribute('aria-expanded')!=='true';
+  if(opening)Array.prototype.forEach.call(card.parentElement.children,function(sib){if(sib!==card&&sib.classList&&sib.classList.contains('dastyar-accordion-card'))setOpen(sib,false);});
+  setOpen(card,opening);
  });
- setCardOpen(card,false);
+ setOpen(card,false);
 }
-function initDashboardSummary(page){
- var sg=page.querySelector(':scope > .sg');
- if(!sg||sg.dataset.dastyarAccordionReady==='1')return;
+function dashboardSummary(page){
+ var sg=page.querySelector(':scope > .sg');if(!sg||sg.dataset.dastyarAccordionReady==='1')return;
  sg.dataset.dastyarAccordionReady='1';
  var btn=document.createElement('button');btn.type='button';btn.className='dastyar-dashboard-summary-toggle';btn.setAttribute('aria-expanded','false');
- var count=sg.querySelectorAll(':scope > .sc').length;
- var label=document.createElement('span');label.textContent='📊 آمار سریع مدرسه · '+count+' شاخص';
- var arrow=document.createElement('span');arrow.className='dastyar-section-arrow';arrow.textContent='⌄';
- btn.appendChild(label);btn.appendChild(arrow);
- page.insertBefore(btn,sg);
- sg.hidden=true;
- btn.addEventListener('click',function(ev){
-  ev.preventDefault();ev.stopPropagation();
-  var open=btn.getAttribute('aria-expanded')!=='true';
-  Array.prototype.forEach.call(page.querySelectorAll(':scope > .dastyar-dashboard-summary-toggle'),function(other){if(other!==btn){var target=other.nextElementSibling;if(target&&target.classList.contains('sg'))target.hidden=true;other.setAttribute('aria-expanded','false');var a=other.querySelector('.dastyar-section-arrow');if(a)a.textContent='⌄';}});
-  sg.hidden=!open;btn.setAttribute('aria-expanded',open?'true':'false');arrow.textContent=open?'⌃':'⌄';
- });
+ var label=document.createElement('span');label.textContent='📊 آمار سریع مدرسه · '+sg.querySelectorAll(':scope > .sc').length+' شاخص';
+ var arrow=document.createElement('span');arrow.className='dastyar-section-arrow';arrow.textContent='⌄';btn.appendChild(label);btn.appendChild(arrow);
+ page.insertBefore(btn,sg);sg.hidden=true;
+ btn.addEventListener('click',function(ev){ev.preventDefault();ev.stopPropagation();var open=btn.getAttribute('aria-expanded')!=='true';sg.hidden=!open;btn.setAttribute('aria-expanded',open?'true':'false');arrow.textContent=open?'⌃':'⌄';});
 }
+var queued=false;
 function scan(){
- var pages=document.querySelectorAll('.page');
- Array.prototype.forEach.call(pages,function(page){
-  Array.prototype.forEach.call(page.children,function(child){if(child.classList&&child.classList.contains('card'))initCard(child,page);});
-  if(page.id==='page-dashboard')initDashboardSummary(page);
- });
+ queued=false;
+ document.querySelectorAll('.page .card').forEach(prepare);
+ document.querySelectorAll('.page').forEach(function(page){if(page.id==='page-dashboard')dashboardSummary(page);});
+ // Content inserted into a collapsed card later must remain collapsed too.
+ document.querySelectorAll('.dastyar-accordion-card[data-dastyar-accordion-open="false"]').forEach(function(card){setOpen(card,false);});
 }
+function schedule(){if(queued)return;queued=true;Promise.resolve().then(scan);}
 function start(){
  scan();
- var root=document.getElementById('app')||document.body;
- if(window.MutationObserver){
+ if(window.MutationObserver&&document.body){
   var obs=new MutationObserver(function(records){
-   var changed=false;
-   for(var i=0;i<records.length;i++){
-    if(records[i].type==='childList'&&records[i].target.classList&&records[i].target.classList.contains('page')){
-     changed=true;break;
-    }
-   }
-   if(changed)scan();
+   if(records.some(function(rec){return rec.addedNodes&&rec.addedNodes.length||rec.removedNodes&&rec.removedNodes.length;}))schedule();
   });
-  obs.observe(root,{childList:true,subtree:true});
+  obs.observe(document.body,{childList:true,subtree:true});
  }
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
