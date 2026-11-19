@@ -14496,7 +14496,7 @@ function drawStudent(id){
  var all=rows(id),cycle=cycleNo(all),active=inCycle(all,cycle),counts={},approvedCycles={};all.forEach(function(r){var m=meta(r);if(m){counts[m.category]=(counts[m.category]||0)+1;if(m.batchReady&&m.batchStatus==='approved')approvedCycles[String(m.cycleNo)]=1;}});
  var old=root.querySelector('[data-recognition-section]'),signature=JSON.stringify(all.map(function(r){return [r.id,r.notes,r.date];}))+'|'+cycle;
  if(old&&old.getAttribute('data-signature')===signature)return;
- if(old&&old.contains(document.activeElement))return;
+ if(old&&old.contains(document.activeElement)&&/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))return;
  if(old)old.remove();
  var sec=N('section','card dossier-section');sec.setAttribute('data-recognition-section','1');sec.setAttribute('data-signature',signature);sec.style.cssText='border:1px solid #bbf7d0;border-right:4px solid #16a34a';
  sec.appendChild(N('div','ct','🌟 تشویق‌ها و موفقیت‌های دانش‌آموز ('+all.length+')'));
