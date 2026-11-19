@@ -4587,9 +4587,7 @@ async function importFirstAStudents(){
   status.textContent='در حال ثبت/تکمیل: '+(i+1)+' از '+FIRST_A_STUDENTS.length;
  }
  await reloadAll();renderStudents();refreshDash();
- status.textContent='پایان اول الف — جدید: '+added+' | تکمیل/به‌روزرسانی: '+updated+' | تکراریِ داخل فهرست ردشده: '+skipped+' | خطا: '+failed+(errors.length?'
-'+errors.join('
-'):'');
+ status.textContent='پایان اول الف — جدید: '+added+' | تکمیل/به‌روزرسانی: '+updated+' | تکراریِ داخل فهرست ردشده: '+skipped+' | خطا: '+failed+(errors.length?'\n'+errors.join('\n'):'');
  toast(failed?'ثبت پایان یافت؛ خطاها را بررسی کنید':'اطلاعات اول الف بررسی و ثبت شد');
 }
 
@@ -4640,9 +4638,7 @@ async function importSecondBStudents(){
   status.textContent='در حال ثبت: '+(i+1)+' از '+SECOND_B_STUDENTS.length;
  }
  await reloadAll();renderStudents();refreshDash();
- status.textContent='پایان ثبت دوم ب — دانش‌آموز جدید: '+added+' | اطلاعات به‌روزشده: '+updated+' | خطا: '+failed+(errors.length?'\
-'+errors.join('\
-'):'');
+ status.textContent='پایان ثبت دوم ب — دانش‌آموز جدید: '+added+' | اطلاعات به‌روزشده: '+updated+' | خطا: '+failed+(errors.length?'\\n'+errors.join('\\n'):'');
  toast(failed?'ثبت دوم ب با '+failed+' خطا تمام شد':'ثبت اطلاعات دوم ب تمام شد');
 }
 
@@ -4668,9 +4664,7 @@ async function importThirdAStudents(){
   status.textContent='در حال ثبت: '+(i+1)+' از '+THIRD_A_STUDENTS.length;
  }
  await reloadAll();renderStudents();refreshDash();
- status.textContent='پایان ثبت سوم الف — دانش‌آموز جدید: '+added+' | اطلاعات به‌روزشده: '+updated+' | خطا: '+failed+' از '+THIRD_A_STUDENTS.length+' ردیف.'+(errors.length?'
-نمونه خطا: '+errors.join('
-'):'');
+ status.textContent='پایان ثبت سوم الف — دانش‌آموز جدید: '+added+' | اطلاعات به‌روزشده: '+updated+' | خطا: '+failed+' از '+THIRD_A_STUDENTS.length+' ردیف.'+(errors.length?'\nنمونه خطا: '+errors.join('\n'):'');
  toast(failed?'ثبت پایان یافت؛ خطاها را بررسی کنید':'اطلاعات سوم الف ثبت شد');
 }
 
@@ -4696,9 +4690,7 @@ async function importThirdBStudents(){
   status.textContent='در حال ثبت: '+(i+1)+' از '+THIRD_B_STUDENTS.length;
  }
  await reloadAll();renderStudents();refreshDash();
- status.textContent='پایان ثبت سوم ب — دانش‌آموز جدید: '+added+' | اطلاعات به‌روزشده: '+updated+' | خطا: '+failed+' از '+THIRD_B_STUDENTS.length+' ردیف.'+(errors.length?'
-نمونه خطا: '+errors.join('
-'):'');
+ status.textContent='پایان ثبت سوم ب — دانش‌آموز جدید: '+added+' | اطلاعات به‌روزشده: '+updated+' | خطا: '+failed+' از '+THIRD_B_STUDENTS.length+' ردیف.'+(errors.length?'\nنمونه خطا: '+errors.join('\n'):'');
  toast(failed?'ثبت پایان یافت؛ خطاها را بررسی کنید':'اطلاعات سوم ب ثبت شد');
 }
 
@@ -4752,9 +4744,7 @@ async function importSecondAStudents(){
   status.textContent='در حال ثبت: '+(i+1)+' از '+SECOND_A_STUDENTS.length;
  }
  await reloadAll();renderStudents();refreshDash();
- status.textContent='پایان ثبت دوم الف — دانش‌آموز جدید: '+added+' | اطلاعات به‌روزشده: '+updated+' | خطا: '+failed+' از '+SECOND_A_STUDENTS.length+' ردیف.'+(errors.length?'
-نمونه خطا: '+errors.join('
-'):'');
+ status.textContent='پایان ثبت دوم الف — دانش‌آموز جدید: '+added+' | اطلاعات به‌روزشده: '+updated+' | خطا: '+failed+' از '+SECOND_A_STUDENTS.length+' ردیف.'+(errors.length?'\nنمونه خطا: '+errors.join('\n'):'');
  toast(failed?'ثبت پایان یافت؛ خطاها را بررسی کنید':'اطلاعات دوم الف ثبت شد');
 }
 
@@ -4812,9 +4802,7 @@ async function importFifthAStudents(){
   if((i+1)%5===0)status.textContent='در حال ثبت: '+(i+1)+' از '+FIFTH_A_STUDENTS.length;
  }
  await reloadAll();renderStudents();refreshDash();
- status.textContent='پایان ثبت پنجم الف — دانش‌آموز جدید: '+added+' | اطلاعات به‌روزشده: '+updated+' | خطا: '+failed+' از '+FIFTH_A_STUDENTS.length+' ردیف.'+(errors.length?'
-نمونه خطا: '+errors.join('
-'):'');
+ status.textContent='پایان ثبت پنجم الف — دانش‌آموز جدید: '+added+' | اطلاعات به‌روزشده: '+updated+' | خطا: '+failed+' از '+FIFTH_A_STUDENTS.length+' ردیف.'+(errors.length?'\nنمونه خطا: '+errors.join('\n'):'');
  toast(failed?'ثبت پایان یافت؛ خطاها را در پیام بخش بررسی کنید':'اطلاعات پنجم الف ثبت شد');
 }
 
@@ -4865,9 +4853,7 @@ async function importFourthAStudents(){
   status.textContent='در حال ثبت: '+(i+1)+' از '+FOURTH_A_STUDENTS.length;
  }
  await reloadAll();renderStudents();refreshDash();
- status.textContent='پایان ثبت چهارم الف — دانش‌آموز جدید: '+added+' | اطلاعات به‌روزشده: '+updated+' | خطا: '+failed+' از '+FOURTH_A_STUDENTS.length+' ردیف.'+(errors.length?'
-نمونه خطا: '+errors.join('
-'):'');
+ status.textContent='پایان ثبت چهارم الف — دانش‌آموز جدید: '+added+' | اطلاعات به‌روزشده: '+updated+' | خطا: '+failed+' از '+FOURTH_A_STUDENTS.length+' ردیف.'+(errors.length?'\nنمونه خطا: '+errors.join('\n'):'');
  toast(failed?'ثبت پایان یافت؛ خطاها را بررسی کنید':'اطلاعات چهارم الف ثبت شد');
 }
 
@@ -4939,20 +4925,12 @@ async function importFourthBStudents(){
   finally{done++;status.textContent='ثبت چهارم ب: '+done+' از '+roster.length+' | موفق '+(added+updated)+' | خطا '+failed+' | ردیف ناقص ردشده '+skipped;}
  }
  for(let i=0;i<roster.length;i+=4)await Promise.all(roster.slice(i,i+4).map((row,j)=>saveOne(row,i+j)));
- status.textContent='پایان عملیات چهارم ب: جدید '+added+' | به‌روزرسانی '+updated+' | خطا '+failed+' | ردیف ناقص میهن صداقت نادیده گرفته شد.'+(errors.length?'
-جزئیات خطاها:
-'+errors.join('
-'):'');
+ status.textContent='پایان عملیات چهارم ب: جدید '+added+' | به‌روزرسانی '+updated+' | خطا '+failed+' | ردیف ناقص میهن صداقت نادیده گرفته شد.'+(errors.length?'\nجزئیات خطاها:\n'+errors.join('\n'):'');
  toast(failed?'ثبت کامل نشد؛ متن خطا در همین بخش است':'ثبت چهارم ب با موفقیت انجام شد');
  if(added+updated>0){
-  status.textContent+='
-در حال تازه‌سازی فهرست…';
-  try{await Promise.race([reloadAll(),new Promise((_,reject)=>setTimeout(()=>reject(new Error('تازه‌سازی بیش از ۱۲ ثانیه طول کشید')),12000))]);renderStudents();refreshDash();status.textContent=status.textContent.replace('
-در حال تازه‌سازی فهرست…','
-فهرست برنامه به‌روزرسانی شد.');}
-  catch(e){status.textContent=status.textContent.replace('
-در حال تازه‌سازی فهرست…','
-اطلاعات ثبت‌شده‌اند؛ تازه‌سازی فهرست انجام نشد. فهرست کلاس را دوباره باز کنید.');}
+  status.textContent+='\nدر حال تازه‌سازی فهرست…';
+  try{await Promise.race([reloadAll(),new Promise((_,reject)=>setTimeout(()=>reject(new Error('تازه‌سازی بیش از ۱۲ ثانیه طول کشید')),12000))]);renderStudents();refreshDash();status.textContent=status.textContent.replace('\nدر حال تازه‌سازی فهرست…','\nفهرست برنامه به‌روزرسانی شد.');}
+  catch(e){status.textContent=status.textContent.replace('\nدر حال تازه‌سازی فهرست…','\nاطلاعات ثبت‌شده‌اند؛ تازه‌سازی فهرست انجام نشد. فهرست کلاس را دوباره باز کنید.');}
  }
 }
 
@@ -5006,9 +4984,7 @@ async function importFifthBStudents(){
   if((i+1)%5===0)status.textContent='در حال ثبت: '+(i+1)+' از '+FIFTH_B_STUDENTS.length;
  }
  await reloadAll();renderStudents();refreshDash();
- status.textContent='پایان ثبت پنجم ب — دانش‌آموز جدید: '+added+' | اطلاعات به‌روزشده: '+updated+' | خطا: '+failed+' از '+FIFTH_B_STUDENTS.length+' ردیف.'+(errors.length?'
-نمونه خطا: '+errors.join('
-'):'');
+ status.textContent='پایان ثبت پنجم ب — دانش‌آموز جدید: '+added+' | اطلاعات به‌روزشده: '+updated+' | خطا: '+failed+' از '+FIFTH_B_STUDENTS.length+' ردیف.'+(errors.length?'\nنمونه خطا: '+errors.join('\n'):'');
  toast(failed?'ثبت پایان یافت؛ خطاها را بررسی کنید':'اطلاعات پنجم ب ثبت شد');
 }
 
@@ -5045,10 +5021,7 @@ async function saveSixthRosterOffline(section, rows, status){
  }catch(e){status.textContent='ذخیره محلی ناموفق بود: '+(e.message||e);return;}
  // Render immediately. No waiting for the unavailable server.
  renderStudents();refreshDash();
- status.textContent='ثبت محلی موفق — '+classLabel+'
-دانش‌آموز جدید: '+added+' | به‌روزرسانی: '+updated+' | ردیف ناقص: '+skipped+'
-مدیر مدرسه: '+PRINCIPAL+'
-اطلاعات روی همین گوشی ذخیره شد؛ برنامه منتظر سرور نماند.';
+ status.textContent='ثبت محلی موفق — '+classLabel+'\nدانش‌آموز جدید: '+added+' | به‌روزرسانی: '+updated+' | ردیف ناقص: '+skipped+'\nمدیر مدرسه: '+PRINCIPAL+'\nاطلاعات روی همین گوشی ذخیره شد؛ برنامه منتظر سرور نماند.';
  toast(classLabel+' روی گوشی ذخیره شد');
  // ذخیره محلی عمدی است؛ هیچ درخواست سروری در این مرحله ارسال نمی‌شود.
 }
@@ -5202,15 +5175,7 @@ async function importAllGrades1to5(){
  for(let i=0;i<tasks.length;i+=4)await Promise.all(tasks.slice(i,i+4).map(saveTask));
  try{if(navigator.onLine&&!window.isOffline)await Promise.race([reloadAll(),new Promise((_,rej)=>setTimeout(()=>rej(new Error('تازه‌سازی فهرست طول کشید')),12000))]);else if(window.DastyarOffline)await window.DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));renderStudents();refreshDash();}
  catch(e){if(errors.length<8)errors.push('اطلاعات در حافظه محلی باقی می‌ماند؛ فهرست را دوباره باز کنید.');}
- status.textContent='پایان ثبت اول تا پنجم
-کلاس‌های بررسی‌شده: ۹
-رکورد جدید: '+added+'
-رکوردهای تکمیل/به‌روزرسانی‌شده: '+updated+'
-ردیف‌های تکراری یا ناقصِ نادیده‌گرفته‌شده: '+skipped+'
-خطا: '+failed+(errors.length?'
-جزئیات خطاها:
-'+errors.join('
-'):'');
+ status.textContent='پایان ثبت اول تا پنجم\nکلاس‌های بررسی‌شده: ۹\nرکورد جدید: '+added+'\nرکوردهای تکمیل/به‌روزرسانی‌شده: '+updated+'\nردیف‌های تکراری یا ناقصِ نادیده‌گرفته‌شده: '+skipped+'\nخطا: '+failed+(errors.length?'\nجزئیات خطاها:\n'+errors.join('\n'):'');
  toast(failed?'ثبت انجام شد اما '+failed+' مورد خطا داشت؛ جزئیات در همین بخش است':'ثبت فهرست‌های اول تا پنجم پایان یافت');
 }
 
@@ -5280,20 +5245,17 @@ async function previewStudentImport(){
   let rawRows=[];const name=file.name.toLowerCase();
   if(/\.(xlsx|xls|csv)$/.test(name)){if(typeof XLSX==='undefined')throw Error('کتابخانه Excel بارگذاری نشده است');const buf=await file.arrayBuffer();const wb=XLSX.read(buf,{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];rawRows=studentRowsFromMatrix(XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false}));}
   else if(/\.docx$/.test(name)){if(typeof mammoth==='undefined')throw Error('کتابخانه Word بارگذاری نشده است');const buf=await file.arrayBuffer();const result=await mammoth.convertToHtml({arrayBuffer:buf});const doc=new DOMParser().parseFromString(result.value,'text/html');const table=doc.querySelector('table');if(table){const matrix=[...table.querySelectorAll('tr')].map(tr=>[...tr.querySelectorAll('th,td')].map(td=>td.textContent.trim()));rawRows=studentRowsFromMatrix(matrix);}else{const text=(await mammoth.extractRawText({arrayBuffer:buf})).value;rawRows=studentRowsFromLines(text);}}
-  else if(/\.pdf$/.test(name)){if(typeof pdfjsLib==='undefined')throw Error('کتابخانه PDF بارگذاری نشده است');pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;let all=[];for(let i=1;i<=pdf.numPages;i++){const page=await pdf.getPage(i);const text=await page.getTextContent();all=all.concat(studentPdfMatrix(text.items));}if(all.length>1)rawRows=studentRowsFromMatrix(all);if(!rawRows.length){const text=all.map(r=>r.join(' ')).join('
-');rawRows=studentRowsFromLines(text);}}
+  else if(/\.pdf$/.test(name)){if(typeof pdfjsLib==='undefined')throw Error('کتابخانه PDF بارگذاری نشده است');pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;let all=[];for(let i=1;i<=pdf.numPages;i++){const page=await pdf.getPage(i);const text=await page.getTextContent();all=all.concat(studentPdfMatrix(text.items));}if(all.length>1)rawRows=studentRowsFromMatrix(all);if(!rawRows.length){const text=all.map(r=>r.join(' ')).join('\n');rawRows=studentRowsFromLines(text);}}
   else throw Error('این نوع فایل پشتیبانی نمی‌شود؛ از Excel، CSV، DOCX یا PDF متنی استفاده کنید.');
   if(!rawRows.length)throw Error('ردیف جدولی پیدا نشد. فایل باید جدول با عنوان ستون‌ها در ردیف اول داشته باشد.');
   const existingKeys=new Set(Object.keys(cache.students[0]||{}));
   studentImportRows=rawRows.map((r,index)=>{const mapped={};Object.keys(r).forEach(h=>{const key=studentHeaderKey(h);if(key&&String(r[h]??'').trim()!=='')mapped[key]=String(r[h]).trim();});if(mapped.class_label&&!mapped.class_id)mapped.class_id=studentClassId(mapped.class_label);if(mapped.class_id&&!cache.classes.some(c=>c.id===mapped.class_id))mapped.class_id='';const unknown=Object.keys(mapped).filter(k=>!['class_label'].includes(k)&&existingKeys.size&&!existingKeys.has(k));unknown.forEach(k=>delete mapped[k]);return {line:index+2,data:mapped,original:r,unknown,valid:!!(mapped.first_name&&mapped.last_name&&mapped.code&&mapped.class_id)};});
-  const valid=studentImportRows.filter(r=>r.valid).length;const unmapped=studentImportRows.filter(r=>!r.valid).length;status.textContent='ردیف‌های استخراج‌شده: '+studentImportRows.length+' | آماده ثبت: '+valid+' | نیازمند اصلاح فایل: '+unmapped+'
-فقط ردیف‌های معتبر ثبت می‌شوند. ردیف اول فایل باید عنوان ستون‌ها باشد.';
+  const valid=studentImportRows.filter(r=>r.valid).length;const unmapped=studentImportRows.filter(r=>!r.valid).length;status.textContent='ردیف‌های استخراج‌شده: '+studentImportRows.length+' | آماده ثبت: '+valid+' | نیازمند اصلاح فایل: '+unmapped+'\nفقط ردیف‌های معتبر ثبت می‌شوند. ردیف اول فایل باید عنوان ستون‌ها باشد.';
   const sample=studentImportRows.slice(0,8);preview.innerHTML='<div class="meta">پیش‌نمایش ۸ ردیف اول</div><div style="overflow:auto"><table style="border-collapse:collapse;width:100%;font-size:.72rem"><thead><tr><th style="border:1px solid #cbd5e1;padding:5px">ردیف</th><th style="border:1px solid #cbd5e1;padding:5px">نام</th><th style="border:1px solid #cbd5e1;padding:5px">نام خانوادگی</th><th style="border:1px solid #cbd5e1;padding:5px">کد</th><th style="border:1px solid #cbd5e1;padding:5px">کلاس</th><th style="border:1px solid #cbd5e1;padding:5px">وضعیت</th></tr></thead><tbody>'+sample.map(r=>'<tr><td style="border:1px solid #cbd5e1;padding:5px">'+r.line+'</td><td style="border:1px solid #cbd5e1;padding:5px">'+escHtml(r.data.first_name||'—')+'</td><td style="border:1px solid #cbd5e1;padding:5px">'+escHtml(r.data.last_name||'—')+'</td><td style="border:1px solid #cbd5e1;padding:5px">'+escHtml(r.data.code||'—')+'</td><td style="border:1px solid #cbd5e1;padding:5px">'+escHtml(cache.classes.find(c=>c.id===r.data.class_id)?.label||r.data.class_label||'—')+'</td><td style="border:1px solid #cbd5e1;padding:5px;color:'+(r.valid?'#047857':'#b91c1c')+'">'+(r.valid?'آماده':'ناقص/کلاس نامعتبر')+'</td></tr>').join('')+'</tbody></table></div>';
   if(valid)commit.classList.remove('hidden');
  }catch(e){status.textContent='خطا: '+(e.message||String(e));studentImportRows=[];commit.classList.add('hidden');}
 }
-function studentRowsFromLines(text){const lines=String(text||'').split(/\r?
-/).map(x=>x.trim()).filter(Boolean);const matrix=lines.map(line=>line.includes('\t')?line.split('\t'):line.split(/\s{2,}|\s*\|\s*/).map(x=>x.trim()).filter(Boolean));return studentRowsFromMatrix(matrix);}
+function studentRowsFromLines(text){const lines=String(text||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);const matrix=lines.map(line=>line.includes('\t')?line.split('\t'):line.split(/\s{2,}|\s*\|\s*/).map(x=>x.trim()).filter(Boolean));return studentRowsFromMatrix(matrix);}
 async function commitStudentImport(){
  if(!studentDataAdmin())return;const rows=studentImportRows.filter(r=>r.valid);if(!rows.length){toast('ردیف معتبر برای ثبت وجود ندارد');return;}if(!confirm('تعداد '+rows.length+' ردیف معتبر بررسی می‌شود. اطلاعات غیرخالی ردیف‌های موجود به‌روزرسانی و دانش‌آموزان جدید اضافه می‌شوند. ادامه؟'))return;
  const status=document.getElementById('student-import-status');let added=0,updated=0,failed=0,skipped=0;window.__studentImportErrors=[];
@@ -5306,10 +5268,7 @@ async function commitStudentImport(){
   catch(e){failed++;if(!window.__studentImportErrors)window.__studentImportErrors=[];if(window.__studentImportErrors.length<8)window.__studentImportErrors.push('ردیف '+item.line+': '+(e?.message||e));}
   if((i+1)%10===0){status.textContent='در حال ثبت: '+(i+1)+' از '+rows.length;}
  }
- await reloadAll();renderStudents();refreshDash();status.textContent='پایان ورود گروهی — افزوده شد: '+added+' | به‌روزرسانی شد: '+updated+' | خطا: '+failed+' | رد شد: '+skipped+(window.__studentImportErrors.length?'
-نمونه خطاها:
-'+window.__studentImportErrors.join('
-'):'');
+ await reloadAll();renderStudents();refreshDash();status.textContent='پایان ورود گروهی — افزوده شد: '+added+' | به‌روزرسانی شد: '+updated+' | خطا: '+failed+' | رد شد: '+skipped+(window.__studentImportErrors.length?'\nنمونه خطاها:\n'+window.__studentImportErrors.join('\n'):'');
  document.getElementById('student-import-preview').innerHTML='';document.getElementById('student-import-commit').classList.add('hidden');studentImportRows=[];toast('ورود گروهی پایان یافت');
 }
 
@@ -5519,15 +5478,9 @@ function openStudentDossier(id){
  const followupHtml=absenceFollowups.map(a=>{
    const raw=String(a.notes||'');
    const token=raw.match(/\[ABSENCE_CYCLE:([^|\]]+)\|([^\]]+)\]/);
-   const range=raw.match(/چرخه پیگیری:\s*([^
-]+)/);
-   const count=raw.match(/تعداد غیبت\/تأخیر در این چرخه:\s*([^
-]+)/);
-   const clean=raw.replace(/^\[ABSENCE_CYCLE:[^\]]+\]\s*/,'').replace(/چرخه پیگیری:[^
-]*
-?/,'').replace(/تعداد غیبت\/تأخیر در این چرخه:[^
-]*
-?/,'').replace(/^توضیحات مدیر:\s*/,'').trim();
+   const range=raw.match(/چرخه پیگیری:\s*([^\n]+)/);
+   const count=raw.match(/تعداد غیبت\/تأخیر در این چرخه:\s*([^\n]+)/);
+   const clean=raw.replace(/^\[ABSENCE_CYCLE:[^\]]+\]\s*/,'').replace(/چرخه پیگیری:[^\n]*\n?/,'').replace(/تعداد غیبت\/تأخیر در این چرخه:[^\n]*\n?/,'').replace(/^توضیحات مدیر:\s*/,'').trim();
    return '<div style="padding:10px;margin:7px 0;border:1px solid #cbd5e1;border-right:4px solid #2563eb;border-radius:7px;break-inside:avoid"><div style="font-weight:800;color:#1e40af">رسیدگی مستقل'+(token?' — '+escHtml(token[1])+' تا '+escHtml(token[2]):'')+'</div><div class="meta" style="margin-top:4px">📅 '+escHtml(range?range[1]:(a.date||'—'))+(count?' | '+escHtml(count[1]):'')+' | ثبت‌کننده: '+escHtml(a.recorded_by||'مدیر')+'</div><div style="white-space:pre-wrap;margin-top:7px;line-height:1.8">'+escHtml(clean||'توضیحی ثبت نشده است')+'</div></div>';
  }).join('');
  const actHtml=acts.map(a=>'<div style="padding:8px;border-bottom:1px solid #e2e8f0"><b>'+escHtml(a.type==='qa'?'پرسش و پاسخ':'فعالیت کلاسی')+' — '+escHtml(a.subject||'')+'</b><div class="meta">'+escHtml(a.weekday||'')+' '+escHtml(a.date||'')+' | '+escHtml(levelLabel[a.level]||a.level||'')+'</div>'+(a.notes?'<div>'+escHtml(a.notes)+'</div>':'')+(a.recorded_by?'<small>ثبت‌کننده: '+escHtml(a.recorded_by)+'</small>':'')+'</div>').join('');
@@ -6208,8 +6161,7 @@ function appendPreparedFeedback(selectId, textareaId){
   const phrase=sel.value.trim();
   const existing=area.value.trim();
   if(!existing) area.value=phrase;
-  else if(!existing.includes(phrase)) area.value=existing+'
-'+phrase;
+  else if(!existing.includes(phrase)) area.value=existing+'\n'+phrase;
   sel.value='';
   area.focus();
 }
@@ -6265,8 +6217,7 @@ function qaRefreshGroupFeedbackFromLevel(levelEl){
 function qaAppendSelectedFeedback(select,area){
   if(!select||!area||!select.value)return;
   var phrase=select.value.trim(), existing=area.value.trim();
-  if(!existing)area.value=phrase;else if(!existing.includes(phrase))area.value=existing+'
-'+phrase;
+  if(!existing)area.value=phrase;else if(!existing.includes(phrase))area.value=existing+'\n'+phrase;
   select.value='';area.focus();
 }
 function qaAppendGroupFeedback(select){var wrap=select&&select.closest('.ac-group-fields');qaAppendSelectedFeedback(select,wrap&&wrap.querySelector('textarea'));}
@@ -6634,9 +6585,7 @@ async function saveAct(){
 async function deleteQaActivity(id){
   var row=cache.activities.find(function(a){return String(a.id)===String(id)&&a.type==='qa';});if(!row){toast('فقط رکورد پرسش و پاسخ قابل حذف است');return;}
   var st=cache.students.find(function(x){return String(x.id)===String(row.student_id);});
-  if(!confirm('فقط همین رکورد پرسش و پاسخ حذف شود؟
-'+(st?(st.first_name+' '+st.last_name):'دانش‌آموز')+' — '+row.subject+' — '+row.date+'
-سایر پرسش‌ها، فعالیت‌ها، حضور و غیاب و ارزشیابی‌ها دست‌نخورده می‌مانند.'))return;
+  if(!confirm('فقط همین رکورد پرسش و پاسخ حذف شود؟\n'+(st?(st.first_name+' '+st.last_name):'دانش‌آموز')+' — '+row.subject+' — '+row.date+'\nسایر پرسش‌ها، فعالیت‌ها، حضور و غیاب و ارزشیابی‌ها دست‌نخورده می‌مانند.'))return;
   var result=await sb.from('sa_activities').delete().eq('id',String(id));if(result.error){toast('حذف انجام نشد: '+result.error.message);return;}
   setQaDeletedId(id);cache.activities=(cache.activities||[]).filter(function(a){return String(a.id)!==String(id);});
   var linkedEvaluationDeleted=true;
@@ -7755,8 +7704,7 @@ async function loadSchoolDocuments(){
   }catch(e){console.warn('document cache update',e);}
   // paper stats box
   try{ if(typeof renderPaperStats==='function') renderPaperStats(); }catch(e){}
-  if(!data.length){ box.textContent=serverLoaded?'هنوز فایلی ارسال نشده است.':('فهرست سرور دریافت نشد؛ '+serverError+'
-در حالت آفلاین فقط نسخه‌های ذخیره‌شده روی همین گوشی قابل نمایش‌اند.'); return; }
+  if(!data.length){ box.textContent=serverLoaded?'هنوز فایلی ارسال نشده است.':('فهرست سرور دریافت نشد؛ '+serverError+'\nدر حالت آفلاین فقط نسخه‌های ذخیره‌شده روی همین گوشی قابل نمایش‌اند.'); return; }
   const safe=function(v){ try{ return escHtml(String(v??'')); }catch(e){ return String(v??'').replace(/[&<>"]/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c];}); } };
   const warningHtml=!serverLoaded?'<div class="meta" style="padding:8px;margin-bottom:8px;border:1px solid #fbbf24;border-radius:8px;background:#fffbeb;color:#92400e">هشدار: اتصال به فهرست سرور برقرار نشد؛ موارد زیر ممکن است فقط نسخه محلی همین گوشی باشند. '+safe(serverError)+'</div>':'';
   box.innerHTML=warningHtml+data.map(function(d){
@@ -9130,10 +9078,7 @@ window.persistAbsenceFollowupEvent=async function(studentId, untilDate, note, re
     var student=(cache.students||[]).find(function(x){return String(x.id)===String(studentId);});
     var classId=(student&&student.class_id)||(cycle[0]&&cycle[0].class_id)||'';
     var token='[ABSENCE_CYCLE:'+cycleStart+'|'+cycleEnd+']';
-    var eventNotes=token+'
-چرخه پیگیری: '+cycleStart+' تا '+cycleEnd+'
-تعداد غیبت/تأخیر در این چرخه: '+cycleCount+' مورد
-توضیحات مدیر: '+String(note||'').trim();
+    var eventNotes=token+'\nچرخه پیگیری: '+cycleStart+' تا '+cycleEnd+'\nتعداد غیبت/تأخیر در این چرخه: '+cycleCount+' مورد\nتوضیحات مدیر: '+String(note||'').trim();
     var existing=(cache.activities||[]).find(function(a){
       return String(a.student_id)===String(studentId) &&
         (a.type==='absence_followup'||a.subject==='پیگیری غیبت مدیر') &&
@@ -9304,9 +9249,7 @@ window.loadAbsenteesNeedsAttention=function(){
     if(studentFollowupHistory.length){
       html+='<div style="margin-top:8px;padding:9px;border-radius:8px;background:#f8fafc;border:1px solid #cbd5e1"><div style="font-weight:800;color:#334155;margin-bottom:6px">📚 سوابق رسیدگی قبلی و فعلی — هر دوره جداگانه</div>';
       studentFollowupHistory.forEach(function(ev,idx){
-        var raw=String(ev.notes||'');var token=raw.match(/\[ABSENCE_CYCLE:([^|\]]+)\|([^\]]+)\]/);var range=raw.match(/چرخه پیگیری:\s*([^
-]+)/);var cnt=raw.match(/تعداد غیبت\/تأخیر در این چرخه:\s*([^
-]+)/);var nm=raw.match(/توضیحات مدیر:\s*([\s\S]*)/);var note=nm?nm[1].trim():raw;
+        var raw=String(ev.notes||'');var token=raw.match(/\[ABSENCE_CYCLE:([^|\]]+)\|([^\]]+)\]/);var range=raw.match(/چرخه پیگیری:\s*([^\n]+)/);var cnt=raw.match(/تعداد غیبت\/تأخیر در این چرخه:\s*([^\n]+)/);var nm=raw.match(/توضیحات مدیر:\s*([\s\S]*)/);var note=nm?nm[1].trim():raw;
         html+='<div style="padding:8px;margin:6px 0;background:#fff;border:1px solid #cbd5e1;border-right:4px solid #64748b;border-radius:6px"><div style="font-weight:700">رسیدگی '+(idx+1)+(token?' | '+escHtml(token[1])+' تا '+escHtml(token[2]):' | '+escHtml(ev.date||'—'))+(cnt?' | '+escHtml(cnt[1]):'')+'</div><div class="meta">ثبت‌کننده: '+escHtml(ev.recorded_by||'مدیر')+'</div><div style="white-space:pre-wrap;margin-top:4px">'+escHtml(note||'توضیحی ثبت نشده است')+'</div></div>';
       });
       html+='</div>';
@@ -10572,10 +10515,7 @@ var TEMPLATES={
   closure:{title:'اطلاعیه تعطیلی مدرسه',body:'بدین‌وسیله به اطلاع می‌رساند به علت {علت}، مدرسه در روز {روز} مورخه {تاریخ} تعطیل خواهد بود. خواهشمند است تمهیدات لازم را جهت هماهنگی برای بازگشت فرزند دلبندتان از مدرسه اتخاذ فرمایید.',show:{reason:true,hour:false,place:false,topic:false,parent:false}},
   monthly_parent:{title:'دعوتنامه جلسه ماهانه اولیا',body:'بدین‌وسیله به اطلاع می‌رساند جلسه ماهانه اولیا و مربیان کلاس {کلاس} در روز {روز} مورخه {تاریخ} ساعت {ساعت} در محل مدرسه برگزار خواهد شد. خواهشمند است با حضور به‌موقع خود در این جلسه شرکت فرمایید.',show:{reason:false,hour:true,place:false,topic:false,parent:false}},
   teachers_council:{title:'دعوتنامه جلسه شورای معلمان',body:'بدین‌وسیله به اطلاع می‌رساند جلسه شورای معلمان مورخ {تاریخ} ساعت {ساعت} در محل مدرسه برگزار خواهد شد. حضور تک تک معلمان الزامی است.',show:{reason:false,hour:true,place:false,topic:false,parent:false}},
-  consent:{title:'رضایت‌نامه شرکت دانش‌آموز',body:'اینجانب {نام_ولی}، ولی/سرپرست قانونی دانش‌آموز {نام_دانش‌آموز}، مشغول به تحصیل در کلاس {کلاس} دبستان شهید فتح‌الله فلاح‌پور، بدین‌وسیله اعلام می‌دارم که از مفاد برنامه «{موضوع}» که در روز {روز} مورخه {تاریخ} رأس ساعت {ساعت} در {مکان} برگزار می‌گردد، آگاه شده‌ام و با آگاهی کامل، رضایت صریح خود را نسبت به شرکت فرزندم در برنامه مذکور اعلام می‌نمایم. مسئولیت رعایت نکات ایمنی و ضوابط اعلام‌شده از سوی مدرسه را می‌پذیرم.
-نام و نام خانوادگی ولی: {نام_ولی}
-امضا: ........................
-تاریخ: {تاریخ}',show:{reason:false,hour:true,place:true,topic:true,parent:true}}
+  consent:{title:'رضایت‌نامه شرکت دانش‌آموز',body:'اینجانب {نام_ولی}، ولی/سرپرست قانونی دانش‌آموز {نام_دانش‌آموز}، مشغول به تحصیل در کلاس {کلاس} دبستان شهید فتح‌الله فلاح‌پور، بدین‌وسیله اعلام می‌دارم که از مفاد برنامه «{موضوع}» که در روز {روز} مورخه {تاریخ} رأس ساعت {ساعت} در {مکان} برگزار می‌گردد، آگاه شده‌ام و با آگاهی کامل، رضایت صریح خود را نسبت به شرکت فرزندم در برنامه مذکور اعلام می‌نمایم. مسئولیت رعایت نکات ایمنی و ضوابط اعلام‌شده از سوی مدرسه را می‌پذیرم.\nنام و نام خانوادگی ولی: {نام_ولی}\nامضا: ........................\nتاریخ: {تاریخ}',show:{reason:false,hour:true,place:true,topic:true,parent:true}}
 };
 function fillHour(){
   var sel=document.getElementById('pubiv-hour'); if(!sel||sel.options.length>1)return;
@@ -10640,8 +10580,7 @@ window.downloadPublicInvitationsWord=function(){
     var photoHtml=(showStudentPhoto&&st.photo)?('<div style="text-align:center;margin:6px 0"><img src="'+String(st.photo).replace(/"/g,'')+'" width="64" height="64" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid #94a3b8"/></div>'):'';
     var parent=parentFixed||('ولی دانش‌آموز '+studentName);
     var body=bodyTemplate.split('{نام}').join(studentName).split('{نام_دانش‌آموز}').join(studentName).split('{نام_ولی}').join(parent).split('{علت}').join(reason).split('{موضوع}').join(topic||reason).split('{روز}').join(day).split('{تاریخ}').join(date).split('{ساعت}').join(hour).split('{مکان}').join(place).split('{کلاس}').join((cl&&cl.label)||'');
-    html+='<div style="border:1px solid #94a3b8;padding:10px;margin:12px 0">'+photoHtml+'<b>'+(i+1)+'. '+esc(studentName)+'</b><p style="line-height:1.9;white-space:pre-wrap">'+esc(body).replace(/
-/g,'<br/>')+'</p></div>';
+    html+='<div style="border:1px solid #94a3b8;padding:10px;margin:12px 0">'+photoHtml+'<b>'+(i+1)+'. '+esc(studentName)+'</b><p style="line-height:1.9;white-space:pre-wrap">'+esc(body).replace(/\n/g,'<br/>')+'</p></div>';
   });
   html+='<p>مدیر مدرسه: سید حسین نورایی انور</p>';
   if(typeof window.downloadWordHtml==='function') window.downloadWordHtml(title,html,false);
@@ -11349,20 +11288,12 @@ function ensureFallbackClass(){
 function explodeToLines(raw){
   var t=String(raw||'');
   // unify separators to newlines
-  t=t.replace(/\r
-/g,'
-').replace(/\r/g,'
-');
-  t=t.replace(/[•●▪◦‣∙]/g,'
-');
-  t=t.replace(/(?:^|
-)\s*[\d۰-۹]+[\.\-\)\u060C،:]\s*/g,'
-'); // 1. 2) ۱-
-  t=t.replace(/\s+[-–—]\s+/g,'
-');
+  t=t.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  t=t.replace(/[•●▪◦‣∙]/g,'\n');
+  t=t.replace(/(?:^|\n)\s*[\d۰-۹]+[\.\-\)\u060C،:]\s*/g,'\n'); // 1. 2) ۱-
+  t=t.replace(/\s+[-–—]\s+/g,'\n');
   // if single long paragraph with many names separated by ، or ;
-  var lines=t.split('
-').map(function(x){return x.trim();}).filter(Boolean);
+  var lines=t.split('\n').map(function(x){return x.trim();}).filter(Boolean);
   if(lines.length===1 && (lines[0].split(/[،,;؛]/).length>=3)){
     lines=lines[0].split(/[،,;؛]/).map(function(x){return x.trim();}).filter(Boolean);
   }
@@ -11535,18 +11466,13 @@ window.previewBulkStudents=function(){
     var parsed=parseBulkText(($('bulk-student-text')||{}).value||'');
     var st=statusBox(); if(!st) return;
     if(!parsed.rows.length){
-      st.textContent='چیزی استخراج نشد.
-کلاس پیش‌فرض را انتخاب کنید و حداقل یک نام در هر خط بنویسید.
-خطوط خوانده‌شده: '+(parsed.lineCount||0);
+      st.textContent='چیزی استخراج نشد.\nکلاس پیش‌فرض را انتخاب کنید و حداقل یک نام در هر خط بنویسید.\nخطوط خوانده‌شده: '+(parsed.lineCount||0);
       return;
     }
-    st.textContent='استخراج شد: '+parsed.rows.length+' نفر (از '+parsed.lineCount+' خط)
-'+parsed.rows.slice(0,25).map(function(r,i){
+    st.textContent='استخراج شد: '+parsed.rows.length+' نفر (از '+parsed.lineCount+' خط)\n'+parsed.rows.slice(0,25).map(function(r,i){
       var cl=allClasses().find(function(c){return String(c.id)===String(r.class_id);});
       return (i+1)+') '+(r.first_name||'')+' '+(r.last_name||'')+' | '+(cl?cl.label:'؟')+(r.code?(' | '+r.code):'');
-    }).join('
-')+(parsed.rows.length>25?'
-...':'');
+    }).join('\n')+(parsed.rows.length>25?'\n...':'');
   }catch(e){ var st=statusBox(); if(st) st.textContent='خطا: '+(e.message||e); }
 };
 window.parseAndRegisterBulkStudents=async function(){
@@ -11575,8 +11501,7 @@ window.parseAndRegisterBulkStudents=async function(){
     }
     var parsed=parseBulkText(raw);
     if(!parsed.rows.length){
-      if(st) st.textContent='استخراج نشد. کلاس پیش‌فرض را انتخاب کنید و هر نام را در یک خط بگذارید.
-خطوط: '+(parsed.lineCount||0)+' | نیاز به کلاس: '+(parsed.needClass||0);
+      if(st) st.textContent='استخراج نشد. کلاس پیش‌فرض را انتخاب کنید و هر نام را در یک خط بگذارید.\nخطوط: '+(parsed.lineCount||0)+' | نیاز به کلاس: '+(parsed.needClass||0);
       if(typeof toast==='function') toast('استخراج نشد — کلاس پیش‌فرض را انتخاب کنید');
       return;
     }
@@ -11615,8 +11540,7 @@ window.parseAndRegisterBulkStudents=async function(){
     }
     try{ if(typeof renderStudents==='function') renderStudents(); }catch(e){}
     try{ if(typeof refreshDash==='function') refreshDash(); }catch(e){}
-    if(st) st.textContent='ثبت شد.
-جدید: '+added+' | به‌روزرسانی: '+updated+' | کل استخراج: '+parsed.rows.length;
+    if(st) st.textContent='ثبت شد.\nجدید: '+added+' | به‌روزرسانی: '+updated+' | کل استخراج: '+parsed.rows.length;
     if(typeof toast==='function') toast('ثبت/به‌روزرسانی '+(added+updated)+' نفر');
   }catch(e){
     console.error(e);
@@ -12258,8 +12182,7 @@ function textOverlayBounds(t){
   }
   ctx.save();
   ctx.font=sfeFontSpec(!!t.bold,size,t.family);
-  var lines=String(t.text||'').split(/\r?
-/);
+  var lines=String(t.text||'').split(/\r?\n/);
   var w=Math.max.apply(null,lines.map(function(line){return ctx.measureText(line).width;}).concat([40]));
   var h=Math.max(size,lines.length*size*1.4);
   ctx.restore();
@@ -12274,8 +12197,7 @@ function drawTextOverlay(){
     t.radius=rad;
     drawArcText(ctx,t.text,t.x,t.y,rad,size,t.color||'#111827',bold,family);
   }else{
-    var lines=String(t.text||'').split(/\r?
-/);
+    var lines=String(t.text||'').split(/\r?\n/);
     ctx.fillStyle=t.color||'#111827';
     ctx.font=sfeFontSpec(bold,size,family);
     ctx.textAlign='right';ctx.direction='rtl';
@@ -12445,8 +12367,7 @@ window.sfePinTextOverlay=function(){
    x.fillStyle=t.color||'#111827';
    x.font=sfeFontSpec(!!t.bold,t.size||24,t.family);
    x.textAlign='right';x.direction='rtl';
-   String(t.text||'').split(/\r?
-/).forEach(function(line,i){x.fillText(line,clamp(t.x,0,c.width),clamp(t.y+i*(t.size||24)*1.4,t.size||24,c.height));});
+   String(t.text||'').split(/\r?\n/).forEach(function(line,i){x.fillText(line,clamp(t.x,0,c.width),clamp(t.y+i*(t.size||24)*1.4,t.size||24,c.height));});
   }
   pages[current]=c.toDataURL('image/png');textOverlay=null;renderCurrent();say('متن در محل انتخاب‌شده فیکس شد.');
  };
@@ -12640,8 +12561,7 @@ window.sfeExportWordAdvanced=async function(){
  try{
   say('در حال آماده‌سازی فایل واقعی Word با متن قابل ویرایش…');
   await loadScript('https://unpkg.com/docx@8.5.0/build/index.umd.js',function(){return !!(window.docx&&window.docx.Document&&window.docx.Packer);});
-  var api=window.docx,lines=t.replace(/\r/g,'').split('
-'),children=[];
+  var api=window.docx,lines=t.replace(/\r/g,'').split('\n'),children=[];
   lines.forEach(function(line){
    var value=String(line==null?'':line);
    if(/^\s*——\s*صفحه\s+\d+\s*——\s*$/.test(value)){
@@ -12668,12 +12588,9 @@ window.sfeRunOCRAllPages=async function(){
     for(var i=0;i<pages.length;i++){
       say('OCR صفحه '+(i+1)+' از '+pages.length+'…');
       var result=await Tesseract.recognize(pages[i],'fas+eng',{logger:function(){}});
-      parts.push('—— صفحه '+(i+1)+' ——
-'+(((result.data&&result.data.text)||'').trim()));
+      parts.push('—— صفحه '+(i+1)+' ——\n'+(((result.data&&result.data.text)||'').trim()));
     }
-    document.getElementById('sfe-ocr-text').value=parts.join('
-
-');
+    document.getElementById('sfe-ocr-text').value=parts.join('\n\n');
     say('OCR همه صفحات انجام شد.');
   }catch(e){say('OCR همه صفحات ناموفق: '+(e.message||e));}
 };
@@ -12686,12 +12603,9 @@ window.sfeExtractPdfText=async function(){
       var page=await pdfDoc.getPage(p);
       var content=await page.getTextContent();
       var txt=(content.items||[]).map(function(it){return it.str||'';}).join(' ').replace(/\s+/g,' ').trim();
-      parts.push('—— صفحه '+p+' ——
-'+(txt||'(متن لایه‌ای نیست؛ OCR را امتحان کنید)'));
+      parts.push('—— صفحه '+p+' ——\n'+(txt||'(متن لایه‌ای نیست؛ OCR را امتحان کنید)'));
     }
-    document.getElementById('sfe-ocr-text').value=parts.join('
-
-');
+    document.getElementById('sfe-ocr-text').value=parts.join('\n\n');
     say('استخراج متن PDF تمام شد.');
   }catch(e){say('استخراج PDF ناموفق: '+(e.message||e));}
 };
@@ -13318,14 +13232,10 @@ window.injectParentDossierLink=function(studentId){
  const cl=(cache.classes||[]).find(c=>String(c.id)===String(st.class_id));const first=document.querySelector('#print-student-dossier > section.card');if(!first)return;
  const b=document.createElement('button');b.type='button';b.className='btn btn-p btn-sm no-print';b.style.cssText='margin:8px 4px 0 0';b.textContent='🔗 ساخت لینک مشترک پرونده اولیای کلاس';b.addEventListener('click',()=>generateParentPortalLink(st.class_id));first.appendChild(b);
 };
-window.parentPortalShareText=function(){var link=window.__dastyarParentLink||'';return 'لینک دسترسی به پرونده الکترونیکی اولیا
-لطفاً برای مشاهده پرونده آموزشی دانش‌آموز، از طریق نشانی زیر اقدام فرمایید.
-'+link;};
+window.parentPortalShareText=function(){var link=window.__dastyarParentLink||'';return 'لینک دسترسی به پرونده الکترونیکی اولیا\nلطفاً برای مشاهده پرونده آموزشی دانش‌آموز، از طریق نشانی زیر اقدام فرمایید.\n'+link;};
 window.copyParentPortalLink=async function(){if(!window.__dastyarParentLink){toast('ابتدا لینک پرونده اولیا را ایجاد کنید.');return;}var text=window.parentPortalShareText();try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(text);toast('متن رسمی همراه لینک کپی شد؛ آن را در گروه شاد جای‌گذاری کنید.');return;}}catch(e){console.warn('Clipboard API unavailable',e);}try{var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');ta.style.position='fixed';ta.style.opacity='0';ta.style.left='-9999px';document.body.appendChild(ta);ta.focus();ta.select();ta.setSelectionRange(0,ta.value.length);var ok=document.execCommand('copy');document.body.removeChild(ta);if(ok){toast('متن رسمی همراه لینک کپی شد؛ آن را در گروه شاد جای‌گذاری کنید.');return;}}catch(e){console.warn('Legacy clipboard fallback failed',e);}prompt('متن زیر را انتخاب و کپی کنید:',text);};
 window.shareParentPortalLink=async function(){if(!window.__dastyarParentLink){toast('ابتدا لینک پرونده اولیا را ایجاد کنید.');return;}var text=window.parentPortalShareText();if(navigator.share){try{await navigator.share({title:'لینک دسترسی به پرونده الکترونیکی اولیا',text:text});return;}catch(e){if(e&&e.name==='AbortError')return;console.warn('Native share failed',e);}}await window.copyParentPortalLink();};
-window.downloadParentCredentials=function(){const rows=window.__dastyarParentCredentials||[];if(!rows.length)return;const csv='نام دانش‌آموز\tکلاس\tکد دانش‌آموزی\tروش ورود\tشناسه ورود\tرمز اختصاصی
-'+rows.map(x=>[x.name,x.class_name,x.student_code,x.login_mode,x.login_identity,x.password].join('\t')).join('
-');const blob=new Blob(['\ufeff'+csv],{type:'text/tab-separated-values;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='رمزهای-اختصاصی-اولیا-'+Date.now()+'.txt';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
+window.downloadParentCredentials=function(){const rows=window.__dastyarParentCredentials||[];if(!rows.length)return;const csv='نام دانش‌آموز\tکلاس\tکد دانش‌آموزی\tروش ورود\tشناسه ورود\tرمز اختصاصی\n'+rows.map(x=>[x.name,x.class_name,x.student_code,x.login_mode,x.login_identity,x.password].join('\t')).join('\n');const blob=new Blob(['\ufeff'+csv],{type:'text/tab-separated-values;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='رمزهای-اختصاصی-اولیا-'+Date.now()+'.txt';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
 window.renderParentInvitationSummary=function(){
  const box=document.getElementById('parent-invitation-summary-content');if(!box)return;
  const current=window.user||user||{};const isAdmin=current.role==='admin';
@@ -14130,9 +14040,7 @@ function attentionTables(items){
    details.push({'کلاس':it.className,'نام دانش‌آموز':it.name,'تاریخ غیبت/تأخیر':d||'—','نوع ثبت':faStatus(a.status),'وضعیت پیگیری':done?'رسیدگی‌شده':'رسیدگی‌نشده','رسیدگی مدیر تا تاریخ':it.until||'—','توضیحات پیگیری مدیر':it.note||'—'});
   });
   it.history.forEach(function(ev){
-   var raw=String(ev.notes||''),range=raw.match(/چرخه پیگیری:\s*([^
-]+)/),cnt=raw.match(/تعداد غیبت\/تأخیر در این چرخه:\s*([^
-]+)/),note=raw.match(/توضیحات مدیر:\s*([\s\S]*)/);
+   var raw=String(ev.notes||''),range=raw.match(/چرخه پیگیری:\s*([^\n]+)/),cnt=raw.match(/تعداد غیبت\/تأخیر در این چرخه:\s*([^\n]+)/),note=raw.match(/توضیحات مدیر:\s*([\s\S]*)/);
    details.push({'کلاس':it.className,'نام دانش‌آموز':it.name,'تاریخ غیبت/تأخیر':ev.date||'—','نوع ثبت':'سابقه پیگیری مدیر','وضعیت پیگیری':range?range[1]:'چرخه ثبت‌شده','رسیدگی مدیر تا تاریخ':ev.date||'—','توضیحات پیگیری مدیر':(cnt?'تعداد موارد: '+cnt[1]+' | ':'')+(note?note[1].trim():'')+' | ثبت‌کننده: '+(ev.recorded_by||'مدیر')});
   });
  });
