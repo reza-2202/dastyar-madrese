@@ -14310,7 +14310,8 @@ window.addEventListener('focus',function(){setTimeout(function(){if(M()&&panelOp
 'use strict';
 var KEY='dastyar_achievements_cache_v1',PAGE='page-achievements',busy=false,rows=[];
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
-function storageKey(){return KEY+'_'+String(user&&(user.username||user.full_name)||'guest').toLowerCase().replace(/[^a-z0-9_-]/g,'_')}\nfunction read(){try{var a=JSON.parse(localStorage.getItem(storageKey())||'[]');return Array.isArray(a)?a:[]}catch(e){return []}}
+function storageKey(){return KEY+'_'+String(user&&(user.username||user.full_name)||'guest').toLowerCase().replace(/[^a-z0-9_-]/g,'_')}
+function read(){try{var a=JSON.parse(localStorage.getItem(storageKey())||'[]');return Array.isArray(a)?a:[]}catch(e){return []}}
 function write(a){rows=Array.isArray(a)?a:[];window.__dastyarAchievementsRows=rows;try{localStorage.setItem(storageKey(),JSON.stringify(rows));return true}catch(e){return false}}
 function creds(){return {p_username:String(user&&(user.username||user.full_name)||''),p_password:String(window.__dastyarSessionPassword||'')}}
 function isAdmin(){return !!(user&&user.role==='admin')}
