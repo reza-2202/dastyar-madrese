@@ -14303,7 +14303,26 @@ function analyse(id){
 function node(t,cls,txt){var n=document.createElement(t);if(cls)n.className=cls;if(txt!=null)n.textContent=String(txt);return n;}
 function sourceKey(id,key,rows){return String(id)+'|'+key+'|'+A(rows).map(function(r){return String(r.id||r.date||'');}).sort().join(',');}
 function statusText(s){return s==='done'?'پایان‌یافته':s==='in_progress'?'در حال پیگیری':'در انتظار پیگیری';}
+function teacherStatusText(m){return m&&String(m.followupResult||'').trim()?'نتیجه پیگیری ثبت شد':statusText(m&&m.status);}
 function referralDisplay(value,kind){var raw=String(value==null?'':value).trim(),key=raw.toLowerCase();var maps={status:{present:'حاضر',absent:'غایب',unexcused:'غیبت غیرموجه',excused:'غیبت موجه',late:'تأخیر',pending:'در انتظار رسیدگی',done:'پایان‌یافته',in_progress:'در حال پیگیری',open:'در انتظار پیگیری'},level:{excellent:'خیلی خوب',very_good:'خیلی خوب',good:'خوب',acceptable:'قابل قبول',needs:'نیازمند تلاش','needs improvement':'نیازمند تلاش',pending:'در انتظار رسیدگی'},subject:{math:'ریاضی',mathematics:'ریاضی',science:'علوم',persian:'فارسی',farsi:'فارسی',english:'زبان انگلیسی',arabic:'عربی',social_studies:'مطالعات اجتماعی',religion:'هدیه‌های آسمان',quran:'قرآن',dictation:'املا',writing:'نگارش'}};return (maps[kind]&&maps[kind][key])||raw;}
+function renderFollowupResults(id,history){
+ var root=document.getElementById('print-student-dossier');if(!root)return;
+ root.querySelectorAll('[data-manager-referral-results]').forEach(function(x){x.remove();});
+ var targetTitles={attendance:'حضور و غیاب',discipline:'موارد انضباطی',evaluation:'ارزشیابی‌های درسی',qa:'پرسش و فعالیت‌های روزانه',exam:'آزمون‌ها',scores:'نمرات کارنامه',competency:'شایستگی‌ها',other:'پرسش و فعالیت‌های روزانه'};
+ A(history).forEach(function(row){
+  var m=meta(row);if(!m||(!String(m.followupResult||'').trim()&&m.status==='open'))return;
+  var title=targetTitles[m.sourceType]||'پرسش و فعالیت‌های روزانه';
+  var section=Array.from(root.querySelectorAll('.dossier-section')).find(function(x){if(x.id===DOSSIER)return false;var h=x.querySelector('.ct');return h&&h.textContent.trim().indexOf(title)===0;});
+  if(!section)return;
+  var wrap=section.querySelector('[data-manager-referral-results="'+m.sourceType+'"]');
+  if(!wrap){wrap=node('div');wrap.setAttribute('data-manager-referral-results',m.sourceType);wrap.style.cssText='margin:8px 0;padding:8px;border:1px solid #93c5fd;border-right:4px solid #2563eb;border-radius:8px;background:#f8fbff';section.appendChild(wrap);}
+  var card=node('div');card.style.cssText='padding:5px 0;border-bottom:1px solid #dbeafe;line-height:1.8';
+  card.appendChild(node('b','','نتیجه پیگیری مدیر — '+(m.sourceTitle||title)));
+  card.appendChild(node('div','meta',teacherStatusText(m)+' | پیگیری‌کننده: '+(m.followupBy||'—')+' | تاریخ: '+(m.followupAt||row.date||'—')));
+  if(String(m.followupResult||'').trim()){var result=node('div');result.style.whiteSpace='pre-wrap';result.textContent=m.followupResult;card.appendChild(result);}
+  wrap.appendChild(card);
+ });
+}
 function renderDossier(id){
  if(!isTeacher()||!allowed(id))return;
  var root=document.getElementById('print-student-dossier'),st=student(id);if(!root||!st)return;
@@ -14315,26 +14334,26 @@ function renderDossier(id){
   var box=node('div');box.style.cssText='margin:7px 0;padding:9px;border:1px solid '+(v.flag?'#f3c68a':'#dbe3ef')+';border-radius:9px;background:'+(v.flag?'#fffaf0':'#fff');
   box.appendChild(node('b','',v.title+' — '+v.detail));
   A(v.rows).slice().sort(function(a,b){return String(b.date||b.created_at||'').localeCompare(String(a.date||a.created_at||''));}).slice(0,2).forEach(function(r){var t=[r.date,r.subject||r.category||r.feedback||r.exam_name,r.notes||r.details].filter(Boolean).join(' | ');if(t)box.appendChild(node('div','meta',t.slice(0,220)));});
-  if(v.rows.length){var k=sourceKey(id,v.key,v.rows),prior=history.find(function(r){var m=meta(r);return m&&m.sourceKey===k&&m.status!=='done';});var b=node('button','btn btn-sm '+(v.flag?'btn-p':'btn-o'),prior?'ارجاع شده — در انتظار پیگیری':'ارجاع این بخش به مدیر');b.type='button';b.disabled=!!prior;b.style.marginTop='6px';b.onclick=function(){sendReferral(id,v,k);};box.appendChild(b);}
+  if(v.rows.length){var k=sourceKey(id,v.key,v.rows),prior=history.filter(function(r){var m=meta(r);return m&&m.sourceKey===k;}).sort(function(a,b){var am=meta(a),bm=meta(b);return String(am.referredAt||a.date||'').localeCompare(String(bm.referredAt||b.date||''));}).pop(),priorMeta=prior&&meta(prior);var b=node('button','btn btn-sm '+(v.flag?'btn-p':'btn-o'),prior?'ارجاع شده — '+teacherStatusText(priorMeta):'ارجاع این بخش به مدیر');b.type='button';b.disabled=!!prior;b.style.marginTop='6px';b.onclick=function(){sendReferral(id,v,k);};box.appendChild(b);}
   if(v.flag)box.appendChild(node('div','meta','⚠️ این بخش بر اساس ثبت‌های موجود نیازمند بررسی است.'));
   sec.appendChild(box);
  });
- if(history.length){var h=node('div');h.style.cssText='margin-top:10px;padding-top:8px;border-top:1px solid #e2e8f0';h.appendChild(node('b','','وضعیت ارجاع‌های قبلی'));history.forEach(function(r){var m=meta(r);h.appendChild(node('div','meta',(m.sourceTitle||'موضوع')+' — '+statusText(m.status)+' | پیگیری‌کننده: '+(m.followupBy||'تعیین نشده')+' | '+(m.followupResult||'نتیجه ثبت نشده')));});sec.appendChild(h);}
- root.appendChild(sec);
+ if(history.length){var h=node('div');h.style.cssText='margin-top:10px;padding-top:8px;border-top:1px solid #e2e8f0';h.appendChild(node('b','','وضعیت ارجاع‌های قبلی'));history.forEach(function(r){var m=meta(r);h.appendChild(node('div','meta',(m.sourceTitle||'موضوع')+' — '+teacherStatusText(m)+' | پیگیری‌کننده: '+(m.followupBy||'تعیین نشده')+' | '+(m.followupResult||'نتیجه ثبت نشده')));});sec.appendChild(h);}
+ root.appendChild(sec);renderFollowupResults(id,history);
 }
 async function sendReferral(id,v,key){
  if(!isTeacher()||!allowed(id)){toast('فقط معلم همان کلاس می‌تواند ارجاع ثبت کند');return;}
  var st=student(id),u=U();if(!st)return;
  if(refs(id).some(function(r){var m=meta(r);return m&&m.sourceKey===key&&m.status!=='done';})){toast('این بخش قبلاً ارجاع شده و هنوز باز است');return;}
- var m={tag:TAG,status:'open',sourceKey:key,sourceType:v.key,sourceTitle:v.title,sourceSummary:v.detail,sourceRecords:A(v.rows).slice().sort(function(a,b){return String(b.date||b.created_at||'').localeCompare(String(a.date||a.created_at||''));}).slice(0,10).map(function(r){return {date:r.date||r.created_at||'',subject:r.subject||r.category||r.feedback||r.exam_name||'',score:r.score==null?'':r.score,level:r.level||'',status:r.status||'',details:r.details||'',notes:r.notes||'',recordedBy:r.recorded_by||r.created_by||''};}),teacherName:(u.full_name||u.username||'معلم'),referredAt:new Date().toISOString(),followupBy:'',followupResult:'',followupAt:'',updatedBy:''};
+ var m={tag:TAG,status:'open',sourceKey:key,sourceType:v.key,sourceTitle:v.title,sourceSummary:v.detail,sourceRecords:A(v.rows).slice().sort(function(a,b){return String(b.date||b.created_at||'').localeCompare(String(a.date||a.created_at||''));}).slice(0,10).map(function(r){return {id:r.id||'',date:r.date||r.created_at||'',subject:r.subject||r.category||r.feedback||r.exam_name||'',score:r.score==null?'':r.score,level:r.level||'',status:r.status||'',details:r.details||'',notes:r.notes||'',recordedBy:r.recorded_by||r.created_by||''};}),teacherName:(u.full_name||u.username||'معلم'),referredAt:new Date().toISOString(),followupBy:'',followupResult:'',followupAt:'',updatedBy:''};
  var row={id:typeof uid==='function'?uid():'ref_'+Date.now(),student_id:String(id),class_id:String(st.class_id||''),type:'student_support',subject:'ارجاع مدیریتی — '+v.title,weekday:typeof weekdayNow==='function'?weekdayNow():'',date:typeof today==='function'?today():'',level:v.flag?'needs':'acceptable',notes:JSON.stringify(m),recorded_by:m.teacherName};
  try{var out=await sb.from('sa_activities').insert(row);if(out&&out.error)throw new Error(out.error.message);localPut(row);toast(out&&out.offline?'ارجاع ذخیره شد و پس از اتصال همگام می‌شود.':'ارجاع برای مدیر ارسال شد');renderDossier(id);renderManagerPanel();}
  catch(e){toast('ارسال ارجاع انجام نشد: '+(e.message||e));}
 }
 async function saveFollowup(row,person,result,status){
  var m=meta(row);if(!m||!isManager())return;
- m.followupBy=person;m.followupResult=result;m.followupAt=typeof today==='function'?today():'';m.status=status;m.updatedAt=new Date().toISOString();m.updatedBy=(U()&&(U().full_name||U().username))||'مدیریت';
- try{var out=await sb.from('sa_activities').update({notes:JSON.stringify(m)}).eq('id',row.id);if(out&&out.error)throw new Error(out.error.message);row.notes=JSON.stringify(m);localPut(row);toast(out&&out.offline?'پیگیری ذخیره شد و پس از اتصال همگام می‌شود.':'نتیجه پیگیری ثبت شد');renderManagerPanel();}
+ m.followupBy=person;m.followupResult=String(result||'').trim();m.followupAt=typeof today==='function'?today():'';m.status=(status==='open'&&m.followupResult)?'done':status;m.updatedAt=new Date().toISOString();m.updatedBy=(U()&&(U().full_name||U().username))||'مدیریت';
+ try{var out=await sb.from('sa_activities').update({notes:JSON.stringify(m)}).eq('id',row.id).select('id');if(out&&out.error)throw new Error(out.error.message);if(!(out&&out.offline)&&(!Array.isArray(out&&out.data)||!out.data.length))throw new Error('ارجاع در سرور به‌روزرسانی نشد؛ مجوز دسترسی یا وجود رکورد را بررسی کنید.');row.notes=JSON.stringify(m);localPut(row);toast(out&&out.offline?'پیگیری ذخیره شد و پس از اتصال همگام می‌شود.':'نتیجه پیگیری ثبت شد و برای معلم قابل مشاهده خواهد بود');renderManagerPanel();}
  catch(e){toast('ذخیره نتیجه پیگیری ناموفق بود: '+(e.message||e));}
 }
 async function deleteReferral(row){
@@ -14380,6 +14399,20 @@ async function refreshFromServer(silent){
  }catch(e){console.warn('refresh manager referrals',e);if(!silent&&typeof toast==='function')toast('دریافت ارجاع‌ها انجام نشد: '+(e.message||e));}
 }
 function supportOpenCount(){return A(C().activities).filter(function(r){if(!r||r.type!=='student_support')return false;try{var x=JSON.parse(String(r.notes||''));return x&&x.tag==='DASYTAR_STUDENT_SUPPORT_V1'&&x.state!=='done';}catch(e){return false;}}).length;}
+var teacherReferralPollTimer=null,teacherReferralPollBusy=false,currentTeacherDossierId=null;
+async function refreshTeacherReferrals(id){
+ if(!isTeacher()||!allowed(id)||!sb||!navigator.onLine||window.isOffline||teacherReferralPollBusy)return;
+ teacherReferralPollBusy=true;
+ try{
+  var res=await sb.from('sa_activities').select('*').eq('type','student_support').eq('student_id',String(id));
+  if(!res||res.error||!Array.isArray(res.data))throw new Error((res&&res.error&&res.error.message)||'دریافت نتیجه پیگیری ناموفق بود');
+  var c=C();c.activities=A(c.activities).filter(function(r){return !(r&&r.type==='student_support'&&String(r.student_id)===String(id));}).concat(res.data);
+  persist();renderDossier(id);
+ }catch(e){console.warn('refresh teacher referrals',e);}
+ finally{teacherReferralPollBusy=false;}
+}
+function teacherReferralPageVisible(){var p=document.getElementById('page-studentfile');return !!(isTeacher()&&!document.hidden&&p&&p.classList.contains('on')&&currentTeacherDossierId);}
+function startTeacherReferralPolling(id){currentTeacherDossierId=String(id);refreshTeacherReferrals(currentTeacherDossierId);if(teacherReferralPollTimer===null)teacherReferralPollTimer=window.setInterval(function(){if(teacherReferralPageVisible())refreshTeacherReferrals(currentTeacherDossierId);},4000);}
 function renderManagerPanel(){
  if(!isManager())return;
  ensurePanel();
@@ -14404,14 +14437,15 @@ function title(){var b=document.getElementById('manager-performance-center-open'
 function install(){
  try{
   title();
-  if(typeof window.openStudentDossier==='function'&&!window.openStudentDossier.__referralWrapped){var old=window.openStudentDossier;var w=function(id){var out=old.apply(this,arguments);try{renderDossier(id);}catch(e){console.warn(e);}return out;};w.__referralWrapped=true;window.openStudentDossier=w;}
+  if(typeof window.openStudentDossier==='function'&&!window.openStudentDossier.__referralWrapped){var old=window.openStudentDossier;var w=function(id){var out=old.apply(this,arguments);try{renderDossier(id);if(isTeacher())startTeacherReferralPolling(id);}catch(e){console.warn(e);}return out;};w.__referralWrapped=true;window.openStudentDossier=w;}
   ['refreshManagerPerformanceCenter','refreshDash','toggleDashboardFeature'].forEach(function(k){if(typeof window[k]==='function'&&!window[k].__referralWrapped){var old=window[k];var w=function(){if(selectBusy())return;var out=old.apply(this,arguments);try{renderManagerPanel();title();if(k==='toggleDashboardFeature'&&arguments[0]==='performance')refreshFromServer(true);}catch(e){}return out;};w.__referralWrapped=true;window[k]=w;}});
   window.__dastyarAppendTeacherReferrals=renderManagerPanel;
   renderManagerPanel();
  }catch(e){console.warn('teacher referral followup install',e);}
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(install,700);});else setTimeout(install,700);
-window.addEventListener('focus',function(){if(selectBusy()||(window.__dastyarFollowupSelectLockUntil||0)>Date.now())return;setTimeout(function(){if(selectBusy()||(window.__dastyarFollowupSelectLockUntil||0)>Date.now())return;var active=document.activeElement;var tag=active&&active.tagName;if(tag==='SELECT'||tag==='INPUT'||tag==='TEXTAREA')return;if(isManager())refreshFromServer(true);},150);});
+window.addEventListener('focus',function(){if(selectBusy()||(window.__dastyarFollowupSelectLockUntil||0)>Date.now())return;setTimeout(function(){if(selectBusy()||(window.__dastyarFollowupSelectLockUntil||0)>Date.now())return;var active=document.activeElement;var tag=active&&active.tagName;if(tag==='SELECT'||tag==='INPUT'||tag==='TEXTAREA')return;if(isManager())refreshFromServer(true);else if(teacherReferralPageVisible())refreshTeacherReferrals(currentTeacherDossierId);},150);});
+document.addEventListener('visibilitychange',function(){if(!document.hidden&&teacherReferralPageVisible())refreshTeacherReferrals(currentTeacherDossierId);});
 document.addEventListener('focusin',function(e){var t=e.target;if(t&&t.tagName==='SELECT'&&t.closest&&t.closest('#dastyar-smart-followup-list')){selectInteractionUntil=Date.now()+45000;window.__dastyarFollowupSelectLockUntil=selectInteractionUntil;}},true);
 document.addEventListener('pointerdown',function(e){var t=e.target;if(t&&t.tagName==='SELECT'&&t.closest&&t.closest('#dastyar-smart-followup-list')){selectInteractionUntil=Date.now()+60000;window.__dastyarFollowupSelectLockUntil=selectInteractionUntil;}else if(t&&!(t.closest&&t.closest('#dastyar-smart-followup-list select'))){selectInteractionUntil=0;window.__dastyarFollowupSelectLockUntil=0;}},true);
 document.addEventListener('touchstart',function(e){var t=e.target;if(t&&t.tagName==='SELECT'&&t.closest&&t.closest('#dastyar-smart-followup-list')){selectInteractionUntil=Date.now()+60000;window.__dastyarFollowupSelectLockUntil=selectInteractionUntil;}},true);
