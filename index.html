@@ -10325,7 +10325,7 @@ window.addEventListener('afterprint',function(){const area=document.getElementBy
 'use strict';
 var DB='dastyar_offline_db',QUEUE='queue',SYNC='sync_queue',RESP='responses';
 function el(id){return document.getElementById(id)}
-function safe(v){return typeof escHtml==='function'?escHtml(v):String(v==null?'—':v).split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;').split(String.fromCharCode(34)).join('&quot;').split(String.fromCharCode(39)).join('&#39;');}
+function safe(v){return String(v==null||v===''?'—':v).replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c]})}
 function openDB(){return new Promise(function(resolve,reject){var req=indexedDB.open(DB);req.onsuccess=function(){resolve(req.result)};req.onerror=function(){reject(req.error||new Error('بازکردن پایگاه‌داده محلی ناموفق بود'))};req.onblocked=function(){reject(new Error('پایگاه‌داده محلی مشغول است'))}})}
 function readAll(db,name){return new Promise(function(resolve,reject){if(!db.objectStoreNames.contains(name)){resolve([]);return}var req=db.transaction(name,'readonly').objectStore(name).getAll();req.onsuccess=function(){resolve(req.result||[])};req.onerror=function(){reject(req.error)}})}
 function readStudentsFromResponses(responses){var rows=[],snapshot=null;responses.forEach(function(r){if(!r)return;if(r.key==='__dastyar_full_snapshot__')snapshot=r.value;var key=String(r.key||'');if(/\/sa_students(?:\?|$)/.test(key)||/sa_students/.test(key)){var val=r.value;if(Array.isArray(val))rows=rows.concat(val);else if(val&&Array.isArray(val.data))rows=rows.concat(val.data)}});if(snapshot&&Array.isArray(snapshot.students))rows=rows.concat(snapshot.students);return rows}
@@ -14313,7 +14313,7 @@ window.addEventListener('focus',function(){setTimeout(function(){if(M()&&panelOp
 var KEY='dastyar_achievements_pending_v1';
 var currentStudentId='';
 function arr(v){return Array.isArray(v)?v:[];}
-function safe(v){return typeof escHtml==='function'?escHtml(v):String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function safe(v){return typeof escHtml==='function'?escHtml(v):String(v==null?'—':v).split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;').split(String.fromCharCode(34)).join('&quot;').split(String.fromCharCode(39)).join('&#39;');}
 function pending(){try{return arr(JSON.parse(localStorage.getItem(KEY)||'[]'));}catch(e){return [];}}
 function savePending(rows){try{localStorage.setItem(KEY,JSON.stringify(rows));}catch(e){}}
 function credentials(){return {p_username:String(user&&(user.username||user.full_name)||''),p_password:String(window.__dastyarSessionPassword||'')};}
