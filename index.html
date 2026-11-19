@@ -14351,7 +14351,7 @@ async function syncPending(){
 window.loadStudentAchievements=async function(){
  if(!user)return;
  cache.achievements=arr(cache.achievements);
- try{await syncPending();await rpcList();}catch(e){console.warn('بارگذاری افتخارات',e);pending().forEach(function(x){if(!cache.achievements.some(function(y){return String(y.id)===String(x.id);}))cache.achievements.push(x);});}
+ try{await syncPending();await rpcList();}catch(e){console.warn('بارگذاری افتخارات',e);}pending().forEach(function(x){if(!cache.achievements.some(function(y){return String(y.id)===String(x.id);}))cache.achievements.push(x);});
  try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
  if(currentStudentId)renderDossier(currentStudentId);
 };
@@ -14360,7 +14360,7 @@ function renderDossier(id){
  var root=document.getElementById('print-student-dossier');if(!root)return;
  var st=arr(cache.students).find(function(x){return String(x.id)===String(id);});if(!allowedStudent(st))return;
  var rows=rowsForStudent(id),approved=rows.filter(function(x){return x.status==='approved';});
- var html='<section class="card dossier-section" id="student-achievements-section" style="border:2px solid #d6b45a;background:linear-gradient(135deg,#fffdf5,#eff6ff)"><div class="ct" style="color:#854d0e">🏅 افتخارات و تشویق‌ها ('+(typeof fa==='function'?fa(approved.length):approved.length)+')</div>';
+ var html='<section class="card dossier-section" id="student-achievements-section" style="border:2px solid #d6b45a;background:linear-gradient(135deg,#fffdf5,#eff6ff)"><div class="ct" style="color:#854d0e">🏅 افتخارات و تشویق‌ها — ثبت‌شده: '+(typeof fa==='function'?fa(rows.length):rows.length)+' | تأییدشده: '+(typeof fa==='function'?fa(approved.length):approved.length)</div>';
  if(!rows.length)html+='<div class="empty">هنوز تشویق یا معرفی‌ای برای این دانش‌آموز ثبت نشده است.</div>';
  rows.forEach(function(r){
   var state=r.status==='approved'?'تأیید و ثبت نهایی':r.status==='rejected'?'تأیید نشد':r.kind==='nomination_request'?'درخواست مدیر از معلم':'در انتظار بررسی مدیر';
