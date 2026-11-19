@@ -14045,3 +14045,24 @@ window.printAbsenteesNeedsAttention=function(){
 #page-dashboard .sg::-webkit-scrollbar{height:5px}#page-dashboard .sg::-webkit-scrollbar-thumb{background:#bfdbfe;border-radius:8px}#page-dashboard .sg::-webkit-scrollbar-track{background:transparent}
 @media(prefers-reduced-motion:reduce){#page-dashboard .sg{scroll-behavior:auto}}
 </style>
+
+<style id="dastyar-dashboard-fast-color-refresh-20261119">
+/* پاسخ سریع‌تر حرکت کارت‌های آماری؛ بدون انیمیشن نرم‌کننده‌ی اسکرول */
+#page-dashboard .sg{scroll-snap-type:none!important;scroll-behavior:auto!important;-webkit-overflow-scrolling:touch!important;overscroll-behavior-x:contain!important;scrollbar-width:none!important}
+#page-dashboard .sg::-webkit-scrollbar{display:none!important;height:0!important}
+#page-dashboard .sg>.sc{transition:background-color .07s ease,border-color .07s ease,box-shadow .07s ease,transform .07s ease!important;border:1px solid rgba(100,116,139,.13)!important;border-radius:15px!important;box-shadow:0 2px 7px rgba(15,23,42,.055)!important}
+#page-dashboard .sg>.sc:nth-child(6n+1){background:linear-gradient(145deg,#eff6ff,#dbeafe)!important;color:#1e40af!important}
+#page-dashboard .sg>.sc:nth-child(6n+2){background:linear-gradient(145deg,#ecfeff,#cffafe)!important;color:#155e75!important}
+#page-dashboard .sg>.sc:nth-child(6n+3){background:linear-gradient(145deg,#ecfdf5,#d1fae5)!important;color:#166534!important}
+#page-dashboard .sg>.sc:nth-child(6n+4){background:linear-gradient(145deg,#f5f3ff,#ede9fe)!important;color:#5b21b6!important}
+#page-dashboard .sg>.sc:nth-child(6n+5){background:linear-gradient(145deg,#fff7ed,#ffedd5)!important;color:#9a3412!important}
+#page-dashboard .sg>.sc:nth-child(6n){background:linear-gradient(145deg,#fdf2f8,#fce7f3)!important;color:#9d174d!important}
+#page-dashboard .sg>.sc .n{font-weight:900!important}#page-dashboard .sg>.sc .l{font-weight:800!important}
+#page-dashboard .sg>.sc:active{transform:scale(.975)!important;filter:saturate(1.08)}
+#page-dashboard .home-tile-group,#page-dashboard .home-tile-group>summary,#page-dashboard .home-tile-group .home-tile{transition-duration:.07s!important;transition-timing-function:linear!important}
+#page-dashboard .home-tile-group .home-tiles-grid{animation-duration:.08s!important;animation-timing-function:linear!important}
+#page-dashboard .home-tile-group>summary:after{transition:background-color .07s linear,color .07s linear!important}
+@keyframes dastyarDashboardPanelIn{from{opacity:.88;transform:translateY(-2px)}to{opacity:1;transform:translateY(0)}}
+#page-dashboard #attendance-class-list,#page-dashboard #discipline-dash-list,#page-dashboard #absent-dash-list,#page-dashboard #evaluation-class-list,#page-dashboard #qa-class-list,#page-dashboard #pending-file-class-list,#page-dashboard #admin-urgent-messages{animation:dastyarDashboardPanelIn .08s linear}
+@media(prefers-reduced-motion:reduce){#page-dashboard .sg>.sc,#page-dashboard .home-tile-group,#page-dashboard .home-tile-group *{transition:none!important;animation:none!important}}
+</style>
