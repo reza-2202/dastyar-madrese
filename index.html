@@ -14556,7 +14556,7 @@ function password(){try{return String(window.__dastyarSessionPassword||'')}catch
 function client(){try{return typeof sb!=='undefined'?sb:null}catch(e){return null}}
 function online(){return !!(navigator.onLine&&client()&&password())}
 function localQueue(){try{var a=JSON.parse(localStorage.getItem(KEY)||'[]');return Array.isArray(a)?a:[]}catch(e){return []}}
-function saveQueue(a){try{localStorage.setItem(KEY,JSON.stringify(a))}catch(e){if(typeof toast==='function')toast('حافظه گوشی پر است؛ تشویق آفلاین ذخیره نشد.');}}
+function saveQueue(a){try{localStorage.setItem(KEY,JSON.stringify(a));return true}catch(e){if(typeof toast==='function')toast('حافظه گوشی پر است؛ تشویق آفلاین ذخیره نشد.');return false;}}
 function userCred(){var u=currentUser();return {p_username:String(u&&(u.username||u.full_name)||''),p_password:password()}}
 function allowedClasses(){
  var u=currentUser(); if(!u)return [];
@@ -14682,7 +14682,7 @@ window.saveAchievementRecord=async function(){
    var saved=r.data;if(Array.isArray(saved))saved=saved[0];if(saved&&saved.id){rows=rows.filter(function(x){return String(x.id)!==String(saved.id)});rows.unshift(saved);cache.achievements=rows.slice();saveSnapshot(rows)}
    if(typeof toast==='function')toast('تشویق / معرفی در سرور ثبت شد و برای بررسی مدیر ارسال گردید.');
   }else{
-   var q=localQueue();q.push({record:rec,queued_at:new Date().toISOString()});saveQueue(q);rows.unshift(Object.assign({},rec,{status:'pending',__offline:true}));if(typeof toast==='function')toast('این مورد روی گوشی ذخیره شد و پس از اتصال اینترنت همگام می‌شود.');
+   var q=localQueue();q.push({record:rec,queued_at:new Date().toISOString()});if(!saveQueue(q))return;rows.unshift(Object.assign({},rec,{status:'pending',__offline:true}));if(typeof toast==='function')toast('این مورد روی گوشی ذخیره شد و پس از اتصال اینترنت همگام می‌شود.');
   }
   $('da-reason').value='';$('da-title').value='';renderList();if(activeStudent)renderDossier(activeStudent);
  }catch(e){if(typeof toast==='function')toast('ثبت تشویق انجام نشد: '+(e.message||e))}
@@ -14739,6 +14739,7 @@ function install(){
   wrapped.__daWrapped=true;window.doLogin=wrapped;
  }
  window.addEventListener('online',function(){flushQueue().then(refresh).catch(function(){});});
+ window.setInterval(function(){var m=$('dastyar-achievement-modal');if(m&&m.classList.contains('show')&&online()&&!busy)refresh().then(renderList).catch(function(){});},15000);
  document.addEventListener('visibilitychange',function(){if(!document.hidden&&currentUser()&&navigator.onLine)flushQueue().catch(function(){});});
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
