@@ -3143,32 +3143,12 @@ function doLogout(){
 }
 
 function go(p){
-  if(p==='teacherreport'){ try{ if(typeof initTeacherReportPage==='function') initTeacherReportPage(); }catch(e){} }
-  if(p==='parentcontact'){ try{ if(typeof initParentContactPage==='function') initParentContactPage(); }catch(e){} }
-  if(p==='monthlyreport'){
-    if(!user||(user.role!=='admin'&&user.role!=='manager')){toast('گزارش ماهانه فقط برای مدیر است');return;}
-    try{ if(typeof initMonthlyReportPage==='function') initMonthlyReportPage(); }catch(e){}
-  }
-  if(p==='dashboard'){ try{ if(typeof refreshSyncStatusPanel==='function') refreshSyncStatusPanel(); }catch(e){} }
-  if(p==='evaluation'){
-    try{ if(typeof applyParentLinkPermissionUI==='function') applyParentLinkPermissionUI(); }catch(e){}
-    setTimeout(function(){
-      try{
-        if(user&&user.role==='teacher'&&typeof window.startTeacherParentLinkPermissionPolling==='function')window.startTeacherParentLinkPermissionPolling();
-        else if(typeof window.loadTeacherParentLinkAllowed==='function')window.loadTeacherParentLinkAllowed(true);
-        else if(typeof applyParentLinkPermissionUI==='function')applyParentLinkPermissionUI();
-      }catch(e){}
-    },200);
-  }
-  if(p==='absentees'){
-    try{ jdateInitAll(); fillAbsenteesClassSelect(); loadAbsenteesReport(); if(typeof loadAbsenteesNeedsAttention==='function') loadAbsenteesNeedsAttention(); }catch(e){}
-  }
+  if(p==='monthlyreport'&&(!user||(user.role!=='admin'&&user.role!=='manager'))){toast('گزارش ماهانه فقط برای مدیر است');return;}
   // صدور و چاپ دعوتنامه فقط در اختیار مدیر است.
   if(p==='invitation' && (!user || user.role!=='admin')){toast('صدور و چاپ دعوتنامه فقط در پنل مدیر مجاز است');return;}
   if(p==='studentdata' && (!user || user.role!=='admin')){toast('ورود و خروجی اطلاعات فقط در پنل مدیر مجاز است');return;}
-  if(p==='studentdata')initExportPrincipalName();
   if(p==='teacherperformance' && (!user || user.role!=='admin')){toast('بخش عملکرد معلمان فقط در پنل مدیر مجاز است');return;}
-  applyAdminInvitationAccess();
+  // دسترسی‌ها پس از نمایش فوری صفحه به‌روزرسانی می‌شوند.
   // دعوتنامه صفحه مستقل ندارد؛ آن را به بخش انضباطی هدایت کن و پنل دعوتنامه را نمایش بده.
   const openInvitation = p==='invitation';
   if(openInvitation) p='discipline';
@@ -3182,12 +3162,17 @@ function go(p){
   window.__dastyarNavPaintToken=(window.__dastyarNavPaintToken||0)+1;
   var navPaintToken=window.__dastyarNavPaintToken;
   requestAnimationFrame(function(){
+  requestAnimationFrame(function(){
   if(navPaintToken!==window.__dastyarNavPaintToken)return;
   document.getElementById('ht').textContent=titles[p]||p;
-  if(p==='dashboard'){refreshDash();if(user&&user.role==='teacher'){renderTeacherNotices();renderTeacherTodaySchedule();}else{var ts=document.getElementById('teacher-today-schedule');if(ts)ts.style.display='none';}}
+  try{applyAdminInvitationAccess();}catch(e){}
+  if(p==='teacherreport'){try{if(typeof initTeacherReportPage==='function')initTeacherReportPage();}catch(e){}}
+  if(p==='parentcontact'){try{if(typeof initParentContactPage==='function')initParentContactPage();}catch(e){}}
+  if(p==='monthlyreport'){try{if(typeof initMonthlyReportPage==='function')initMonthlyReportPage();}catch(e){}}
+  if(p==='dashboard'){try{if(typeof refreshSyncStatusPanel==='function')refreshSyncStatusPanel();}catch(e){}refreshDash();if(user&&user.role==='teacher'){renderTeacherNotices();renderTeacherTodaySchedule();}else{var ts=document.getElementById('teacher-today-schedule');if(ts)ts.style.display='none';}}
   if(p==='teacheraccounts'){if(!user||user.role!=='admin'){go('dashboard');toast('این بخش فقط برای مدیر است');return;}renderTeacherAdminList();}
   if(p==='teacherperformance'){if(!user||user.role!=='admin'){go('dashboard');toast('این بخش فقط برای مدیر است');return;}fillTeacherPerformanceSelects();renderTeacherPerformance();}
-  if(p==='studentdata'){if(!user||user.role!=='admin'){go('dashboard');toast('این بخش فقط برای مدیر است');return;}document.getElementById('student-import-preview').innerHTML='';document.getElementById('student-import-status').textContent='';document.getElementById('student-import-commit').classList.add('hidden');if(!navigator.onLine||window.isOffline){restoreOfflineSnapshot().then(()=>{renderStudents();refreshDash();}).catch(()=>{});}else{Promise.race([reloadAll(),new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),2500))]).catch(async()=>{globalStatus(true);await restoreOfflineSnapshot();renderStudents();refreshDash();});}}
+  if(p==='studentdata'){if(!user||user.role!=='admin'){go('dashboard');toast('این بخش فقط برای مدیر است');return;}try{initExportPrincipalName();}catch(e){}document.getElementById('student-import-preview').innerHTML='';document.getElementById('student-import-status').textContent='';document.getElementById('student-import-commit').classList.add('hidden');if(!navigator.onLine||window.isOffline){restoreOfflineSnapshot().then(()=>{renderStudents();refreshDash();}).catch(()=>{});}else{Promise.race([reloadAll(),new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),2500))]).catch(async()=>{globalStatus(true);await restoreOfflineSnapshot();renderStudents();refreshDash();});}}
   if(p==='students'){fillSelects();renderStudents();}
   if(p==='studentfile'){reloadAll().then(searchStudentFile);}
   if(p==='attendance'){fillSelects();loadAttendance();}
@@ -3203,13 +3188,15 @@ function go(p){
     loadActivities();
     document.getElementById('ac-form').innerHTML='';
   }
-  if(p==='evaluation'){fillSelects();const ed=document.getElementById('ev-filter-date');if(ed&&!ed.value)ed.value=today();toggleEvDateFilter();loadEvals();document.getElementById('ev-form').innerHTML='';}
+  if(p==='evaluation'){try{if(typeof applyParentLinkPermissionUI==='function')applyParentLinkPermissionUI();}catch(e){}setTimeout(function(){try{if(user&&user.role==='teacher'&&typeof window.startTeacherParentLinkPermissionPolling==='function')window.startTeacherParentLinkPermissionPolling();else if(typeof window.loadTeacherParentLinkAllowed==='function')window.loadTeacherParentLinkAllowed(true);else if(typeof applyParentLinkPermissionUI==='function')applyParentLinkPermissionUI();}catch(e){}},200);fillSelects();const ed=document.getElementById('ev-filter-date');if(ed&&!ed.value)ed.value=today();toggleEvDateFilter();loadEvals();document.getElementById('ev-form').innerHTML='';}
+  if(p==='absentees'){try{jdateInitAll();fillAbsenteesClassSelect();loadAbsenteesReport();if(typeof loadAbsenteesNeedsAttention==='function')loadAbsenteesNeedsAttention();}catch(e){}}
   if(p==='charts'){fillSelects();loadChartStudents();renderChartView();}
   if(p==='documents'){fillDocumentClassSelect();loadSchoolDocuments();}
   if(p==='chat'){loadSchoolMessages();}
   if(p==='weekly'){fillSelects();fillWeeklyClasses();renderWeeklyEditor();}
   if(p==='parentmeet'){fillParentClasses();if(!document.getElementById('pm-date').value)document.getElementById('pm-date').value=today();syncParentWeekday();if(!document.getElementById('pm-comments').children.length)addParentComment();renderParentMeetings();}
   if(p==='report'){fillSelects();loadReportStudents();document.getElementById('rp-edit').innerHTML='';}
+  });
   });
 }
 
@@ -14344,8 +14331,8 @@ function renderPage(){
  var visible=rows.filter(function(r){return isAdmin()||ownClass(r.class_id)||r.target_teacher_username===String(user&&user.username||'')});
  var pending=visible.filter(function(r){return r.status==='pending'});
  var approved=visible.filter(function(r){return r.status==='approved'});
- var html='<div class="card" style="border:1px solid #bfdbfe;background:#f8fbff"><div class="ct">🌟 افتخارات و تشویق‌های دانش‌آموزان</div><div class="meta">تشویق مستقل از نمره ثبت می‌شود؛ ثبت اولیه و تأیید مدیر جداگانه نگهداری می‌شوند.</div>';
- html+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0"><span class="badge">در انتظار بررسی: '+pending.length+'</span><span class="badge">تأییدشده: '+approved.length+'</span></div>';
+ var html='<div id="ach-form-card" class="card" style="border:1px solid #bfdbfe;background:#f8fbff"><div class="ct">🌟 افتخارات و تشویق‌های دانش‌آموزان</div><div class="meta">تشویق مستقل از نمره ثبت می‌شود؛ ثبت اولیه و تأیید مدیر جداگانه نگهداری می‌شوند.</div>';
+ html+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0"><span class="badge" id="ach-pending-count">در انتظار بررسی: '+pending.length+'</span><span class="badge" id="ach-approved-count">تأییدشده: '+approved.length+'</span></div>';
  html+='<div class="fg"><label>کلاس</label><select id="ach-class">'+classOptions+'</select></div><div class="fg"><label>دانش‌آموز</label><select id="ach-student"></select></div>';
  html+='<div class="fg"><label>عنوان تشویق / معرفی</label><input id="ach-title" maxlength="120" placeholder="مثلاً تلاش پیوسته، همکاری گروهی، پیشرفت چشمگیر"/></div>';
  html+='<div class="fg"><label>زمینه</label><select id="ach-category"><option value="تلاش و پشتکار">تلاش و پشتکار</option><option value="پیشرفت تحصیلی">پیشرفت تحصیلی</option><option value="اخلاق و همکاری">اخلاق و همکاری</option><option value="خلاقیت و مهارت">خلاقیت و مهارت</option><option value="مسئولیت‌پذیری">مسئولیت‌پذیری</option><option value="حضور و مشارکت">حضور و مشارکت</option><option value="سایر">سایر</option></select></div>';
@@ -14354,14 +14341,22 @@ function renderPage(){
  html+='<button class="btn btn-p" id="ach-save">ثبت تشویق مستقل</button><button class="btn btn-o" id="ach-nominate" style="margin-right:6px">معرفی دانش‌آموز شاخص به مدیر</button>';
  if(isAdmin())html+='<button class="btn btn-o" id="ach-request" style="margin-right:6px">درخواست معرفی از معلم کلاس</button>';
  html+='</div><div id="ach-list"></div>';
- root.innerHTML=html;
- var cs=document.getElementById('ach-class'),ss=document.getElementById('ach-student');
- function fillStudents(){var a=studentsForClass(cs.value);ss.innerHTML=a.map(function(st){return '<option value="'+esc(st.id)+'">'+esc((st.first_name||'')+' '+(st.last_name||''))+'</option>'}).join('')||'<option value="">دانش‌آموزی نیست</option>'}
- if(cs){cs.addEventListener('change',fillStudents);fillStudents();}
- document.getElementById('ach-save').onclick=function(){saveRecord('recognition')};
- document.getElementById('ach-nominate').onclick=function(){saveRecord('nomination')};
- var req=document.getElementById('ach-request');if(req)req.onclick=function(){saveRecord('nomination_request')};
- document.getElementById('ach-list').innerHTML=visible.slice().sort(function(a,b){return String(b.created_at||'').localeCompare(String(a.created_at||''))}).map(function(r){
+ var firstRender=!root.querySelector('#ach-form-card');
+ if(firstRender){
+  root.innerHTML=html;
+  var cs=document.getElementById('ach-class'),ss=document.getElementById('ach-student');
+  function fillStudents(){var a=studentsForClass(cs.value);ss.innerHTML=a.map(function(st){return '<option value="'+esc(st.id)+'">'+esc((st.first_name||'')+' '+(st.last_name||''))+'</option>'}).join('')||'<option value="">دانش‌آموزی نیست</option>'}
+  if(cs){cs.addEventListener('change',fillStudents);fillStudents();}
+  document.getElementById('ach-save').onclick=function(){saveRecord('recognition')};
+  document.getElementById('ach-nominate').onclick=function(){saveRecord('nomination')};
+  var req=document.getElementById('ach-request');if(req)req.onclick=function(){saveRecord('nomination_request')};
+ }else{
+  var pc=document.getElementById('ach-pending-count'),ac=document.getElementById('ach-approved-count');
+  if(pc)pc.textContent='در انتظار بررسی: '+pending.length;
+  if(ac)ac.textContent='تأییدشده: '+approved.length;
+ }
+ var listNode=document.getElementById('ach-list');
+ if(listNode)listNode.innerHTML=visible.slice().sort(function(a,b){return String(b.created_at||'').localeCompare(String(a.created_at||''))}).map(function(r){
  var m=medal(r),status=r.status==='approved'?'تأیید مدیر':r.status==='rejected'?'رد شده':r.status==='answered'?'پاسخ مدیر':'در انتظار بررسی';
  var actions=isAdmin()&&r.status==='pending'?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button class="btn btn-s btn-sm" data-ach-approve="'+esc(r.id)+'">تأیید و ثبت تقدیر</button><button class="btn btn-o btn-sm" data-ach-reject="'+esc(r.id)+'">رد درخواست</button></div>':'';
  return '<div class="card" style="border-right:4px solid '+m[2]+'"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>'+esc(r.title||'تشویق')+' — '+esc(studentLabel(r.student_id))+'</b><span>'+m[0]+' '+esc(status)+'</span></div><div class="meta">'+esc(classLabel(r.class_id))+' | '+esc(r.date||'')+' | '+esc(r.created_by||'')+' | '+esc(r.category||'')+'</div><p style="white-space:pre-wrap;margin-top:7px">'+esc(r.reason||'')+'</p>'+(r.decision_text?'<div style="padding:7px;background:#f0fdf4;border-radius:8px;margin-top:7px">نتیجه مدیر: '+esc(r.decision_text)+'</div>':'')+(r.medal_level?'<div style="display:flex;align-items:center;gap:8px;margin-top:6px;color:'+m[2]+';font-weight:800"><img alt="مدال '+esc(m[1])+'" src="'+esc(r.medal_image_url||medalImage(r.medal_level))+'" style="width:42px;height:48px;object-fit:contain"/>'+m[0]+' نشان '+m[1]+'</div>':'')+actions+'</div>';
@@ -14407,11 +14402,11 @@ function installPage(){
  var home=document.querySelector('#page-dashboard .home-tiles');
  if(home&&!document.getElementById('achievements-home-tile')){
   var tile=document.createElement('button');tile.type='button';tile.id='achievements-home-tile';tile.className='btn btn-p';tile.style.cssText='width:100%;margin:8px 0;background:linear-gradient(110deg,#1d4ed8,#2563eb);border:0;padding:13px;font-weight:800';
-  tile.innerHTML='🏅 افتخارات و تشویق دانش‌آموزان';tile.onclick=function(){go('achievements');load().then(renderPage)};home.appendChild(tile);
+  tile.innerHTML='🏅 افتخارات و تشویق دانش‌آموزان';tile.onclick=function(){go('achievements');};home.appendChild(tile);
  }
 }
 var oldGo=window.go;
-if(typeof oldGo==='function')window.go=function(p){if(p==='achievements'){installPage();oldGo.apply(this,arguments);requestAnimationFrame(function(){var h=document.getElementById('ht');if(h)h.textContent='افتخارات و تشویق‌ها'});load().then(renderPage);return}return oldGo.apply(this,arguments)};
+if(typeof oldGo==='function')window.go=function(p){if(p==='achievements'){installPage();oldGo.apply(this,arguments);rows=read();renderPage();requestAnimationFrame(function(){var h=document.getElementById('ht');if(h)h.textContent='افتخارات و تشویق‌ها'});load().then(renderPage);return}return oldGo.apply(this,arguments)};
 var oldDossier=window.openStudentDossier;
 if(typeof oldDossier==='function')window.openStudentDossier=function(id){var r=oldDossier.apply(this,arguments);renderDossier(id);load().then(function(){renderDossier(id)});return r};
 var oldParentGenerate=window.generateParentPortalLink;
