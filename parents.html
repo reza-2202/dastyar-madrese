@@ -290,6 +290,12 @@ button{width:100%;margin-top:14px;padding:12px;border:0;border-radius:12px;backg
     html+=referralList("انضباطی",["discipline"]);
     html+=list("سوابق مالی",dateSort(p.finance),function(a){var amount=a.amount==null?"—":faDigits(a.amount);return "<div class=\"item\"><b>"+esc(a.topic||a.title||"مالی")+"</b> — "+faDigits(esc(a.date||""))+" — مبلغ: "+esc(amount)+(a.notes?(" — "+esc(a.notes)):"")+(a.status?(" — وضعیت: "+esc(a.status)):"")+(a.created_by?(" — ثبت‌کننده: "+esc(a.created_by)):"")+"</div>";});
     html+=list("ارتباط و پیگیری با اولیا",dateSort(p.parent_contacts),function(a){var types={call:"تماس",message:"پیام",inperson:"حضوری",other:"سایر"};return "<div class=\"item\"><b>"+esc(types[a.contact_type]||a.contact_type||"ارتباط")+"</b> — "+faDigits(esc(a.date||""))+(a.phone?(" — "+esc(a.phone)):"")+(a.subject?(" — موضوع: "+esc(a.subject)):"")+(a.result?(" — نتیجه: "+esc(a.result)):"")+(a.follow_up_date?(" — پیگیری: "+faDigits(esc(a.follow_up_date))):"")+(a.notes?(" — "+esc(a.notes)):"")+(a.recorded_by?(" — ثبت‌کننده: "+esc(a.recorded_by)):"")+"</div>";});
+
+    html+=list("افتخارات و تشویق‌ها",dateSort(p.achievements),function(a){
+      var medals={bronze:"🥉 نشان برنزی",silver:"🥈 نشان نقره‌ای",gold:"🥇 نشان طلایی",special:"🏅 نشان ویژه افتخار"};
+      var medal=a.medal_image_url?("<img src=\\""+esc(a.medal_image_url)+"\\" alt=\\"نشان افتخار\\" style=\\"width:42px;height:42px;object-fit:contain;vertical-align:middle;margin-left:7px\\">"):(a.medal_level?("<span style=\\"font-size:25px;vertical-align:middle;margin-left:7px\\">"+(a.medal_level==="bronze"?"🥉":a.medal_level==="silver"?"🥈":a.medal_level==="gold"?"🥇":"🏅")+"</span>"):"");
+      return "<div class=\\"item\\" style=\\"border-right:4px solid #d6b45a;background:#fffcf2;border-radius:8px;padding:9px;margin:7px 0;break-inside:avoid\\">"+medal+"<b>"+esc(a.title||"تشویق دانش‌آموز")+"</b> — "+faDigits(esc(a.date||""))+(a.category?(" — "+esc(a.category)):"")+(a.reason?("<div style=\\"margin-top:5px\\">"+esc(a.reason)+"</div>"):"")+(a.award_type?("<div><b>اقدام مدرسه:</b> "+esc(a.award_type)+"</div>"):"")+(a.decision_text?("<div>"+esc(a.decision_text)+"</div>"):"")+(a.reviewed_by?("<small>تأییدکننده: "+esc(a.reviewed_by)+"</small>"):"")+"</div>";
+    });
     $("v-body").innerHTML=html;
   }
 $("btn-login").onclick=function(e){ e.preventDefault(); doLogin(); };
