@@ -861,7 +861,44 @@ function printStudentList(kind='full'){
   `;
   const markup='<main class="student-roster-print" dir="rtl"><h2>دبستان شهید فتح‌الله فلاح‌پور</h2><h3>'+title+'</h3><div class="roster-meta">کلاس: '+esc(cls?cls.label:'همه کلاس‌ها')+'　 |　 تعداد: '+list.length+' نفر　 |　 سال تحصیلی: ۱۴۰۵–۱۴۰۶</div>'+table+'<footer>مدیر مدرسه: سید حسین نورایی انور</footer></main>';
   w.document.open();
-  w.document.write('<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+title+'</title><style>'+style+'</style></head><body>'+markup+'</body></html>');
+  w.document.write('<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+title+'</title><style>'+style+'</style></head><body>'+markup+'</body></html>
+
+<style id="dastyar-dashboard-horizontal-fast-20261119">
+/* داشبورد: نوار افقی آمار با حفظ ترتیب و عملکرد کارت‌ها */
+#page-dashboard>.sg{
+ display:flex!important;flex-wrap:nowrap!important;gap:9px!important;
+ overflow-x:auto!important;overflow-y:hidden!important;
+ direction:rtl!important;scroll-snap-type:x proximity;
+ -webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;
+ padding:2px 2px 9px!important;margin:0 0 12px!important;
+ scrollbar-width:thin;scrollbar-color:#bfdbfe transparent;
+}
+#page-dashboard>.sg>.sc{
+ flex:0 0 116px!important;width:116px!important;min-width:116px!important;
+ min-height:104px;scroll-snap-align:start;
+ display:flex;flex-direction:column;justify-content:center;
+ transition:none!important;transform:none!important;
+}
+#page-dashboard>.sg>.sc:active{transform:scale(.985)!important}
+#page-dashboard .home-tile-group{transition:none!important;contain:layout style}
+#page-dashboard .home-tile-group .home-tiles-grid{animation:none!important}
+#page-dashboard .home-tile-group>summary{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+#page-dashboard .home-tile-group .home-tile,
+#page-dashboard .dastyar-dashboard-feature button,
+#page-dashboard .sc{transition:none!important;will-change:auto}
+#page-dashboard .home-tile-group .home-tile:active{transform:scale(.985)!important}
+#page-dashboard .dastyar-feature-open,
+#page-dashboard .dastyar-feature-settings,
+#page-dashboard #smart-reminders-mini-btn{touch-action:manipulation}
+#page-dashboard .dastyar-feature-body,
+#page-dashboard .dastyar-feature-settings-panel,
+#page-dashboard #smart-reminders-body{animation:none!important;transition:none!important}
+@media(prefers-reduced-motion:reduce){
+ #page-dashboard>.sg{scroll-behavior:auto}
+ #page-dashboard .home-tile-group,#page-dashboard .home-tile-group *{animation:none!important;transition:none!important}
+}
+</style>
+');
   w.document.close();
   w.focus();
   setTimeout(()=>{try{w.print();}catch(e){toast('چاپ در این مرورگر اجرا نشد');}},500);
