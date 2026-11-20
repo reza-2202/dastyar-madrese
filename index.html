@@ -14647,12 +14647,10 @@ observer.observe(document.documentElement,{childList:true,subtree:true});
   var statsWrap=stats&&stats.parentNode;
   var statsRail=byId('dashboard-stats-rail');
   if(stats){
-   /* داشبورد مستقل از گروه‌های دسترسی سریع باشد؛ باز شدن گروه‌های دیگر آن را نبندد. */
+   /* دکمه داشبورد در فهرست دسترسی سریع بماند؛ فقط محتوای آمار در بالای صفحه باز شود. */
    stats.removeAttribute('name');
-   if(statsWrap&&statsWrap.classList&&statsWrap.classList.contains('home-tiles')){
-    statsWrap.id='dashboard-toggle-wrap';
-    statsWrap.setAttribute('aria-label','داشبورد');
-   }
+   if(stats.parentNode!==home)home.appendChild(stats);
+   if(statsWrap&&statsWrap!==home&&statsWrap.classList&&statsWrap.classList.contains('home-tiles')&&!statsWrap.children.length)statsWrap.remove();
   }
   var achievement=makeGroup('achievements-home-group','group-achievements','🏅','افتخارات و تشویق دانش‌آموزان');
   var achievementGrid=achievement.querySelector('.home-tiles-grid');
@@ -14683,7 +14681,8 @@ observer.observe(document.documentElement,{childList:true,subtree:true});
    home.querySelector('.group-performance'),
    syncGroup,
    reminderGroup,
-   aboutGroup
+   aboutGroup,
+   stats
   ];
   ordered.forEach(function(group){if(group&&group.parentNode!==home||group&&group!==home.lastElementChild)home.appendChild(group);});
   var welcome=page.querySelector('.wel');
@@ -14691,9 +14690,7 @@ observer.observe(document.documentElement,{childList:true,subtree:true});
   var schedule=byId('teacher-today-schedule'),notices=byId('teacher-notice-inbox');
   if(welcome&&welcome.parentNode===page){
    var cursor=welcome;
-   /* ترتیب بالای صفحه: سلام، کلید مستقل داشبورد، آمار بازشونده، سپس سایر محتوا. */
-   if(statsWrap&&statsWrap.parentNode!==page)insertAfter(page,statsWrap,cursor);
-   if(statsWrap&&statsWrap.parentNode===page)cursor=statsWrap;
+   /* فقط پنل آمار زیر سلام باز می‌شود؛ دکمه داشبورد در دسترسی سریع باقی می‌ماند. */
    if(statsRail){insertAfter(page,statsRail,cursor);cursor=statsRail;}
    if(isTeacher){
     if(schedule){insertAfter(page,schedule,cursor);cursor=schedule;}
