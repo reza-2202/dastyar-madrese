@@ -14439,10 +14439,17 @@ async function shareAward(id){
  try{
   var name=studentLabel(r.student_id),award=String(r.award_type||'تقدیرنامه'),level=r.medal_level?medal(r)[1]:'';
   var awardStudent=(cache.students||[]).find(function(x){return String(x.id)===String(r.student_id)}),photoSrc=awardStudent&&awardStudent.photo?String(awardStudent.photo):'';
-  var awardFontChoice=window.prompt('انتخاب قلم لوح تقدیر:\n۱) نستعلیق\n۲) وزیرمتن\n۳) قلم رسمی ساده\nشماره گزینه را وارد کنید:','1');
-  if(awardFontChoice===null)return;
-  var awardFontFamily=awardFontChoice.trim()==='2'?'Vazirmatn, Tahoma, sans-serif':awardFontChoice.trim()==='3'?'Tahoma, Arial, sans-serif':'"Noto Nastaliq Urdu", Vazirmatn, serif';
-  var includePhoto=window.confirm(photoSrc?'آیا عکس دانش‌آموز به شکل دایره‌ای روی لوح درج شود؟\nتأیید = با عکس | لغو = بدون عکس':'برای این دانش‌آموز عکسی ثبت نشده است؛ لوح بدون عکس صادر می‌شود.');
+  var awardPrefsKey='dastyar-award-export-prefs-'+String(id),awardPrefs=null,awardFontFamily='',includePhoto=false;
+  try{awardPrefs=JSON.parse(window.sessionStorage.getItem(awardPrefsKey)||'null')}catch(prefsReadError){awardPrefs=null}
+  var reuseAwardPrefs=!!(awardPrefs&&awardPrefs.fontFamily&&window.confirm('برای این تقدیرنامه تنظیمات قبلی قلم و عکس ذخیره شده است.\nتأیید = استفاده از همان تنظیمات و ادامه خروجی\nلغو = انتخاب دوباره قلم و عکس'));
+  if(reuseAwardPrefs){awardFontFamily=awardPrefs.fontFamily;includePhoto=!!awardPrefs.includePhoto}
+  else{
+   var awardFontChoice=window.prompt('انتخاب قلم لوح تقدیر:\n۱) نستعلیق\n۲) وزیرمتن\n۳) قلم رسمی ساده\nشماره گزینه را وارد کنید:','1');
+   if(awardFontChoice===null)return;
+   awardFontFamily=awardFontChoice.trim()==='2'?'Vazirmatn, Tahoma, sans-serif':awardFontChoice.trim()==='3'?'Tahoma, Arial, sans-serif':'"Noto Nastaliq Urdu", Vazirmatn, serif';
+   includePhoto=window.confirm(photoSrc?'آیا عکس دانش‌آموز به شکل دایره‌ای روی لوح درج شود؟\nتأیید = با عکس | لغو = بدون عکس':'برای این دانش‌آموز عکسی ثبت نشده است؛ لوح بدون عکس صادر می‌شود.');
+   try{window.sessionStorage.setItem(awardPrefsKey,JSON.stringify({fontFamily:awardFontFamily,includePhoto:includePhoto}))}catch(prefsWriteError){console.warn('Award export preferences could not be saved',prefsWriteError)}
+  }
   var photoData=includePhoto&&photoSrc?await studentAwardPhotoData(r.student_id):'';
   if(includePhoto&&!photoData)toast('عکس در دسترس نبود؛ تقدیرنامه بدون عکس ساخته می‌شود.');
   try{if(document.fonts&&document.fonts.load)await Promise.race([document.fonts.load('700 34px '+awardFontFamily),new Promise(function(resolve){setTimeout(resolve,1500)})])}catch(fontError){console.warn('Award font load',fontError)}
