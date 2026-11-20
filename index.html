@@ -14644,10 +14644,15 @@ observer.observe(document.documentElement,{childList:true,subtree:true});
   var home=quick.querySelector('.home-tiles');
   if(!home)return;
   var stats=byId('dashboard-stats-toggle');
+  var statsWrap=stats&&stats.parentNode;
+  var statsRail=byId('dashboard-stats-rail');
   if(stats){
-   var oldParent=stats.parentNode;
-   if(oldParent!==home)home.insertBefore(stats,home.firstChild);
-   if(oldParent&&oldParent!==home&&oldParent.classList&&oldParent.classList.contains('home-tiles')&&!oldParent.children.length)oldParent.remove();
+   /* داشبورد مستقل از گروه‌های دسترسی سریع باشد؛ باز شدن گروه‌های دیگر آن را نبندد. */
+   stats.removeAttribute('name');
+   if(statsWrap&&statsWrap.classList&&statsWrap.classList.contains('home-tiles')){
+    statsWrap.id='dashboard-toggle-wrap';
+    statsWrap.setAttribute('aria-label','داشبورد');
+   }
   }
   var achievement=makeGroup('achievements-home-group','group-achievements','🏅','افتخارات و تشویق دانش‌آموزان');
   var achievementGrid=achievement.querySelector('.home-tiles-grid');
@@ -14686,16 +14691,18 @@ observer.observe(document.documentElement,{childList:true,subtree:true});
   var isTeacher=!!(window.user&&window.user.role==='teacher');
   var schedule=byId('teacher-today-schedule'),notices=byId('teacher-notice-inbox');
   if(welcome&&welcome.parentNode===page){
+   var cursor=welcome;
+   /* ترتیب بالای صفحه: سلام، کلید مستقل داشبورد، آمار بازشونده، سپس سایر محتوا. */
+   if(statsWrap&&statsWrap.parentNode!==page)insertAfter(page,statsWrap,cursor);
+   if(statsWrap&&statsWrap.parentNode===page)cursor=statsWrap;
+   if(statsRail){insertAfter(page,statsRail,cursor);cursor=statsRail;}
    if(isTeacher){
-    var cursor=welcome;
     if(schedule){insertAfter(page,schedule,cursor);cursor=schedule;}
     if(notices){insertAfter(page,notices,cursor);cursor=notices;}
-    insertAfter(page,quick,cursor);
     var heading=byId('wn');
     if(heading)heading.textContent='سلام معلم، '+String(window.user.full_name||window.user.username||'همکار گرامی');
-   }else{
-    insertAfter(page,quick,welcome);
    }
+   insertAfter(page,quick,cursor);
   }
  }
  var previousGo=window.go;
