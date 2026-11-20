@@ -14456,7 +14456,7 @@ async function shareAward(id){
    var awardTemplateCanvas=document.createElement('canvas');awardTemplateCanvas.width=1200;awardTemplateCanvas.height=1200;
    var awardTemplateCtx=awardTemplateCanvas.getContext('2d');
    if(!awardTemplateCtx)throw new Error('ساخت بوم تقدیرنامه ممکن نشد');
-   awardTemplateCtx.filter='saturate(1.16) contrast(1.06)';awardTemplateCtx.drawImage(awardTemplateImage,0,0,1200,1200);awardTemplateCtx.filter='none';
+   awardTemplateCtx.filter='saturate(.78) brightness(1.10) contrast(.90)';awardTemplateCtx.drawImage(awardTemplateImage,0,0,1200,1200);awardTemplateCtx.filter='none';awardTemplateCtx.fillStyle='rgba(255,255,255,0.16)';awardTemplateCtx.fillRect(0,0,1200,1200);
    awardTemplateCtx.direction='rtl';awardTemplateCtx.textAlign='center';awardTemplateCtx.textBaseline='middle';
    function drawAwardText(text,x,y){var fs=parseFloat(awardTemplateCtx.font)||30;awardTemplateCtx.lineJoin='round';awardTemplateCtx.lineWidth=Math.max(1.5,Math.min(10,fs*.18));awardTemplateCtx.strokeStyle='#172033';awardTemplateCtx.strokeText(text,x,y);awardTemplateCtx.lineWidth=Math.max(1,Math.min(5,fs*.09));awardTemplateCtx.strokeStyle='#fff';awardTemplateCtx.strokeText(text,x,y);awardTemplateCtx.fillText(text,x,y)}
    awardTemplateCtx.fillStyle='#64748b';awardTemplateCtx.font='bold 38px "Noto Nastaliq Urdu", Vazirmatn, serif';
