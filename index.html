@@ -13807,6 +13807,9 @@ window.__refreshManagerPerformanceCenterCore=async function(){
   if(!trendSummary||!trendWeeks||!trendClasses)return;
   var latestTrendReport=buildTrendReport(classes,students,attendance,activities,evaluations);
   var visibleIds=new Set(classes.map(function(c){return String(c&&c.id);}));
+  var disciplineByStudent=new Map(),evaluationByStudent=new Map();
+  discipline.forEach(function(r){var k=String(r&&r.student_id||'');if(k)disciplineByStudent.set(k,(disciplineByStudent.get(k)||0)+1);});
+  weekEvaluations.forEach(function(r){var k=String(r&&r.student_id||'');if(k)evaluationByStudent.set(k,(evaluationByStudent.get(k)||0)+1);});
   function visibleRows(rows){return rows.filter(function(r){return visibleIds.has(classForRecord(r,studentClass));});}
   var attendanceClasses=new Set(visibleRows(todayAttendance).filter(function(r){return r&&String(r.status||'').trim();}).map(function(r){return classForRecord(r,studentClass);}));
   var visibleQaCount=visibleRows(qa).length,visibleEvaluationCount=visibleRows(weekEvaluations).filter(function(r){return !(typeof isDailyQaEvaluationRow==='function'&&isDailyQaEvaluationRow(r));}).length;
@@ -13856,7 +13859,13 @@ window.__refreshManagerPerformanceCenterCore=async function(){
     var discN=forClass(discipline,cid).length,docN=forClass(documents,cid).length;
     var box=el('div','border:1px solid #e2e8f0;border-radius:10px;padding:9px;background:#fff');
     var top=el('div','display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap');
-    top.appendChild(el('strong','font-size:.82rem;color:#0f172a',c.label||c.name||('کلاس '+cid)));
+    var teacherLabel=c.teacher_name||c.teacher_user||'نام معلم ثبت نشده';
+    var classToggle=el('button','font-size:.82rem;font-weight:800;color:#0f172a;text-align:right;border:0;background:transparent;padding:4px 0;cursor:pointer;touch-action:manipulation', (c.label||c.name||('کلاس '+cid))+'  ▾');
+    classToggle.type='button';classToggle.setAttribute('aria-expanded','false');
+    var classDetail=el('div','display:none;margin-top:9px;padding:9px;border:1px solid #dbeafe;border-radius:9px;background:#f8fbff');
+    var classDetailBuilt=false;
+    classToggle.onclick=function(){var opening=classDetail.style.display==='none';if(opening&&!classDetailBuilt){classDetail.appendChild(el('div','font-size:.74rem;font-weight:800;color:#1e40af;margin-bottom:6px','معلم مسئول: '+teacherLabel));classDetail.appendChild(el('div','font-size:.7rem;line-height:1.9;color:#475569','آمار کلاس: '+roster.length+' دانش‌آموز | '+discN+' مورد انضباط | '+evalN+' ارزشیابی | '+docN+' فایل ارسالی | '+qaN+' پرسش‌وپاسخ امروز | '+attN+' ثبت حضور امروز'));classDetail.appendChild(el('div','font-size:.72rem;font-weight:800;color:#334155;margin:8px 0 4px','فهرست دانش‌آموزان و سوابق'));roster.forEach(function(st){var nm=((st.first_name||'')+' '+(st.last_name||'')).trim()||'دانش‌آموز';var sd=disciplineByStudent.get(String(st.id))||0,se=evaluationByStudent.get(String(st.id))||0;classDetail.appendChild(el('div','font-size:.68rem;line-height:1.7;padding:4px 0;border-top:1px solid #e2e8f0;color:#475569',nm+' — انضباط: '+sd+' | ارزشیابی: '+se));});classDetailBuilt=true;}classDetail.style.display=opening?'block':'none';classToggle.setAttribute('aria-expanded',opening?'true':'false');classToggle.textContent=(c.label||c.name||('کلاس '+cid))+(opening?'  ▴':'  ▾');};
+    top.appendChild(classToggle);
     var statusText=roster.length?(attN===0?'ثبت حضور امروز مشاهده نشد':attN<roster.length?'ثبت حضور ناقص: '+attN+' از '+roster.length:'برای همه دانش‌آموزان ثبت وجود دارد'):(attN?'ثبت حضور: '+attN:'فهرست دانش‌آموزان در دسترس نیست');
     var statusColor=attN>0&&roster.length&&attN<roster.length?'#b45309':attN>0?'#166534':'#64748b';
     var badge=el('span','font-size:.68rem;padding:3px 7px;border-radius:999px;background:'+(statusColor==='#166534'?'#dcfce7':statusColor==='#b45309'?'#fef3c7':'#f1f5f9')+';color:'+statusColor,statusText);
@@ -13865,7 +13874,7 @@ window.__refreshManagerPerformanceCenterCore=async function(){
     [['دانش‌آموز',roster.length],['حضور امروز',attN],['پرسش‌وپاسخ امروز',qaN],['ارزشیابی هفته',evalN],['فعالیت امروز',dailyN],['آزمون امروز',examN],['انضباط',discN],['فایل',docN]].forEach(function(pair){
       detail.appendChild(el('span','font-size:.68rem;color:#475569;background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px;padding:4px 6px',pair[0]+': '+pair[1]));
     });
-    box.appendChild(detail);rowsBox.appendChild(box);
+    box.appendChild(detail);box.appendChild(classDetail);rowsBox.appendChild(box);
   });
   function addActionAlert(title,count,names,description,page,tone){
     var item=el('div','display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:9px;border:1px solid '+(tone==='warn'?'#fcd34d':'#e2e8f0')+';border-radius:9px;background:'+(tone==='warn'?'#fffbeb':'#f8fafc'));
@@ -14061,7 +14070,7 @@ window.printAbsenteesNeedsAttention=function(){
 'use strict';
 var TYPE='school_followup_referral',TAG='DASTYAR_SCHOOL_FOLLOWUP_REFERRAL_V2',THRESHOLD=3;
 var PEOPLE=['مدیر مدرسه — سید حسین نورایی انور','معاون آموزشی — پژمان سامانی‌پور','معاون اجرایی — رضا فلاحتکار'];
-var PANEL='dastyar-manager-referrals-panel-v2',timer=null,teacherStudentId='',busyManager=false,busyTeacher=false;
+var PANEL='dastyar-manager-referrals-panel-v2',timer=null,teacherStudentId='',busyManager=false,busyTeacher=false,managerReferralFilter='open';
 function A(x){return Array.isArray(x)?x:[];}
 function U(){try{return window.user||user||null;}catch(e){return window.user||null;}}
 function C(){try{return window.cache||cache||{};}catch(e){return window.cache||{};}}
@@ -14192,7 +14201,13 @@ function managerCard(row){
  var result=node('textarea');result.rows=3;result.value=m.followup_result||'';result.placeholder='شرح اقدام انجام‌شده و نتیجه پیگیری را بنویسید';result.style.cssText='width:100%;box-sizing:border-box;padding:8px;margin:5px 0;border:1px solid #cbd5e1;border-radius:8px;font:inherit';
  box.appendChild(node('label','','مسئول پیگیری'));box.appendChild(select);box.appendChild(node('label','','وضعیت رسیدگی'));box.appendChild(state);box.appendChild(node('label','','نتیجه و توضیحات پیگیری'));box.appendChild(result);
  var save=node('button','btn btn-p btn-sm','ثبت پیگیری و ارسال خودکار نتیجه به معلم');save.type='button';save.onclick=function(){if(!select.value){toast('مسئول پیگیری را انتخاب کنید');return;}if(!result.value.trim()){toast('نتیجه و توضیحات پیگیری را بنویسید');return;}save.disabled=true;save.blur();saveFollowup(row,select.value,state.value,result.value.trim()).finally(function(){save.disabled=false;});};box.appendChild(save);
+ var del=node('button','btn btn-o btn-sm','حذف ارجاع');del.type='button';del.style.marginTop='7px';del.onclick=function(){del.blur();if(!window.confirm('این ارجاع به‌طور کامل از فهرست و پرونده حذف شود؟ این کار قابل بازگشت نیست.'))return;del.disabled=true;deleteReferral(row).finally(function(){del.disabled=false;});};box.appendChild(del);
  return box;
+}
+async function deleteReferral(row){
+ if(!M()||!sb||!navigator.onLine||window.isOffline){if(typeof toast==='function')toast('برای حذف ارجاع، اتصال آنلاین مدیر لازم است');return;}
+ try{var out=await sb.from('sa_activities').delete().eq('id',String(row.id));if(out&&out.error)throw out.error;var c=C();c.activities=A(c.activities).filter(function(x){return !(x&&String(x.id)===String(row.id)&&x.type===TYPE);});try{if(typeof persistLocalSchoolCache==='function')persistLocalSchoolCache();}catch(e){}try{if(window.DastyarOffline&&typeof DastyarOffline.saveSnapshot==='function')DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(c)));}catch(e){}renderManager();if(typeof toast==='function')toast('ارجاع از سرور و فهرست محلی حذف شد.');}
+ catch(e){if(typeof toast==='function')toast('حذف ارجاع انجام نشد: '+(e.message||e));}
 }
 function renderManager(){
  if(!M())return;
@@ -14206,9 +14221,9 @@ function renderManager(){
  }
  var all=refs(),open=all.filter(function(r){return meta(r).status!=='done';}),done=all.length-open.length;
  var sum=document.getElementById(PANEL+'-summary'),analysis=document.getElementById(PANEL+'-analysis'),list=document.getElementById(PANEL+'-list');
- if(sum){sum.replaceChildren();[['کل ارجاع‌ها',all.length],['در انتظار/در حال پیگیری',open.length],['پایان‌یافته',done]].forEach(function(x){var t=node('div');t.style.cssText='flex:1 1 100px;padding:8px;border:1px solid #e2e8f0;border-radius:9px;background:#fff;text-align:center';t.appendChild(node('b','',x[1]));t.appendChild(node('div','meta',x[0]));sum.appendChild(t);});}
+ if(sum){sum.replaceChildren();[['ارجاع‌های فعال',open.length,'open'],['کل ارجاع‌ها',all.length,'all'],['پیگیری‌شده',done,'done']].forEach(function(x){var t=node('button');t.type='button';t.style.cssText='flex:1 1 100px;padding:8px;border:1px solid '+(managerReferralFilter===x[2]?'#60a5fa':'#e2e8f0')+';border-radius:9px;background:'+(managerReferralFilter===x[2]?'#eff6ff':'#fff')+';text-align:center;cursor:pointer;font:inherit';t.appendChild(node('b','',x[1]));t.appendChild(node('div','meta',x[0]));t.onclick=function(){t.blur();managerReferralFilter=x[2];renderManager();};sum.appendChild(t);});}
  if(analysis){analysis.replaceChildren();var by={},byClass={},byAssignee={},byStatus={};all.forEach(function(r){var m=meta(r),k=m.source_title||r.subject||'سایر',cl=labelClass(r.class_id),who=m.assignee||'تعیین‌نشده',st=statusFa(m.status);by[k]=(by[k]||0)+1;byClass[cl]=(byClass[cl]||0)+1;byAssignee[who]=(byAssignee[who]||0)+1;byStatus[st]=(byStatus[st]||0)+1;});function section(title,obj){analysis.appendChild(node('b','',title));var keys=Object.keys(obj);if(!keys.length)analysis.appendChild(node('div','meta','هنوز داده‌ای برای تحلیل ثبت نشده است.'));keys.sort(function(a,b){return obj[b]-obj[a];}).forEach(function(k){analysis.appendChild(node('div','meta',k+' : '+obj[k]));});}section('تحلیل ارجاع‌ها به تفکیک موضوع',by);section('تحلیل ارجاع‌ها به تفکیک کلاس',byClass);section('تحلیل بر اساس مسئول پیگیری',byAssignee);section('تحلیل وضعیت رسیدگی',byStatus);}
- if(list){list.replaceChildren();if(!all.length)list.appendChild(node('div','empty','هنوز معلمی موردی را به مدیریت ارجاع نداده است.'));all.slice(0,100).forEach(function(r){var x=managerCard(r);if(x)list.appendChild(x);});}
+ if(list){list.replaceChildren();var shown=managerReferralFilter==='done'?all.filter(function(r){return meta(r).status==='done';}):managerReferralFilter==='all'?all:open;var heading=managerReferralFilter==='done'?'ارجاع‌های پیگیری‌شده':managerReferralFilter==='all'?'همه ارجاع‌ها':'ارجاع‌های فعال و نیازمند رسیدگی';list.appendChild(node('div','font-size:.76rem;font-weight:800;color:#1e40af;margin:8px 0',heading+' — '+shown.length+' مورد'));if(!shown.length)list.appendChild(node('div','empty',managerReferralFilter==='open'?'همه ارجاع‌ها پیگیری شده‌اند؛ مورد فعالی باقی نمانده است.':'موردی برای نمایش وجود ندارد.'));shown.slice(0,100).forEach(function(r){var x=managerCard(r);if(x)list.appendChild(x);});}
 }
 async function saveFollowup(row,person,status,result){
  if(!M()||!sb)return;var m=meta(row);if(!m)return;
