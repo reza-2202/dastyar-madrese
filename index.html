@@ -14566,6 +14566,46 @@ observer.observe(document.documentElement,{childList:true,subtree:true});
 }
 </style>
 
+<script id="dastyar-subject-matched-feedback-v1">
+/* DASTYAR_SUBJECT_MATCHED_FEEDBACK_V1 — فقط گزینه‌های بازخورد را متناسب با درس/سطح می‌کند. */
+(function(){
+ 'use strict';
+ var labels={excellent:'خیلی خوب',good:'خوب',acceptable:'قابل قبول',needs:'نیاز به تلاش'};
+ var skills={
+  'فارسی':['شناخت حروف و واژه‌ها','روان‌خوانی و درک مفهوم متن','املا و نگارش واژه‌ها و جمله‌ها'],
+  'ریاضی':['درک مفهوم عدد و ارزش مکانی','انجام عملیات و محاسبات ریاضی','حل مسئله و توضیح راه‌حل'],
+  'علوم':['مشاهده پدیده‌ها و بیان ویژگی‌ها','اجرای فعالیت‌ها و آزمایش‌های علمی','بیان علت و نتیجه و ارتباط آن با زندگی'],
+  'قرآن':['تشخیص حروف و حرکات','روخوانی و روان‌خوانی آیات','تلفظ صحیح حروف و پیوستگی قرائت'],
+  'هدیه‌های آسمان':['درک پیام اصلی درس و داستان‌ها','شناخت مفاهیم و آموزه‌های دینی','بیان نمونه‌های کاربرد آموخته‌ها در زندگی'],
+  'هنر':['ایده‌پردازی و خلاقیت در اثر هنری','انتخاب و ترکیب رنگ‌ها و استفاده از ابزار','اجرای مرحله‌به‌مرحله و تکمیل اثر هنری'],
+  'تربیت بدنی':['اجرای مهارت‌های حرکتی پایه','تعادل و هماهنگی اندام‌ها در حرکت','رعایت قواعد بازی و نکات ایمنی'],
+  'اجتماعی':['درک مفاهیم اجتماعی و مسئولیت‌ها','خواندن و استفاده از اطلاعات نقشه','ارتباط دادن موضوع درس با محیط و زندگی روزمره'],
+  'تفکر و پژوهش':['طرح پرسش و تشخیص مسئله','بررسی شواهد و مقایسه راه‌حل‌ها','استدلال و بیان نتیجه‌گیری'],
+  'کار و فناوری':['شناخت ابزار و کاربرد درست آن‌ها','رعایت ترتیب مراحل ساخت و انجام کار','ساخت محصول و رعایت نکات ایمنی']
+ };
+ var templates={
+  excellent:['در زمینه {s} تسلط خوبی دارد و آن را مستقل و درست انجام می‌دهد.','در {s} با دقت و اعتمادبه‌نفس عمل می‌کند و آموخته‌هایش را به‌درستی به کار می‌گیرد.','عملکرد او در {s} بسیار خوب است و می‌تواند آموخته‌های خود را توضیح دهد.'],
+  good:['در زمینه {s} عملکرد خوبی دارد؛ کمی تمرین بیشتر به افزایش دقت کمک می‌کند.','بخش اصلی {s} را به‌خوبی انجام می‌دهد و با تمرین می‌تواند مسلط‌تر شود.','در {s} پیشرفت مناسبی نشان داده است؛ ادامه تمرین این مهارت را تثبیت می‌کند.'],
+  acceptable:['در زمینه {s} بخش اصلی را فراگرفته است، اما برای تثبیت به تمرین نیاز دارد.','با راهنمایی معلم می‌تواند {s} را انجام دهد؛ تمرین مرحله‌ای پیشنهاد می‌شود.','در {s} به سطح قابل قبول رسیده و برای انجام مستقل به تمرین بیشتری نیاز دارد.'],
+  needs:['برای تقویت {s} به آموزش مرحله‌به‌مرحله و تمرین منظم نیاز دارد.','در {s} هنوز به تسلط مورد انتظار نرسیده است؛ تمرین از نمونه‌های ساده‌تر پیشنهاد می‌شود.','برای انجام درست {s} به راهنمایی معلم و تکرار فعالیت‌های کوتاه نیازمند است.']
+ };
+ function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+ function subject(prefix){var el=document.getElementById(prefix==='ac'?'ac-sub':'ev-sub');return el?String(el.value||'').trim():'';}
+ function choices(sub,level){var list=skills[sub],forms=templates[level];if(!list||!forms)return [];return list.map(function(s,i){return forms[i].replace('{s}',s);});}
+ function fill(sel,level,sub){if(!sel)return;var prior=sel.value,items=choices(sub,level);var title=labels[level]||labels.acceptable;var out='<option value="">— بازخورد '+esc(sub||'درس')+' در سطح '+esc(title)+' —</option><optgroup label="'+esc(sub)+' — '+esc(title)+'">'+items.map(function(t){return '<option value="'+esc(t)+'">'+esc(t)+'</option>';}).join('')+'</optgroup>';sel.innerHTML=out;if(items.indexOf(prior)>=0)sel.value=prior;}
+ function refresh(prefix){var sel=document.getElementById(prefix+'-feedback-ready'),lv=document.getElementById(prefix+'-lv');if(sel&&lv)fill(sel,lv.value||'acceptable',subject(prefix));}
+ function refreshGroup(){var sub=subject('ac');document.querySelectorAll('.ac-group-fields').forEach(function(w){var sc=w.querySelector('.ac-group-score'),lv=w.querySelector('.ac-group-level'),sel=w.querySelector('.ac-group-feedback');if(!lv||!sel)return;var n=sc&&sc.value!==''?Number(sc.value):NaN;var byScore=Number.isFinite(n)?(n>=18?'excellent':n>=14?'good':n>=10?'acceptable':'needs'):'';if(byScore)lv.value=byScore;fill(sel,byScore||lv.value||'acceptable',sub);});}
+ window.refreshLevelFeedback=refresh;
+ document.addEventListener('change',function(e){var t=e.target;if(!t)return;
+  if(t.id==='ac-sub'){refresh('ac');refreshGroup();}
+  else if(t.id==='ev-sub')refresh('ev');
+  else if(t.id==='ac-lv'||t.id==='ac-score')refresh('ac');
+  else if(t.id==='ev-lv'||t.id==='ev-sc')refresh('ev');
+  else if(t.classList&& (t.classList.contains('ac-group-score')||t.classList.contains('ac-group-level')))refreshGroup();
+ });
+ document.addEventListener('input',function(e){if(e.target&&e.target.id==='ev-sc')refresh('ev');});
+})();
+</script>
 </body>
 </html>
 
