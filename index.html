@@ -17,6 +17,15 @@
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-title" content="دستیار مدرسه"/>
 <meta name="application-name" content="دستیار مدرسه و معلم"/>
+<script id="dastyar-pwa-early-install-capture">
+(function(){
+  window.__dastyarEarlyInstallPrompt = null;
+  window.addEventListener('beforeinstallprompt', function(event){
+    event.preventDefault();
+    window.__dastyarEarlyInstallPrompt = event;
+  }, {capture:true});
+})();
+</script>
 
 <title>دستیار مدرسه و معلم (آنلاین اول + آفلاین) v2026.10.28.54</title>
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
@@ -1069,16 +1078,14 @@ button[onclick*="search" i]:before{font-family:"Font Awesome 6 Free";font-weight
 <script>
 // Cache the app shell after the first online visit; no changes to the app appearance.
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
-  window.addEventListener('load', function () {
-    var swUrl = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/sw.js' : './sw.js';
-    var scope = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/' : './';
-    navigator.serviceWorker.register(swUrl, { scope: scope }).then(function(reg){
-      try{ console.info('[PWA] service worker ok', reg.scope); }catch(e){}
-      return navigator.serviceWorker.ready;
-    }).then(function(){
-      try{ window.__dastyarSwReady = true; }catch(e){}
-    }).catch(function(e){ console.warn('ثبت حالت آفلاین/نصب انجام نشد', e); });
-  });
+  var swUrl = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/sw.js' : './sw.js';
+  var scope = (location.pathname.indexOf('/dastyar-madrese') === 0) ? '/dastyar-madrese/' : './';
+  navigator.serviceWorker.register(swUrl, { scope: scope }).then(function(reg){
+    try{ console.info('[PWA] service worker ok', reg.scope); }catch(e){}
+    return navigator.serviceWorker.ready;
+  }).then(function(){
+    try{ window.__dastyarSwReady = true; }catch(e){}
+  }).catch(function(e){ console.warn('ثبت حالت آفلاین/نصب انجام نشد', e); });
 }
 </script>
 
@@ -12743,7 +12750,7 @@ window.sfeOpenFromUrl=async function(url,name){
 <script id="dastyar-pwa-install">
 (function(){
   'use strict';
-  var deferredPrompt = null;
+  var deferredPrompt = window.__dastyarEarlyInstallPrompt || null;
   var bar = null;
   var btn = null;
   var closeBtn = null;
