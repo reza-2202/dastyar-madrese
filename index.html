@@ -13132,6 +13132,7 @@ window.generateParentPortalLink=async function(classId,studentId){
   if(typeof publishData==='string') shortToken=publishData;
   else if(typeof publishData==='object') shortToken=String(publishData.token||publishData.id||publishData.short_token||'');
   if(!shortToken){showStatus('سرور شناسه لینک را برنگرداند: '+String(published.data).slice(0,150),true);return '';}
+  try{localStorage.setItem('dastyar_parent_mode_'+String(classId),mode);}catch(e){}
   const base=new URL(PARENT_PORTAL_RELATIVE,'https://reza-2202.github.io/dastyar-madrese/');
   base.hash='t='+encodeURIComponent(shortToken);
   const link=base.href;
@@ -13169,6 +13170,53 @@ window.generateParentPortalLink=async function(classId,studentId){
     }
   }catch(e){}
  }
+};
+
+window.refreshParentPortalPackageAfterFollowup=async function(classId){
+ try{
+  if(!user||!['admin','manager'].includes(String(user.role||'')))return {updated:false,reason:'manager_only'};
+  if(!sb||!navigator.onLine||window.isOffline)return {updated:false,reason:'offline'};
+  const cls=(cache.classes||[]).find(c=>String(c.id)===String(classId));
+  const students=(cache.students||[]).filter(st=>String(st.class_id)===String(classId));
+  if(!cls||!students.length)return {updated:false,reason:'class_data_missing'};
+  const credentials=parentSessionCredentials();
+  if(!credentials.p_username||!credentials.p_password)return {updated:false,reason:'session_missing'};
+  let mode=parentMode();
+  try{mode=localStorage.getItem('dastyar_parent_mode_'+String(classId))||mode;}catch(e){}
+  const passwordMap=getPasswordMap();
+  if(students.some(st=>!passwordMap[String(st.id)]))return {updated:false,reason:'passwords_missing'};
+  const packageSalt=bytesToB64u(randomBytes(16)),records=[];
+  for(let i=0;i<students.length;i++){
+   const st=students[i],identity=parentIdentity(st,mode);
+   if(!identity&&mode!=='password_only')return {updated:false,reason:'identity_missing'};
+   const password=String(passwordMap[String(st.id)]),secret=parentSecret(identity,password,mode);
+   const payload={
+    student:safeParentStudent(st),
+    updated_at:new Date().toISOString(),
+    attendance:(cache.attendance||[]).filter(x=>String(x.student_id)===String(st.id)),
+    activities:(cache.activities||[]).filter(x=>x&&String(x.student_id)===String(st.id)&&x.type!=='exam'&&x.type!=='absence_followup'&&x.type!=='school_followup_referral'&&x.subject!=='پیگیری غیبت مدیر'),
+    school_followups:(cache.activities||[]).filter(x=>x&&String(x.student_id)===String(st.id)&&x.type==='school_followup_referral'),
+    exams:(cache.activities||[]).filter(x=>x&&String(x.student_id)===String(st.id)&&x.type==='exam'),
+    absence_followups:(cache.activities||[]).filter(x=>x&&String(x.student_id)===String(st.id)&&(x.type==='absence_followup'||x.subject==='پیگیری غیبت مدیر')),
+    evaluations:(cache.evaluations||[]).filter(x=>String(x.student_id)===String(st.id)),
+    scores:(cache.scores||[]).filter(x=>String(x.student_id)===String(st.id)),
+    competencies:(cache.competencies||[]).filter(x=>String(x.student_id)===String(st.id)),
+    discipline:(cache.discipline||[]).filter(x=>String(x.student_id)===String(st.id)),
+    parent_contacts:(cache.parent_contacts||[]).filter(x=>String(x.student_id)===String(st.id)),
+    achievements:(window.__dastyarAchievementsRows||[]).filter(x=>String(x.student_id)===String(st.id)&&x.status==='approved'),
+    finance:(cache.finance||[]).filter(x=>String(x.student_id)===String(st.id))
+   };
+   const salt=randomBytes(16),iv=randomBytes(12),key=await deriveParentKey(secret,salt);
+   const plain=await compressBytes(new TextEncoder().encode(JSON.stringify(payload)));
+   const encrypted=await crypto.subtle.encrypt({name:'AES-GCM',iv:iv},key,plain);
+   records.push({login_hash:await shaHex(packageSalt+'|'+mode+'|'+identity),login_mode:mode,salt:bytesToB64u(salt),iv:bytesToB64u(iv),data:bytesToB64u(new Uint8Array(encrypted))});
+   if(i===0||(i+1)%10===0||i===students.length-1)await new Promise(function(resolve){setTimeout(resolve,0);});
+  }
+  const pkg={v:2,school:'دبستان شهید فتح‌الله فلاح‌پور',class_name:cls.label,created_at:new Date().toISOString(),package_salt:packageSalt,login_mode:mode,records:records};
+  const saved=await sb.rpc('refresh_parent_portal_package',{p_class_id:String(classId),p_username:credentials.p_username,p_password:credentials.p_password,p_package:pkg});
+  if(saved&&saved.error)throw saved.error;
+  return saved&&saved.data?saved.data:{updated:false,reason:'no_active_package'};
+ }catch(e){console.warn('refresh parent portal package after followup',e);return {updated:false,reason:'refresh_failed',error:e&&e.message||String(e)};}
 };
 
 window.injectParentDossierLink=function(studentId){
@@ -14241,6 +14289,7 @@ async function saveFollowup(row,person,status,result){
   row.pending_upload=!!(out&&out.offline);
   localPut(row);renderManager();
   if(typeof toast==='function')toast(out&&out.offline?'پیگیری ذخیره شد و پس از اتصال همگام می‌شود.':'پیگیری ثبت و نتیجه برای معلم ارسال شد.');
+  if(!out||!out.offline){Promise.resolve().then(function(){return typeof window.refreshParentPortalPackageAfterFollowup==='function'?window.refreshParentPortalPackageAfterFollowup(row.class_id):null;}).then(function(result){if(result&&result.updated&&typeof toast==='function')toast('پرونده الکترونیکی اولیای این کلاس نیز به‌روزرسانی شد.');else if(result&&result.reason==='passwords_missing'&&typeof toast==='function')toast('نتیجه برای معلم ثبت شد؛ برای به‌روزرسانی خودکار پرونده اولیا، رمزهای پرونده باید روی همین دستگاه در دسترس باشند.');}).catch(function(e){console.warn('parent dossier refresh after followup',e);});}
  }catch(e){
   row.notes=oldNotes;
   if(oldPending===undefined)delete row.pending_upload;else row.pending_upload=oldPending;
