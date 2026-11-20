@@ -14487,7 +14487,7 @@ async function shareAward(id){
     awardTemplateCtx.fillStyle=medalColor;awardTemplateCtx.font='bold 38px serif';awardTemplateCtx.fillText('★',995,207);
    }
    var awardTemplateBlob=await new Promise(function(resolve,reject){awardTemplateCanvas.toBlob(function(blob){if(blob)resolve(blob);else reject(new Error('تبدیل لوح به تصویر انجام نشد'))},'image/png')});
-   var awardTemplateSafeName=name.replace(/[^\\u0600-\\u06FF\\w-]+/g,'-').replace(/^-+|-+$/g,'')||'دانش‌آموز';
+   var awardTemplateSafeName=name.replace(/[^\u0600-\u06FF\w-]+/g,'-').replace(/^-+|-+$/g,'')||'دانش‌آموز';
    var awardTemplateFile=new File([awardTemplateBlob],'لوح-'+awardTemplateSafeName+'.png',{type:'image/png'});
    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[awardTemplateFile]})){
     try{await navigator.share({files:[awardTemplateFile],title:award+' '+name,text:award+' دانش‌آموز '+name});toast('پنجره اشتراک‌گذاری لوح باز شد؛ شاد را انتخاب کنید.');return}catch(templateShareError){if(templateShareError&&templateShareError.name==='AbortError')return;console.warn('Certificate template share failed',templateShareError)}
