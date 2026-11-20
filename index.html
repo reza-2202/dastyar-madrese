@@ -919,7 +919,7 @@ function printStudentList(kind='full'){
 <style id="modern-dashboard-ui-upgrade">
 /* Visual-only upgrade: all existing JavaScript and versioning code are untouched. */
 :root{--p:#2563eb;--pd:#1d4ed8;--ok:#059669;--er:#dc2626;--bg:#f4f7fb;--c:#fff;--t:#172033;--m:#64748b;--b:#e2e8f0;--r:12px;--navy:#1e293b}
-html{scroll-behavior:smooth}
+html{scroll-behavior:auto!important}
 body{font-family:"Vazirmatn",Tahoma,Arial,sans-serif;background:#f4f7fb;color:#172033}
 /* Desktop navigation becomes a fixed navy sidebar; mobile keeps the original bottom navigation. */
 @media(min-width:900px){
@@ -3177,7 +3177,7 @@ function go(p){
   if(p==='studentfile'){reloadAll().then(searchStudentFile);}
   if(p==='attendance'){fillSelects();loadAttendance();}
   if(p==='finance'){fillSelects();if(!document.getElementById('fin-date').value)document.getElementById('fin-date').value=today();fillFinanceStudents();loadFinance();}
-  if(p==='discipline'){try{jdateInitAll();}catch(e){}fillSelects();fillDisciplineStudents();fillInviteClasses();if(!document.getElementById('di-date').value)document.getElementById('di-date').value=today();onDateChange('di-date','di-weekday');if(!document.getElementById('iv-date').value)document.getElementById('iv-date').value=today();loadDiscipline();if(openInvitation){setTimeout(()=>{const panel=document.getElementById('invite-maker');if(panel){panel.scrollIntoView({behavior:'smooth',block:'start'});panel.style.outline='2px solid #f59e0b';setTimeout(()=>panel.style.outline='',1800);}},120);}}
+  if(p==='discipline'){try{jdateInitAll();}catch(e){}fillSelects();fillDisciplineStudents();fillInviteClasses();if(!document.getElementById('di-date').value)document.getElementById('di-date').value=today();onDateChange('di-date','di-weekday');if(!document.getElementById('iv-date').value)document.getElementById('iv-date').value=today();loadDiscipline();if(openInvitation){setTimeout(()=>{const panel=document.getElementById('invite-maker');if(panel){panel.scrollIntoView({behavior:'auto',block:'start'});panel.style.outline='2px solid #f59e0b';setTimeout(()=>panel.style.outline='',1800);}},120);}}
   if(p==='activity'){
     fillSelects();
     const fd=document.getElementById('ac-filter-dt');
@@ -3413,7 +3413,7 @@ function toggleAdminUrgentPanel(){
   if(opening){
     try{ setupAdminUrgentPanel(); }catch(e){}
     try{ renderAdminUrgentList(); }catch(e){}
-    try{ box.scrollIntoView({behavior:'smooth',block:'nearest'}); }catch(e){}
+    try{ box.scrollIntoView({behavior:'auto',block:'nearest'}); }catch(e){}
   }
 }
 function renderAdminUrgentList(){
@@ -4266,7 +4266,7 @@ function showEditStudent(id){
     <button class="btn btn-p" onclick="saveStudentEdit()">💾 ذخیره تغییرات</button>
     <button class="btn btn-o btn-sm" style="margin-top:8px" onclick="document.getElementById('add-st-form').innerHTML=''">بستن</button>
   </div>`;
-  try{ form.scrollIntoView({behavior:'smooth',block:'nearest'}); }catch(e){}
+  try{ form.scrollIntoView({behavior:'auto',block:'nearest'}); }catch(e){}
 }
 async function saveStudentEdit(){
   try{
@@ -5736,7 +5736,7 @@ function prepareInviteFromDiscipline(id){
  const date=document.getElementById('iv-date');if(date){date.value=rec.invite_date||today();onDateChange('iv-date','iv-day');}
  const time=document.getElementById('iv-time');if(time)time.value=rec.invite_time||'';
  const day=document.getElementById('iv-day');if(day&&!rec.invite_date&&rec.weekday&&Array.from(day.options).some(o=>o.value===rec.weekday||o.text===rec.weekday))day.value=rec.weekday;
- const panel=document.getElementById('invite-maker');if(panel){panel.scrollIntoView({behavior:'smooth',block:'start'});panel.style.outline='2px solid #16a34a';setTimeout(()=>panel.style.outline='',1800);}
+ const panel=document.getElementById('invite-maker');if(panel){panel.scrollIntoView({behavior:'auto',block:'start'});panel.style.outline='2px solid #16a34a';setTimeout(()=>panel.style.outline='',1800);}
  toast(rec.invite_date||rec.invite_time?'درخواست معلم بارگذاری شد؛ نام، کلاس، موضوع و زمان پیشنهادی حضور از همان درخواست وارد شد. در صورت نیاز تغییر دهید و افزودن دعوتنامه را بزنید.':'درخواست معلم بارگذاری شد؛ نام، کلاس و موضوع وارد شد. زمان پیشنهادی ثبت نشده؛ تاریخ و ساعت را تکمیل کنید.');
 }
 function printInviteFromDiscipline(id){
@@ -14787,6 +14787,66 @@ observer.observe(document.documentElement,{childList:true,subtree:true});
  window.__dastyarArrangeHomeLayout=arrange;
 })();
 </script>
+
+<style id="dastyar-global-fast-navigation-stability-20261120">
+/* اولویت ثابت برنامه: لمس سریع، اسکرول قابل پیش‌بینی و باز/بسته‌شدن فوری همه بخش‌ها */
+html,body,#app,#app *{scroll-behavior:auto!important}
+#app .page{animation:none!important;transition:none!important;transform:none!important}
+#app .app-section-accordion,
+#app .app-section-accordion>summary,
+#app .app-section-accordion>.card,
+#app details,
+#app details>summary,
+#app .modal,
+#app [role="dialog"]{animation:none!important;transition:none!important}
+#app button,#app a,#app summary,#app [role="button"],#app [onclick],#app .ni,#app .home-tile,#app .home-tile-group-title{
+ transition-duration:0s!important;
+ animation:none!important;
+ -webkit-tap-highlight-color:transparent!important;
+}
+#app .page{scroll-margin-top:0!important}
+@media(prefers-reduced-motion:reduce){
+ html,body,#app,#app *{scroll-behavior:auto!important;animation:none!important;transition:none!important}
+}
+</style>
+<script id="dastyar-touch-scroll-click-guard-20261120">
+(function(){
+ 'use strict';
+ if(window.__dastyarTouchScrollGuardV1)return;
+ window.__dastyarTouchScrollGuardV1=true;
+ var startX=0,startY=0,tracking=false,moved=false,blockClickUntil=0;
+ document.addEventListener('touchstart',function(e){
+  if(!e.touches||e.touches.length!==1){tracking=false;moved=false;blockClickUntil=0;return;}
+  var t=e.touches[0];
+  startX=t.clientX;startY=t.clientY;tracking=true;moved=false;blockClickUntil=0;
+ },{capture:true,passive:true});
+ document.addEventListener('touchmove',function(e){
+  if(!tracking||!e.touches||e.touches.length!==1)return;
+  var t=e.touches[0],dx=t.clientX-startX,dy=t.clientY-startY;
+  if(Math.abs(dx)>9||Math.abs(dy)>9)moved=true;
+ },{capture:true,passive:true});
+ document.addEventListener('touchend',function(){
+  if(tracking&&moved)blockClickUntil=Date.now()+450;
+  tracking=false;
+ },{capture:true,passive:true});
+ document.addEventListener('touchcancel',function(){
+  if(tracking&&moved)blockClickUntil=Date.now()+450;
+  tracking=false;
+ },{capture:true,passive:true});
+ document.addEventListener('click',function(e){
+  if(!blockClickUntil||Date.now()>blockClickUntil){blockClickUntil=0;return;}
+  if(e.detail===0)return;
+  if(e.pointerType&&e.pointerType!=='touch')return;
+  var target=e.target;
+  if(!target||!target.closest||!target.closest('#app'))return;
+  blockClickUntil=0;
+  e.preventDefault();
+  e.stopPropagation();
+  if(e.stopImmediatePropagation)e.stopImmediatePropagation();
+ },true);
+})();
+</script>
+
 </body>
 </html>
 
@@ -14897,7 +14957,7 @@ function toggleDashboardStatsRail(open){
  var rail=document.getElementById('dashboard-stats-rail');
  if(!rail)return;
  rail.classList.toggle('dashboard-stats-open',!!open);
- if(open){rail.scrollIntoView({behavior:'smooth',block:'nearest'});}
+ if(open){rail.scrollIntoView({behavior:'auto',block:'nearest'});}
 }
 </script>
 
