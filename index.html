@@ -14439,7 +14439,7 @@ async function shareAward(id){
  try{
   var name=studentLabel(r.student_id),award=String(r.award_type||'تقدیرنامه'),level=r.medal_level?medal(r)[1]:'';
   var awardStudent=(cache.students||[]).find(function(x){return String(x.id)===String(r.student_id)}),photoSrc=awardStudent&&awardStudent.photo?String(awardStudent.photo):'';
-  var includePhoto=!!photoSrc&&window.confirm('عکس دانش‌آموز در گوشه بالای سمت چپ تقدیرنامه درج شود؟');
+  var includePhoto=!!photoSrc&&window.confirm('عکس دانش‌آموز به شکل دایره‌ای روی لوح درج شود؟\nبرای صدور بدون عکس، «لغو» را بزنید.');
   var photoData=includePhoto?await studentAwardPhotoData(r.student_id):'';
   if(includePhoto&&!photoData)toast('عکس در دسترس نبود؛ تقدیرنامه بدون عکس ساخته می‌شود.');
   try{if(document.fonts&&document.fonts.load)await Promise.race([document.fonts.load('700 34px "Noto Nastaliq Urdu"'),new Promise(function(resolve){setTimeout(resolve,1500)})])}catch(fontError){console.warn('Nastaliq font load',fontError)}
@@ -14456,7 +14456,7 @@ async function shareAward(id){
    var awardTemplateCanvas=document.createElement('canvas');awardTemplateCanvas.width=1200;awardTemplateCanvas.height=1200;
    var awardTemplateCtx=awardTemplateCanvas.getContext('2d');
    if(!awardTemplateCtx)throw new Error('ساخت بوم تقدیرنامه ممکن نشد');
-   awardTemplateCtx.drawImage(awardTemplateImage,0,0,1200,1200);
+   awardTemplateCtx.filter='saturate(1.16) contrast(1.06)';awardTemplateCtx.drawImage(awardTemplateImage,0,0,1200,1200);awardTemplateCtx.filter='none';
    awardTemplateCtx.direction='rtl';awardTemplateCtx.textAlign='center';awardTemplateCtx.textBaseline='middle';
    function drawAwardText(text,x,y){awardTemplateCtx.lineJoin='round';awardTemplateCtx.lineWidth=10;awardTemplateCtx.strokeStyle='#172033';awardTemplateCtx.strokeText(text,x,y);awardTemplateCtx.lineWidth=5;awardTemplateCtx.strokeStyle='#fff';awardTemplateCtx.strokeText(text,x,y);awardTemplateCtx.fillText(text,x,y)}
    awardTemplateCtx.fillStyle='#64748b';awardTemplateCtx.font='bold 38px "Noto Nastaliq Urdu", Vazirmatn, serif';
@@ -14469,13 +14469,17 @@ async function shareAward(id){
    drawAwardText('تقدیم به دانش‌آموز شایسته',600,590);
    awardTemplateCtx.fillStyle='#1e3a8a';awardTemplateCtx.font='bold 58px "Noto Nastaliq Urdu", Vazirmatn, serif';
    drawAwardText(name,600,665);
-   awardTemplateCtx.fillStyle='#334155';awardTemplateCtx.font='30px "Noto Nastaliq Urdu", Vazirmatn, serif';
-   reasonLines.forEach(function(line,index){drawAwardText(line,600,745+index*43)});
+   var awardReasonText=String(r.reason||r.decision_text||'به پاس تلاش، کوشش و پیشرفت ارزشمند').trim();
+   function wrapAwardText(text,maxWidth,fontSize){awardTemplateCtx.font=fontSize+'px "Noto Nastaliq Urdu", Vazirmatn, serif';var words=String(text||'').split(/\s+/),out=[],line='';words.forEach(function(word){if(!word)return;var candidate=line?line+' '+word:word;if(awardTemplateCtx.measureText(candidate).width>maxWidth&&line){out.push(line);line=word}else line=candidate});if(line)out.push(line);return out}
+   var awardBodyLines=[],awardBodyFont=28,awardBodyLineHeight=36,awardBodyTop=700,awardBodyBottom=850;
+   for(;awardBodyFont>=12;awardBodyFont--){awardBodyLines=wrapAwardText(awardReasonText,1000,awardBodyFont);awardBodyLineHeight=Math.max(15,Math.round(awardBodyFont*1.35));if(awardBodyLines.length*awardBodyLineHeight<=awardBodyBottom-awardBodyTop)break}
+   awardTemplateCtx.fillStyle='#263449';awardTemplateCtx.font=awardBodyFont+'px "Noto Nastaliq Urdu", Vazirmatn, serif';
+   awardBodyLines.forEach(function(line,index){drawAwardText(line,600,awardBodyTop+index*awardBodyLineHeight)});
    awardTemplateCtx.fillStyle='#64748b';awardTemplateCtx.font='27px "Noto Nastaliq Urdu", Vazirmatn, serif';
    drawAwardText('تاریخ: '+String(r.date||''),600,875);
    awardTemplateCtx.fillStyle='#8a6418';awardTemplateCtx.font='bold 31px "Noto Nastaliq Urdu", Vazirmatn, serif';
    drawAwardText('مدیریت دبستان',600,905);
-   if(photoImage){awardTemplateCtx.fillStyle='#fff';awardTemplateCtx.fillRect(132,105,174,194);awardTemplateCtx.drawImage(photoImage,144,117,150,170);awardTemplateCtx.strokeStyle='#bd963f';awardTemplateCtx.lineWidth=8;awardTemplateCtx.strokeRect(140,113,158,178)}
+   if(photoImage){var photoRadius=78,photoCenterX=205,photoCenterY=205,photoSide=Math.min(photoImage.width,photoImage.height),photoSourceX=(photoImage.width-photoSide)/2,photoSourceY=(photoImage.height-photoSide)/2;awardTemplateCtx.save();awardTemplateCtx.beginPath();awardTemplateCtx.arc(photoCenterX,photoCenterY,photoRadius,0,Math.PI*2);awardTemplateCtx.closePath();awardTemplateCtx.clip();awardTemplateCtx.drawImage(photoImage,photoSourceX,photoSourceY,photoSide,photoSide,photoCenterX-photoRadius,photoCenterY-photoRadius,photoRadius*2,photoRadius*2);awardTemplateCtx.restore();awardTemplateCtx.beginPath();awardTemplateCtx.arc(photoCenterX,photoCenterY,photoRadius+3,0,Math.PI*2);awardTemplateCtx.strokeStyle='#bd963f';awardTemplateCtx.lineWidth=8;awardTemplateCtx.stroke()}
    if(r.medal_level){
     var medalColor=r.medal_level==='bronze'?'#b45309':r.medal_level==='silver'?'#94a3b8':r.medal_level==='special'?'#7c3aed':'#d4a017';
     awardTemplateCtx.fillStyle=medalColor;awardTemplateCtx.beginPath();awardTemplateCtx.moveTo(955,105);awardTemplateCtx.lineTo(990,105);awardTemplateCtx.lineTo(1007,175);awardTemplateCtx.lineTo(970,175);awardTemplateCtx.fill();
