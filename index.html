@@ -12759,6 +12759,7 @@ window.sfeOpenFromUrl=async function(url,name){
   var closeBtn = null;
   var statusEl = null;
   var installAccepted = false;
+  var installCompleted = false;
   var promptBusy = false;
   var resultTimer = null;
 
@@ -12808,6 +12809,7 @@ window.sfeOpenFromUrl=async function(url,name){
     event.preventDefault();
     deferredPrompt = event;
     installAccepted = false;
+    installCompleted = false;
     promptBusy = false;
     if(resultTimer){ clearTimeout(resultTimer); resultTimer = null; }
     setStatus('', false);
@@ -12819,6 +12821,7 @@ window.sfeOpenFromUrl=async function(url,name){
   window.addEventListener('appinstalled', function(){
     deferredPrompt = null;
     installAccepted = true;
+    installCompleted = true;
     promptBusy = false;
     if(resultTimer){ clearTimeout(resultTimer); resultTimer = null; }
     lockInstallButton('نصب انجام شد');
@@ -12860,14 +12863,16 @@ window.sfeOpenFromUrl=async function(url,name){
         promptBusy = false;
         if(choice && choice.outcome === 'accepted'){
           installAccepted = true;
-          lockInstallButton('در حال تکمیل نصب...');
-          setStatus('درخواست پذیرفته شد؛ در حال تکمیل نصب مستقل هستیم. این پیام تا دریافت نتیجه از Chrome باقی می‌ماند.', true);
-          // پذیرفته شدن پنجره، نصب نهایی را ثابت نمی‌کند؛ فقط appinstalled تأیید قطعی است.
-          resultTimer = window.setTimeout(function(){
-            if(!installAccepted || isStandalone()) return;
-            setStatus('نصب نهایی از طرف Chrome تأیید نشد. احتمال دارد فقط گزینه افزودن میانبر نمایش داده شده باشد؛ نصب مستقل موفق اعلام نمی‌شود.', true);
-            lockInstallButton('نتیجه نصب تأیید نشد');
-          }, 90000);
+          if(!installCompleted){
+            lockInstallButton('در حال تکمیل نصب...');
+            setStatus('درخواست پذیرفته شد؛ در حال تکمیل نصب مستقل هستیم. این پیام تا دریافت نتیجه از Chrome باقی می‌ماند.', true);
+            // پذیرفته شدن پنجره، نصب نهایی را ثابت نمی‌کند؛ فقط appinstalled تأیید قطعی است.
+            resultTimer = window.setTimeout(function(){
+              if(installCompleted || !installAccepted || isStandalone()) return;
+              setStatus('نصب نهایی از طرف Chrome تأیید نشد. احتمال دارد فقط گزینه افزودن میانبر نمایش داده شده باشد؛ نصب مستقل موفق اعلام نمی‌شود.', true);
+              lockInstallButton('نتیجه نصب تأیید نشد');
+            }, 90000);
+          }
         }else{
           setStatus('نصب انجام نشد؛ درخواست در پنجره Chrome لغو شد. برای نصب مستقل باید گزینه Install app / نصب برنامه در دسترس باشد.', true);
           lockInstallButton('نصب لغو شد');
