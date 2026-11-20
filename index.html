@@ -14457,8 +14457,6 @@ async function shareAward(id){
    var awardTemplateCtx=awardTemplateCanvas.getContext('2d');
    if(!awardTemplateCtx)throw new Error('ساخت بوم تقدیرنامه ممکن نشد');
    awardTemplateCtx.drawImage(awardTemplateImage,0,0,1200,1200);
-   awardTemplateCtx.fillStyle='rgba(255,253,244,0.82)';awardTemplateCtx.fillRect(110,300,980,625);
-   awardTemplateCtx.strokeStyle='rgba(181,138,60,0.92)';awardTemplateCtx.lineWidth=5;awardTemplateCtx.strokeRect(118,308,964,609);
    awardTemplateCtx.direction='rtl';awardTemplateCtx.textAlign='center';awardTemplateCtx.textBaseline='middle';
    awardTemplateCtx.fillStyle='#64748b';awardTemplateCtx.font='bold 38px "Noto Nastaliq Urdu", Vazirmatn, serif';
    awardTemplateCtx.fillText('دبستان شهید فتح‌الله فلاح‌پور',600,365);
