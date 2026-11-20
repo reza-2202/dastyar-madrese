@@ -13212,15 +13212,18 @@ window.refreshParentPortalPackageAfterFollowup=async function(classId){
   if(!cls||!students.length)return {updated:false,reason:'class_data_missing'};
   const credentials=parentSessionCredentials();
   if(!credentials.p_username||!credentials.p_password)return {updated:false,reason:'session_missing'};
-  let mode=parentMode();
-  try{mode=localStorage.getItem('dastyar_parent_mode_'+String(classId))||mode;}catch(e){}
+  const modeResult=await sb.rpc('get_parent_portal_package_mode',{p_class_id:String(classId),p_username:credentials.p_username,p_password:credentials.p_password});
+  if(modeResult&&modeResult.error)throw modeResult.error;
+  let modeData=modeResult&&modeResult.data;if(Array.isArray(modeData))modeData=modeData[0];
+  if(!modeData||modeData.exists!==true)return {updated:false,reason:'no_active_package'};
+  let mode=String(modeData.login_mode||parentMode());
   const passwordMap=getPasswordMap();
-  if(students.some(st=>!passwordMap[String(st.id)]))return {updated:false,reason:'passwords_missing'};
+  var needsPassword=(mode==='password_only'||mode==='code_password'||mode==='name_password');if(needsPassword&&students.some(st=>!passwordMap[String(st.id)]))return {updated:false,reason:'passwords_missing'};
   const packageSalt=bytesToB64u(randomBytes(16)),records=[];
   for(let i=0;i<students.length;i++){
    const st=students[i],identity=parentIdentity(st,mode);
    if(!identity&&mode!=='password_only')return {updated:false,reason:'identity_missing'};
-   const password=String(passwordMap[String(st.id)]),secret=parentSecret(identity,password,mode);
+   const password=String(passwordMap[String(st.id)]||''),secret=parentSecret(identity,password,mode);
    const payload={
     student:safeParentStudent(st),
     updated_at:new Date().toISOString(),
@@ -14418,7 +14421,7 @@ function renderPage(){
  var actions='';
  if(isAdmin()&&r.status==='pending')actions='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button class="btn btn-s btn-sm" data-ach-approve="'+esc(r.id)+'">تأیید و ثبت تقدیر</button><button class="btn btn-o btn-sm" data-ach-reject="'+esc(r.id)+'">رد درخواست</button></div>';
  else if(isAdmin()&&(r.status==='approved'||r.status==='rejected'))actions='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button class="btn btn-o btn-sm" data-ach-hide="'+esc(r.id)+'">حذف فقط از فهرست مدیر</button><button class="btn btn-o btn-sm" data-ach-delete="'+esc(r.id)+'" style="border-color:#dc2626;color:#b91c1c">حذف کامل از همه پرونده‌ها</button></div>';
- return '<div class="card" style="border-right:4px solid '+m[2]+'"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>'+esc(r.title||'تشویق')+' — '+esc(studentLabel(r.student_id))+'</b><span>'+m[0]+' '+esc(status)+'</span></div><div class="meta">'+esc(classLabel(r.class_id))+' | '+esc(r.date||'')+' | '+esc(r.created_by||'')+' | '+esc(r.category||'')+'</div><p style="white-space:pre-wrap;margin-top:7px">'+esc(r.reason||'')+'</p>'+(r.decision_text?'<div style="padding:7px;background:#f0fdf4;border-radius:8px;margin-top:7px">نتیجه مدیر: '+esc(r.decision_text)+'</div>':'')+(r.medal_level?'<div style="display:flex;align-items:center;gap:8px;margin-top:6px;color:'+m[2]+';font-weight:800"><img alt="مدال '+esc(m[1])+'" src="'+esc(r.medal_image_url||medalImage(r.medal_level))+'" style="width:42px;height:48px;object-fit:contain"/>'+m[0]+' نشان '+m[1]+'</div>':'')+actions+'</div>';
+ return '<div class="card" style="border-right:4px solid '+m[2]+'"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>'+esc(r.title||'تشویق')+' — '+esc(studentLabel(r.student_id))+'</b><span>'+m[0]+' '+esc(status)+'</span></div><div class="meta">'+esc(classLabel(r.class_id))+' | '+esc(r.date||'')+' | '+esc(r.created_by||'')+' | '+esc(r.category||'')+'</div><p style="white-space:pre-wrap;margin-top:7px">'+esc(r.reason||'')+'</p>'+(r.decision_text?'<div style="padding:7px;background:#f0fdf4;border-radius:8px;margin-top:7px">نتیجه مدیر: '+esc(r.decision_text)+'</div>':'')+(r.medal_level?'<div style="display:flex;align-items:center;gap:8px;margin-top:6px;color:'+m[2]+';font-weight:800"><img alt="مدال '+esc(m[1])+'" src="'+esc(r.medal_image_url||medalImage(r.medal_level))+'" style="width:62px;height:72px;object-fit:contain;filter:drop-shadow(0 2px 4px #0002)"/>'+m[0]+' نشان '+m[1]+'</div>':'')+actions+'</div>';
  }).join('')||'<div class="empty">هنوز تشویقی ثبت نشده است.</div>';
  root.querySelectorAll('[data-ach-approve]').forEach(function(btn){btn.onclick=function(){review(btn.getAttribute('data-ach-approve'),'approved')}});
  root.querySelectorAll('[data-ach-reject]').forEach(function(btn){btn.onclick=function(){review(btn.getAttribute('data-ach-reject'),'rejected')}});
@@ -14439,11 +14442,27 @@ async function saveRecord(kind){
 }
 async function review(id,status){
  var textDecision=prompt(status==='approved'?'توضیح اقدام تشویقی یا دلیل تأیید را بنویسید:':'دلیل رد درخواست را بنویسید:',status==='approved'?'تلاش و پیشرفت دانش‌آموز مورد تقدیر قرار گرفت':'');if(textDecision===null)return;
- var award=status==='approved'?(prompt('نوع تقدیر را وارد کنید (لوح سپاس، تقدیر کتبی، معرفی در مراسم و ...):','لوح سپاس')||''):'';
- var level=status==='approved'?(prompt('درجه نشان را وارد کنید: bronze / silver / gold / special یا خالی','')||'').trim().toLowerCase():null;
- if(level&&!['bronze','silver','gold','special'].includes(level)){toast('درجه نشان معتبر نیست');return}
- try{var data=await rpc('sa_achievements_review',{p_username:creds().p_username,p_password:creds().p_password,p_id:id,p_status:status,p_decision_text:textDecision,p_award_type:award,p_medal_level:level||null,p_medal_image_url:level?medalImage(level):null});var a=read().filter(function(x){return String(x.id)!==String(id)});a.unshift(data);write(a);await load();renderPage();var portalRefresh=null,portalRefreshError=null;try{if(typeof window.refreshParentPortalPackageAfterFollowup==='function')portalRefresh=await window.refreshParentPortalPackageAfterFollowup(String(data.class_id||''));}catch(portalError){portalRefreshError=portalError&&portalError.message||String(portalError)}if(portalRefreshError||!portalRefresh||(portalRefresh&&!portalRefresh.updated&&portalRefresh.reason!=='no_active_package'))toast('تصمیم مدیر ثبت شد و برای معلم قابل مشاهده است؛ اما پرونده الکترونیکی اولیا به‌روز نشد. لینک پرونده اولیا را دوباره به‌روزرسانی کنید.');else if(portalRefresh.reason==='no_active_package')toast('تصمیم مدیر برای معلم و پرونده چاپی ثبت شد؛ در ساخت لینک الکترونیکی بعدی نیز درج می‌شود.');else toast('تصمیم مدیر برای معلم، پرونده چاپی و پرونده الکترونیکی ثبت شد');}
- catch(e){toast('ثبت تصمیم مدیر ناموفق بود: '+(e.message||e))}
+ var award='',level=null;
+ if(status==='approved'){
+  award=prompt('نوع تقدیر را وارد کنید (مثلاً لوح سپاس، تقدیرنامه یا معرفی در مراسم):','لوح سپاس')||'';
+  var rawLevel=prompt('نوع نشان را به فارسی انتخاب یا وارد کنید:\n۱) بدون نشان\n۲) برنزی\n۳) نقره‌ای\n۴) طلایی\n۵) ویژه افتخار\nمی‌توانید نام فارسی نشان را بنویسید؛ خالی یعنی بدون نشان.','');
+  if(rawLevel===null)return;
+  var normalized=String(rawLevel||'').trim().toLowerCase().replace(/[۰-۹]/g,function(c){return String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c));}).replace(/[٠-٩]/g,function(c){return String('٠١٢٣٤٥٦٧٨٩'.indexOf(c));});
+  var levelMap={'1':'','بدون نشان':'','هیچ':'','2':'bronze','برنز':'bronze','برنزی':'bronze','نشان برنزی':'bronze','3':'silver','نقره':'silver','نقره‌ای':'silver','نقره ای':'silver','نشان نقره‌ای':'silver','4':'gold','طلا':'gold','طلایی':'gold','نشان طلایی':'gold','5':'special','ویژه':'special','ویژه افتخار':'special','نشان ویژه':'special','نشان ویژه افتخار':'special','bronze':'bronze','silver':'silver','gold':'gold','special':'special'};
+  if(normalized && !Object.prototype.hasOwnProperty.call(levelMap,normalized)){toast('نوع نشان شناخته نشد؛ یکی از گزینه‌های فارسی نمایش‌داده‌شده را وارد کنید');return}
+  level=normalized?levelMap[normalized]:null;
+ }
+ try{
+  var data=await rpc('sa_achievements_review',{p_username:creds().p_username,p_password:creds().p_password,p_id:id,p_status:status,p_decision_text:textDecision,p_award_type:award,p_medal_level:level||null,p_medal_image_url:level?medalImage(level):null});
+  var a=read().filter(function(x){return String(x.id)!==String(id)});a.unshift(data);write(a);await load();renderPage();
+  var portalRefresh=null,portalRefreshError=null;
+  try{if(typeof window.refreshParentPortalPackageAfterFollowup==='function')portalRefresh=await window.refreshParentPortalPackageAfterFollowup(String(data.class_id||''));}catch(portalError){portalRefreshError=portalError&&portalError.message||String(portalError)}
+  if(portalRefreshError||!portalRefresh||(portalRefresh&&!portalRefresh.updated&&portalRefresh.reason!=='no_active_package')){
+   var why=portalRefreshError||(portalRefresh&&(portalRefresh.error||portalRefresh.reason))||'نامشخص';
+   toast('تصمیم مدیر ثبت شد و برای معلم قابل مشاهده است؛ به‌روزرسانی پرونده اولیا ناموفق بود: '+why);
+  }else if(portalRefresh.reason==='no_active_package')toast('تصمیم مدیر برای معلم و پرونده چاپی ثبت شد؛ لینک فعالی برای اولیا وجود ندارد و در ساخت لینک بعدی درج می‌شود.');
+  else toast('تصمیم مدیر، تصویر نشان و تقدیرنامه برای معلم و پرونده الکترونیکی ثبت شد');
+ }catch(e){toast('ثبت تصمیم مدیر ناموفق بود: '+(e.message||e))}
 }
 async function hideFromManager(id){
  if(!isAdmin()){toast('این عملیات فقط برای مدیر مجاز است');return}
@@ -14458,33 +14477,46 @@ async function hideFromManager(id){
 async function deleteAchievementEverywhere(id){
  if(!isAdmin()){toast('حذف کامل فقط برای مدیر مجاز است');return}
  if(!navigator.onLine||window.isOffline||!sb){toast('برای حذف کامل و هماهنگ‌سازی پرونده‌ها، اتصال اینترنت لازم است');return}
+ try{await load();}catch(e){}
  var original=read(),record=original.find(function(x){return String(x.id)===String(id)});
- if(!record){toast('رکورد تشویق پیدا نشد؛ فهرست را تازه‌سازی کنید');return}
+ if(!record){toast('رکورد تشویق در فهرست تازه‌شده سرور پیدا نشد؛ هیچ چیزی حذف نشد');return}
  if(!confirm('این تشویق به‌طور کامل از سرور، پنل معلم، پرونده چاپی و پرونده الکترونیکی اولیا حذف شود؟ این عملیات قابل بازگشت نیست.'))return;
  var remaining=original.filter(function(x){return String(x.id)!==String(id)});
- if(typeof window.refreshParentPortalPackageAfterFollowup!=='function'){toast('برای جلوگیری از باقی‌ماندن نسخه قدیمی در پرونده الکترونیکی، حذف انجام نشد؛ ابزار همگام‌سازی پرونده در دسترس نیست');return}
+ if(typeof window.refreshParentPortalPackageAfterFollowup!=='function'){toast('ابزار به‌روزرسانی امن پرونده اولیا در دسترس نیست؛ هیچ چیزی حذف نشد');return}
  window.__dastyarAchievementsRows=remaining;
  var portalRefresh=null;
  try{
   portalRefresh=await window.refreshParentPortalPackageAfterFollowup(String(record.class_id));
   if(!portalRefresh||(!portalRefresh.updated&&portalRefresh.reason!=='no_active_package')){
    window.__dastyarAchievementsRows=original;
-   toast('حذف انجام نشد؛ پرونده الکترونیکی اولیا به‌روزرسانی نشد. علت: '+String(portalRefresh&&portalRefresh.reason||'نامشخص'));
+   toast('حذف انجام نشد و رکورد حفظ شد. علت به‌روزرسانی پرونده اولیا: '+String(portalRefresh&&(portalRefresh.error||portalRefresh.reason)||'نامشخص'));
    return;
   }
  }catch(e){
   window.__dastyarAchievementsRows=original;
-  toast('حذف انجام نشد؛ به‌روزرسانی پرونده الکترونیکی ناموفق بود: '+(e.message||e));return;
+  toast('حذف انجام نشد و رکورد حفظ شد؛ خطای پرونده اولیا: '+(e.message||e));return;
  }
+ var serverDeleted=false;
  try{
-  await rpc('sa_achievements_delete',{p_username:creds().p_username,p_password:creds().p_password,p_id:String(id)});
-  write(remaining);await load();renderPage();renderDossier(record.student_id);
-  toast('تشویق از سرور، پنل معلم و پرونده‌های چاپی و الکترونیکی حذف شد');
+  var deleted=await rpc('sa_achievements_delete',{p_username:creds().p_username,p_password:creds().p_password,p_id:String(id)});
+  if(!deleted||deleted.deleted!==true)throw new Error('سرور حذف کامل را تأیید نکرد');
+  serverDeleted=true;
+  write(remaining);
+  var verified=normalize(await rpc('sa_achievements_list',creds()));
+  if(verified.some(function(x){return String(x.id)===String(id)}))throw new Error('رکورد هنوز در فهرست سرور دیده می‌شود');
+  var pendingLocal=read().filter(function(x){return x._localPending&&String(x.id)!==String(id)});
+  write(verified.concat(pendingLocal.filter(function(x){return !verified.some(function(y){return String(y.id)===String(x.id)})})));
+  renderPage();renderDossier(record.student_id);
+  toast('حذف کامل تأیید شد: رکورد از سرور و پرونده الکترونیکی حذف شد؛ پنل معلم و چاپ نیز در تازه‌سازی بعدی بدون آن نمایش داده می‌شوند.');
  }catch(e){
-  window.__dastyarAchievementsRows=original;
-  write(original);
-  try{await window.refreshParentPortalPackageAfterFollowup(String(record.class_id));}catch(restoreError){console.warn('Parent package restore after failed delete',restoreError)}
-  toast('حذف از سرور انجام نشد؛ اطلاعات اصلی حفظ شد: '+(e.message||e));
+  if(serverDeleted){
+   write(remaining);renderPage();renderDossier(record.student_id);
+   toast('رکورد از سرور حذف شد و از پرونده الکترونیکی نیز کنار گذاشته شد؛ تأیید نهایی فهرست سرور با خطا روبه‌رو شد: '+(e.message||e));
+  }else{
+   window.__dastyarAchievementsRows=original;write(original);
+   try{await window.refreshParentPortalPackageAfterFollowup(String(record.class_id));}catch(restoreError){console.warn('Parent package restore after failed delete',restoreError)}
+   toast('حذف از سرور انجام نشد؛ رکورد و پرونده قبلی حفظ شدند: '+(e.message||e));
+  }
  }
 }
 function renderDossier(id){
@@ -14495,10 +14527,14 @@ function renderDossier(id){
  section.style.cssText='border:2px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff,#fffbeb);break-inside:avoid';
  section.innerHTML='<div class="ct" style="color:#1e40af">🏅 افتخارات و تشویق‌ها ('+list.length+')</div>'+(list.length?list.map(function(r){
   var m=medal(r),statusLabel=r.status==='approved'?'تأییدشده':r.status==='rejected'?'ردشده':r.status==='answered'?'پاسخ مدیر':'در انتظار بررسی';
-  return '<div style="padding:8px;margin:6px 0;border:1px solid #cbd5e1;border-radius:9px;background:#fff;break-inside:avoid"><b>'+m[0]+' '+esc(r.title||'تشویق')+'</b><div class="meta">'+esc(r.date||'')+' | '+esc(r.category||'')+' | وضعیت: '+esc(statusLabel)+'</div><div style="white-space:pre-wrap;margin-top:5px">'+esc(r.reason||'')+'</div>'+(r.decision_text?'<div style="white-space:pre-wrap;padding:7px;background:#f0fdf4;border-radius:8px;margin-top:7px">توضیح مدیر: '+esc(r.decision_text)+'</div>':'')+(r.created_by?'<div class="meta">ثبت‌کننده: '+esc(r.created_by)+'</div>':'')+(r.reviewed_by?'<div class="meta">بررسی‌کننده: '+esc(r.reviewed_by)+'</div>':'')+(r.status==='approved'?'<div style="font-weight:800;color:'+m[2]+';margin-top:5px">'+m[0]+' '+esc(m[1])+' '+esc(r.award_type||'')+'</div>':'')+'</div>';
+  var medalVisual=r.medal_level?'<div style="display:flex;align-items:center;gap:10px;padding:8px;margin-top:8px;border-radius:10px;background:#fffbeb;border:1px solid #fcd34d"><img alt="مدال '+esc(m[1])+'" src="'+esc(r.medal_image_url||medalImage(r.medal_level))+'" style="width:88px;height:102px;object-fit:contain;filter:drop-shadow(0 3px 5px #0002)"/><div style="font-size:1rem;font-weight:900;color:'+m[2]+'">'+esc(m[1])+'<div style="font-size:.8rem;color:#475569;font-weight:600">'+esc(r.award_type||'نشان افتخار')+'</div></div></div>':'';
+  var isCertificate=/لوح|سپاس|تقدیر|certificate/i.test(String(r.award_type||''));
+  var certificate=isCertificate&&r.status==='approved'?'<div style="margin:12px 0;padding:16px 10px;text-align:center;border:5px double #c49a35;border-radius:8px;background:linear-gradient(135deg,#fffdf4,#fff);box-shadow:inset 0 0 0 3px #f8e7b0;break-inside:avoid"><div style="font-size:1.3rem;font-weight:900;color:#8a6418">✦ لوح سپاس و تقدیر ✦</div><div style="font-size:.82rem;color:#475569;margin:6px 0">دبستان شهید فتح‌الله فلاح‌پور</div><div style="font-size:.9rem;margin:10px 0">تقدیم به دانش‌آموز شایسته</div><div style="font-size:1.25rem;font-weight:900;color:#1e3a8a">'+esc(studentLabel(r.student_id))+'</div><div style="font-size:.86rem;line-height:1.9;margin:10px 0">به پاس '+esc(r.reason||r.decision_text||'تلاش، کوشش و پیشرفت ارزشمند')+'، این '+esc(r.award_type||'لوح سپاس')+' به شما اهدا می‌شود.</div><div style="font-size:.78rem;color:#64748b">تاریخ: '+esc(r.date||'')+'</div><div style="font-size:.82rem;font-weight:800;margin-top:10px;color:#8a6418">مدیریت دبستان</div></div>':'';
+  return '<div style="padding:9px;margin:7px 0;border:1px solid #cbd5e1;border-radius:10px;background:#fff;break-inside:avoid"><b>'+m[0]+' '+esc(r.title||'تشویق')+'</b><div class="meta">'+esc(r.date||'')+' | '+esc(r.category||'')+' | وضعیت: '+esc(statusLabel)+'</div><div style="white-space:pre-wrap;margin-top:5px">'+esc(r.reason||'')+'</div>'+(r.decision_text?'<div style="white-space:pre-wrap;padding:7px;background:#f0fdf4;border-radius:8px;margin-top:7px">توضیح مدیر: '+esc(r.decision_text)+'</div>':'')+(r.created_by?'<div class="meta">ثبت‌کننده: '+esc(r.created_by)+'</div>':'')+(r.reviewed_by?'<div class="meta">بررسی‌کننده: '+esc(r.reviewed_by)+'</div>':'')+medalVisual+certificate+'</div>';
  }).join(''):'<div class="empty">هنوز افتخاری ثبت نشده است.</div>');
  var first=root.querySelector('section.card');if(first&&first.nextSibling)root.insertBefore(section,first.nextSibling);else root.appendChild(section);
 }
+
 function installPage(){
  if(!document.getElementById(PAGE)){
   var app=document.getElementById('app');if(!app)return;
