@@ -14606,6 +14606,113 @@ observer.observe(document.documentElement,{childList:true,subtree:true});
  document.addEventListener('input',function(e){if(e.target&&e.target.id==='ev-sc')refresh('ev');});
 })();
 </script>
+<script id="dastyar-home-layout-order-v1">
+/* DASTYAR_HOME_LAYOUT_ORDER_V1
+   جابه‌جایی نمایشی کارت‌ها و گروه‌های دسترسی سریع؛ بدون تغییر داده یا منطق ثبت.
+*/
+(function(){
+ 'use strict';
+ function byId(id){return document.getElementById(id);}
+ function insertAfter(parent,node,anchor){
+  if(parent&&node&&anchor&&anchor.parentNode===parent)parent.insertBefore(node,anchor.nextSibling);
+ }
+ function makeGroup(id,cls,icon,label){
+  var group=byId(id);
+  if(group)return group;
+  group=document.createElement('details');
+  group.id=id;group.className='home-tile-group '+cls;
+  group.setAttribute('name','dastyar-home-groups');
+  group.setAttribute('aria-label',label);
+  var summary=document.createElement('summary');
+  summary.className='home-tile-group-title';
+  summary.innerHTML='<span class="home-tile-group-mark">'+icon+'</span><span>'+label+'</span>';
+  group.appendChild(summary);
+  return group;
+ }
+ function tile(id,label,icon,action){
+  var button=byId(id);
+  if(button)return button;
+  button=document.createElement('button');
+  button.type='button';button.id=id;button.className='home-tile';
+  button.innerHTML='<span class="tile-icon">'+icon+'</span><span class="tile-label">'+label+'</span>';
+  button.addEventListener('click',action);
+  return button;
+ }
+ function arrange(){
+  var page=byId('page-dashboard'),quick=byId('dashboard-quick-access-card');
+  if(!page||!quick)return;
+  var home=quick.querySelector('.home-tiles');
+  if(!home)return;
+  var stats=byId('dashboard-stats-toggle');
+  if(stats){
+   var oldParent=stats.parentNode;
+   if(oldParent!==home)home.insertBefore(stats,home.firstChild);
+   if(oldParent&&oldParent!==home&&oldParent.classList&&oldParent.classList.contains('home-tiles')&&!oldParent.children.length)oldParent.remove();
+  }
+  var achievement=makeGroup('achievements-home-group','group-achievements','🏅','افتخارات و تشویق دانش‌آموزان');
+  var achievementGrid=achievement.querySelector('.home-tiles-grid');
+  if(!achievementGrid){achievementGrid=document.createElement('div');achievementGrid.className='home-tiles-grid';achievement.appendChild(achievementGrid);}
+  if(!byId('achievements-home-tile')){
+   var ach=tile('achievements-home-tile','افتخارات و تشویق دانش‌آموزان','🏅',function(){if(typeof window.go==='function')window.go('achievements');});
+   achievementGrid.appendChild(ach);
+  }
+  var syncGroup=makeGroup('quick-sync-group','group-sync','🔄','همگام‌سازی با سرور');
+  var syncCard=byId('sync-status-card');
+  if(syncCard&&syncCard.parentNode!==syncGroup){syncCard.style.margin='8px 0 0';syncGroup.appendChild(syncCard);}
+  var reminderGroup=makeGroup('quick-reminders-group','group-reminders','🔔','یادآوری');
+  var reminderCard=byId('smart-reminders-card');
+  if(reminderCard&&reminderCard.parentNode!==reminderGroup){reminderCard.style.margin='8px 0 0';reminderGroup.appendChild(reminderCard);}
+  var aboutGroup=makeGroup('quick-about-group','group-about','ℹ️','درباره برنامه');
+  var aboutGrid=aboutGroup.querySelector('.home-tiles-grid');
+  if(!aboutGrid){aboutGrid=document.createElement('div');aboutGrid.className='home-tiles-grid';aboutGroup.appendChild(aboutGrid);}
+  if(!byId('quick-about-tile')){
+   aboutGrid.appendChild(tile('quick-about-tile','درباره برنامه','ℹ️',function(){if(typeof window.go==='function')window.go('about');}));
+  }
+  var ordered=[
+   stats,
+   home.querySelector('.group-students'),
+   home.querySelector('.group-attendance'),
+   home.querySelector('.group-learning'),
+   achievement,
+   home.querySelector('.group-management'),
+   home.querySelector('.group-communication'),
+   home.querySelector('.group-performance'),
+   syncGroup,
+   reminderGroup,
+   aboutGroup
+  ];
+  ordered.forEach(function(group){if(group&&group.parentNode!==home||group&&group!==home.lastElementChild)home.appendChild(group);});
+  var welcome=page.querySelector('.wel');
+  var isTeacher=!!(window.user&&window.user.role==='teacher');
+  var schedule=byId('teacher-today-schedule'),notices=byId('teacher-notice-inbox');
+  if(welcome&&welcome.parentNode===page){
+   if(isTeacher){
+    var cursor=welcome;
+    if(schedule){insertAfter(page,schedule,cursor);cursor=schedule;}
+    if(notices){insertAfter(page,notices,cursor);cursor=notices;}
+    insertAfter(page,quick,cursor);
+    var heading=byId('wn');
+    if(heading)heading.textContent='سلام معلم، '+String(window.user.full_name||window.user.username||'همکار گرامی');
+   }else{
+    insertAfter(page,quick,welcome);
+   }
+  }
+ }
+ var previousGo=window.go;
+ if(typeof previousGo==='function'&&!previousGo.__dastyarHomeLayoutWrapped){
+  var wrapped=function(p){
+   var result=previousGo.apply(this,arguments);
+   if(p==='dashboard')requestAnimationFrame(arrange);
+   return result;
+  };
+  wrapped.__dastyarHomeLayoutWrapped=true;
+  window.go=wrapped;
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',arrange,{once:true});
+ else arrange();
+ window.__dastyarArrangeHomeLayout=arrange;
+})();
+</script>
 </body>
 </html>
 
