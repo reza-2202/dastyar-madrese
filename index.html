@@ -14450,6 +14450,52 @@ async function shareAward(id){
   var reasonStart=r.medal_level?625:485;if(r.medal_level)reasonLines=reasonLines.slice(0,2);
   var reasonSvg=reasonLines.map(function(x,i){return '<text x="600" y="'+(reasonStart+i*42)+'" text-anchor="middle" direction="rtl" unicode-bidi="plaintext" font-family="Noto Nastaliq Urdu, Vazirmatn, serif" font-size="27" fill="#334155">'+esc(x)+'</text>'}).join('');
   var medalSvg=r.medal_level?'<g transform="translate(545 155)"><path d="M-35 0h28l16 82h-28zM7 0h28L19 82h-28z" fill="#b7791f"/><circle cx="0" cy="108" r="58" fill="'+(r.medal_level==='bronze'?'#b45309':r.medal_level==='silver'?'#94a3b8':r.medal_level==='special'?'#7c3aed':'#d4a017')+'" stroke="#f8df91" stroke-width="9"/><circle cx="0" cy="108" r="40" fill="#fff1b8"/><path d="M0 77l9 21 23 2-17 15 5 23-20-12-20 12 5-23-17-15 23-2z" fill="#b7791f"/></g>':'';
+  var awardTemplatePath=/ورزش/.test(String(r.award_type||''))?'01-sport-2.png':/درسی|تحصیلی/.test(String(r.award_type||''))?'02-education.png':/انضباط|شایستگی/.test(String(r.award_type||''))?'03-discipline-general-competency.png':/مذهبی|قرآنی/.test(String(r.award_type||''))?'04-religious-quranic.png':'';
+  if(awardTemplatePath){
+   var awardTemplateImage=await new Promise(function(resolve,reject){var ti=new Image();ti.onload=function(){resolve(ti)};ti.onerror=function(){reject(new Error('تصویر قالب لوح بارگذاری نشد'))};ti.src='/dastyar-madrese/'+awardTemplatePath+'?v=20261121'});
+   var awardTemplateCanvas=document.createElement('canvas');awardTemplateCanvas.width=1200;awardTemplateCanvas.height=1200;
+   var awardTemplateCtx=awardTemplateCanvas.getContext('2d');
+   if(!awardTemplateCtx)throw new Error('ساخت بوم تقدیرنامه ممکن نشد');
+   awardTemplateCtx.drawImage(awardTemplateImage,0,0,1200,1200);
+   awardTemplateCtx.fillStyle='rgba(255,253,244,0.82)';awardTemplateCtx.fillRect(110,300,980,625);
+   awardTemplateCtx.strokeStyle='rgba(181,138,60,0.92)';awardTemplateCtx.lineWidth=5;awardTemplateCtx.strokeRect(118,308,964,609);
+   awardTemplateCtx.direction='rtl';awardTemplateCtx.textAlign='center';awardTemplateCtx.textBaseline='middle';
+   awardTemplateCtx.fillStyle='#64748b';awardTemplateCtx.font='bold 38px "Noto Nastaliq Urdu", Vazirmatn, serif';
+   awardTemplateCtx.fillText('دبستان شهید فتح‌الله فلاح‌پور',600,365);
+   awardTemplateCtx.fillStyle='#8a6418';awardTemplateCtx.font='bold 62px "Noto Nastaliq Urdu", Vazirmatn, serif';
+   awardTemplateCtx.fillText('✦ لوح سپاس و تقدیر ✦',600,455);
+   awardTemplateCtx.fillStyle='#334155';awardTemplateCtx.font='bold 39px "Noto Nastaliq Urdu", Vazirmatn, serif';
+   awardTemplateCtx.fillText(award,600,525);
+   awardTemplateCtx.fillStyle='#475569';awardTemplateCtx.font='30px "Noto Nastaliq Urdu", Vazirmatn, serif';
+   awardTemplateCtx.fillText('تقدیم به دانش‌آموز شایسته',600,590);
+   awardTemplateCtx.fillStyle='#1e3a8a';awardTemplateCtx.font='bold 58px "Noto Nastaliq Urdu", Vazirmatn, serif';
+   awardTemplateCtx.fillText(name,600,665);
+   awardTemplateCtx.fillStyle='#334155';awardTemplateCtx.font='30px "Noto Nastaliq Urdu", Vazirmatn, serif';
+   reasonLines.forEach(function(line,index){awardTemplateCtx.fillText(line,600,745+index*43)});
+   awardTemplateCtx.fillStyle='#64748b';awardTemplateCtx.font='27px "Noto Nastaliq Urdu", Vazirmatn, serif';
+   awardTemplateCtx.fillText('تاریخ: '+String(r.date||''),600,875);
+   awardTemplateCtx.fillStyle='#8a6418';awardTemplateCtx.font='bold 31px "Noto Nastaliq Urdu", Vazirmatn, serif';
+   awardTemplateCtx.fillText('مدیریت دبستان',600,905);
+   if(photoImage){awardTemplateCtx.fillStyle='#fff';awardTemplateCtx.fillRect(132,105,174,194);awardTemplateCtx.drawImage(photoImage,144,117,150,170);awardTemplateCtx.strokeStyle='#bd963f';awardTemplateCtx.lineWidth=8;awardTemplateCtx.strokeRect(140,113,158,178)}
+   if(r.medal_level){
+    var medalColor=r.medal_level==='bronze'?'#b45309':r.medal_level==='silver'?'#94a3b8':r.medal_level==='special'?'#7c3aed':'#d4a017';
+    awardTemplateCtx.fillStyle=medalColor;awardTemplateCtx.beginPath();awardTemplateCtx.moveTo(955,105);awardTemplateCtx.lineTo(990,105);awardTemplateCtx.lineTo(1007,175);awardTemplateCtx.lineTo(970,175);awardTemplateCtx.fill();
+    awardTemplateCtx.beginPath();awardTemplateCtx.moveTo(1000,105);awardTemplateCtx.lineTo(1035,105);awardTemplateCtx.lineTo(1020,175);awardTemplateCtx.lineTo(985,175);awardTemplateCtx.fill();
+    awardTemplateCtx.beginPath();awardTemplateCtx.arc(995,205,48,0,Math.PI*2);awardTemplateCtx.fill();
+    awardTemplateCtx.strokeStyle='#f8df91';awardTemplateCtx.lineWidth=7;awardTemplateCtx.stroke();
+    awardTemplateCtx.fillStyle='#fff1b8';awardTemplateCtx.beginPath();awardTemplateCtx.arc(995,205,31,0,Math.PI*2);awardTemplateCtx.fill();
+    awardTemplateCtx.fillStyle=medalColor;awardTemplateCtx.font='bold 38px serif';awardTemplateCtx.fillText('★',995,207);
+   }
+   var awardTemplateBlob=await new Promise(function(resolve,reject){awardTemplateCanvas.toBlob(function(blob){if(blob)resolve(blob);else reject(new Error('تبدیل لوح به تصویر انجام نشد'))},'image/png')});
+   var awardTemplateSafeName=name.replace(/[^\u0600-\u06FF\w-]+/g,'-').replace(/^-+|-+$/g,'')||'دانش‌آموز';
+   var awardTemplateFile=new File([awardTemplateBlob],'لوح-'+awardTemplateSafeName+'.png',{type:'image/png'});
+   if(navigator.share&&navigator.canShare&&navigator.canShare({files:[awardTemplateFile]})){
+    try{await navigator.share({files:[awardTemplateFile],title:award+' '+name,text:award+' دانش‌آموز '+name});toast('پنجره اشتراک‌گذاری لوح باز شد؛ شاد را انتخاب کنید.');return}catch(templateShareError){if(templateShareError&&templateShareError.name==='AbortError')return;console.warn('Certificate template share failed',templateShareError)}
+   }
+   var awardTemplateLink=document.createElement('a'),awardTemplateUrl=URL.createObjectURL(awardTemplateBlob);
+   awardTemplateLink.href=awardTemplateUrl;awardTemplateLink.download=awardTemplateFile.name;document.body.appendChild(awardTemplateLink);awardTemplateLink.click();awardTemplateLink.remove();
+   setTimeout(function(){URL.revokeObjectURL(awardTemplateUrl)},1500);toast('لوح تقدیر با قالب انتخاب‌شده دانلود شد؛ می‌توانید آن را در شاد ارسال کنید.');return;
+  }
   var svg='<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="850" viewBox="0 0 1200 850"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fffdf4"/><stop offset="1" stop-color="#fff"/></linearGradient></defs><rect width="1200" height="850" rx="24" fill="url(#bg)"/><rect x="28" y="28" width="1144" height="794" rx="18" fill="none" stroke="#b58a3c" stroke-width="10"/><rect x="48" y="48" width="1104" height="754" rx="12" fill="none" stroke="#d6bd7c" stroke-width="4"/><text x="600" y="105" text-anchor="middle" direction="rtl" font-family="Noto Nastaliq Urdu, Vazirmatn, serif" font-size="30" fill="#64748b">دبستان شهید فتح‌الله فلاح‌پور</text>'+medalSvg+'<text x="600" y="'+(r.medal_level?'390':'270')+'" text-anchor="middle" direction="rtl" font-family="Noto Nastaliq Urdu, Vazirmatn, serif" font-size="54" font-weight="bold" fill="#8a6418">✦ لوح سپاس و تقدیر ✦</text><text x="600" y="'+(r.medal_level?'450':'330')+'" text-anchor="middle" direction="rtl" font-family="Noto Nastaliq Urdu, Vazirmatn, serif" font-size="31" fill="#334155">'+esc(award)+(level?' — نشان '+esc(level):'')+'</text><text x="600" y="'+(r.medal_level?'520':'400')+'" text-anchor="middle" direction="rtl" font-family="Noto Nastaliq Urdu, Vazirmatn, serif" font-size="28" fill="#475569">تقدیم به دانش‌آموز شایسته</text><text x="600" y="'+(r.medal_level?'570':'450')+'" text-anchor="middle" direction="rtl" font-family="Noto Nastaliq Urdu, Vazirmatn, serif" font-size="43" font-weight="bold" fill="#1e3a8a">'+esc(name)+'</text>'+reasonSvg+'<text x="600" y="'+(r.medal_level?'720':'700')+'" text-anchor="middle" direction="rtl" font-family="Noto Nastaliq Urdu, Vazirmatn, serif" font-size="24" fill="#64748b">تاریخ: '+esc(r.date||'')+'</text><text x="600" y="'+(r.medal_level?'775':'755')+'" text-anchor="middle" direction="rtl" font-family="Noto Nastaliq Urdu, Vazirmatn, serif" font-size="27" font-weight="bold" fill="#8a6418">مدیریت دبستان</text></svg>';
   var svgBlob=new Blob([svg],{type:'image/svg+xml;charset=utf-8'}),url=URL.createObjectURL(svgBlob),img=new Image();
   var pngBlob=await new Promise(function(resolve,reject){img.onload=function(){try{var canvas=document.createElement('canvas');canvas.width=1200;canvas.height=850;var ctx=canvas.getContext('2d');ctx.drawImage(img,0,0,1200,850);if(photoImage){ctx.save();ctx.fillStyle='#fff';ctx.fillRect(82,105,178,198);ctx.drawImage(photoImage,97,120,148,170);ctx.strokeStyle='#bd963f';ctx.lineWidth=9;ctx.strokeRect(92,115,158,180);ctx.restore();}canvas.toBlob(function(blob){if(blob)resolve(blob);else reject(new Error('تبدیل تصویر انجام نشد'))},'image/png')}catch(e){reject(e)}};img.onerror=function(){reject(new Error('ساخت تصویر ناموفق بود'))};img.src=url});
@@ -14478,7 +14524,11 @@ async function review(id,status){
  var textDecision=prompt(status==='approved'?'توضیح اقدام تشویقی یا دلیل تأیید را بنویسید:':'دلیل رد درخواست را بنویسید:',status==='approved'?'تلاش و پیشرفت دانش‌آموز مورد تقدیر قرار گرفت':'');if(textDecision===null)return;
  var award='',level=null;
  if(status==='approved'){
-  award=prompt('نوع تقدیر را وارد کنید (مثلاً لوح سپاس، تقدیرنامه یا معرفی در مراسم):','لوح سپاس')||'';
+  var rawAward=prompt('نوع لوح تقدیر را انتخاب کنید و شماره یا نام آن را بنویسید:\n۱) ورزشی\n۲) درسی\n۳) انضباطی و شایستگی عمومی\n۴) مذهبی و قرآنی\n۵) تقدیرنامه عمومی','۵');
+  if(rawAward===null)return;
+  var awardChoice=String(rawAward).trim().replace(/[۰-۹]/g,function(c){return String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c));}).replace(/[٠-٩]/g,function(c){return String('٠١٢٣٤٥٦٧٨٩'.indexOf(c));});
+  var awardChoices={'1':'لوح ورزشی','2':'لوح درسی','3':'لوح انضباطی و شایستگی عمومی','4':'لوح مذهبی و قرآنی','5':'تقدیرنامه عمومی'};
+  award=awardChoices[awardChoice]||String(rawAward).trim()||'تقدیرنامه عمومی';
   var rawLevel=prompt('نوع نشان را به فارسی انتخاب یا وارد کنید:\n۱) بدون نشان\n۲) برنزی\n۳) نقره‌ای\n۴) طلایی\n۵) ویژه افتخار\nمی‌توانید نام فارسی نشان را بنویسید؛ خالی یعنی بدون نشان.','');
   if(rawLevel===null)return;
   var normalized=String(rawLevel||'').trim().toLowerCase().replace(/[۰-۹]/g,function(c){return String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c));}).replace(/[٠-٩]/g,function(c){return String('٠١٢٣٤٥٦٧٨٩'.indexOf(c));});
