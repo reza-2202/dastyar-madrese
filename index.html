@@ -14458,22 +14458,23 @@ async function shareAward(id){
    if(!awardTemplateCtx)throw new Error('ساخت بوم تقدیرنامه ممکن نشد');
    awardTemplateCtx.drawImage(awardTemplateImage,0,0,1200,1200);
    awardTemplateCtx.direction='rtl';awardTemplateCtx.textAlign='center';awardTemplateCtx.textBaseline='middle';
+   function drawAwardText(text,x,y){awardTemplateCtx.lineJoin='round';awardTemplateCtx.lineWidth=10;awardTemplateCtx.strokeStyle='#172033';awardTemplateCtx.strokeText(text,x,y);awardTemplateCtx.lineWidth=5;awardTemplateCtx.strokeStyle='#fff';awardTemplateCtx.strokeText(text,x,y);drawAwardText(text,x,y)}
    awardTemplateCtx.fillStyle='#64748b';awardTemplateCtx.font='bold 38px "Noto Nastaliq Urdu", Vazirmatn, serif';
-   awardTemplateCtx.fillText('دبستان شهید فتح‌الله فلاح‌پور',600,365);
+   drawAwardText('دبستان شهید فتح‌الله فلاح‌پور',600,365);
    awardTemplateCtx.fillStyle='#8a6418';awardTemplateCtx.font='bold 62px "Noto Nastaliq Urdu", Vazirmatn, serif';
-   awardTemplateCtx.fillText('✦ لوح سپاس و تقدیر ✦',600,455);
+   drawAwardText('✦ لوح سپاس و تقدیر ✦',600,455);
    awardTemplateCtx.fillStyle='#334155';awardTemplateCtx.font='bold 39px "Noto Nastaliq Urdu", Vazirmatn, serif';
-   awardTemplateCtx.fillText(award,600,525);
+   drawAwardText(award,600,525);
    awardTemplateCtx.fillStyle='#475569';awardTemplateCtx.font='30px "Noto Nastaliq Urdu", Vazirmatn, serif';
-   awardTemplateCtx.fillText('تقدیم به دانش‌آموز شایسته',600,590);
+   drawAwardText('تقدیم به دانش‌آموز شایسته',600,590);
    awardTemplateCtx.fillStyle='#1e3a8a';awardTemplateCtx.font='bold 58px "Noto Nastaliq Urdu", Vazirmatn, serif';
-   awardTemplateCtx.fillText(name,600,665);
+   drawAwardText(name,600,665);
    awardTemplateCtx.fillStyle='#334155';awardTemplateCtx.font='30px "Noto Nastaliq Urdu", Vazirmatn, serif';
-   reasonLines.forEach(function(line,index){awardTemplateCtx.fillText(line,600,745+index*43)});
+   reasonLines.forEach(function(line,index){drawAwardText(line,600,745+index*43)});
    awardTemplateCtx.fillStyle='#64748b';awardTemplateCtx.font='27px "Noto Nastaliq Urdu", Vazirmatn, serif';
-   awardTemplateCtx.fillText('تاریخ: '+String(r.date||''),600,875);
+   drawAwardText('تاریخ: '+String(r.date||''),600,875);
    awardTemplateCtx.fillStyle='#8a6418';awardTemplateCtx.font='bold 31px "Noto Nastaliq Urdu", Vazirmatn, serif';
-   awardTemplateCtx.fillText('مدیریت دبستان',600,905);
+   drawAwardText('مدیریت دبستان',600,905);
    if(photoImage){awardTemplateCtx.fillStyle='#fff';awardTemplateCtx.fillRect(132,105,174,194);awardTemplateCtx.drawImage(photoImage,144,117,150,170);awardTemplateCtx.strokeStyle='#bd963f';awardTemplateCtx.lineWidth=8;awardTemplateCtx.strokeRect(140,113,158,178)}
    if(r.medal_level){
     var medalColor=r.medal_level==='bronze'?'#b45309':r.medal_level==='silver'?'#94a3b8':r.medal_level==='special'?'#7c3aed':'#d4a017';
@@ -14482,7 +14483,7 @@ async function shareAward(id){
     awardTemplateCtx.beginPath();awardTemplateCtx.arc(995,205,48,0,Math.PI*2);awardTemplateCtx.fill();
     awardTemplateCtx.strokeStyle='#f8df91';awardTemplateCtx.lineWidth=7;awardTemplateCtx.stroke();
     awardTemplateCtx.fillStyle='#fff1b8';awardTemplateCtx.beginPath();awardTemplateCtx.arc(995,205,31,0,Math.PI*2);awardTemplateCtx.fill();
-    awardTemplateCtx.fillStyle=medalColor;awardTemplateCtx.font='bold 38px serif';awardTemplateCtx.fillText('★',995,207);
+    awardTemplateCtx.fillStyle=medalColor;awardTemplateCtx.font='bold 38px serif';drawAwardText('★',995,207);
    }
    var awardTemplateBlob=await new Promise(function(resolve,reject){awardTemplateCanvas.toBlob(function(blob){if(blob)resolve(blob);else reject(new Error('تبدیل لوح به تصویر انجام نشد'))},'image/png')});
    var awardTemplateSafeName=name.replace(/[^\u0600-\u06FF\w-]+/g,'-').replace(/^-+|-+$/g,'')||'دانش‌آموز';
