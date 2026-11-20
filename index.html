@@ -12777,7 +12777,9 @@ window.sfeOpenFromUrl=async function(url,name){
   }
 
   function show(){
-    if(isStandalone() || installAccepted) return;
+    // فقط وقتی Chrome رویداد نصب واقعی را داده باشد، دکمه نصب نمایش داده شود.
+    // در نبود این رویداد، دکمه نباید کاربر را به ساخت میانبر هدایت کند.
+    if(isStandalone() || installAccepted || !deferredPrompt) return;
     try{
       if(sessionStorage.getItem('dastyar_install_hide') === '1') return;
     }catch(e){}
@@ -12833,7 +12835,12 @@ window.sfeOpenFromUrl=async function(url,name){
     }
 
     if(!deferredPrompt){
-      manualInstructions();
+      var ua = navigator.userAgent || '';
+      if(/android/i.test(ua)){
+        notify('مرورگر هنوز امکان نصب مستقل را به برنامه اعلام نکرده است. گزینه «افزودن به صفحه اصلی» را انتخاب نکنید؛ ممکن است فقط میانبر بسازد. نصب مستقل فعلاً از داخل برنامه در دسترس نیست.');
+      }else{
+        manualInstructions();
+      }
       return;
     }
 
@@ -12879,12 +12886,8 @@ window.sfeOpenFromUrl=async function(url,name){
       doInstall();
     });
 
+    // نوار نصب فقط پس از دریافت beforeinstallprompt نمایش داده می‌شود.
     if(deferredPrompt) show();
-    if(!isStandalone() && !installAccepted){
-      window.setTimeout(function(){
-        if(!isStandalone() && !installAccepted) show();
-      }, 2500);
-    }
   }
 
   if(document.readyState === 'loading'){
