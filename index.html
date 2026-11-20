@@ -14672,6 +14672,7 @@ observer.observe(document.documentElement,{childList:true,subtree:true});
    aboutGrid.appendChild(tile('quick-about-tile','درباره برنامه','ℹ️',function(){if(typeof window.go==='function')window.go('about');}));
   }
   var ordered=[
+   stats,
    home.querySelector('.group-students'),
    home.querySelector('.group-attendance'),
    home.querySelector('.group-learning'),
@@ -14681,8 +14682,7 @@ observer.observe(document.documentElement,{childList:true,subtree:true});
    home.querySelector('.group-performance'),
    syncGroup,
    reminderGroup,
-   aboutGroup,
-   stats
+   aboutGroup
   ];
   ordered.forEach(function(group){if(group&&group.parentNode!==home||group&&group!==home.lastElementChild)home.appendChild(group);});
   var welcome=page.querySelector('.wel');
@@ -14690,13 +14690,15 @@ observer.observe(document.documentElement,{childList:true,subtree:true});
   var schedule=byId('teacher-today-schedule'),notices=byId('teacher-notice-inbox');
   if(welcome&&welcome.parentNode===page){
    var cursor=welcome;
-   /* فقط پنل آمار زیر سلام باز می‌شود؛ دکمه داشبورد در دسترسی سریع باقی می‌ماند. */
-   if(statsRail){insertAfter(page,statsRail,cursor);cursor=statsRail;}
+   /* مدیر: آمار زیر سلام؛ معلم: آمار دقیقاً زیر برنامه روزانه. */
    if(isTeacher){
     if(schedule){insertAfter(page,schedule,cursor);cursor=schedule;}
+    if(statsRail){insertAfter(page,statsRail,cursor);cursor=statsRail;}
     if(notices){insertAfter(page,notices,cursor);cursor=notices;}
     var heading=byId('wn');
     if(heading)heading.textContent='سلام معلم، '+String(window.user.full_name||window.user.username||'همکار گرامی');
+   }else{
+    if(statsRail){insertAfter(page,statsRail,cursor);cursor=statsRail;}
    }
    insertAfter(page,quick,cursor);
   }
