@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8"/>
+<meta name="dastyar-version" content="2026.10.28.54"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>پرونده اولیا — دستیار مدرسه</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box}
+html,body{width:100%;max-width:100%;min-width:0;overflow-x:hidden}
+body{margin:0;font-family:Vazirmatn,Tahoma,sans-serif;background:linear-gradient(160deg,#e0f2fe,#f8fafc);min-height:100vh;min-height:100dvh;color:#0f172a}
+.wrap{width:100%;max-width:480px;min-width:0;margin:0 auto;padding:clamp(10px,3vw,20px) 12px 32px}
+.card,#v-body,.section,.item{width:100%;max-width:100%;min-width:0;overflow-wrap:anywhere}
+#v-body img,#v-body svg{max-width:100%;height:auto}
+.card{background:#fff;border-radius:16px;padding:18px;box-shadow:0 8px 30px rgba(15,23,42,.08);border:1px solid #e2e8f0}
+h1{font-size:1.15rem;margin:0 0 6px;color:#0c4a6e}
+.meta{font-size:.82rem;color:#64748b;line-height:1.7}
+label{display:block;font-size:.85rem;margin:12px 0 4px;font-weight:600}
+input,button{font-family:inherit}
+input{width:100%;padding:12px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:1rem}
+button{width:100%;margin-top:14px;padding:12px;border:0;border-radius:12px;background:#0369a1;color:#fff;font-weight:700;font-size:1rem;cursor:pointer}
+.err{display:none;margin-top:10px;padding:10px;border-radius:10px;background:#fef2f2;color:#991b1b;border:1px solid #fecaca;font-size:.88rem}
+.section{margin-top:14px;padding-top:12px;border-top:1px solid #e2e8f0}
+.section h3{margin:0 0 8px;font-size:.95rem;color:#1e3a8a}
+.item{font-size:.84rem;padding:6px 0;border-bottom:1px solid #f1f5f9;line-height:1.7}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#e0f2fe;color:#075985;font-size:.75rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card" id="login-card">
+    <div style="text-align:center;margin-bottom:12px">
+      <img src="./icon-192.png" alt="آیکون مدرسه" width="72" height="72" style="border-radius:16px;background:#e0f2fe;object-fit:cover" onerror="this.src='https://reza-2202.github.io/dastyar-madrese/icon-192.png';this.onerror=null;"/>
+    </div>
+    <h1 style="text-align:center">پرونده الکترونیکی اولیا</h1>
+    <p class="meta" style="text-align:center;margin:0 0 8px">صاحب امتیاز و سازنده: <b>رضا فلاحتکار</b><br>نسخه 2026.10.28.54</p>
+    <p class="meta" id="pkg-meta">در حال بارگذاری لینک امن…</p>
+    <div id="login-fields" style="display:none">
+      <label id="id-label">شناسه ورود</label>
+      <input id="identity" autocomplete="username"/>
+      <label>رمز اختصاصی</label>
+      <input id="password" type="password" autocomplete="current-password" dir="ltr"/>
+      <button type="button" id="btn-login">ورود به پرونده</button>
+      <div class="err" id="err"></div>
+      <p class="meta" style="margin-top:12px">رمز را فقط از معلم یا مدرسه دریافت کنید.</p>
+    </div>
+  </div>
+  <div class="card" id="view-card" style="display:none;margin-top:14px">
+    <h1 id="v-title">پرونده دانش‌آموز</h1>
+    <p class="meta" id="v-sub"></p>
+    <div id="v-body"></div>
+    <p class="meta" style="text-align:center;margin-top:12px">صاحب امتیاز و سازنده: <b>رضا فلاحتکار</b><br>نسخه 2026.10.28.54</p>
+    <button type="button" id="btn-out" style="background:#64748b;margin-top:16px">خروج</button>
+  </div>
+</div>
+<script>
+(function(){
+  var SB_URL="https://ulaxykeiusmihfvuxnxy.supabase.co";
+  var SB_KEY="sb_publishable_7T0rFOE6BDPqyym3CjSRKQ_DwOV_TN0";
+  var pkg=null, token="";
+  function $(id){return document.getElementById(id);}
+  function showErr(m){var e=$("err");e.style.display="block";e.textContent=m||"خطا";}
+  function clearErr(){var e=$("err");e.style.display="none";e.textContent="";}
+  function digits(v){
+    return String(v==null?"":v)
+      .replace(/[۰-۹]/g,function(c){return String("۰۱۲۳۴۵۶۷۸۹".indexOf(c));})
+      .replace(/[٠-٩]/g,function(c){return String("٠١٢٣٤٥٦٧٨٩".indexOf(c));})
+      .replace(/\D/g,"");
+  }
+  function b64uToBytes(s){
+    s=String(s||"").replace(/-/g,"+").replace(/_/g,"/");
+    while(s.length%4) s+="=";
+    var bin=atob(s), out=new Uint8Array(bin.length);
+    for(var i=0;i<bin.length;i++) out[i]=bin.charCodeAt(i);
+    return out;
+  }
+  async function shaHex(str){
+    var b=await crypto.subtle.digest("SHA-256", new TextEncoder().encode(String(str)));
+    return Array.from(new Uint8Array(b)).map(function(x){return x.toString(16).padStart(2,"0");}).join("");
+  }
+  async function deriveKey(secret, saltBytes){
+    var material=await crypto.subtle.importKey("raw", new TextEncoder().encode(String(secret)), "PBKDF2", false, ["deriveKey"]);
+    return crypto.subtle.deriveKey({name:"PBKDF2",salt:saltBytes,iterations:180000,hash:"SHA-256"}, material, {name:"AES-GCM",length:256}, false, ["decrypt"]);
+  }
+  async function decompress(bytes){
+    try{
+      if(!window.DecompressionStream) return bytes;
+      var ds=new DecompressionStream("gzip");
+      var stream=new Blob([bytes]).stream().pipeThrough(ds);
+      return new Uint8Array(await new Response(stream).arrayBuffer());
+    }catch(e){ return bytes; }
+  }
+  function parentSecret(identity, password, mode){
+    if(mode==="password_only") return password;
+    if(mode==="code_only" || mode==="name_only") return identity;
+    return identity+":"+password;
+  }
+  function normIdentity(raw, mode){
+    var s=String(raw||"").trim();
+    if(mode==="code_only"||mode==="code_password") return digits(s);
+    if(mode==="name_only"||mode==="name_password") return s.replace(/[\s\u200c]+/g," ").toLowerCase();
+    return s;
+  }
+  async function rpc(name, args){
+    var res=await fetch(SB_URL.replace(/\/$/,"")+"/rest/v1/rpc/"+name, {
+      method:"POST",
+      headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Content-Type":"application/json"},
+      body:JSON.stringify(args||{})
+    });
+    var txt=await res.text(); var data=null;
+    try{data=txt?JSON.parse(txt):null;}catch(e){data=txt;}
+    if(!res.ok) return {data:null,error:{message:(data&&(data.message||data.error))||txt||("HTTP "+res.status)}};
+    return {data:data,error:null};
+  }
+  async function loadPackage(){
+    var h=(location.hash||"").replace(/^#/,"");
+    var q=new URLSearchParams(h.indexOf("=")>=0?h:("t="+h));
+    token=q.get("t")||q.get("token")||"";
+    if(!token) token=new URLSearchParams(location.search).get("t")||"";
+    if(!token){ $("pkg-meta").textContent="لینک نامعتبر است."; return; }
+    var tries=[
+      ["get_parent_portal_package",{p_token:token}],
+      ["get_parent_portal_package",{token:token}],
+      ["open_parent_portal_package",{p_token:token}],
+      ["parent_portal_get_package",{p_token:token}]
+    ];
+    var lastErr="بسته پرونده از سرور دریافت نشد";
+    for(var i=0;i<tries.length;i++){
+      try{
+        var r=await rpc(tries[i][0], tries[i][1]);
+        if(r.error){ lastErr=r.error.message||lastErr; continue; }
+        var data=r.data;
+        if(Array.isArray(data)) data=data[0];
+        if(data && data.package) data=data.package;
+        if(data && data.p_package) data=data.p_package;
+        if(data && data.records){ pkg=data; break; }
+        if(data && data.login_mode){ pkg=data; break; }
+      }catch(e){ lastErr=e.message||String(e); }
+    }
+    if(!pkg){
+      try{
+        var url=SB_URL.replace(/\/$/,"")+"/rest/v1/parent_portal_packages?token=eq."+encodeURIComponent(token)+"&select=*&limit=1";
+        var res=await fetch(url,{headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY}});
+        var arr=await res.json();
+        if(Array.isArray(arr)&&arr[0]) pkg=arr[0].package||arr[0].p_package||arr[0].payload||arr[0];
+      }catch(e){}
+    }
+    if(!pkg || !pkg.records){
+      $("pkg-meta").textContent="دریافت پرونده ممکن نشد: "+lastErr;
+      return;
+    }
+    var mode=pkg.login_mode||"code_password";
+    $("pkg-meta").innerHTML="مدرسه: <b>"+(pkg.school||"—")+"</b><br>کلاس: <b>"+(pkg.class_name||"—")+"</b><br>روش ورود: <span class=\"badge\">"+mode+"</span>";
+    var idLabel="شناسه ورود";
+    if(mode==="code_only"||mode==="code_password") idLabel="کد دانش‌آموزی / کد ملی";
+    if(mode==="name_only"||mode==="name_password") idLabel="نام و نام خانوادگی دانش‌آموز";
+    if(mode==="password_only"){ $("identity").style.display="none"; $("id-label").style.display="none"; }
+    $("id-label").textContent=idLabel;
+    $("login-fields").style.display="block";
+  }
+  async function doLogin(){
+    clearErr();
+    if(!pkg){ showErr("بسته پرونده آماده نیست"); return; }
+    var mode=pkg.login_mode||"code_password";
+    var identity=normIdentity($("identity").value, mode);
+    var password=String($("password").value||"");
+    if(mode!=="password_only" && !identity){ showErr("شناسه ورود را وارد کنید"); return; }
+    if((mode==="password_only"||mode==="code_password"||mode==="name_password") && !password){ showErr("رمز اختصاصی را وارد کنید"); return; }
+    if(mode==="code_only"||mode==="name_only") password="";
+    try{
+      var secret=parentSecret(identity, password, mode);
+      var loginHash=await shaHex(String(pkg.package_salt||"")+"|"+mode+"|"+identity);
+      var rec=null;
+      (pkg.records||[]).forEach(function(r){ if(String(r.login_hash)===String(loginHash)) rec=r; });
+      if(!rec){
+        var alt=await shaHex(String(pkg.package_salt||"")+"|"+mode+"|"+String($("identity").value||"").trim());
+        (pkg.records||[]).forEach(function(r){ if(String(r.login_hash)===String(alt)) rec=r; });
+      }
+      if(!rec){ showErr("شناسه یا رمز نادرست است"); return; }
+      var key=await deriveKey(secret, b64uToBytes(rec.salt));
+      var plain=await crypto.subtle.decrypt({name:"AES-GCM",iv:b64uToBytes(rec.iv)}, key, b64uToBytes(rec.data));
+      var bytes=await decompress(new Uint8Array(plain));
+      var payload=JSON.parse(new TextDecoder().decode(bytes));
+      renderPayload(payload);
+    }catch(e){
+      console.error(e);
+      showErr("ورود ناموفق بود. شناسه/رمز را بررسی کنید.");
+    }
+  }
+  function renderPayload(p){
+    var st=p.student||{};
+    $("login-card").style.display="none"; $("view-card").style.display="block";
+    $("v-title").textContent=((st.first_name||"")+" "+(st.last_name||"")).trim()||"پرونده دانش‌آموز";
+    var updated=p.updated_at||""; try{if(updated){var d=new Date(updated);if(!isNaN(d.getTime()))updated=d.toLocaleString("fa-IR");}}catch(e){}
+    $("v-sub").textContent=(pkg.class_name||"")+(updated?(" | آخرین به‌روزرسانی: "+updated):"");
+    function esc(v){return String(v==null?"":v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
+    function faDigits(v){return String(v==null?"":v).replace(/[0-9]/g,function(d){return "۰۱۲۳۴۵۶۷۸۹"[Number(d)];});}
+    function trStatus(v){var s=String(v||"").toLowerCase().trim();var m={present:"حاضر",absent:"غایب",excused:"غایب موجه",late:"تأخیر",absent_excused:"غایب موجه",absent_unexcused:"غایب غیرموجه",unexcused:"غایب غیرموجه",motevajjeh:"غایب موجه","حاضر":"حاضر","غایب":"غایب","موجه":"غایب موجه","تاخیر":"تأخیر","تأخیر":"تأخیر"};return m[s]||m[String(v||"").trim()]||(v?String(v):"—");}
+    function trLevel(v){var s=String(v||"").toLowerCase().trim();var m={"very good":"خیلی خوب",very_good:"خیلی خوب",excellent:"عالی",good:"خوب",acceptable:"قابل قبول","need effort":"نیاز به تلاش","needs effort":"نیاز به تلاش",needs_effort:"نیاز به تلاش",need_effort:"نیاز به تلاش",poor:"نیاز به تلاش",weak:"نیاز به تلاش",fair:"قابل قبول",average:"قابل قبول","خیلی خوب":"خیلی خوب","خوب":"خوب","قابل قبول":"قابل قبول","نیاز به تلاش":"نیاز به تلاش","عالی":"عالی"};return m[s]||m[String(v||"").trim()]||(v?String(v):"—");}
+    function trSubject(v){var s=String(v||"").trim();var m={Math:"ریاضی",Mathematics:"ریاضی",math:"ریاضی",Science:"علوم",science:"علوم",Persian:"فارسی",Farsi:"فارسی",persian:"فارسی",Quran:"قرآن",quran:"قرآن",Social:"مطالعات اجتماعی",sport:"تربیت بدنی",Sport:"تربیت بدنی",PE:"تربیت بدنی",Art:"هنر",art:"هنر",English:"انگلیسی",english:"انگلیسی"};return m[s]||s||"—";}
+    function arr(v){return Array.isArray(v)?v:[];}
+    function list(title,rows,fmt){rows=arr(rows);var h="<div class=\"section\"><h3>"+title+" ("+faDigits(rows.length)+")</h3>";if(!rows.length)return h+"<div class=\"item\">موردی ثبت نشده است</div></div>";return h+rows.map(fmt).join("")+"</div>";}
+    function dateSort(rows){return arr(rows).slice().sort(function(a,b){return String(b.date||b.created_at||"").localeCompare(String(a.date||a.created_at||""));});}
+    function referralMeta(a){try{var m=JSON.parse(String(a&&a.notes||''));return m&&m.tag==='DASTYAR_SCHOOL_FOLLOWUP_REFERRAL_V2'?m:null;}catch(e){return null;}}
+    function referralList(label,keys){
+      var rows=arr(p.school_followups).filter(function(a){var m=referralMeta(a);return m&&keys.indexOf(m.source_type)>=0;});
+      if(!rows.length)return '';
+      return list('نتیجه پیگیری مدیریت — '+label,dateSort(rows),function(a){
+        var m=referralMeta(a)||{},st=m.status==='done'?'پیگیری انجام شد':m.status==='in_progress'?'در حال پیگیری':'در انتظار پیگیری';
+        var records=arr(m.source_records).slice(0,5).map(function(r){return '<div class="meta">• '+esc(r.date||'')+' — '+esc(r.subject||'')+' — '+esc(r.level||r.status||'')+'</div>';}).join('');
+        return '<div class="item"><b>وضعیت: '+esc(st)+'</b> — مسئول پیگیری: '+esc(m.assignee||'تعیین نشده')+
+          '<div>ارجاع‌دهنده: '+esc(m.teacher_name||a.recorded_by||'معلم')+' | تعداد موارد: '+esc(m.trigger_count||0)+'</div>'+
+          (m.followup_result?'<div><b>نتیجه و اقدام مدیریت:</b> '+esc(m.followup_result)+'</div>':'<div>نتیجه پیگیری هنوز ثبت نشده است.</div>')+
+          (m.followup_at?'<div>تاریخ پیگیری: '+esc(m.followup_at)+'</div>':'')+records+'</div>';
+      });
+    }
+    var html="";
+    var custom=st.custom_fields||{};if(typeof custom==="string"){try{custom=JSON.parse(custom)}catch(e){custom={}}}
+    var customRows=Array.isArray(custom)?custom.filter(function(x){return x&&String(x.title||"").trim();}):Object.keys(custom&&typeof custom==="object"?custom:{}).map(function(k){return {title:k,value:custom[k]};});
+    html+=list("سایر مشخصات دانش‌آموز",customRows,function(x){return "<div class=\"item\"><b>"+esc(x.title||"مشخصه")+":</b> "+esc(x.value)+"</div>";});
+    html+=list("حضور و غیاب",dateSort(p.attendance),function(a){return "<div class=\"item\">"+faDigits(esc(a.weekday||""))+" "+faDigits(esc(a.date||""))+" — "+esc(trStatus(a.status))+(a.notice_approved?" — تأیید مدیر ثبت شده":"")+(a.recorded_by?" — ثبت‌کننده: "+esc(a.recorded_by):"")+(a.note?(" — "+esc(a.note)):"")+"</div>";});
+    html+=referralList("حضور و غیاب",["attendance"]);
+    var allActivities=arr(p.activities);
+    var exams=arr(p.exams);if(!exams.length)exams=allActivities.filter(function(a){return a&&a.type==="exam";});
+    var followups=arr(p.absence_followups);if(!followups.length)followups=allActivities.filter(function(a){return a&&(a.type==="absence_followup"||a.subject==="پیگیری غیبت مدیر");});
+    var activities=allActivities.filter(function(a){return a&&a.type!=="exam"&&a.type!=="absence_followup"&&a.subject!=="پیگیری غیبت مدیر";});
+    html+=list("پرسش و پاسخ / فعالیت",dateSort(activities),function(a){return "<div class=\"item\">"+faDigits(esc(a.date||""))+" — "+esc(trSubject(a.subject||a.lesson||""))+" — "+esc(trLevel(a.level||a.score||a.result||""))+(a.notes?(" — "+esc(a.notes)):"")+(a.recorded_by?(" — ثبت‌کننده: "+esc(a.recorded_by)):"")+"</div>";});
+    html+=referralList("پرسش و پاسخ و فعالیت کلاسی",["qa","activity"]);
+    html+=list("آزمون‌های کتبی / مدادکاغذی",dateSort(exams),function(a){return "<div class=\"item\"><b>"+esc(a.exam_name||a.name||a.subject||"آزمون")+"</b> — "+faDigits(esc(a.weekday||""))+" "+faDigits(esc(a.date||""))+" — درس: "+esc(trSubject(a.subject||a.lesson||""))+" — نمره: "+esc(a.score==null||a.score===""?"—":a.score)+" — "+esc(trLevel(a.level||""))+(a.chapters?(" — مباحث: "+esc(a.chapters)):"")+(a.notes||a.desc_text||a.description?(" — "+esc(a.notes||a.desc_text||a.description)):"")+(a.recorded_by?(" — ثبت‌کننده: "+esc(a.recorded_by)):"")+"</div>";});
+    html+=referralList("آزمون‌ها",["exam"]);
+    html+=list("سوابق پیگیری غیبت",dateSort(followups),function(a){var raw=String(a.notes||"");var token=raw.match(/\[ABSENCE_CYCLE:([^|\]]+)\|([^\]]+)\]/);var range=raw.match(/چرخه پیگیری:\s*([^\n]+)/);var count=raw.match(/تعداد غیبت\/تأخیر در این چرخه:\s*([^\n]+)/);var clean=raw.replace(/^\[ABSENCE_CYCLE:[^\]]+\]\s*/,"").replace(/چرخه پیگیری:[^\n]*\n?/,"").replace(/تعداد غیبت\/تأخیر در این چرخه:[^\n]*\n?/,"").replace(/^توضیحات مدیر:\s*/,"").trim();return "<div class=\"item\"><b>رسیدگی مستقل</b>"+(token?" — "+esc(token[1])+" تا "+esc(token[2]):"")+" — "+faDigits(esc(range?range[1]:(a.date||"")))+(count?" — "+esc(count[1]):"")+(clean?"<div>"+esc(clean)+"</div>":"")+(a.recorded_by?" — ثبت‌کننده: "+esc(a.recorded_by):"")+"</div>";});
+    html+=list("ارزشیابی",dateSort(p.evaluations),function(a){return "<div class=\"item\">"+faDigits(esc(a.month||a.date||""))+" — "+esc(trSubject(a.subject||""))+" — "+esc(trLevel(a.level||a.score||""))+(a.score!=null?(" — نمره: "+esc(a.score)):"")+(a.notes?(" — "+esc(a.notes)):"")+(a.recorded_by?(" — ثبت‌کننده: "+esc(a.recorded_by)):"")+"</div>";});
+    html+=referralList("ارزشیابی درسی",["evaluation"]);
+    html+=list("نمرات",dateSort(p.scores),function(a){return "<div class=\"item\">"+esc(trSubject(a.subject||""))+" — نمره: "+esc(a.score==null?"—":a.score)+" — "+esc(trLevel(a.level||""))+(a.notes?(" — "+esc(a.notes)):"")+"</div>";});
+    html+=referralList("نمرات کارنامه",["scores"]);
+    var progressByDate=Object.create(null),progressSubjects=[],progressSeen=Object.create(null);
+    function progressValue(r){
+      var raw=r&&r.score;
+      if(raw!=null&&raw!==""){var n=Number(String(raw).replace(/[۰-۹]/g,function(d){return "۰۱۲۳۴۵۶۷۸۹".indexOf(d);}).replace(/[٠-٩]/g,function(d){return "٠١٢٣٤٥٦٧٨٩".indexOf(d);}).replace(/,/g,""));if(Number.isFinite(n)){var pct=Math.max(0,Math.min(100,n>20?n:n*5));return {percent:pct,grade20:pct/5};}}
+      var lv={"excellent":95,"good":80,"acceptable":60,"needs":35,"خیلی خوب":95,"خوب":80,"قابل قبول":60,"نیاز به تلاش":35},key=String(r&&(r.level||r.result)||"").trim().toLowerCase();
+      return Object.prototype.hasOwnProperty.call(lv,key)?{percent:lv[key],grade20:lv[key]/5}:null;
+    }
+    function addProgress(r){
+      if(!r)return;var rid=String(r.id||"");if(rid&&progressSeen[rid])return;if(rid)progressSeen[rid]=true;
+      var date=String(r.date||r.created_at||r.updated_at||"").slice(0,10),v=progressValue(r),subject=trSubject(r.subject||r.lesson||r.exam_name||r.name||"درس نامشخص")||"درس نامشخص";
+      if(!date||!v)return;if(!progressByDate[date])progressByDate[date]=Object.create(null);
+      if(!progressByDate[date][subject]){progressByDate[date][subject]=[];if(progressSubjects.indexOf(subject)<0)progressSubjects.push(subject);}
+      progressByDate[date][subject].push(v);
+    }
+    arr(p.activities).filter(function(a){return a&&(a.type==="qa"||a.type==="exam");}).forEach(addProgress);arr(p.exams).forEach(addProgress);arr(p.evaluations).forEach(addProgress);arr(p.scores).forEach(addProgress);
+    var progressDates=Object.keys(progressByDate).sort(),progressSeries=progressSubjects.map(function(subject){return {subject:subject,values:progressDates.map(function(date){var values=progressByDate[date][subject]||[];if(!values.length)return null;return {percent:values.reduce(function(a,v){return a+v.percent;},0)/values.length,grade20:values.reduce(function(a,v){return a+v.grade20;},0)/values.length,count:values.length};})};});
+    function progressChartSvg(kind){
+      var W=760,H=330,L=58,R=22,T=24,B=54,pw=W-L-R,ph=H-T-B,palette=["#2563eb","#0f766e","#d97706","#7c3aed","#db2777","#0891b2","#65a30d","#dc2626"];
+      function x(i){return L+(progressDates.length<=1?pw/2:i*pw/(progressDates.length-1));}
+      function y(v){return T+ph-Math.max(0,Math.min(100,v))/100*ph;}
+      var grid="";for(var n=0;n<=4;n++){var v=n*25,yy=y(v);grid+='<line x1="'+L+'" y1="'+yy.toFixed(1)+'" x2="'+(W-R)+'" y2="'+yy.toFixed(1)+'" stroke="#e8edf5"/><text x="'+(L-10)+'" y="'+(yy+4).toFixed(1)+'" text-anchor="end" font-size="11" fill="#64748b">'+faDigits(v)+'٪</text>';}
+      var labels="",step=Math.max(1,Math.ceil(progressDates.length/8));progressDates.forEach(function(date,i){if(i%step===0||i===progressDates.length-1)labels+='<text x="'+x(i).toFixed(1)+'" y="'+(H-22)+'" text-anchor="middle" font-size="10" fill="#64748b">'+esc(date.slice(5))+'</text>';});
+      var axes='<line x1="'+L+'" y1="'+T+'" x2="'+L+'" y2="'+(T+ph)+'" stroke="#94a3b8"/><line x1="'+L+'" y1="'+(T+ph)+'" x2="'+(W-R)+'" y2="'+(T+ph)+'" stroke="#94a3b8"/>';
+      var marks="";
+      if(kind==="bar"){
+        var slot=pw/Math.max(1,progressDates.length),bw=Math.max(4,Math.min(23,slot/Math.max(1,progressSeries.length)*.72));
+        progressDates.forEach(function(date,di){var total=bw*progressSeries.length,start=x(di)-total/2;progressSeries.forEach(function(s,si){var r=s.values[di];if(!r)return;var xx=start+si*bw,yy=y(r.percent),hh=T+ph-yy,col=palette[si%palette.length];marks+='<rect x="'+xx.toFixed(1)+'" y="'+yy.toFixed(1)+'" width="'+Math.max(2,bw-1).toFixed(1)+'" height="'+Math.max(1,hh).toFixed(1)+'" rx="3" fill="'+col+'"><title>'+esc(s.subject)+' — '+esc(date)+' — '+faDigits(r.grade20.toFixed(1))+' از ۲۰، '+faDigits(r.percent.toFixed(1))+'٪</title></rect>';});});
+      }else{
+        var paths="";progressSeries.forEach(function(s,si){var col=palette[si%palette.length],segment=[];function draw(seg){if(!seg.length)return;if(seg.length===1){var p=seg[0];marks+='<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="4.5" fill="'+col+'"/>';return;}var d="M "+seg[0].x.toFixed(1)+" "+seg[0].y.toFixed(1);for(var k=1;k<seg.length;k++){var prev=seg[k-1],cur=seg[k],mx=(prev.x+cur.x)/2;d+=" Q "+mx.toFixed(1)+" "+prev.y.toFixed(1)+" "+cur.x.toFixed(1)+" "+cur.y.toFixed(1);}paths+='<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="3.6" stroke-dasharray="'+(si%3===1?'8 4':si%3===2?'2 4':'none')+'" stroke-linecap="round" stroke-linejoin="round"/>';}
+          s.values.forEach(function(r,i){if(!r){draw(segment);segment=[];return;}var point={x:x(i),y:y(r.percent),date:progressDates[i],r:r};segment.push(point);marks+='<circle cx="'+point.x.toFixed(1)+'" cy="'+point.y.toFixed(1)+'" r="5.1" fill="'+col+'" stroke="#fff" stroke-width="2"><title>'+esc(s.subject)+' — '+esc(point.date)+' — '+faDigits(r.grade20.toFixed(1))+' از ۲۰، '+faDigits(r.percent.toFixed(1))+'٪</title></circle>'+(progressDates.length<=14?'<text x="'+point.x.toFixed(1)+'" y="'+(point.y<46?point.y+16:point.y-9).toFixed(1)+'" text-anchor="middle" font-size="10" font-weight="800" fill="'+col+'" stroke="#fff" stroke-width="3" paint-order="stroke">'+faDigits(r.grade20.toFixed(1))+'</text>':'');});draw(segment);});
+        marks=paths+marks;
+      }
+      return '<svg role="img" aria-label="'+(kind==="bar"?"نمودار میله‌ای نمرات هر درس در روزهای مختلف":"نمودار خطی روند هر درس در روزهای مختلف")+'" viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block;print-color-adjust:exact;-webkit-print-color-adjust:exact" xmlns="http://www.w3.org/2000/svg">'+grid+axes+marks+labels+'</svg>';
+    }
+    if(progressDates.length&&progressSeries.length){
+      var latestValues=progressSeries.map(function(s){return s.values[s.values.length-1];}).filter(Boolean),latestCount=latestValues.reduce(function(a,v){return a+v.count;},0),latestPercent=latestValues.length?latestValues.reduce(function(a,v){return a+v.percent;},0)/latestValues.length:0,latestGrade=latestPercent/5;
+      var trendRows=progressSeries.map(function(s){var pts=s.values.map(function(v,i){return v?{date:progressDates[i],value:v}:null;}).filter(Boolean);if(pts.length<2)return {subject:s.subject,status:"داده کافی نیست",delta:null,first:pts[0]||null,last:pts[pts.length-1]||null};var delta=pts[pts.length-1].value.grade20-pts[0].value.grade20;return {subject:s.subject,status:delta>=.5?"روند پیشرفت":delta<=-.5?"روند افت":"تقریباً ثابت",delta:delta,first:pts[0],last:pts[pts.length-1]};});
+      var trendUp=trendRows.filter(function(r){return r.status==="روند پیشرفت";}).length,trendDown=trendRows.filter(function(r){return r.status==="روند افت";}).length,trendFlat=trendRows.filter(function(r){return r.status==="تقریباً ثابت";}).length,trendEnough=trendRows.length-trendRows.filter(function(r){return r.delta===null;}).length;
+      var trendSummary=trendEnough?("در بازه بررسی‌شده، "+faDigits(trendUp)+" درس روند پیشرفت، "+faDigits(trendDown)+" درس روند افت و "+faDigits(trendFlat)+" درس روند تقریباً ثابت داشته‌اند."):"برای تحلیل تغییرات، از هر درس دست‌کم دو نوبت ثبت نمره لازم است.";
+      var trendHtml='<div style="margin-top:9px;padding:9px 10px;border:1px solid #dbeafe;border-right:4px solid #2563eb;border-radius:9px;background:#f8fbff;break-inside:avoid"><b style="color:#1e3a8a">تحلیل کوتاه روند تحصیلی</b><div class="meta" style="line-height:1.8">'+trendSummary+'</div>'+trendRows.map(function(r){return '<div class="meta" style="line-height:1.8">• '+esc(r.subject)+': '+r.status+(r.delta===null?'':(' ('+(r.delta>0?'+':'')+faDigits(r.delta.toFixed(1))+' نمره از ۲۰؛ از '+esc(r.first.date)+' تا '+esc(r.last.date)+')'))+'</div>';}).join('')+'<div class="meta" style="font-size:.66rem;margin-top:3px">مبنای تحلیل: اختلاف نخستین و آخرین نمره ثبت‌شده هر درس؛ تغییر کمتر از نیم نمره، تقریباً ثابت در نظر گرفته شده است.</div></div>';
+      var paletteLegend=["#2563eb","#0f766e","#d97706","#7c3aed","#db2777","#0891b2","#65a30d","#dc2626"];
+      var legend='<div class="meta" style="display:flex;flex-wrap:wrap;gap:5px 12px;margin:6px 0">'+progressSeries.map(function(s,i){return '<span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:'+paletteLegend[i%paletteLegend.length]+'"></i> '+esc(s.subject)+'</span>';}).join('')+'</div>';
+      html+='<div class="section"><h3>روند پیشرفت و افت تحصیلی</h3><div class="meta">نمره و درصد هر درس در روزهای مختلف؛ رنگ هر درس در راهنمای نمودار مشخص است.</div><div class="item"><b>نمودار میله‌ای نمره و درصد به تفکیک درس</b>'+legend+progressChartSvg("bar")+'</div><div class="item"><b>نمودار خطی روند هر درس در روزهای مختلف</b><div class="meta">رنگ و نوع خط هر درس متفاوت است؛ نمره از ۲۰ کنار هر نقطه درج می‌شود.</div>'+legend+progressChartSvg("line")+trendHtml+'</div><div class="meta">آخرین میانگین درس‌های ثبت‌شده: '+faDigits(latestGrade.toFixed(1))+' از ۲۰ | '+faDigits(latestPercent.toFixed(1))+'٪ | تعداد ثبت‌ها: '+faDigits(latestCount)+'</div></div>';
+    }else{
+      html+='<div class="section"><h3>روند پیشرفت تحصیلی</h3><div class="item">برای رسم نمودار، هنوز نمره یا ارزشیابی درسی تاریخ‌دار ثبت نشده است.</div></div>';
+    }
+    html+=list("شایستگی‌ها",dateSort(p.competencies),function(a){return "<div class=\"item\">"+esc(a.name||a.title||"شایستگی")+" — "+esc(trLevel(a.level||a.result||a.score||""))+(a.notes?(" — "+esc(a.notes)):"")+"</div>";});
+    html+=referralList("شایستگی‌ها",["competencies"]);
+    html+=list("افتخارات و تشویق‌ها",dateSort(p.achievements),function(a){var medal={bronze:"برنزی",silver:"نقره‌ای",gold:"طلایی",special:"نشان ویژه افتخار"};return "<div class=\"item\" style=\"border-right:4px solid #d4a017;padding:8px;background:#fffbeb\"><b>"+esc(a.title||"تشویق دانش‌آموز")+"</b> — "+faDigits(esc(a.date||""))+(a.category?" — "+esc(a.category):"")+(a.reason?"<div>"+esc(a.reason)+"</div>":"")+(a.medal_image_url?"<div><img alt=\"مدال\" src=\""+esc(a.medal_image_url)+"\" style=\"width:54px;height:62px;object-fit:contain;vertical-align:middle\"/>":"<div>")+(a.medal_level?" نشان "+esc(medal[a.medal_level]||a.medal_level):"")+(a.award_type?" — "+esc(a.award_type):"")+"</div>"+(a.status?"<div>وضعیت: "+esc(a.status==="approved"?"تأییدشده":a.status==="rejected"?"ردشده":a.status)+"</div>":"")+(a.decision_text?"<div style=\"white-space:pre-wrap\">توضیح مدیر: "+esc(a.decision_text)+"</div>":"")+(a.created_by?"<small>ثبت‌کننده: "+esc(a.created_by)+"</small>":"")+(a.reviewed_by?"<small>بررسی‌کننده: "+esc(a.reviewed_by)+"</small>":"")+"</div>";});
+    html+=list("انضباط",dateSort(p.discipline),function(a){return "<div class=\"item\">"+faDigits(esc(a.date||""))+" — "+esc(a.feedback||a.category||a.topic||"—")+(a.details?(" — "+esc(a.details)):"")+(a.decision_text?(" — "+esc(a.decision_text)):"")+(a.status?(" — وضعیت: "+esc(a.status==="approved"?"رسیدگی شده":a.status)):"")+(a.created_by?(" — ثبت‌کننده: "+esc(a.created_by)):"")+(a.approved_by?(" — تأییدکننده: "+esc(a.approved_by)):"")+"</div>";});
+    html+=referralList("انضباطی",["discipline"]);
+    html+=list("سوابق مالی",dateSort(p.finance),function(a){var amount=a.amount==null?"—":faDigits(a.amount);return "<div class=\"item\"><b>"+esc(a.topic||a.title||"مالی")+"</b> — "+faDigits(esc(a.date||""))+" — مبلغ: "+esc(amount)+(a.notes?(" — "+esc(a.notes)):"")+(a.status?(" — وضعیت: "+esc(a.status)):"")+(a.created_by?(" — ثبت‌کننده: "+esc(a.created_by)):"")+"</div>";});
+    html+=list("ارتباط و پیگیری با اولیا",dateSort(p.parent_contacts),function(a){var types={call:"تماس",message:"پیام",inperson:"حضوری",other:"سایر"};return "<div class=\"item\"><b>"+esc(types[a.contact_type]||a.contact_type||"ارتباط")+"</b> — "+faDigits(esc(a.date||""))+(a.phone?(" — "+esc(a.phone)):"")+(a.subject?(" — موضوع: "+esc(a.subject)):"")+(a.result?(" — نتیجه: "+esc(a.result)):"")+(a.follow_up_date?(" — پیگیری: "+faDigits(esc(a.follow_up_date))):"")+(a.notes?(" — "+esc(a.notes)):"")+(a.recorded_by?(" — ثبت‌کننده: "+esc(a.recorded_by)):"")+"</div>";});
+    $("v-body").innerHTML=html;
+  }
+$("btn-login").onclick=function(e){ e.preventDefault(); doLogin(); };
+  $("password").onkeydown=function(e){ if(e.key==="Enter"){ e.preventDefault(); doLogin(); } };
+  $("identity").onkeydown=function(e){ if(e.key==="Enter"){ e.preventDefault(); doLogin(); } };
+  $("btn-out").onclick=function(){ location.reload(); };
+  loadPackage();
+})();
+</script>
+</body>
+</html>
