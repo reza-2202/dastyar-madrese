@@ -14458,7 +14458,7 @@ async function shareAward(id){
    if(!awardTemplateCtx)throw new Error('ساخت بوم تقدیرنامه ممکن نشد');
    awardTemplateCtx.drawImage(awardTemplateImage,0,0,1200,1200);
    awardTemplateCtx.direction='rtl';awardTemplateCtx.textAlign='center';awardTemplateCtx.textBaseline='middle';
-   function drawAwardText(text,x,y){awardTemplateCtx.lineJoin='round';awardTemplateCtx.lineWidth=10;awardTemplateCtx.strokeStyle='#172033';awardTemplateCtx.strokeText(text,x,y);awardTemplateCtx.lineWidth=5;awardTemplateCtx.strokeStyle='#fff';awardTemplateCtx.strokeText(text,x,y);drawAwardText(text,x,y)}
+   function drawAwardText(text,x,y){awardTemplateCtx.lineJoin='round';awardTemplateCtx.lineWidth=10;awardTemplateCtx.strokeStyle='#172033';awardTemplateCtx.strokeText(text,x,y);awardTemplateCtx.lineWidth=5;awardTemplateCtx.strokeStyle='#fff';awardTemplateCtx.strokeText(text,x,y);awardTemplateCtx.fillText(text,x,y)}
    awardTemplateCtx.fillStyle='#64748b';awardTemplateCtx.font='bold 38px "Noto Nastaliq Urdu", Vazirmatn, serif';
    drawAwardText('دبستان شهید فتح‌الله فلاح‌پور',600,365);
    awardTemplateCtx.fillStyle='#8a6418';awardTemplateCtx.font='bold 62px "Noto Nastaliq Urdu", Vazirmatn, serif';
