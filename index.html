@@ -14421,12 +14421,36 @@ function renderPage(){
  var actions='';
  if(isAdmin()&&r.status==='pending')actions='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button class="btn btn-s btn-sm" data-ach-approve="'+esc(r.id)+'">تأیید و ثبت تقدیر</button><button class="btn btn-o btn-sm" data-ach-reject="'+esc(r.id)+'">رد درخواست</button></div>';
  else if(isAdmin()&&(r.status==='approved'||r.status==='rejected'))actions='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button class="btn btn-o btn-sm" data-ach-hide="'+esc(r.id)+'">حذف فقط از فهرست مدیر</button><button class="btn btn-o btn-sm" data-ach-delete="'+esc(r.id)+'" style="border-color:#dc2626;color:#b91c1c">حذف کامل از همه پرونده‌ها</button></div>';
+ if(isAdmin()&&r.status==='approved')actions+='<button class="btn btn-p btn-sm" data-ach-share="'+esc(r.id)+'" style="margin-top:7px">⬇️ دانلود / اشتراک‌گذاری تقدیرنامه</button>';
  return '<div class="card" style="border-right:4px solid '+m[2]+'"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>'+esc(r.title||'تشویق')+' — '+esc(studentLabel(r.student_id))+'</b><span>'+m[0]+' '+esc(status)+'</span></div><div class="meta">'+esc(classLabel(r.class_id))+' | '+esc(r.date||'')+' | '+esc(r.created_by||'')+' | '+esc(r.category||'')+'</div><p style="white-space:pre-wrap;margin-top:7px">'+esc(r.reason||'')+'</p>'+(r.decision_text?'<div style="padding:7px;background:#f0fdf4;border-radius:8px;margin-top:7px">نتیجه مدیر: '+esc(r.decision_text)+'</div>':'')+(r.medal_level?'<div style="display:flex;align-items:center;gap:8px;margin-top:6px;color:'+m[2]+';font-weight:800"><img alt="مدال '+esc(m[1])+'" src="'+esc(r.medal_image_url||medalImage(r.medal_level))+'" style="width:62px;height:72px;object-fit:contain;filter:drop-shadow(0 2px 4px #0002)"/>'+m[0]+' نشان '+m[1]+'</div>':'')+actions+'</div>';
  }).join('')||'<div class="empty">هنوز تشویقی ثبت نشده است.</div>';
  root.querySelectorAll('[data-ach-approve]').forEach(function(btn){btn.onclick=function(){review(btn.getAttribute('data-ach-approve'),'approved')}});
  root.querySelectorAll('[data-ach-reject]').forEach(function(btn){btn.onclick=function(){review(btn.getAttribute('data-ach-reject'),'rejected')}});
  root.querySelectorAll('[data-ach-hide]').forEach(function(btn){btn.onclick=function(){hideFromManager(btn.getAttribute('data-ach-hide'))}});
  root.querySelectorAll('[data-ach-delete]').forEach(function(btn){btn.onclick=function(){deleteAchievementEverywhere(btn.getAttribute('data-ach-delete'))}});
+ root.querySelectorAll('[data-ach-share]').forEach(function(btn){btn.onclick=function(){shareAward(btn.getAttribute('data-ach-share'))}});
+}
+async function shareAward(id){
+ if(!isAdmin()){toast('اشتراک‌گذاری تقدیرنامه فقط از پنل مدیر امکان‌پذیر است');return}
+ var r=rows.find(function(x){return String(x.id)===String(id)});
+ if(!r||r.status!=='approved'){toast('تقدیرنامه تأییدشده پیدا نشد');return}
+ try{
+  var name=studentLabel(r.student_id),award=String(r.award_type||'تقدیرنامه'),level=r.medal_level?medal(r)[1]:'';
+  function lines(value,max){var words=String(value||'').split(/\s+/),out=[],line='';words.forEach(function(w){if(!w)return;var next=line?line+' '+w:w;if(next.length>max&&line){out.push(line);line=w}else line=next});if(line)out.push(line);return out.slice(0,3)}
+  var reasonLines=lines(r.reason||r.decision_text||'به پاس تلاش، کوشش و پیشرفت ارزشمند',48);
+  var reasonSvg=reasonLines.map(function(x,i){return '<text x="600" y="'+(485+i*48)+'" text-anchor="middle" direction="rtl" unicode-bidi="plaintext" font-family="Vazirmatn, sans-serif" font-size="27" fill="#334155">'+esc(x)+'</text>'}).join('');
+  var medalSvg=r.medal_level?'<g transform="translate(545 155)"><path d="M-35 0h28l16 82h-28zM7 0h28L19 82h-28z" fill="#b7791f"/><circle cx="0" cy="108" r="58" fill="'+(r.medal_level==='bronze'?'#b45309':r.medal_level==='silver'?'#94a3b8':r.medal_level==='special'?'#7c3aed':'#d4a017')+'" stroke="#f8df91" stroke-width="9"/><circle cx="0" cy="108" r="40" fill="#fff1b8"/><path d="M0 77l9 21 23 2-17 15 5 23-20-12-20 12 5-23-17-15 23-2z" fill="#b7791f"/></g>':'';
+  var svg='<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="850" viewBox="0 0 1200 850"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fffdf4"/><stop offset="1" stop-color="#fff"/></linearGradient></defs><rect width="1200" height="850" rx="24" fill="url(#bg)"/><rect x="28" y="28" width="1144" height="794" rx="18" fill="none" stroke="#bd963f" stroke-width="8"/><rect x="48" y="48" width="1104" height="754" rx="12" fill="none" stroke="#e7d39a" stroke-width="3"/><text x="600" y="105" text-anchor="middle" direction="rtl" font-family="Vazirmatn, sans-serif" font-size="30" fill="#64748b">دبستان شهید فتح‌الله فلاح‌پور</text>'+medalSvg+'<text x="600" y="'+(r.medal_level?'390':'270')+'" text-anchor="middle" direction="rtl" font-family="Vazirmatn, sans-serif" font-size="54" font-weight="bold" fill="#8a6418">✦ لوح سپاس و تقدیر ✦</text><text x="600" y="'+(r.medal_level?'450':'330')+'" text-anchor="middle" direction="rtl" font-family="Vazirmatn, sans-serif" font-size="31" fill="#334155">'+esc(award)+(level?' — نشان '+esc(level):'')+'</text><text x="600" y="'+(r.medal_level?'520':'400')+'" text-anchor="middle" direction="rtl" font-family="Vazirmatn, sans-serif" font-size="28" fill="#475569">تقدیم به دانش‌آموز شایسته</text><text x="600" y="'+(r.medal_level?'570':'450')+'" text-anchor="middle" direction="rtl" font-family="Vazirmatn, sans-serif" font-size="43" font-weight="bold" fill="#1e3a8a">'+esc(name)+'</text>'+reasonSvg+'<text x="600" y="700" text-anchor="middle" direction="rtl" font-family="Vazirmatn, sans-serif" font-size="24" fill="#64748b">تاریخ: '+esc(r.date||'')+'</text><text x="600" y="755" text-anchor="middle" direction="rtl" font-family="Vazirmatn, sans-serif" font-size="27" font-weight="bold" fill="#8a6418">مدیریت دبستان</text></svg>';
+  var svgBlob=new Blob([svg],{type:'image/svg+xml;charset=utf-8'}),url=URL.createObjectURL(svgBlob),img=new Image();
+  var pngBlob=await new Promise(function(resolve,reject){img.onload=function(){try{var canvas=document.createElement('canvas');canvas.width=1200;canvas.height=850;var ctx=canvas.getContext('2d');ctx.drawImage(img,0,0,1200,850);canvas.toBlob(function(blob){if(blob)resolve(blob);else reject(new Error('تبدیل تصویر انجام نشد'))},'image/png')}catch(e){reject(e)}};img.onerror=function(){reject(new Error('ساخت تصویر ناموفق بود'))};img.src=url});
+  URL.revokeObjectURL(url);
+  var safeName=name.replace(/[^\u0600-\u06FF\w-]+/g,'-').replace(/^-+|-+$/g,'')||'دانش‌آموز';
+  var file=new File([pngBlob],'تقدیرنامه-'+safeName+'.png',{type:'image/png'});
+  if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+   try{await navigator.share({files:[file],title:'تقدیرنامه '+name,text:'تقدیرنامه دانش‌آموز '+name});toast('پنجره اشتراک‌گذاری باز شد؛ شاد را انتخاب کنید.');return}catch(shareError){if(shareError&&shareError.name==='AbortError')return;console.warn('Award share failed',shareError)}
+  }
+  var a=document.createElement('a'),downloadUrl=URL.createObjectURL(pngBlob);a.href=downloadUrl;a.download=file.name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(downloadUrl)},1500);toast('تصویر تقدیرنامه دانلود شد؛ می‌توانید آن را در شاد ارسال کنید.');
+ }catch(e){console.error('Award export failed',e);toast('ساخت فایل تقدیرنامه انجام نشد: '+(e&&e.message||e))}
 }
 async function saveRecord(kind){
  var cls=document.getElementById('ach-class'),st=document.getElementById('ach-student'),title=document.getElementById('ach-title'),reason=document.getElementById('ach-reason');
@@ -14549,15 +14573,34 @@ function installPage(){
 }
 var oldGo=window.go;
 if(typeof oldGo==='function')window.go=function(p){if(p==='achievements'){installPage();oldGo.apply(this,arguments);rows=read();renderPage();requestAnimationFrame(function(){var h=document.getElementById('ht');if(h)h.textContent='افتخارات و تشویق‌ها'});load().then(renderPage);return}return oldGo.apply(this,arguments)};
+var activeDossierStudentId=null;
 var oldDossier=window.openStudentDossier;
-if(typeof oldDossier==='function')window.openStudentDossier=function(id){var r=oldDossier.apply(this,arguments);renderDossier(id);load().then(function(){renderDossier(id)});return r};
+if(typeof oldDossier==='function')window.openStudentDossier=function(id){activeDossierStudentId=String(id);var r=oldDossier.apply(this,arguments);renderDossier(id);load().then(function(){renderDossier(id)});return r};
 var oldParentGenerate=window.generateParentPortalLink;
 if(typeof oldParentGenerate==='function')window.generateParentPortalLink=async function(){await load();return oldParentGenerate.apply(this,arguments)};
 window.__dastyarLoadAchievements=load;
 window.refreshStudentAchievements=async function(){await load();renderPage();var d=document.getElementById('print-student-dossier');if(d){var id=(d.querySelector('[data-student-id]')||{}).dataset?.studentId;if(id)renderDossier(id)}};
-window.addEventListener('online',function(){setTimeout(async function(){await syncPending();await load();renderPage()},900)});
-window.addEventListener('focus',function(){if(user&&document.getElementById(PAGE)&&document.getElementById(PAGE).classList.contains('on'))load().then(renderPage)});
-window.setInterval(function(){if(user&&navigator.onLine)syncPending();var p=document.getElementById(PAGE);if(user&&user.role==='teacher'&&p&&p.classList.contains('on')&&!document.hidden)load().then(renderPage)},10000);
+var achievementRefreshBusy=false;
+async function refreshAchievementViews(){
+ if(achievementRefreshBusy||!user||!navigator.onLine||window.isOffline||!sb||document.hidden)return;
+ var p=document.getElementById(PAGE),pageActive=!!(p&&p.classList.contains('on'));
+ var dossier=document.getElementById('print-student-dossier'),dossierActive=!!(activeDossierStudentId&&dossier&&dossier.getClientRects().length);
+ if(!pageActive&&!dossierActive)return;
+ achievementRefreshBusy=true;
+ try{
+  var before=JSON.stringify(rows);
+  await load();
+  if(JSON.stringify(rows)!==before){
+   if(pageActive)renderPage();
+   if(dossierActive)renderDossier(activeDossierStudentId);
+  }
+ }catch(e){console.warn('Automatic achievement refresh failed',e)}
+ finally{achievementRefreshBusy=false}
+}
+window.addEventListener('online',function(){setTimeout(async function(){await syncPending();await refreshAchievementViews()},900)});
+window.addEventListener('focus',function(){refreshAchievementViews()});
+document.addEventListener('visibilitychange',function(){if(!document.hidden)refreshAchievementViews()});
+window.setInterval(function(){if(user&&navigator.onLine)syncPending();refreshAchievementViews()},4000);
 document.addEventListener('DOMContentLoaded',function(){installPage();rows=read();window.__dastyarAchievementsRows=rows;});
 setTimeout(function(){installPage();rows=read();window.__dastyarAchievementsRows=rows},1200);
 })();
