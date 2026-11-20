@@ -13174,7 +13174,8 @@ window.generateParentPortalLink=async function(classId,studentId){
 
 window.refreshParentPortalPackageAfterFollowup=async function(classId){
  try{
-  if(!user||!['admin','manager'].includes(String(user.role||'')))return {updated:false,reason:'manager_only'};
+  if(!user||!['admin','manager','teacher'].includes(String(user.role||'')))return {updated:false,reason:'role_not_allowed'};
+  if(user.role==='teacher'&&typeof myClasses==='function'&&!myClasses().some(function(c){return String(c.id)===String(classId);}))return {updated:false,reason:'class_not_allowed'};
   if(!sb||!navigator.onLine||window.isOffline)return {updated:false,reason:'offline'};
   const cls=(cache.classes||[]).find(c=>String(c.id)===String(classId));
   const students=(cache.students||[]).filter(st=>String(st.class_id)===String(classId));
@@ -14160,10 +14161,14 @@ function snapRecords(rows){return rows.slice(0,30).map(function(r){return {id:St
 function statusFa(s){return s==='done'?'پیگیری انجام شد':s==='in_progress'?'در حال پیگیری':'در انتظار پیگیری';}
 function node(tag,cls,txt){var n=document.createElement(tag);if(cls)n.className=cls;if(txt!=null)n.textContent=String(txt);return n;}
 function mergeRows(rows,id){var c=C(),server=A(rows),serverIds=new Set(server.map(function(r){return String(r.id);}));var keep=A(c.activities).filter(function(r){return r&&r.type===TYPE&&(!id||String(r.student_id)===String(id))&&(r.pending_upload===true||r.sync_status==='pending_upload')&&!serverIds.has(String(r.id));});c.activities=A(c.activities).filter(function(r){return !(r&&r.type===TYPE&&(!id||String(r.student_id)===String(id)));}).concat(server,keep);try{if(typeof persistLocalSchoolCache==='function')persistLocalSchoolCache();}catch(e){}}
+function refreshTeacherParentPackage(rows){
+ if(!T()||typeof window.refreshParentPortalPackageAfterFollowup!=='function')return;
+ A(rows).forEach(function(row){var m=meta(row);if(!m||!m.followup_result||!m.updated_at)return;var key='dastyar_parent_followup_sync_v1_'+String(row.class_id||'');try{if(localStorage.getItem(key)===String(m.updated_at))return;}catch(e){}Promise.resolve().then(function(){return window.refreshParentPortalPackageAfterFollowup(row.class_id);}).then(function(result){if(result&&result.reason==='offline')return;try{localStorage.setItem(key,String(m.updated_at));}catch(e){}if(result&&result.updated&&typeof toast==='function')toast('پرونده الکترونیکی اولیای کلاس نیز به‌روزرسانی شد.');}).catch(function(e){console.warn('teacher parent package refresh',e);});});
+}
 async function fetchStudentRefs(id){
  if(!sb||!navigator.onLine||window.isOffline||!id||busyTeacher)return;
  busyTeacher=true;
- try{var q=await sb.from('sa_activities').select('*').eq('type',TYPE).eq('student_id',String(id)).order('created_at',{ascending:false});if(q&&!q.error&&Array.isArray(q.data)){mergeRows(q.data,String(id));renderTeacher(id);}}
+ try{var q=await sb.from('sa_activities').select('*').eq('type',TYPE).eq('student_id',String(id)).order('created_at',{ascending:false});if(q&&!q.error&&Array.isArray(q.data)){mergeRows(q.data,String(id));renderTeacher(id);refreshTeacherParentPackage(q.data);}}
  catch(e){console.warn('teacher referral refresh',e);}finally{busyTeacher=false;}
 }
 async function fetchManagerRefs(silent){
