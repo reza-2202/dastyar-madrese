@@ -14473,7 +14473,7 @@ async function shareAward(id){
    awardTemplateCtx.fillStyle='#082F70';awardTemplateCtx.font='bold 64px ' + awardFontFamily;
    drawAwardText(name,600,665);
    var awardReasonText=String(r.reason||r.decision_text||'به پاس تلاش، کوشش و پیشرفت ارزشمند').trim();
-   function wrapAwardText(text,maxWidth,fontSize){awardTemplateCtx.font='bold '+fontSize+'px ' + awardFontFamily;var words=String(text||'').split(/\\s+/),out=[],line='';words.forEach(function(word){if(!word)return;var candidate=line?line+' '+word:word;if(awardTemplateCtx.measureText(candidate).width>maxWidth&&line){out.push(line);line=word}else line=candidate});if(line)out.push(line);return out}
+   function wrapAwardText(text,maxWidth,fontSize){awardTemplateCtx.font='bold '+fontSize+'px ' + awardFontFamily;var words=String(text||'').split(/\s+/),out=[],line='';words.forEach(function(word){if(!word)return;var candidate=line?line+' '+word:word;if(awardTemplateCtx.measureText(candidate).width>maxWidth&&line){out.push(line);line=word}else line=candidate});if(line)out.push(line);return out}
    var awardBodyLines=[],awardBodyFont=30,awardBodyLineHeight=54,awardBodyTop=775,awardBodyBottom=1050;
    for(;awardBodyFont>=14;awardBodyFont--){awardBodyLines=wrapAwardText(awardReasonText,1040,awardBodyFont);awardBodyLineHeight=Math.max(34,Math.round(awardBodyFont*1.82));if(awardBodyLines.length*awardBodyLineHeight<=awardBodyBottom-awardBodyTop)break}
    awardTemplateCtx.fillStyle='#073B78';awardTemplateCtx.font='bold '+awardBodyFont+'px ' + awardFontFamily;
