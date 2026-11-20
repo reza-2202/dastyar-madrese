@@ -13212,8 +13212,11 @@ window.refreshParentPortalPackageAfterFollowup=async function(classId){
   if(!cls||!students.length)return {updated:false,reason:'class_data_missing'};
   const credentials=parentSessionCredentials();
   if(!credentials.p_username||!credentials.p_password)return {updated:false,reason:'session_missing'};
-  let mode=parentMode();
-  try{mode=localStorage.getItem('dastyar_parent_mode_'+String(classId))||mode;}catch(e){}
+  const modeResult=await sb.rpc('get_parent_portal_package_mode',{p_class_id:String(classId),p_username:credentials.p_username,p_password:credentials.p_password});
+  if(modeResult&&modeResult.error)throw modeResult.error;
+  let modeData=modeResult&&modeResult.data;if(Array.isArray(modeData))modeData=modeData[0];
+  if(!modeData||modeData.exists!==true)return {updated:false,reason:'no_active_package'};
+  let mode=String(modeData.login_mode||parentMode());
   const passwordMap=getPasswordMap();
   var needsPassword=(mode==='password_only'||mode==='code_password'||mode==='name_password');if(needsPassword&&students.some(st=>!passwordMap[String(st.id)]))return {updated:false,reason:'passwords_missing'};
   const packageSalt=bytesToB64u(randomBytes(16)),records=[];
