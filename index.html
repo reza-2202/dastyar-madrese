@@ -14724,10 +14724,14 @@ observer.observe(document.documentElement,{childList:true,subtree:true});
   var achievement=makeGroup('achievements-home-group','group-achievements','🏅','افتخارات و تشویق دانش‌آموزان');
   var achievementGrid=achievement.querySelector('.home-tiles-grid');
   if(!achievementGrid){achievementGrid=document.createElement('div');achievementGrid.className='home-tiles-grid';achievement.appendChild(achievementGrid);}
-  if(!byId('achievements-home-tile')){
-   var ach=tile('achievements-home-tile','افتخارات و تشویق دانش‌آموزان','🏅',function(){if(typeof window.go==='function')window.go('achievements');});
-   achievementGrid.appendChild(ach);
+  var ach=byId('achievements-home-tile');
+  if(!ach)ach=tile('achievements-home-tile','افتخارات و تشویق دانش‌آموزان','🏅',function(){if(typeof window.go==='function')window.go('achievements');});
+  /* ماژول تشویق ممکن است دکمه را زودتر در ریشه خانه ساخته باشد؛ آن را داخل گروه واقعی قرار بده. */
+  if(!ach.classList.contains('home-tile')){
+   ach.className='home-tile';
+   ach.innerHTML='<span class="tile-icon">🏅</span><span class="tile-label">افتخارات و تشویق دانش‌آموزان</span>';
   }
+  if(ach.parentNode!==achievementGrid)achievementGrid.appendChild(ach);
   var syncGroup=makeGroup('quick-sync-group','group-sync','🔄','همگام‌سازی با سرور');
   var syncCard=byId('sync-status-card');
   if(syncCard&&syncCard.parentNode!==syncGroup){syncCard.style.margin='8px 0 0';syncGroup.appendChild(syncCard);}
