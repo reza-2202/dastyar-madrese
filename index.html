@@ -3205,7 +3205,7 @@ function go(p){
     if(fd&&!fd.value) fd.value=today();
     if(fw){const now=weekdayNow();for(let i=0;i<fw.options.length;i++){if(fw.options[i].text===now||fw.options[i].value===now){fw.selectedIndex=i;break;}}}
     onDateChange('ac-filter-dt','ac-filter-wd');
-    loadActivities();
+    loadActivities(true);
     document.getElementById('ac-form').innerHTML='';
   }
   if(p==='evaluation'){try{if(typeof applyParentLinkPermissionUI==='function')applyParentLinkPermissionUI();}catch(e){}setTimeout(function(){try{if(user&&user.role==='teacher'&&typeof window.startTeacherParentLinkPermissionPolling==='function')window.startTeacherParentLinkPermissionPolling();else if(typeof window.loadTeacherParentLinkAllowed==='function')window.loadTeacherParentLinkAllowed(true);else if(typeof applyParentLinkPermissionUI==='function')applyParentLinkPermissionUI();}catch(e){}},200);fillSelects();const ed=document.getElementById('ev-filter-date');if(ed&&!ed.value)ed.value=today();toggleEvDateFilter();loadEvals(true);document.getElementById('ev-form').innerHTML='';}
