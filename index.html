@@ -7715,9 +7715,6 @@ async function flushDastyarDashboardRealtimeChanges(){
     try{await refreshAdminQaAfterTeacherSync();}
     catch(e){console.warn('dashboard realtime counters refresh',e);}
   }
-  if(activePage&&activePage.id==='page-dashboard'){
-    try{if(typeof refreshDash==='function')refreshDash();}catch(e){}
-  }
 }
 function ensureSchoolDocumentRealtimeSync(){
   if(!window.sb||typeof sb.channel!=='function'||!user)return;
