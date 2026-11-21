@@ -1288,7 +1288,7 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <div class="card" id="dashboard-quick-access-card">
 <div class="ct">دسترسی سریع به بخش‌های برنامه</div>
 <div class="home-tiles" aria-label="دسترسی به امکانات برنامه">
-<details class="home-tile-group group-students" name="dastyar-home-groups" aria-label="امور دانش‌آموزان">
+<details class="home-tile-group group-students" aria-label="امور دانش‌آموزان">
 <summary class="home-tile-group-title"><span class="home-tile-group-mark">🎓</span><span>امور دانش‌آموزان</span></summary>
 <div class="home-tiles-grid">
 <button class="home-tile" onclick="go('students')"><span class="tile-icon">👨‍🎓</span><span class="tile-label">دانش‌آموزان</span></button>
@@ -1296,7 +1296,7 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <button class="home-tile" id="student-data-tools-tile" onclick="go('studentdata')" style="display:none"><span class="tile-icon" style="background:#d1fae5">📥📊</span><span class="tile-label">ورود و خروجی اطلاعات دانش‌آموزان</span></button>
 </div>
 </details>
-<details class="home-tile-group group-attendance" name="dastyar-home-groups" aria-label="حضور، انضباط و پیگیری">
+<details class="home-tile-group group-attendance" aria-label="حضور، انضباط و پیگیری">
 <summary class="home-tile-group-title"><span class="home-tile-group-mark">📌</span><span>حضور، انضباط و پیگیری</span></summary>
 <div class="home-tiles-grid">
 <button class="home-tile" onclick="go('attendance')"><span class="tile-icon">✅</span><span class="tile-label">حضور و غیاب</span></button>
@@ -1306,7 +1306,7 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <button class="home-tile" id="parent-contact-tile" onclick="go('parentcontact')"><span class="tile-icon" style="background:#fff7ed">📞👨‍👩‍👧</span><span class="tile-label">دفتر تماس با اولیا</span></button>
 </div>
 </details>
-<details class="home-tile-group group-learning" name="dastyar-home-groups" aria-label="آموزش و ارزشیابی">
+<details class="home-tile-group group-learning" aria-label="آموزش و ارزشیابی">
 <summary class="home-tile-group-title"><span class="home-tile-group-mark">📚</span><span>آموزش و ارزشیابی</span></summary>
 <div class="home-tiles-grid">
 <button class="home-tile" onclick="go('activity')"><span class="tile-icon">🗣️</span><span class="tile-label">پرسش و فعالیت روزانه</span></button>
@@ -1317,7 +1317,7 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <button class="home-tile" id="teacher-class-report-tile" onclick="go('teacherreport')"><span class="tile-icon" style="background:#e0f2fe">📋📈</span><span class="tile-label">گزارش کلاس من</span></button>
 </div>
 </details>
-<details class="home-tile-group group-management" name="dastyar-home-groups" aria-label="مدیریت و امور اجرایی">
+<details class="home-tile-group group-management" aria-label="مدیریت و امور اجرایی">
 <summary class="home-tile-group-title"><span class="home-tile-group-mark">🏫</span><span>مدیریت و امور اجرایی</span></summary>
 <div class="home-tiles-grid">
 <button class="home-tile" onclick="go('finance')"><span class="tile-icon" style="background:#dcfce7">💰🧾</span><span class="tile-label">مالی و حسابداری</span></button>
@@ -1326,11 +1326,11 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <button class="home-tile" id="monthly-report-tile" onclick="go('monthlyreport')" style="display:none"><span class="tile-icon" style="background:#ecfdf5">📊📅</span><span class="tile-label">گزارش ماهانه مدیر</span></button>
 </div>
 </details>
-<details class="home-tile-group group-performance" name="dastyar-home-groups" aria-label="پایش عملکرد هوشمند">
+<details class="home-tile-group group-performance" aria-label="پایش عملکرد هوشمند">
 <summary class="home-tile-group-title"><span class="home-tile-group-mark">📈</span><span>پایش عملکرد هوشمند مدرسه</span></summary>
 <div class="home-tiles-grid"><button class="home-tile" id="manager-performance-center-tile" type="button" style="display:none" onclick="window.toggleDashboardFeature('performance',true)"><span class="tile-icon" style="background:#ede9fe;color:#5b21a5">📊</span><span class="tile-label">مرکز پایش عملکرد مدرسه</span></button></div>
 </details>
-<details class="home-tile-group group-communication" name="dastyar-home-groups" aria-label="ارتباطات و اسناد">
+<details class="home-tile-group group-communication" aria-label="ارتباطات و اسناد">
 <summary class="home-tile-group-title"><span class="home-tile-group-mark">🤝</span><span>ارتباطات و اسناد</span></summary>
 <div class="home-tiles-grid">
 <button class="home-tile" onclick="go('documents')"><span class="tile-icon">📎</span><span class="tile-label">ارسال و مدیریت فایل‌ها</span></button>
@@ -3216,7 +3216,8 @@ function go(p){
   if(p==='report'){fillSelects();loadReportStudents(true);document.getElementById('rp-edit').innerHTML='';}
   window.__dastyarFastNavigation=false;
   if(window.__dastyarBackgroundReloadTimer)clearTimeout(window.__dastyarBackgroundReloadTimer);
-  window.__dastyarBackgroundReloadTimer=setTimeout(function(){if(!user||!sb||!navigator.onLine||window.isOffline)return;refreshDastyarActiveSection(true);},500);
+  /* تازه‌سازی پس‌زمینه نباید با هر لمس آیکون، درخواست اجباری و پردازش سنگین ایجاد کند. */
+  window.__dastyarBackgroundReloadTimer=setTimeout(function(){if(!user||!sb||!navigator.onLine||window.isOffline)return;refreshDastyarActiveSection(false);},1500);
   startDastyarLiveSync();
   });
   });
@@ -15000,7 +15001,6 @@ observer.observe(document.documentElement,{childList:true,subtree:true});
   if(group)return group;
   group=document.createElement('details');
   group.id=id;group.className='home-tile-group '+cls;
-  group.setAttribute('name','dastyar-home-groups');
   group.setAttribute('aria-label',label);
   var summary=document.createElement('summary');
   summary.className='home-tile-group-title';
@@ -15068,6 +15068,36 @@ observer.observe(document.documentElement,{childList:true,subtree:true});
    aboutGroup
   ];
   ordered.forEach(function(group){if(group&&group.parentNode!==home||group&&group!==home.lastElementChild)home.appendChild(group);});
+  /* گروه‌های دسترسی سریع مستقل‌اند؛ کنترل «همه» فقط نمایش همه گروه‌ها را یکجا باز/بسته می‌کند. */
+  var allWrap=byId('quick-access-all-group');
+  if(!allWrap){
+   allWrap=document.createElement('div');allWrap.id='quick-access-all-group';allWrap.className='home-tile-group home-tile-group-all';
+   var allButton=document.createElement('button');allButton.type='button';allButton.className='home-tile-group-title home-tile-group-all-button';
+   allButton.innerHTML='<span class="home-tile-group-mark">🗂️</span><span>همه</span>';
+   allWrap.appendChild(allButton);
+  }
+  var allButton=allWrap.querySelector('button');
+  function updateAllButton(){
+   var currentGroups=Array.prototype.slice.call(home.querySelectorAll('details.home-tile-group'));
+   var allOpen=currentGroups.length>0&&currentGroups.every(function(g){return g.open;});
+   if(allButton){allButton.classList.toggle('all-open',allOpen);allButton.setAttribute('aria-expanded',allOpen?'true':'false');allButton.setAttribute('aria-label',allOpen?'بستن همه گروه‌ها':'باز کردن همه گروه‌ها');}
+  }
+  var quickGroups=Array.prototype.slice.call(home.querySelectorAll('details.home-tile-group'));
+  quickGroups.forEach(function(group){
+   group.removeAttribute('name');
+   if(!group.__dastyarIndependentQuickGroup){group.addEventListener('toggle',updateAllButton);group.__dastyarIndependentQuickGroup=true;}
+  });
+  if(allButton&&!allButton.__dastyarAllGroupsAction){
+   allButton.addEventListener('click',function(){
+    var currentGroups=Array.prototype.slice.call(home.querySelectorAll('details.home-tile-group'));
+    var openAll=!currentGroups.length||!currentGroups.every(function(g){return g.open;});
+    currentGroups.forEach(function(g){g.open=openAll;});
+    updateAllButton();
+   });
+   allButton.__dastyarAllGroupsAction=true;
+  }
+  if(allWrap.parentNode!==home||allWrap!==home.firstElementChild)home.insertBefore(allWrap,home.firstChild);
+  updateAllButton();
   var welcome=page.querySelector('.wel');
   var isTeacher=!!(window.user&&window.user.role==='teacher');
   var schedule=byId('teacher-today-schedule'),notices=byId('teacher-notice-inbox');
@@ -15133,6 +15163,14 @@ html,body,#app,#app *{scroll-behavior:auto!important}
 
 </body>
 </html>
+
+<style id="dastyar-quick-access-all-control-20261121">
+#page-dashboard .home-tile-group-all{padding:0!important;overflow:hidden}
+#page-dashboard .home-tile-group-all-button{width:100%;box-sizing:border-box;display:flex!important;align-items:center;gap:10px;min-height:56px;margin:0!important;padding:10px 13px!important;border:0!important;border-radius:17px!important;background:linear-gradient(180deg,#fff 0%,#f7faff 100%)!important;color:#24364b!important;font:inherit;font-size:.88rem;font-weight:800;text-align:right;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+#page-dashboard .home-tile-group-all-button:after{content:"＋";margin-right:auto;display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:9px;background:#eef4ff;color:#2456a6;font-size:19px;font-weight:800;line-height:1;flex:0 0 28px}
+#page-dashboard .home-tile-group-all-button.all-open:after{content:"−"}
+#page-dashboard .home-tile-group-all-button:active{filter:brightness(.98)}
+</style>
 
 <style id="dastyar-focused-home-accordion">
 #page-dashboard .home-tile-group{padding:0;overflow:hidden;transition:border-color .12s ease,box-shadow .12s ease}
