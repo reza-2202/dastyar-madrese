@@ -3861,6 +3861,7 @@ var __dastyarDashboardDocsRefreshAt=0;
 var __dastyarDashboardDocsRefreshPromise=null;
 async function refreshDashboardDocumentCache(){
   if(!user||!sb||!navigator.onLine||window.isOffline)return 0;
+  try{if(typeof ensureSchoolDocumentRealtimeSync==='function')ensureSchoolDocumentRealtimeSync();}catch(e){}
   if(__dastyarDashboardDocsRefreshPromise)return __dastyarDashboardDocsRefreshPromise;
   if(Date.now()-__dastyarDashboardDocsRefreshAt<10000)return 0;
   __dastyarDashboardDocsRefreshAt=Date.now();
@@ -3885,6 +3886,8 @@ async function refreshDashboardDocumentCache(){
     try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
     return rows.length;
   })().then(function(n){
+    // پس از دریافت وضعیت مشترک فایل‌ها، اعلان معلم را نیز از همان داده سرور تازه‌سازی کن.
+    try{if(window.user&&user.role==='teacher'&&typeof renderTeacherNotices==='function')renderTeacherNotices();}catch(e){}
     try{refreshDash();}catch(e){}
     return n;
   }).catch(function(e){
@@ -10885,27 +10888,15 @@ window.renderPaperStats=function renderPaperStats(){
 
 // ----- Mark printed + notify teacher -----
 window.sendPrintReadyNoticeOnce=async function(teacherUsername, message, docId){
-  var serverNoticeSaved=false;
+  // اعلان آماده‌تحویل از خود رکورد مشترک sa_documents خوانده می‌شود؛
+  // localStorage فقط برای داده‌های همان دستگاه است و نباید منبع اعلان بین دستگاه‌ها باشد.
   try{
-    var key='dastyar_teacher_notices_v1';
-    var all={}; try{ all=JSON.parse(localStorage.getItem(key)||'{}')||{}; }catch(e){ all={}; }
-    var u=String(teacherUsername||'');
-    if(!all[u]) all[u]=[];
-    // حذف پیام قبلی همین فایل (اگر باشد) تا فقط یکی بماند
-    all[u]=all[u].filter(function(n){ return String(n.docId||'')!==String(docId||''); });
-    all[u].unshift({
-      id:'n_'+Date.now(),
-      message:String(message||''),
-      at:Date.now(),
-      read:false,
-      kind:'print',
-      docId:String(docId||'')
-    });
-    all[u]=all[u].slice(0,50);
-    localStorage.setItem(key, JSON.stringify(all));
-  }catch(e){ console.warn(e); }
-  // وضعیت چاپ در خود رکورد sa_documents ذخیره می‌شود و از همان‌جا در همه دستگاه‌ها نمایش داده خواهد شد.
-  return true;
+    var target=String(teacherUsername||'').trim();
+    var row=(cache.documents||[]).find(function(d){return d&&String(d.id)===String(docId||'');});
+    if(!row||String(row.print_status||'')!=='ready_for_pickup')return false;
+    if(target&&String(row.teacher_username||'').trim()!==target)return false;
+    return true;
+  }catch(e){console.warn('بررسی اعلان آماده تحویل ناموفق بود:',e);return false;}
 };
 window.removeNoticesForDoc=function(docId){
   try{
