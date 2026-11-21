@@ -14908,7 +14908,13 @@ function install(){
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){install();setTimeout(install,900)});
 else{install();setTimeout(install,900)}
-var observer=new MutationObserver(function(){install()});
+/* تغییرات متعدد DOM را در هر فریم فقط یک‌بار بررسی کن؛ observer سراسری حفظ می‌شود تا فرم‌های پویا همچنان شناسایی شوند. */
+var installScheduled=false;
+var observer=new MutationObserver(function(){
+ if(installScheduled)return;
+ installScheduled=true;
+ requestAnimationFrame(function(){installScheduled=false;install();});
+});
 observer.observe(document.documentElement,{childList:true,subtree:true});
 })();
 </script>
@@ -15094,21 +15100,23 @@ observer.observe(document.documentElement,{childList:true,subtree:true});
    allWrap.appendChild(allButton);
   }
   var allButton=allWrap.querySelector('button');
+  /* «همه» فقط گروه‌های محتوایی را کنترل می‌کند؛ آمار مدرسه، همگام‌سازی، یادآوری و درباره مستقل می‌مانند. */
+  var allExcludedGroupIds=['dashboard-stats-toggle','quick-sync-group','quick-reminders-group','quick-about-group'];
+  var quickGroups=Array.prototype.slice.call(home.querySelectorAll('details.home-tile-group')).filter(function(group){
+   return allExcludedGroupIds.indexOf(String(group.id||''))<0;
+  });
   function updateAllButton(){
-   var currentGroups=Array.prototype.slice.call(home.querySelectorAll('details.home-tile-group'));
-   var allOpen=currentGroups.length>0&&currentGroups.every(function(g){return g.open;});
+   var allOpen=quickGroups.length>0&&quickGroups.every(function(g){return g.open;});
    if(allButton){allButton.classList.toggle('all-open',allOpen);allButton.setAttribute('aria-expanded',allOpen?'true':'false');allButton.setAttribute('aria-label',allOpen?'بستن همه گروه‌ها':'باز کردن همه گروه‌ها');}
   }
-  var quickGroups=Array.prototype.slice.call(home.querySelectorAll('details.home-tile-group'));
   quickGroups.forEach(function(group){
    group.removeAttribute('name');
    if(!group.__dastyarIndependentQuickGroup){group.addEventListener('toggle',updateAllButton);group.__dastyarIndependentQuickGroup=true;}
   });
   if(allButton&&!allButton.__dastyarAllGroupsAction){
    allButton.addEventListener('click',function(){
-    var currentGroups=Array.prototype.slice.call(home.querySelectorAll('details.home-tile-group'));
-    var openAll=!currentGroups.length||!currentGroups.every(function(g){return g.open;});
-    currentGroups.forEach(function(g){g.open=openAll;});
+    var openAll=!quickGroups.length||!quickGroups.every(function(g){return g.open;});
+    quickGroups.forEach(function(g){g.open=openAll;});
     updateAllButton();
    });
    allButton.__dastyarAllGroupsAction=true;
