@@ -2175,7 +2175,7 @@ async function restoreOfflineSnapshot(){
     let snap=window.DastyarOffline&&await window.DastyarOffline.loadSnapshot();
     if(!snap){try{snap=JSON.parse(localStorage.getItem('dastyar_school_snapshot_v1')||'null');}catch(_){snap=null;}}
     if(snap&&typeof snap==='object'){
-      cache.users=snap.users||[];cache.classes=snap.classes||[];cache.students=snap.students||[];cache.attendance=snap.attendance||[];cache.scores=snap.scores||[];cache.competencies=snap.competencies||[];cache.activities=snap.activities||[];cache.evaluations=snap.evaluations||[];cache.discipline=snap.discipline||[];cache.finance=snap.finance||[];cache.documents=Array.isArray(snap.documents)?snap.documents:[];cache.parent_contacts=Array.isArray(snap.parent_contacts)?snap.parent_contacts:[];cache.customStudentSpecs=snap.customStudentSpecs&&typeof snap.customStudentSpecs==='object'?snap.customStudentSpecs:{};
+      cache.users=snap.users||[];cache.classes=snap.classes||[];cache.students=(snap.students||[]).filter(function(s){return s&&!getDeletedStudentIds().has(String(s.id));});cache.attendance=snap.attendance||[];cache.scores=snap.scores||[];cache.competencies=snap.competencies||[];cache.activities=snap.activities||[];cache.evaluations=snap.evaluations||[];cache.discipline=snap.discipline||[];cache.finance=snap.finance||[];cache.documents=Array.isArray(snap.documents)?snap.documents:[];cache.parent_contacts=Array.isArray(snap.parent_contacts)?snap.parent_contacts:[];cache.customStudentSpecs=snap.customStudentSpecs&&typeof snap.customStudentSpecs==='object'?snap.customStudentSpecs:{};
       if(typeof fillTeacherSelect=='function') fillTeacherSelect();
     }
     // Offline first-run fallback: build the known school classes and teacher list locally.
@@ -2365,7 +2365,7 @@ async function ensureStudentsFromServer(){
     const r=await withTimeout(sb.from('sa_students').select('*').limit(2000),20000,'students');
     if(r&&!r.error&&Array.isArray(r.data)&&r.data.length){
       // منبع حقیقت هنگام آنلاین: خود سرور (الان ۲۷۰ نفر یکتا)
-      let serverList=dedupeStudents(r.data);
+      let serverList=dedupeStudents(r.data).filter(function(s){return s&&!getDeletedStudentIds().has(String(s.id));});
       // فقط دانش‌آموزان «جدید فقط‌آفلاین» که روی سرور نیستند اضافه شوند
       const localOnly=await collectOfflineOnlyStudents(serverList);
       if(localOnly.length){
@@ -2501,7 +2501,7 @@ function persistLocalSchoolCache(){
 }
 function getDeletedStudentIds(){try{var a=JSON.parse(localStorage.getItem('dastyar_deleted_student_ids_v1')||'[]');return new Set(Array.isArray(a)?a.map(String):[]);}catch(e){return new Set();}}
 function rememberDeletedStudentIds(ids){try{var a=Array.from(getDeletedStudentIds());(ids||[]).map(String).forEach(function(id){if(id&&!a.includes(id))a.push(id);});localStorage.setItem('dastyar_deleted_student_ids_v1',JSON.stringify(a.slice(-1000)));}catch(e){}}
-function reconcileDeletedStudentIds(previousRows,nextRows){var oldIds=new Set((previousRows||[]).map(function(s){return String(s.id);})),newIds=new Set((nextRows||[]).map(function(s){return String(s.id);})),removed=[];oldIds.forEach(function(id){if(!newIds.has(id))removed.push(id);});try{var all=getDeletedStudentIds();newIds.forEach(function(id){all.delete(id);});removed.forEach(function(id){all.add(id);});localStorage.setItem('dastyar_deleted_student_ids_v1',JSON.stringify(Array.from(all).slice(-1000)));}catch(e){}return removed;}
+function reconcileDeletedStudentIds(previousRows,nextRows){var oldIds=new Set((previousRows||[]).map(function(s){return String(s.id);})),newIds=new Set((nextRows||[]).map(function(s){return String(s.id);})),removed=[];oldIds.forEach(function(id){if(!newIds.has(id))removed.push(id);});rememberDeletedStudentIds(removed);return removed;}
 function pruneStudentRecords(studentIds){var gone=new Set((studentIds||[]).map(String));if(!gone.size)return;['attendance','scores','competencies','activities','evaluations','discipline','finance','achievements','parent_contacts'].forEach(function(name){if(Array.isArray(cache[name]))cache[name]=cache[name].filter(function(r){return !r||r.student_id==null||!gone.has(String(r.student_id));});});if(cache.customStudentSpecs&&typeof cache.customStudentSpecs==='object')gone.forEach(function(id){delete cache.customStudentSpecs[id];});}
 function mergeLocalSchoolCacheIntoMemory(){
   try{
@@ -2652,7 +2652,7 @@ async function reloadAll(){
   const sRes=results[2];
   const studentsServerAuthoritative=!!(sRes&&!sRes.error&&Array.isArray(sRes.data));
   if(studentsServerAuthoritative){
-    let serverList=dedupeStudents(sRes.data);
+    let serverList=dedupeStudents(sRes.data).filter(function(s){return s&&!getDeletedStudentIds().has(String(s.id));});
     var removedStudentIds=reconcileDeletedStudentIds(previous.students,serverList);
     if(removedStudentIds.length)pruneStudentRecords(removedStudentIds);
     try{
@@ -3981,7 +3981,8 @@ async function refreshActiveSectionLive(){
     var results=await Promise.all(requests);
     if(!results[0]||results[0].error||!Array.isArray(results[0].data))return false;
     var oldStudents=cache.students||[];
-    var nextStudents=dedupeStudents(applyLivePendingRows('sa_students',results[0].data,pending));
+    var nextStudents=dedupeStudents(applyLivePendingRows('sa_students',results[0].data,pending)).filter(function(s){return s&&!getDeletedStudentIds().has(String(s.id));});
+    var offlineOnly=await collectOfflineOnlyStudents(nextStudents);if(offlineOnly.length)nextStudents=dedupeStudents(nextStudents.concat(offlineOnly));
     var removed=reconcileDeletedStudentIds(oldStudents,nextStudents);
     var changed=JSON.stringify(oldStudents)!==JSON.stringify(nextStudents)||removed.length>0;
     if(JSON.stringify(oldStudents)!==JSON.stringify(nextStudents))cache.students=nextStudents;
