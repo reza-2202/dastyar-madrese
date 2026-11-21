@@ -3203,11 +3203,11 @@ function go(p){
     if(fd&&!fd.value) fd.value=today();
     if(fw){const now=weekdayNow();for(let i=0;i<fw.options.length;i++){if(fw.options[i].text===now||fw.options[i].value===now){fw.selectedIndex=i;break;}}}
     onDateChange('ac-filter-dt','ac-filter-wd');
-    loadActivities();
+    loadActivities(true);
     document.getElementById('ac-form').innerHTML='';
   }
   if(p==='evaluation'){try{if(typeof applyParentLinkPermissionUI==='function')applyParentLinkPermissionUI();}catch(e){}setTimeout(function(){try{if(user&&user.role==='teacher'&&typeof window.startTeacherParentLinkPermissionPolling==='function')window.startTeacherParentLinkPermissionPolling();else if(typeof window.loadTeacherParentLinkAllowed==='function')window.loadTeacherParentLinkAllowed(true);else if(typeof applyParentLinkPermissionUI==='function')applyParentLinkPermissionUI();}catch(e){}},200);fillSelects();const ed=document.getElementById('ev-filter-date');if(ed&&!ed.value)ed.value=today();toggleEvDateFilter();loadEvals(true);document.getElementById('ev-form').innerHTML='';}
-  if(p==='absentees'){try{jdateInitAll();fillAbsenteesClassSelect();loadAbsenteesReport();if(typeof loadAbsenteesNeedsAttention==='function')loadAbsenteesNeedsAttention();}catch(e){}}
+  if(p==='absentees'){try{jdateInitAll();fillAbsenteesClassSelect();loadAbsenteesReport(true);if(typeof loadAbsenteesNeedsAttention==='function')loadAbsenteesNeedsAttention();}catch(e){}}
   if(p==='charts'){fillSelects();loadChartStudents();renderChartView();}
   if(p==='documents'){fillDocumentClassSelect();loadSchoolDocuments();}
   if(p==='chat'){loadSchoolMessages();}
@@ -3216,18 +3216,18 @@ function go(p){
   if(p==='report'){fillSelects();loadReportStudents(true);document.getElementById('rp-edit').innerHTML='';}
   window.__dastyarFastNavigation=false;
   if(window.__dastyarBackgroundReloadTimer)clearTimeout(window.__dastyarBackgroundReloadTimer);
-  window.__dastyarBackgroundReloadTimer=setTimeout(function(){if(!user||!sb||!navigator.onLine||window.isOffline)return;reloadAll().then(function(){var active=document.querySelector('.page.on');if(!active)return;var current=active.id.replace(/^page-/,'');try{if(current==='dashboard')refreshDash();else if(current==='students')renderStudents();else if(current==='studentfile')searchStudentFile();else if(current==='attendance')loadAttendance(true);else if(current==='discipline'){fillDisciplineStudents();renderDisciplineList();}else if(current==='finance'){fillFinanceStudents();renderFinance();}else if(current==='activity')loadActivities(true);else if(current==='evaluation')loadEvals(true);else if(current==='report')loadReportStudents(true);else if(current==='charts'){loadChartStudents();renderChartView();}}catch(e){console.warn('بازنمایی صفحه پس از همگام‌سازی ناموفق بود',e);}}).catch(function(e){console.warn('همگام‌سازی پس‌زمینه ناموفق بود',e);});},500);
+  window.__dastyarBackgroundReloadTimer=setTimeout(function(){if(!user||!sb||!navigator.onLine||window.isOffline)return;refreshDastyarActiveSection(true);},500);
   startDastyarLiveSync();
   });
   });
 }
 
 var __dastyarLiveSyncTimer=null,__dastyarLiveSyncBusy=false,__dastyarLiveSyncAt=0;
-async function refreshDastyarActiveSection(){
+async function refreshDastyarActiveSection(force){
  if(__dastyarLiveSyncBusy||!user||!sb||!navigator.onLine||window.isOffline||document.visibilityState!=='visible')return;
- if(Date.now()-__dastyarLiveSyncAt<5500)return;
+ if(!force&&Date.now()-__dastyarLiveSyncAt<5500)return;
  var page=document.querySelector('.page.on');if(!page)return;var pageId=String(page.id||'').replace(/^page-/,'');var tables=[];
- if(pageId==='dashboard')tables=['sa_discipline','sa_activities','sa_evaluations'];else if(pageId==='attendance')tables=['sa_attendance'];else if(pageId==='discipline')tables=['sa_discipline'];else if(pageId==='activity')tables=['sa_activities'];else if(pageId==='evaluation')tables=['sa_evaluations','sa_activities'];else if(pageId==='finance')tables=['sa_finance'];else if(pageId==='report'||pageId==='charts')tables=['sa_scores','sa_competencies','sa_evaluations','sa_activities'];else if(pageId==='studentfile'||pageId==='teacherreport'||pageId==='monthlyreport')tables=['sa_attendance','sa_scores','sa_competencies','sa_activities','sa_evaluations','sa_discipline','sa_finance'];else if(pageId!=='students'&&pageId!=='studentdata')return;
+ if(pageId==='dashboard')tables=['sa_discipline','sa_activities','sa_evaluations'];else if(pageId==='attendance'||pageId==='absentees')tables=['sa_attendance'];else if(pageId==='discipline')tables=['sa_discipline'];else if(pageId==='activity')tables=['sa_activities'];else if(pageId==='evaluation')tables=['sa_evaluations','sa_activities'];else if(pageId==='finance')tables=['sa_finance'];else if(pageId==='report'||pageId==='charts')tables=['sa_scores','sa_competencies','sa_evaluations','sa_activities'];else if(pageId==='studentfile'||pageId==='teacherreport'||pageId==='monthlyreport')tables=['sa_attendance','sa_scores','sa_competencies','sa_activities','sa_evaluations','sa_discipline','sa_finance'];else if(pageId!=='students'&&pageId!=='studentdata')return;
  __dastyarLiveSyncBusy=true;__dastyarLiveSyncAt=Date.now();
  try{
   if(window.DastyarOffline&&typeof DastyarOffline.pending==='function'){var q=await DastyarOffline.pending();if(Array.isArray(q)&&q.length)return;}
@@ -3241,7 +3241,7 @@ async function refreshDastyarActiveSection(){
   for(var i=0;i<tables.length;i++){var x=res[i+1],name=map[tables[i]];if(!x||x.error||!Array.isArray(x.data)||!name)continue;var rows=x.data;if(tables[i]==='sa_attendance'){var clid=String((document.getElementById('at-class')||{}).value||''),date=String((document.getElementById('at-date')||{}).value||today());rows=(cache.attendance||[]).filter(function(a){return String(a.class_id)!==clid||String(a.date)!==date;}).concat(rows);}if(JSON.stringify(cache[name]||[])!==JSON.stringify(rows)){cache[name]=rows;changed=true;}}
   if(!changed)return;try{persistLocalSchoolCache();}catch(e){}try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
   var active=document.querySelector('.page.on');if(!active||active.id.replace(/^page-/,'')!==pageId)return;
-  try{if(pageId==='dashboard')refreshDash();else if(pageId==='students'||pageId==='studentdata')renderStudents();else if(pageId==='studentfile')searchStudentFile();else if(pageId==='attendance')loadAttendance(true);else if(pageId==='discipline'){fillDisciplineStudents();renderDisciplineList();}else if(pageId==='activity')loadActivities(true);else if(pageId==='evaluation')loadEvals(true);else if(pageId==='finance'){fillFinanceStudents();renderFinance();}else if(pageId==='report')renderReportStudentsList();else if(pageId==='charts'){loadChartStudents();renderChartView();}else if(pageId==='teacherreport'&&typeof initTeacherReportPage==='function')initTeacherReportPage();else if(pageId==='monthlyreport'&&typeof initMonthlyReportPage==='function')initMonthlyReportPage();}catch(e){console.warn('به‌روزرسانی زنده صفحه ناموفق بود',e);}
+  try{if(pageId==='dashboard')refreshDash();else if(pageId==='students'||pageId==='studentdata')renderStudents();else if(pageId==='studentfile')searchStudentFile();else if(pageId==='attendance')loadAttendance(true);else if(pageId==='discipline'){fillDisciplineStudents();renderDisciplineList();}else if(pageId==='activity')loadActivities(true);else if(pageId==='evaluation')loadEvals(true);else if(pageId==='finance'){fillFinanceStudents();renderFinance();}else if(pageId==='absentees')loadAbsenteesReport(true);else if(pageId==='report')renderReportStudentsList();else if(pageId==='charts'){loadChartStudents();renderChartView();}else if(pageId==='teacherreport'&&typeof initTeacherReportPage==='function')initTeacherReportPage();else if(pageId==='monthlyreport'&&typeof initMonthlyReportPage==='function')initMonthlyReportPage();}catch(e){console.warn('به‌روزرسانی زنده صفحه ناموفق بود',e);}
  }catch(e){console.warn('همگام‌سازی زنده با سرور ناموفق بود',e);}finally{__dastyarLiveSyncBusy=false;}
 }
 function startDastyarLiveSync(){if(__dastyarLiveSyncTimer)return;__dastyarLiveSyncTimer=setInterval(refreshDastyarActiveSection,6000);document.addEventListener('visibilitychange',function(){if(!document.hidden)refreshDastyarActiveSection();});window.addEventListener('focus',refreshDastyarActiveSection);}
@@ -8945,8 +8945,8 @@ function jdateInitAll(){
   document.querySelectorAll('[data-jdate]').forEach(function(el){ try{ jdateBuildSelects(el); }catch(e){ console.warn(e); } });
 }
 /* --- گزارش غایبین --- */
-async function loadAbsenteesReport(){
-  try{ if(navigator.onLine&&typeof reloadAll==='function') await reloadAll(); }catch(e){}
+async function loadAbsenteesReport(skipServerReload){
+  try{ if(!skipServerReload&&navigator.onLine&&typeof reloadAll==='function') await reloadAll(); }catch(e){}
   var box=document.getElementById('absentees-report');
   if(!box) return;
   var classId=(document.getElementById('ab-class')&&document.getElementById('ab-class').value)||'';
