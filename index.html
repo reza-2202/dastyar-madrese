@@ -3215,9 +3215,8 @@ function go(p){
   if(p==='parentmeet'){fillParentClasses();if(!document.getElementById('pm-date').value)document.getElementById('pm-date').value=today();syncParentWeekday();if(!document.getElementById('pm-comments').children.length)addParentComment();renderParentMeetings();}
   if(p==='report'){fillSelects();loadReportStudents(true);document.getElementById('rp-edit').innerHTML='';}
   window.__dastyarFastNavigation=false;
-  if(window.__dastyarBackgroundReloadTimer)clearTimeout(window.__dastyarBackgroundReloadTimer);
-  /* تازه‌سازی پس‌زمینه نباید با هر لمس آیکون، درخواست اجباری و پردازش سنگین ایجاد کند. */
-  window.__dastyarBackgroundReloadTimer=setTimeout(function(){if(!user||!sb||!navigator.onLine||window.isOffline)return;refreshDastyarActiveSection(false);},1500);
+  /* بارگذاری هر بخش در خود go انجام می‌شود؛ از درخواست تکراری پس از هر لمس آیکون جلوگیری کن. */
+  if(window.__dastyarBackgroundReloadTimer){clearTimeout(window.__dastyarBackgroundReloadTimer);window.__dastyarBackgroundReloadTimer=null;}
   startDastyarLiveSync();
   });
   });
