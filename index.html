@@ -3968,6 +3968,10 @@ async function refreshAdminQaAfterTeacherSync(){
 // از polling موازی مدیر جلوگیری می‌کنیم تا درخواست‌های تکراری و پردازش هم‌زمان ایجاد نشود.
 
 function refreshDash(){
+  // این تابع فقط رابط داشبورد را به‌روزرسانی می‌کند؛ هنگام باز بودن صفحه‌های دیگر،
+  // محاسبه شمارنده‌ها و درخواست‌های مخصوص داشبورد را به نوبت ورود به داشبورد موکول کن.
+  var dashboardPage=document.getElementById('page-dashboard');
+  if(dashboardPage&&!dashboardPage.classList.contains('on'))return;
   try{refreshDashboardEvaluationDisciplineCache();}catch(e){}
   try{ if(typeof refreshDashboardDocumentCache==='function') refreshDashboardDocumentCache(); }catch(e){}
   try{ if(typeof renderSmartReminders==='function') renderSmartReminders(); }catch(e){}
