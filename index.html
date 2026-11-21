@@ -15145,7 +15145,7 @@ observer.observe(document.documentElement,{childList:true,subtree:true});
   /* «همه» فقط گروه‌های محتوایی را کنترل می‌کند؛ آمار مدرسه، همگام‌سازی، یادآوری و درباره مستقل می‌مانند. */
   var allExcludedGroupIds=['dashboard-stats-toggle','group-performance','quick-sync-group','quick-reminders-group','quick-about-group'];
   var quickGroups=Array.prototype.slice.call(home.querySelectorAll('details.home-tile-group')).filter(function(group){
-   return allExcludedGroupIds.indexOf(String(group.id||''))<0;
+   return allExcludedGroupIds.indexOf(String(group.id||''))<0&&!group.classList.contains('group-performance');
   });
   function updateAllButton(){
    var allOpen=quickGroups.length>0&&quickGroups.every(function(g){return g.open;});
