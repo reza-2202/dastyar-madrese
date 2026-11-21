@@ -3244,7 +3244,7 @@ async function refreshDastyarActiveSection(force){
   try{if(pageId==='dashboard')refreshDash();else if(pageId==='students'||pageId==='studentdata')renderStudents();else if(pageId==='studentfile')searchStudentFile();else if(pageId==='attendance')loadAttendance(true);else if(pageId==='discipline'){fillDisciplineStudents();renderDisciplineList();}else if(pageId==='activity')loadActivities(true);else if(pageId==='evaluation')loadEvals(true);else if(pageId==='finance'){fillFinanceStudents();renderFinance();}else if(pageId==='absentees')loadAbsenteesReport(true);else if(pageId==='report')renderReportStudentsList();else if(pageId==='charts'){loadChartStudents();renderChartView();}else if(pageId==='teacherreport'&&typeof initTeacherReportPage==='function')initTeacherReportPage();else if(pageId==='monthlyreport'&&typeof initMonthlyReportPage==='function')initMonthlyReportPage();}catch(e){console.warn('به‌روزرسانی زنده صفحه ناموفق بود',e);}
  }catch(e){console.warn('همگام‌سازی زنده با سرور ناموفق بود',e);}finally{__dastyarLiveSyncBusy=false;}
 }
-function startDastyarLiveSync(){if(__dastyarLiveSyncTimer)return;__dastyarLiveSyncTimer=setInterval(refreshDastyarActiveSection,6000);document.addEventListener('visibilitychange',function(){if(!document.hidden)refreshDastyarActiveSection();});window.addEventListener('focus',refreshDastyarActiveSection);}
+function startDastyarLiveSync(){if(__dastyarLiveSyncTimer)return;__dastyarLiveSyncTimer=setInterval(refreshDastyarActiveSection,12000);document.addEventListener('visibilitychange',function(){if(!document.hidden)refreshDastyarActiveSection();});window.addEventListener('focus',refreshDastyarActiveSection);}
 function fillSelects(){
   const opts=myClasses().map(c=>'<option value="'+c.id+'">'+c.label+(c.teacher_name?' — '+c.teacher_name:'')+'</option>').join('');
   ['at-class','ac-class','ac-export-class','ev-class','rp-class','sf-class','ch-class','di-class','fin-class'].forEach(id=>{
@@ -3960,7 +3960,7 @@ async function refreshAdminQaAfterTeacherSync(){
   finally{__dastyarAdminQaAutoRefreshBusy=false;}
 }
 // هر سه ثانیه، فقط هنگام باز بودن صفحه و فقط در پنل مدیر، تغییرات معلم دریافت می‌شود.
-try{if(!window.__dastyarAdminQaAutoRefreshTimer)window.__dastyarAdminQaAutoRefreshTimer=setInterval(function(){if(document.visibilityState==='visible')refreshAdminQaAfterTeacherSync();},3000);}catch(e){}
+try{if(!window.__dastyarAdminQaAutoRefreshTimer)window.__dastyarAdminQaAutoRefreshTimer=setInterval(function(){if(document.visibilityState==='visible')refreshAdminQaAfterTeacherSync();},12000);}catch(e){}
 
 function refreshDash(){
   try{refreshDashboardEvaluationDisciplineCache();}catch(e){}
@@ -4135,7 +4135,7 @@ async function refreshTodayAttendanceFromServer(){
     }catch(e){console.warn('dashboard attendance live refresh',e);}
     finally{busy=false;}
   }
-  setInterval(tick,3000);
+  setInterval(tick,10000);
   document.addEventListener('visibilitychange',function(){if(!document.hidden)tick();});
 })();
 
@@ -13087,7 +13087,7 @@ function refreshTeacherParentLinkPermissionIfVisible(){
 window.startTeacherParentLinkPermissionPolling=function(){
   if(!user||user.role!=='teacher'||teacherParentLinkPermissionPollTimer)return;
   refreshTeacherParentLinkPermissionIfVisible();
-  teacherParentLinkPermissionPollTimer=window.setInterval(refreshTeacherParentLinkPermissionIfVisible,2000);
+  teacherParentLinkPermissionPollTimer=window.setInterval(refreshTeacherParentLinkPermissionIfVisible,10000);
 };
 window.stopTeacherParentLinkPermissionPolling=function(){
   if(teacherParentLinkPermissionPollTimer!==null){window.clearInterval(teacherParentLinkPermissionPollTimer);teacherParentLinkPermissionPollTimer=null;}
@@ -14387,7 +14387,7 @@ function install(){
   if(typeof window.openStudentDossier==='function'&&!window.openStudentDossier.__dastyarReferralV2){var old=window.openStudentDossier;var wrap=function(id){teacherStudentId=String(id||'');var result=old.apply(this,arguments);try{renderTeacher(teacherStudentId);}catch(e){}if(T())fetchStudentRefs(teacherStudentId);return result;};wrap.__dastyarReferralV2=true;window.openStudentDossier=wrap;}
   if(typeof window.toggleDashboardFeature==='function'&&!window.toggleDashboardFeature.__dastyarReferralV2){var toggle=window.toggleDashboardFeature;var wrapped=function(key){var result=toggle.apply(this,arguments);if(key==='performance'&&M())setTimeout(function(){renderManager();fetchManagerRefs(true);},100);return result;};wrapped.__dastyarReferralV2=true;window.toggleDashboardFeature=wrapped;}
   if(M())renderManager();
-  if(!timer)timer=window.setInterval(tick,2500);
+  if(!timer)timer=window.setInterval(tick,10000);
  }catch(e){console.warn('unified referral workflow',e);}
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(install,1100);});else setTimeout(install,1100);
@@ -14748,7 +14748,7 @@ async function refreshAchievementViews(){
 window.addEventListener('online',function(){setTimeout(async function(){await syncPending();await refreshAchievementViews()},900)});
 window.addEventListener('focus',function(){refreshAchievementViews()});
 document.addEventListener('visibilitychange',function(){if(!document.hidden)refreshAchievementViews()});
-window.setInterval(function(){if(user&&navigator.onLine)syncPending();refreshAchievementViews()},4000);
+window.setInterval(function(){if(user&&navigator.onLine)syncPending();refreshAchievementViews()},12000);
 document.addEventListener('DOMContentLoaded',function(){installPage();rows=read();window.__dastyarAchievementsRows=rows;});
 setTimeout(function(){installPage();rows=read();window.__dastyarAchievementsRows=rows},1200);
 })();
