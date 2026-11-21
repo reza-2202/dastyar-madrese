@@ -7678,6 +7678,10 @@ var __dastyarDocumentsRealtimeChannel=null;
 var __dastyarDocumentsRealtimeClient=null;
 var __dastyarDocumentsRealtimeRefreshTimer=null;
 var __dastyarDashboardRealtimeDirtyTables={};
+var __dastyarRealtimeSdkClient=null;
+var __dastyarRealtimeClientPromise=null;
+var __dastyarRealtimeRole=null;
+var __dastyarRealtimeRetryTimer=null;
 function queueDastyarDashboardRealtimeRefresh(table){
   if(!table)return;
   __dastyarDashboardRealtimeDirtyTables[table]=true;
@@ -7716,21 +7720,71 @@ async function flushDastyarDashboardRealtimeChanges(){
     catch(e){console.warn('dashboard realtime counters refresh',e);}
   }
 }
+// اتصال Realtime مستقل و تنبل بارگذاری می‌شود؛ کلاینت REST/آفلاین فعلی برنامه تغییر نمی‌کند.
 function ensureSchoolDocumentRealtimeSync(){
-  if(!window.sb||typeof sb.channel!=='function'||!user)return;
-  if(__dastyarDocumentsRealtimeChannel&&__dastyarDocumentsRealtimeClient===sb)return;
-  try{
-    if(__dastyarDocumentsRealtimeChannel&&typeof sb.removeChannel==='function')sb.removeChannel(__dastyarDocumentsRealtimeChannel);
-    __dastyarDocumentsRealtimeClient=sb;
-    var channel=sb.channel('dastyar-school-dashboard-live-counters');
-    ['sa_documents','sa_activities','sa_evaluations','sa_discipline'].forEach(function(table){
+  if(!window.sb||!user||!navigator.onLine||window.isOffline)return;
+  if(__dastyarDocumentsRealtimeChannel&&__dastyarDocumentsRealtimeClient===sb&&__dastyarRealtimeRole===user.role)return;
+  if(__dastyarRealtimeClientPromise)return;
+  __dastyarRealtimeClientPromise=(async function(){
+    var createRealtimeClient=null;
+    try{
+      var realtimeModule=await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2/+esm');
+      createRealtimeClient=realtimeModule&&realtimeModule.createClient;
+    }catch(primaryError){
+      var fallbackModule=await import('https://esm.sh/@supabase/supabase-js@2.119.2');
+      createRealtimeClient=fallbackModule&&fallbackModule.createClient;
+    }
+    if(typeof createRealtimeClient!=='function')throw new Error('کتابخانه اتصال زنده Supabase بارگذاری نشد');
+    if(!__dastyarRealtimeSdkClient){
+      __dastyarRealtimeSdkClient=createRealtimeClient(SB_URL,SB_KEY,{
+        auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},
+        global:{headers:{'x-client-info':'dastyar-madrese-realtime'}},
+        realtime:{params:{eventsPerSecond:5}}
+      });
+    }
+    if(__dastyarDocumentsRealtimeChannel){
+      try{await __dastyarRealtimeSdkClient.removeChannel(__dastyarDocumentsRealtimeChannel);}catch(e){}
+      __dastyarDocumentsRealtimeChannel=null;
+    }
+    var channel=__dastyarRealtimeSdkClient.channel('dastyar-school-dashboard-live-counters');
+    var watchedTables=user.role==='admin'
+      ?['sa_documents','sa_activities','sa_evaluations','sa_discipline']
+      :['sa_documents'];
+    watchedTables.forEach(function(table){
       channel=channel.on('postgres_changes',{event:'*',schema:'public',table:table},function(){
         if(table!=='sa_documents'&&(!window.user||user.role!=='admin'))return;
         queueDastyarDashboardRealtimeRefresh(table);
       });
     });
-    __dastyarDocumentsRealtimeChannel=channel.subscribe();
-  }catch(e){console.warn('dashboard realtime sync unavailable',e);}
+    __dastyarDocumentsRealtimeClient=sb;
+    __dastyarRealtimeRole=user.role;
+    __dastyarDocumentsRealtimeChannel=channel.subscribe(function(status,error){
+      if(status==='SUBSCRIBED'){
+        console.info('دریافت زنده تغییرات داشبورد فعال شد');
+      }else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
+        console.warn('اتصال زنده داشبورد برقرار نماند؛ تلاش مجدد انجام می‌شود.',error||status);
+        if(__dastyarDocumentsRealtimeChannel===channel){
+          __dastyarDocumentsRealtimeChannel=null;
+          __dastyarDocumentsRealtimeClient=null;
+          __dastyarRealtimeRole=null;
+        }
+        if(!__dastyarRealtimeRetryTimer){
+          __dastyarRealtimeRetryTimer=setTimeout(function(){
+            __dastyarRealtimeRetryTimer=null;
+            ensureSchoolDocumentRealtimeSync();
+          },6000);
+        }
+      }
+    });
+  })().catch(function(error){
+    console.warn('dashboard realtime initialization failed',error);
+    if(!__dastyarRealtimeRetryTimer){
+      __dastyarRealtimeRetryTimer=setTimeout(function(){
+        __dastyarRealtimeRetryTimer=null;
+        ensureSchoolDocumentRealtimeSync();
+      },10000);
+    }
+  }).finally(function(){__dastyarRealtimeClientPromise=null;});
 }
 async function loadSchoolDocuments(){
   try{ensureSchoolDocumentRealtimeSync();}catch(e){}
