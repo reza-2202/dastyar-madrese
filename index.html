@@ -9105,7 +9105,7 @@ window.exportAbsenteesReportExcel=function(){
   addSheet(wb,summary,'خلاصه',[28,36]);wb.Workbook=wb.Workbook||{};wb.Workbook.Views=[{RTL:true}];
   var name='گزارش_غایبین_'+(classId?(cls?(cls.label||classId):classId):'همه_کلاس‌ها')+'_'+(from||'ابتدا')+'_'+(to||'اکنون')+'_'+Date.now()+'.xlsx';
   var bytes=XLSX.write(wb,{bookType:'xlsx',type:'array'}),blob=new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-  if(window.navigator&&typeof window.navigator.msSaveOrOpenBlob==='function')window.navigator.msSaveOrOpenBlob(blob,name);else downloadExcelBlob(blob,name);
+  if(window.navigator&&typeof window.navigator.msSaveOrOpenBlob==='function')window.navigator.msSaveOrOpenBlob(blob,name);else window.downloadExcelBlob(blob,name);
   toast('فایل اکسل فارسی گزارش غایبین برای دانلود آماده شد');
  }catch(e){console.error(e);toast('ساخت اکسل گزارش غایبین ناموفق بود: '+(e&&e.message||e));}
 };
@@ -14164,7 +14164,7 @@ function addSheet(wb,rows,name,widths){
  ws['!cols']=widths.map(function(w){return {wch:w};});
  styleSheet(ws);XLSX.utils.book_append_sheet(wb,ws,name);return ws;
 }
-function downloadExcelBlob(blob,fileName){
+window.downloadExcelBlob=function(blob,fileName){
  var link=window.__dastyarExcelDownloadLink;
  if(!link){
   link=document.createElement('a');link.id='dastyar-excel-download-link';link.style.position='fixed';link.style.left='-10000px';link.style.top='0';link.style.width='1px';link.style.height='1px';link.style.opacity='0';link.style.pointerEvents='none';document.body.appendChild(link);window.__dastyarExcelDownloadLink=link;
@@ -14203,7 +14203,7 @@ window.exportAttendanceExcel=function(){
   var excelBlob=new Blob([excelBytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   fileName=fileName.replace('.xlsx','_'+Date.now()+'.xlsx');
   if(window.navigator&&typeof window.navigator.msSaveOrOpenBlob==='function')window.navigator.msSaveOrOpenBlob(excelBlob,fileName);
-  else downloadExcelBlob(excelBlob,fileName);
+  else window.downloadExcelBlob(excelBlob,fileName);
   toast('فایل اکسل فارسی حضور و غیاب برای دانلود آماده شد');
  }catch(e){console.error(e);toast('ساخت خروجی اکسل حضور و غیاب ناموفق بود: '+(e&&e.message||e));}
 };
