@@ -3263,11 +3263,11 @@ function fillSelects(){
   onDateChange('at-date','at-weekday');
 }
 
-async function toggleAttendanceClassList(){
+function toggleAttendanceClassList(){
  var box=document.getElementById('attendance-class-list');if(!box)return;
  var opening=box.style.display==='none'||!box.style.display;box.style.display=opening?'block':'none';
  if(!opening)return;
- if(navigator.onLine&&!window.isOffline&&typeof reloadAll==='function'){try{await reloadAll();}catch(e){console.warn('تازه‌سازی حضور داشبورد انجام نشد',e);}}
+ // ابتدا فقط از حافظه آماده برنامه نمایش بده؛ لمس کارت نباید منتظر بارگذاری همه جدول‌های سرور بماند.
  var t=String(today()),classes=(typeof myClasses==='function'?myClasses():(cache.classes||[]));
  var byClass=new Map();
  (cache.attendance||[]).forEach(function(a){if(!a||String(a.date||'')!==t||!String(a.status||'').trim())return;var k=String(a.class_id||'');if(!k)return;byClass.set(k,(byClass.get(k)||0)+1);});
@@ -3275,6 +3275,10 @@ async function toggleAttendanceClassList(){
  if(el)el.innerHTML=classes.length?classes.map(function(c){var n=byClass.get(String(c.id))||0,ok=n>0;var label=(c.label||c.id)+(c.teacher_name?' — '+c.teacher_name:'');return '<span style="display:inline-block;margin:4px;padding:7px 11px;border-radius:16px;background:'+(ok?'#dcfce7':'#fee2e2')+';color:'+(ok?'#166534':'#991b1b')+';border:1px solid '+(ok?'#86efac':'#fca5a5')+'">'+(ok?'✓ ':'✕ ')+escHtml(label)+(ok?' — '+fa(n)+' رکورد':' — ثبت نشده')+'</span>';}).join(''):'کلاسی برای این حساب تعریف نشده است.';
  var admBtn=document.getElementById('attendance-remind-admin');
  if(admBtn) admBtn.style.display=(user&&user.role==='admin')?'block':'none';
+ // تازه‌سازی فقط جدول حضور امروز در پس‌زمینه؛ نمایش اولیه و واکنش کارت معطل شبکه نمی‌شود.
+ if(navigator.onLine&&!window.isOffline&&typeof refreshTodayAttendanceFromServer==='function'){
+  Promise.resolve().then(function(){return refreshTodayAttendanceFromServer();}).catch(function(e){console.warn('تازه‌سازی پس‌زمینه حضور داشبورد انجام نشد',e);});
+ }
 }
 
 function disciplineIsAcademic(r){
@@ -15080,6 +15084,11 @@ observer.observe(document.documentElement,{childList:true,subtree:true});
     if(statsRail){insertAfter(page,statsRail,cursor);cursor=statsRail;}
    }
    insertAfter(page,quick,cursor);
+   /* جزئیات کارت‌های آماری باید بین آمار داشبورد و کارت دسترسی سریع باز شوند. */
+   ['pending-file-class-list','attendance-class-list','discipline-dash-list','absent-dash-list','admin-urgent-messages','evaluation-class-list','qa-class-list','parent-invitation-class-list'].forEach(function(id){
+    var panel=byId(id);
+    if(panel&&panel.parentNode===page)page.insertBefore(panel,quick);
+   });
   }
  }
  var previousGo=window.go;
@@ -15119,43 +15128,8 @@ html,body,#app,#app *{scroll-behavior:auto!important}
  html,body,#app,#app *{scroll-behavior:auto!important;animation:none!important;transition:none!important}
 }
 </style>
-<script id="dastyar-touch-scroll-click-guard-20261120">
-(function(){
- 'use strict';
- if(window.__dastyarTouchScrollGuardV1)return;
- window.__dastyarTouchScrollGuardV1=true;
- var startX=0,startY=0,tracking=false,moved=false,blockClickUntil=0;
- document.addEventListener('touchstart',function(e){
-  if(!e.touches||e.touches.length!==1){tracking=false;moved=false;blockClickUntil=0;return;}
-  var t=e.touches[0];
-  startX=t.clientX;startY=t.clientY;tracking=true;moved=false;blockClickUntil=0;
- },{capture:true,passive:true});
- document.addEventListener('touchmove',function(e){
-  if(!tracking||!e.touches||e.touches.length!==1)return;
-  var t=e.touches[0],dx=t.clientX-startX,dy=t.clientY-startY;
-  if(Math.abs(dx)>9||Math.abs(dy)>9)moved=true;
- },{capture:true,passive:true});
- document.addEventListener('touchend',function(){
-  if(tracking&&moved)blockClickUntil=Date.now()+450;
-  tracking=false;
- },{capture:true,passive:true});
- document.addEventListener('touchcancel',function(){
-  if(tracking&&moved)blockClickUntil=Date.now()+450;
-  tracking=false;
- },{capture:true,passive:true});
- document.addEventListener('click',function(e){
-  if(!blockClickUntil||Date.now()>blockClickUntil){blockClickUntil=0;return;}
-  if(e.detail===0)return;
-  if(e.pointerType&&e.pointerType!=='touch')return;
-  var target=e.target;
-  if(!target||!target.closest||!target.closest('#app'))return;
-  blockClickUntil=0;
-  e.preventDefault();
-  e.stopPropagation();
-  if(e.stopImmediatePropagation)e.stopImmediatePropagation();
- },true);
-})();
-</script>
+<!-- Removed global touch-move click suppression: native click handling keeps dashboard cards responsive. -->
+
 
 </body>
 </html>
@@ -15376,3 +15350,13 @@ function toggleDashboardStatsRail(open){
 }
 #page-dashboard .home-tile:active{transform:none!important}
 </style>
+<style id="dastyar-dashboard-stat-card-tap-fix-20261121">
+/* کارت‌های آماری: دریافت لمس مستقیم و بدون تأخیر مصنوعی */
+#page-dashboard .sg>.sc[role="button"]{
+ touch-action:manipulation!important;
+ -webkit-tap-highlight-color:transparent!important;
+ cursor:pointer!important;
+ transition:none!important;
+}
+</style>
+
