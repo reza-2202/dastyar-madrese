@@ -7697,7 +7697,7 @@ async function flushDastyarDashboardRealtimeChanges(){
     try{
       if(activePage&&activePage.id==='page-documents'&&typeof loadSchoolDocuments==='function'){
         await loadSchoolDocuments();
-      }else{
+      }else if(activePage&&activePage.id==='page-dashboard'){
         if(__dastyarDashboardDocsRefreshPromise)await __dastyarDashboardDocsRefreshPromise;
         __dastyarDashboardDocsRefreshAt=0;
         await refreshDashboardDocumentCache();
