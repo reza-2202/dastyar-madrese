@@ -2131,7 +2131,7 @@ async function init(){
   if(login)login.classList.remove('hidden');
   try{
     const SB=(typeof supabase!=='undefined')?supabase:(typeof window.supabase!=='undefined'?window.supabase:null);
-    if(SB&&SB.createClient) sb=SB.createClient(SB_URL,SB_KEY,{auth:{persistSession:false,autoRefreshToken:false},global:{headers:{'x-client-info':'dastyar-madrese'}}});
+    if(SB&&SB.createClient){ sb=SB.createClient(SB_URL,SB_KEY,{auth:{persistSession:false,autoRefreshToken:false},global:{headers:{'x-client-info':'dastyar-madrese'}}}); window.sb=sb; }
   }catch(e){console.warn('راه‌اندازی محلی انجام شد؛ اتصال سرور بعداً بررسی می‌شود.',e);}
   if(typeof fillTeacherSelect==='function')fillTeacherSelect();
   try{ jdateInitAll(); }catch(e){}
