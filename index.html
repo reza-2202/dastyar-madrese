@@ -3963,7 +3963,7 @@ async function refreshActiveSectionLive(){
   else if(pageId==='finance')tableNames=['sa_finance'];
   else if(pageId==='report')tableNames=['sa_scores','sa_competencies','sa_evaluations','sa_activities'];
   else if(pageId==='charts')tableNames=['sa_scores','sa_competencies','sa_activities','sa_evaluations'];
-  else if(pageId==='studentfile')tableNames=['sa_attendance','sa_scores','sa_competencies','sa_activities','sa_evaluations','sa_discipline','sa_finance'];
+  else if(pageId==='studentfile'){var dossierPollId=(typeof activeDossierStudentId!=='undefined'&&activeDossierStudentId)?String(activeDossierStudentId):'';tableNames=dossierPollId?['sa_attendance','sa_scores','sa_competencies','sa_activities','sa_evaluations','sa_discipline','sa_finance']:[];}
   else if(pageId==='teacherreport')tableNames=['sa_attendance','sa_scores','sa_competencies','sa_activities','sa_evaluations','sa_discipline','sa_finance'];
   else if(pageId==='monthlyreport')tableNames=['sa_attendance','sa_evaluations','sa_activities','sa_discipline','sa_finance'];
   else if(pageId==='students'||pageId==='studentdata')tableNames=[];
@@ -3976,6 +3976,7 @@ async function refreshActiveSectionLive(){
         var cid=String((document.getElementById('at-class')||{}).value||''),dt=String((document.getElementById('at-date')||{}).value||today());
         return sb.from(table).select('*').eq('class_id',cid).eq('date',dt);
       }
+      if(pageId==='studentfile'&&typeof activeDossierStudentId!=='undefined'&&activeDossierStudentId)return sb.from(table).select('*').eq('student_id',String(activeDossierStudentId));
       return sb.from(table).select('*');
     }));
     var results=await Promise.all(requests);
