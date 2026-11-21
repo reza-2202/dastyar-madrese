@@ -9100,15 +9100,23 @@ window.exportAbsenteesReportExcel=function(){
   var counts={'غایب غیرموجه':0,'غایب موجه':0,'تأخیر':0};
   rows.forEach(function(r){if(r['وضعیت']==='غایب غیرموجه')counts['غایب غیرموجه']++;else if(r['وضعیت']==='غایب موجه')counts['غایب موجه']++;else if(r['وضعیت']==='تأخیر')counts['تأخیر']++;});
   var wb=XLSX.utils.book_new();
-  addSheet(wb,rows,'گزارش غایبین',[8,18,28,18,16,22,28]);
+  function addAbsenteeSheet(sheetRows,sheetName,widths){
+   var ws=XLSX.utils.json_to_sheet(sheetRows);
+   ws['!cols']=widths.map(function(w){return {wch:w};});
+   ws['!views']=[{RTL:true}];
+   XLSX.utils.book_append_sheet(wb,ws,sheetName);
+  }
+  addAbsenteeSheet(rows,'گزارش غایبین',[8,18,28,18,16,22,28]);
   var summary=[{'عنوان':'مدرسه','مقدار':'دبستان شهید فتح‌الله فلاح‌پور'},{'عنوان':'کلاس انتخاب‌شده','مقدار':classId?(cls?(cls.label||cls.id):classId):'همه کلاس‌ها'},{'عنوان':'از تاریخ','مقدار':from||'ابتدای سوابق'},{'عنوان':'تا تاریخ','مقدار':to||'آخرین سوابق'},{'عنوان':'تعداد کل موارد','مقدار':rows.length},{'عنوان':'غایب غیرموجه','مقدار':counts['غایب غیرموجه']},{'عنوان':'غایب موجه','مقدار':counts['غایب موجه']},{'عنوان':'تأخیر','مقدار':counts['تأخیر']},{'عنوان':'تاریخ تهیه خروجی','مقدار':today()}];
-  addSheet(wb,summary,'خلاصه',[28,36]);wb.Workbook=wb.Workbook||{};wb.Workbook.Views=[{RTL:true}];
+  addAbsenteeSheet(summary,'خلاصه',[28,36]);
+  wb.Workbook=wb.Workbook||{};wb.Workbook.Views=[{RTL:true}];
   var name='گزارش_غایبین_'+(classId?(cls?(cls.label||classId):classId):'همه_کلاس‌ها')+'_'+(from||'ابتدا')+'_'+(to||'اکنون')+'_'+Date.now()+'.xlsx';
   var bytes=XLSX.write(wb,{bookType:'xlsx',type:'array'}),blob=new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   if(window.navigator&&typeof window.navigator.msSaveOrOpenBlob==='function')window.navigator.msSaveOrOpenBlob(blob,name);else window.downloadExcelBlob(blob,name);
-  toast('فایل اکسل فارسی گزارش غایبین برای دانلود آماده شد');
- }catch(e){console.error(e);toast('ساخت اکسل گزارش غایبین ناموفق بود: '+(e&&e.message||e));}
+  toast('فایل اکسل فارسی گزارش غائبین برای دانلود آماده شد');
+ }catch(e){console.error(e);toast('ساخت اکسل گزارش غائبین ناموفق بود: '+(e&&e.message||e));}
 };
+
 function printAbsenteesReport(){
   var box=document.getElementById('absentees-report');
   if(!box||!box.innerHTML.trim()){toast('ابتدا گزارش را نمایش دهید');return;}
