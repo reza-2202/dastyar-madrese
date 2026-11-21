@@ -3940,7 +3940,7 @@ try{if(!window.__dastyarAdminQaAutoRefreshTimer)window.__dastyarAdminQaAutoRefre
 function applyLivePendingRows(tableName,serverRows,pending){
   var rows=(serverRows||[]).slice();
   (pending||[]).filter(function(item){return item&&item.table===tableName;}).forEach(function(item){
-    var filters=item.filters||[],payload=Array.isArray(item.payload)?item.payload:(item.payload?[item.payload]);
+    var filters=item.filters||[],payload=Array.isArray(item.payload)?item.payload:(item.payload?[item.payload]:[]);
     function matches(row){return filters.every(function(f){return f.type!=='eq'||String(row&&row[f.col])===String(f.val);});}
     if(item.method==='POST'||item.method==='UPSERT'){payload.forEach(function(row){if(!row)return;var i=rows.findIndex(function(old){return String(old.id)===String(row.id);});if(i>=0)rows[i]=Object.assign({},rows[i],row);else rows.push(row);});}
     else if(item.method==='PATCH'){rows.forEach(function(row){if(matches(row))Object.assign(row,item.payload||{});});}
