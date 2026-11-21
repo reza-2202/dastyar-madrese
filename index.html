@@ -2653,12 +2653,12 @@ async function reloadAll(){
   const studentsServerAuthoritative=!!(sRes&&!sRes.error&&Array.isArray(sRes.data));
   if(studentsServerAuthoritative){
     let serverList=dedupeStudents(sRes.data).filter(function(s){return s&&!getDeletedStudentIds().has(String(s.id));});
-    var removedStudentIds=reconcileDeletedStudentIds(previous.students,serverList);
-    if(removedStudentIds.length)pruneStudentRecords(removedStudentIds);
     try{
       const localOnly=await collectOfflineOnlyStudents(serverList);
       if(localOnly.length) serverList=dedupeStudents(serverList.concat(localOnly));
     }catch(e){}
+    var removedStudentIds=reconcileDeletedStudentIds(previous.students,serverList);
+    if(removedStudentIds.length)pruneStudentRecords(removedStudentIds);
     cache.students=serverList;
   }
   const beforeStu=(cache.students||[]).length;
