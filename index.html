@@ -69,25 +69,52 @@
   function buildQuery(filters){var qs=[];(filters||[]).forEach(function(f){if(f.type==='eq')qs.push(encodeURIComponent(f.col)+'=eq.'+encodeURIComponent(f.val));if(f.type==='limit')qs.push('limit='+encodeURIComponent(f.val));if(f.type==='range'){qs.push('offset='+encodeURIComponent(f.from));qs.push('limit='+encodeURIComponent(Math.max(1,f.to-f.from+1)));}if(f.type==='order')qs.push('order='+encodeURIComponent(f.col)+'.'+(f.asc?'asc':'desc'));});return qs.length?'?'+qs.join('&'):'';}
   function clone(x){return x==null?x:JSON.parse(JSON.stringify(x));}
   function notify(text){try{console.info('[دستیار آفلاین]',text);}catch(e){}}
-  var lastBadgeLabel=null,lastBadgeColor=null;
+  var lastBadgeLabel=null,lastBadgeColor=null,badgeRefreshTimer=null,badgeRefreshBusy=false;
+  var networkOfflineConfirmed=!global.navigator.onLine,networkOfflineTimer=null;
+  var serverProbeFailures=0,lastServerProbeFailureAt=0,lastServerProbeSuccessAt=0;
+  function noteServerProbeSuccess(){
+    serverProbeFailures=0;lastServerProbeFailureAt=0;lastServerProbeSuccessAt=Date.now();
+    forceLocal=false;global.isOffline=!!networkOfflineConfirmed;
+  }
+  function noteServerProbeFailure(){
+    var now=Date.now();
+    if(!lastServerProbeFailureAt||now-lastServerProbeFailureAt>=5000)serverProbeFailures++;
+    lastServerProbeFailureAt=now;
+    /* یک خطای گذرا یا timeout منفرد، اتصال سالم را آفلاین اعلام نمی‌کند. */
+    if(serverProbeFailures>=2&&(!lastServerProbeSuccessAt||now-lastServerProbeSuccessAt>=15000)){
+      forceLocal=true;global.isOffline=true;
+    }
+  }
   function updateOfflineBadge(){
-    global.isOffline=(!global.navigator.onLine)||!!forceLocal;
-    allQueue().catch(function(){return [];}).then(function(items){
-      var count=items.length, el=document.querySelector('#page-dashboard .online');
-      if(!el)return;
-      var dot=el.querySelector('i');
-      if(!dot){dot=document.createElement('i');el.insertBefore(dot,el.firstChild);}
-      var offline=!!global.isOffline;
-      var label=!offline?(count?'اتصال برقرار • در انتظار همگام‌سازی: '+count:'متصل به سرور'):'حالت آفلاین'+(count?' • '+count+' مورد در صف':'');
-      var color=!offline?(count?'#f59e0b':'#4ade80'):'#fb923c';
-      var textNode=el.querySelector('[data-dastyar-badge-label]');
-      if(!textNode){Array.from(el.childNodes).forEach(function(n){if(n!==dot)el.removeChild(n);});textNode=document.createElement('span');textNode.setAttribute('data-dastyar-badge-label','1');el.appendChild(textNode);}
-      if(label!==lastBadgeLabel || textNode.textContent!==' '+label){textNode.textContent=' '+label;lastBadgeLabel=label;}
-      if(color!==lastBadgeColor){dot.style.background=color;lastBadgeColor=color;}
-      el.setAttribute('aria-label',label);
-      try{ if(typeof updateOfflineExportCardAvailability==='function') updateOfflineExportCardAvailability(); }catch(e){}
-      try{ if(typeof refreshSyncStatusPanel==='function') refreshSyncStatusPanel(); }catch(e){}
-    }).catch(function(e){console.warn('وضعیت نشانگر اتصال به‌روزرسانی نشد',e);});
+    /* چندین پاسخ API در یک بازه کوتاه فقط یک بار وضعیت و صف را به‌روزرسانی می‌کنند. */
+    if(badgeRefreshTimer)return;
+    badgeRefreshTimer=setTimeout(function(){
+      badgeRefreshTimer=null;
+      global.isOffline=!!networkOfflineConfirmed||!!forceLocal;
+      if(badgeRefreshBusy)return;
+      badgeRefreshBusy=true;
+      allQueue().catch(function(){return [];}).then(function(items){
+        var count=items.length,el=document.querySelector('#page-dashboard .online');
+        if(!el)return;
+        var dot=el.querySelector('i');
+        if(!dot){dot=document.createElement('i');el.insertBefore(dot,el.firstChild);}
+        var offline=!!global.isOffline;
+        var label=!offline?(count?'اتصال برقرار • در انتظار همگام‌سازی: '+count:'متصل به سرور'):'حالت آفلاین'+(count?' • '+count+' مورد در صف':'');
+        var color=!offline?(count?'#f59e0b':'#4ade80'):'#fb923c';
+        var textNode=el.querySelector('[data-dastyar-badge-label]');
+        if(!textNode){Array.from(el.childNodes).forEach(function(n){if(n!==dot)el.removeChild(n);});textNode=document.createElement('span');textNode.setAttribute('data-dastyar-badge-label','1');el.appendChild(textNode);}
+        var labelChanged=label!==lastBadgeLabel||textNode.textContent!==' '+label;
+        var colorChanged=color!==lastBadgeColor;
+        if(labelChanged){textNode.textContent=' '+label;lastBadgeLabel=label;}
+        if(colorChanged){dot.style.background=color;lastBadgeColor=color;}
+        el.setAttribute('aria-label',label);
+        /* پنل‌های جانبی فقط هنگام تغییر واقعی وضعیت/تعداد صف رفرش می‌شوند. */
+        if(labelChanged||colorChanged){
+          try{if(typeof updateOfflineExportCardAvailability==='function')updateOfflineExportCardAvailability();}catch(e){}
+          try{if(typeof refreshSyncStatusPanel==='function')refreshSyncStatusPanel();}catch(e){}
+        }
+      }).catch(function(e){console.warn('وضعیت نشانگر اتصال به‌روزرسانی نشد',e);}).finally(function(){badgeRefreshBusy=false;});
+    },220);
   }
   function installBadge(){updateOfflineBadge();}
   function tableForCache(name){var map={sa_users:'users',sa_classes:'classes',sa_students:'students',sa_attendance:'attendance',sa_scores:'scores',sa_competencies:'competencies',sa_activities:'activities',sa_evaluations:'evaluations',sa_discipline:'discipline',sa_finance:'finance'};return map[name]||null;}
@@ -391,10 +418,11 @@ async function syncQueue(){if(!global.navigator.onLine)return;if(syncRunning){sy
       // پیش از ارسال هر مورد، اتصال واقعی به سرور را بررسی کن؛ صرفاً navigator.onLine کافی نیست.
       var liveClient=null;try{liveClient=(typeof sb!=='undefined'&&sb)?sb:global.sb||null;}catch(e){liveClient=global.sb||null;}
       if(!liveClient||typeof liveClient.from!=='function')throw new Error('کلاینت سرور هنوز آماده نیست');
+      var probeSucceeded=false;
       var probe=await Promise.race([liveClient.from('sa_users').select('id').limit(1),new Promise(function(_,reject){setTimeout(function(){reject(new Error('مهلت بررسی سرور تمام شد'))},10000)})]);
       if(!probe||probe.error)throw new Error(probe&&probe.error&&probe.error.message||'سرور پاسخ معتبر نداد');
-      // فقط پس از پاسخ موفق سرور، حالت آنلاین اعلام شود؛ خطای ثبت یک ردیف به معنی قطع اینترنت نیست.
-      forceLocal=false;global.isOffline=false;
+      probeSucceeded=true;noteServerProbeSuccess();
+      // پاسخ موفق سرور، وضعیت آنلاین را تثبیت می‌کند؛ خطای یک ردیف به‌تنهایی اتصال را قطع نمی‌کند.
       /* فقط فشرده‌سازی محلی صف در مسیر سریع انجام می‌شود. پاک‌سازی قبلی برای تک‌تک ردیف‌ها GET ترتیبی می‌زد و ارسال را بسیار کند می‌کرد؛ تکراری‌های POST هنگام ارسال با شناسهٔ اصلی و پاسخ 23505 ایمن مدیریت می‌شوند. */
       try{await compactQueue();}catch(e){console.warn('فشرده‌سازی صف انجام نشد؛ ادامه با حفظ صف:',e);}
       var items=await allQueue(), failedCount=0, firstFailure=null, sentCount=0, sentActivities=false, sentEvaluations=false, sentDiscipline=false;
@@ -413,7 +441,7 @@ async function syncQueue(){if(!global.navigator.onLine)return;if(syncRunning){sy
           if(!firstFailure)firstFailure={qid:item.qid,table:item.table,method:item.method,message:String(e&&e.message||e)};
           console.warn('همگام‌سازی این مورد ناموفق بود؛ مورد در صف حفظ شد و ارسال موارد بعدی ادامه می‌یابد.',item.qid,item.table,item.method,e);
           if(isNetworkFailure(e)){
-            forceLocal=true;global.isOffline=true;
+            noteServerProbeFailure();
             break;
           }
         }
@@ -432,7 +460,7 @@ async function syncQueue(){if(!global.navigator.onLine)return;if(syncRunning){sy
       else if(sentCount>0)notify('تعداد '+sentCount+' مورد ارسال شد؛ '+left.length+' مورد در صف باقی ماند'+(firstFailure?'؛ خطای نخست: '+firstFailure.table+' / '+firstFailure.message:''));
       else notify('تعداد '+left.length+' مورد هنوز همگام نشده است'+(firstFailure?'؛ خطا: '+firstFailure.table+' / '+firstFailure.message:''));
       updateOfflineBadge();
-    }catch(e){forceLocal=true;global.isOffline=true;console.warn('سرور در دسترس نیست؛ تغییرات در گوشی باقی می‌مانند.',e);}finally{syncRunning=false;updateOfflineBadge();if(syncRequested&&global.navigator.onLine){syncRequested=false;setTimeout(function(){syncQueue();},50);}}}
+    }catch(e){if(typeof probeSucceeded==='undefined'||!probeSucceeded)noteServerProbeFailure();console.warn('بررسی/همگام‌سازی سرور ناموفق بود؛ وضعیت اتصال با خطای موقت تغییر نمی‌کند و اطلاعات محفوظ می‌مانند.',e);}finally{syncRunning=false;updateOfflineBadge();if(syncRequested&&global.navigator.onLine){syncRequested=false;setTimeout(function(){syncQueue();},50);}}}
   function queueFingerprint(item){
     return JSON.stringify([String(item.table||''),String(item.method||''),String(item.url||''),item.filters||[],item.payload===undefined?null:item.payload,Number(item.createdAt)||0]);
   }
@@ -498,15 +526,23 @@ async function syncQueue(){if(!global.navigator.onLine)return;if(syncRunning){sy
   }
   global.supabase={createClient:createClient};global.DastyarOffline={
     sync:syncQueue,pending:allQueue,importPending:importPendingQueue,dbName:DB_NAME,lastQueuedAt:0,compactQueue:compactQueue,purgeQueueAlreadyOnServer:purgeQueueAlreadyOnServer,updateBadge:updateOfflineBadge,
-    setLocalOnly:function(v){forceLocal=!!v;global.isOffline=!!v;updateOfflineBadge();},
+    setLocalOnly:function(v){var next=!!v,changed=forceLocal!==next;forceLocal=next;global.isOffline=!!networkOfflineConfirmed||forceLocal;if(changed)updateOfflineBadge();},
     isLocalOnly:function(){return forceLocal;},
     saveSnapshot:function(value){return saveResponse('__dastyar_full_snapshot__',value);},
     putPendingDocument:putPendingDocument,pendingDocuments:allPendingDocuments,removePendingDocument:removePendingDocument,
     loadSnapshot:function(){return getResponse('__dastyar_full_snapshot__').then(function(x){return x?x.value:null;});},
     status:function(){return {online:!!global.navigator.onLine,pending:allQueue()};}
   };
-  global.addEventListener('online',function(){setTimeout(async function(){try{await syncQueue();try{ if(typeof global.flushPendingAttendanceToServer==='function') await global.flushPendingAttendanceToServer(); else if(typeof flushPendingAttendanceToServer==='function') await flushPendingAttendanceToServer(); }catch(e){} if(!forceLocal&&typeof global.globalStatus==='function')global.globalStatus(false);}catch(e){forceLocal=true;global.isOffline=true;console.warn('سرور هنوز در دسترس نیست؛ حالت محلی فعال ماند.',e);}updateOfflineBadge();try{ if(typeof refreshSyncStatusPanel==='function') refreshSyncStatusPanel(); }catch(e){}},700);});
-  global.addEventListener('offline',updateOfflineBadge);
+  global.addEventListener('online',function(){
+    if(networkOfflineTimer){clearTimeout(networkOfflineTimer);networkOfflineTimer=null;}
+    networkOfflineConfirmed=false;global.isOffline=!!forceLocal;updateOfflineBadge();
+    setTimeout(async function(){try{await syncQueue();try{if(typeof global.flushPendingAttendanceToServer==='function')await global.flushPendingAttendanceToServer();else if(typeof flushPendingAttendanceToServer==='function')await flushPendingAttendanceToServer();}catch(e){}}catch(e){console.warn('همگام‌سازی پس از بازگشت اینترنت ناموفق بود؛ اطلاعات در صف محفوظ ماندند.',e);}updateOfflineBadge();try{if(typeof refreshSyncStatusPanel==='function')refreshSyncStatusPanel();}catch(e){}},700);
+  });
+  global.addEventListener('offline',function(){
+    if(networkOfflineTimer)clearTimeout(networkOfflineTimer);
+    /* نوسان چندلحظه‌ای وضعیت شبکه، نشانگر را بی‌دلیل آفلاین/آنلاین نمی‌کند. */
+    networkOfflineTimer=setTimeout(function(){networkOfflineTimer=null;if(!global.navigator.onLine){networkOfflineConfirmed=true;global.isOffline=true;updateOfflineBadge();}},2200);
+  });
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){installBadge();if(global.navigator.onLine)syncQueue();});else{installBadge();if(global.navigator.onLine)syncQueue();}
 })(window);
 
@@ -10513,11 +10549,10 @@ var mo=new MutationObserver(function(){if($('add-st-form'))createPanel($('add-st
       if(!pending.length&&typeof user!=='undefined'&&user&&typeof reloadAll==='function'){
         try{await reloadAll()}catch(refreshError){console.warn('Server refresh failed; local snapshot retained',refreshError)}
       }
-      if(typeof globalStatus==='function')globalStatus(false);
       var state=document.getElementById('dastyar-manual-state');if(state)state.textContent=pending.length?'آنلاین • در انتظار همگام‌سازی: '+pending.length:'آنلاین • همگام‌سازی کامل';
       var box=document.getElementById('dastyar-connection-box');if(box&&!pending.length){var msg=box.querySelector('.dmc-message');if(msg)msg.textContent='متصل به سرور؛ همه تغییرات همگام شده‌اند.';}
       return !pending.length;
-    }catch(e){if(window.DastyarOffline&&window.DastyarOffline.setLocalOnly)window.DastyarOffline.setLocalOnly(true);console.warn('Server-first fallback: local data retained',reason||'',e);return false}
+    }catch(e){console.warn('Server-first check failed; keeping the current connection state and local data:',reason||'',e);return false}
     finally{running=false}
   }
   window.DastyarServerFirst={checkAndSync:serverFirstFlush};
@@ -15108,7 +15143,7 @@ observer.observe(document.documentElement,{childList:true,subtree:true});
   }
   var allButton=allWrap.querySelector('button');
   /* «همه» فقط گروه‌های محتوایی را کنترل می‌کند؛ آمار مدرسه، همگام‌سازی، یادآوری و درباره مستقل می‌مانند. */
-  var allExcludedGroupIds=['dashboard-stats-toggle','quick-sync-group','quick-reminders-group','quick-about-group'];
+  var allExcludedGroupIds=['dashboard-stats-toggle','group-performance','quick-sync-group','quick-reminders-group','quick-about-group'];
   var quickGroups=Array.prototype.slice.call(home.querySelectorAll('details.home-tile-group')).filter(function(group){
    return allExcludedGroupIds.indexOf(String(group.id||''))<0;
   });
