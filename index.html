@@ -14901,28 +14901,26 @@ async function deleteAchievementEverywhere(id){
  var remaining=original.filter(function(x){return String(x.id)!==String(id)});
  var pendingLocal=original.filter(function(x){return x&&x._localPending&&String(x.id)!==String(id)});
  window.__dastyarAchievementsRows=remaining;
- var serverDeleted=false,verifiedRows=null,verifyError=null;
+ var verifiedRows=null,verifyError=null;
  try{
-  var deleted=await rpc('sa_achievements_delete',{p_username:creds().p_username,p_password:creds().p_password,p_id:String(id)});
-  if(!deleted||deleted.deleted!==true)throw new Error('سرور حذف کامل را تأیید نکرد');
-  serverDeleted=true;
- }catch(e){
-  window.__dastyarAchievementsRows=original;
-  toast('حذف از سرور انجام نشد؛ رکورد حفظ شد: '+(e.message||e));
-  return;
- }
- // حذف سرور مستقل از بازسازی بسته رمزگذاری‌شده اولیاست؛ خطای بسته نباید حذف اصلی را لغو کند.
- try{
+  // پاسخ RPC در برخی مسیرهای PostgREST ممکن است به شکل شیء یا آرایه برگردد؛
+  // ملاک قطعی موفقیت، نبودن شناسه در فهرست تازه‌خوانی‌شده سرور است.
+  await rpc('sa_achievements_delete',{p_username:creds().p_username,p_password:creds().p_password,p_id:String(id)});
   verifiedRows=normalize(await rpc('sa_achievements_list',creds()));
-  if(verifiedRows.some(function(x){return String(x.id)===String(id)}))throw new Error('رکورد حذف‌شده هنوز در فهرست سرور دیده می‌شود');
+  if(verifiedRows.some(function(x){return String(x.id)===String(id)})){
+   throw new Error('سرور هنوز این رکورد را در فهرست نشان می‌دهد');
+  }
   verifiedRows=verifiedRows.concat(pendingLocal.filter(function(x){return !verifiedRows.some(function(y){return String(y.id)===String(x.id)})}));
  }catch(e){
   verifyError=e&&e.message||String(e);
-  verifiedRows=remaining;
-  console.warn('Achievement deletion verification',e);
+  window.__dastyarAchievementsRows=original;
+  toast('حذف از سرور تأیید نشد؛ رکورد حفظ شد: '+verifyError);
+  return;
  }
+ // حذف اصلی با تأیید فهرست سرور نهایی شده؛ خطای بسته اولیا نباید آن را برگرداند.
  write(verifiedRows);
  rows=verifiedRows;
+ window.__dastyarAchievementsRows=verifiedRows;
  renderPage();renderDossier(record.student_id);
  var certificateCleanupError=null;
  if(record.certificate_path){
@@ -14937,13 +14935,12 @@ async function deleteAchievementEverywhere(id){
  }catch(portalError){portalRefreshError=portalError&&portalError.message||String(portalError);}
  var portalFailed=!!portalRefreshError||!portalRefresh||(!portalRefresh.updated&&portalRefresh.reason!=='no_active_package');
  var portalWhy=portalRefreshError||(portalRefresh&&(portalRefresh.error||portalRefresh.reason))||'نامشخص';
- if(verifyError||certificateCleanupError){
-  var detail=verifyError?'بررسی نهایی سرور: '+verifyError:'';
-  if(certificateCleanupError)detail+=(detail?'؛ ':'')+'پاک‌سازی تصویر لوح: '+certificateCleanupError;
-  if(portalFailed)detail+=(detail?'؛ ':'')+'پرونده اولیا: '+portalWhy;
-  toast('رکورد از سرور حذف شد و از فهرست برنامه کنار رفت؛ '+detail);
+ if(certificateCleanupError){
+  var detail='پاک‌سازی تصویر لوح: '+certificateCleanupError;
+  if(portalFailed)detail+='؛ به‌روزرسانی پرونده اولیا: '+portalWhy;
+  toast('حذف لوح از سرور و پنل معلم تأیید شد؛ '+detail);
  }else if(portalFailed){
-  toast('لوح از سرور و پنل معلم حذف شد؛ اما پرونده الکترونیکی اولیا به‌روزرسانی نشد: '+portalWhy+' . حذف اصلی انجام شده است.');
+  toast('حذف لوح از سرور و پنل معلم با موفقیت انجام شد؛ فقط به‌روزرسانی پرونده الکترونیکی اولیا انجام نشد: '+portalWhy);
  }else if(portalRefresh&&portalRefresh.reason==='no_active_package'){
   toast('حذف کامل تأیید شد؛ لوح و تصویر آن از سرور و پنل معلم حذف شدند. لینک فعالی برای اولیا وجود ندارد.');
  }else{
