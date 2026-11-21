@@ -2175,7 +2175,7 @@ async function restoreOfflineSnapshot(){
     let snap=window.DastyarOffline&&await window.DastyarOffline.loadSnapshot();
     if(!snap){try{snap=JSON.parse(localStorage.getItem('dastyar_school_snapshot_v1')||'null');}catch(_){snap=null;}}
     if(snap&&typeof snap==='object'){
-      cache.users=snap.users||[];cache.classes=snap.classes||[];cache.students=snap.students||[];cache.attendance=snap.attendance||[];cache.scores=snap.scores||[];cache.competencies=snap.competencies||[];cache.activities=snap.activities||[];cache.evaluations=snap.evaluations||[];cache.discipline=snap.discipline||[];cache.finance=snap.finance||[];cache.documents=Array.isArray(snap.documents)?snap.documents:[];cache.parent_contacts=Array.isArray(snap.parent_contacts)?snap.parent_contacts:[];cache.customStudentSpecs=snap.customStudentSpecs&&typeof snap.customStudentSpecs==='object'?snap.customStudentSpecs:{};
+      cache.users=snap.users||[];cache.classes=snap.classes||[];cache.students=(snap.students||[]).filter(function(s){return s&&!getDeletedStudentIds().has(String(s.id));});cache.attendance=snap.attendance||[];cache.scores=snap.scores||[];cache.competencies=snap.competencies||[];cache.activities=snap.activities||[];cache.evaluations=snap.evaluations||[];cache.discipline=snap.discipline||[];cache.finance=snap.finance||[];cache.documents=Array.isArray(snap.documents)?snap.documents:[];cache.parent_contacts=Array.isArray(snap.parent_contacts)?snap.parent_contacts:[];cache.customStudentSpecs=snap.customStudentSpecs&&typeof snap.customStudentSpecs==='object'?snap.customStudentSpecs:{};
       if(typeof fillTeacherSelect=='function') fillTeacherSelect();
     }
     // Offline first-run fallback: build the known school classes and teacher list locally.
@@ -2365,7 +2365,7 @@ async function ensureStudentsFromServer(){
     const r=await withTimeout(sb.from('sa_students').select('*').limit(2000),20000,'students');
     if(r&&!r.error&&Array.isArray(r.data)&&r.data.length){
       // منبع حقیقت هنگام آنلاین: خود سرور (الان ۲۷۰ نفر یکتا)
-      let serverList=dedupeStudents(r.data);
+      let serverList=dedupeStudents(r.data).filter(function(s){return s&&!getDeletedStudentIds().has(String(s.id));});
       // فقط دانش‌آموزان «جدید فقط‌آفلاین» که روی سرور نیستند اضافه شوند
       const localOnly=await collectOfflineOnlyStudents(serverList);
       if(localOnly.length){
@@ -2397,7 +2397,8 @@ async function collectOfflineOnlyStudents(serverList){
         rows.forEach(function(row){
           if(!row||typeof row!=='object') return;
           if(row.id!=null&&ids.has(String(row.id))) return;
-          const k=studentMatchKey(row);
+          if(getDeletedStudentIds().has(String(row.id||''))) return;
+           const k=studentMatchKey(row);
           if(keys.has(k)) return;
           keys.add(k); if(row.id!=null) ids.add(String(row.id));
           extra.push(row);
@@ -2498,8 +2499,13 @@ function persistLocalSchoolCache(){
     }
   }catch(e){}
 }
+function getDeletedStudentIds(){try{var a=JSON.parse(localStorage.getItem('dastyar_deleted_student_ids_v1')||'[]');return new Set(Array.isArray(a)?a.map(String):[]);}catch(e){return new Set();}}
+function rememberDeletedStudentIds(ids){try{var a=Array.from(getDeletedStudentIds());(ids||[]).map(String).forEach(function(id){if(id&&!a.includes(id))a.push(id);});localStorage.setItem('dastyar_deleted_student_ids_v1',JSON.stringify(a.slice(-1000)));}catch(e){}}
+function reconcileDeletedStudentIds(previousRows,nextRows){var oldIds=new Set((previousRows||[]).map(function(s){return String(s.id);})),newIds=new Set((nextRows||[]).map(function(s){return String(s.id);})),removed=[];oldIds.forEach(function(id){if(!newIds.has(id))removed.push(id);});rememberDeletedStudentIds(removed);return removed;}
+function pruneStudentRecords(studentIds){var gone=new Set((studentIds||[]).map(String));if(!gone.size)return;['attendance','scores','competencies','activities','evaluations','discipline','finance','achievements','parent_contacts'].forEach(function(name){if(Array.isArray(cache[name]))cache[name]=cache[name].filter(function(r){return !r||r.student_id==null||!gone.has(String(r.student_id));});});if(cache.customStudentSpecs&&typeof cache.customStudentSpecs==='object')gone.forEach(function(id){delete cache.customStudentSpecs[id];});}
 function mergeLocalSchoolCacheIntoMemory(){
   try{
+    var deletedStudentIds=getDeletedStudentIds();
     var tables=['attendance','scores','competencies','activities','evaluations','discipline','finance','documents','students','parent_contacts'];
     var snap=null;
     try{ snap=JSON.parse(localStorage.getItem('dastyar_school_snapshot_v1')||'null'); }catch(e){ snap=null; }
@@ -2510,6 +2516,8 @@ function mergeLocalSchoolCacheIntoMemory(){
         snap[name].forEach(function(r){
           if(!r||r.id==null) return;
           var id=String(r.id);
+          if(name==='students'&&deletedStudentIds.has(id))return;
+          if(name!=='students'&&r.student_id!=null&&deletedStudentIds.has(String(r.student_id)))return;
           // سوابق حضور قدیمیِ snapshot نباید رکورد حذف‌شده از سرور را دوباره زنده کنند.
           // فقط رکوردهای صریحاً آفلاین/در انتظار همگام‌سازی از snapshot نگه داشته می‌شوند.
           if(name==='attendance'){
@@ -2632,7 +2640,6 @@ async function reloadAll(){
     if(r&&r.error){ next=prev; }
     else if(r&&r.data!==null&&r.data!==undefined){
       next=Array.isArray(r.data)?r.data:[r.data];
-      if(name!=='attendance' && next.length===0 && prev.length>0) next=prev; // برای سایر داده‌ها؛ حضور و غیاب باید حذف واقعی را هم منعکس کند
     } else next=prev;
     cache[name]=next;
   });
@@ -2643,8 +2650,11 @@ async function reloadAll(){
   try{ if(typeof applyStudentPhotosFromLocal==='function') applyStudentPhotosFromLocal(); }catch(e){}
   // اگر سرور دانش‌آموز داده، همان مبنا است (نه ادغام متورم محلی)
   const sRes=results[2];
-  if(sRes&&!sRes.error&&Array.isArray(sRes.data)&&sRes.data.length){
-    let serverList=dedupeStudents(sRes.data);
+  const studentsServerAuthoritative=!!(sRes&&!sRes.error&&Array.isArray(sRes.data));
+  if(studentsServerAuthoritative){
+    let serverList=dedupeStudents(sRes.data).filter(function(s){return s&&!getDeletedStudentIds().has(String(s.id));});
+    var removedStudentIds=reconcileDeletedStudentIds(previous.students,serverList);
+    if(removedStudentIds.length)pruneStudentRecords(removedStudentIds);
     try{
       const localOnly=await collectOfflineOnlyStudents(serverList);
       if(localOnly.length) serverList=dedupeStudents(serverList.concat(localOnly));
@@ -2654,7 +2664,7 @@ async function reloadAll(){
   const beforeStu=(cache.students||[]).length;
   applyCacheDedupe();
   let afterStu=(cache.students||[]).length;
-  if(afterStu===0 && (previous.students||[]).length>0){
+  if(afterStu===0 && !studentsServerAuthoritative && (previous.students||[]).length>0){
     cache.students=dedupeStudents(previous.students);
     afterStu=(cache.students||[]).length;
   }
@@ -2663,7 +2673,7 @@ async function reloadAll(){
   }
   if((cache.students||[]).length>0 && results.some(r=>r&&!r.error&&r.data!==null&&r.data!==undefined)){
     try{if(window.DastyarOffline)await window.DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){console.warn('ذخیره نسخه محلی اطلاعات انجام نشد',e);}
-  } else if(!(cache.students||[]).length){
+  } else if(!(cache.students||[]).length&&!studentsServerAuthoritative){
     await restoreOfflineSnapshot();
     applyCacheDedupe();
     if(!(cache.students||[]).length && navigator.onLine) await ensureStudentsFromServer();
@@ -3182,12 +3192,12 @@ function go(p){
   if(p==='dashboard'){try{if(typeof refreshSyncStatusPanel==='function')refreshSyncStatusPanel();}catch(e){}refreshDash();if(user&&user.role==='teacher'){renderTeacherNotices();renderTeacherTodaySchedule();}else{var ts=document.getElementById('teacher-today-schedule');if(ts)ts.style.display='none';}}
   if(p==='teacheraccounts'){if(!user||user.role!=='admin'){go('dashboard');toast('این بخش فقط برای مدیر است');return;}renderTeacherAdminList();}
   if(p==='teacherperformance'){if(!user||user.role!=='admin'){go('dashboard');toast('این بخش فقط برای مدیر است');return;}fillTeacherPerformanceSelects();renderTeacherPerformance();}
-  if(p==='studentdata'){if(!user||user.role!=='admin'){go('dashboard');toast('این بخش فقط برای مدیر است');return;}try{initExportPrincipalName();}catch(e){}document.getElementById('student-import-preview').innerHTML='';document.getElementById('student-import-status').textContent='';document.getElementById('student-import-commit').classList.add('hidden');if(!navigator.onLine||window.isOffline){restoreOfflineSnapshot().then(()=>{renderStudents();refreshDash();}).catch(()=>{});}else{Promise.race([reloadAll(),new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),2500))]).catch(async()=>{globalStatus(true);await restoreOfflineSnapshot();renderStudents();refreshDash();});}}
+  if(p==='studentdata'){if(!user||user.role!=='admin'){go('dashboard');toast('این بخش فقط برای مدیر است');return;}try{initExportPrincipalName();}catch(e){}document.getElementById('student-import-preview').innerHTML='';document.getElementById('student-import-status').textContent='';document.getElementById('student-import-commit').classList.add('hidden');if(!navigator.onLine||window.isOffline){restoreOfflineSnapshot().then(()=>{renderStudents();refreshDash();}).catch(()=>{});}else{sb.from('sa_students').select('*').then(function(res){if(res&&!res.error&&Array.isArray(res.data)){var prev=cache.students||[];cache.students=dedupeStudents(res.data);var removed=reconcileDeletedStudentIds(prev,cache.students);if(removed.length)pruneStudentRecords(removed);renderStudents();refreshDash();}}).catch(function(e){console.warn('student list refresh',e);});}}
   if(p==='students'){fillSelects();renderStudents();}
-  if(p==='studentfile'){reloadAll().then(searchStudentFile);}
-  if(p==='attendance'){fillSelects();loadAttendance();}
-  if(p==='finance'){fillSelects();if(!document.getElementById('fin-date').value)document.getElementById('fin-date').value=today();fillFinanceStudents();loadFinance();}
-  if(p==='discipline'){try{jdateInitAll();}catch(e){}fillSelects();fillDisciplineStudents();fillInviteClasses();if(!document.getElementById('di-date').value)document.getElementById('di-date').value=today();onDateChange('di-date','di-weekday');if(!document.getElementById('iv-date').value)document.getElementById('iv-date').value=today();loadDiscipline();if(openInvitation){setTimeout(()=>{const panel=document.getElementById('invite-maker');if(panel){panel.scrollIntoView({behavior:'auto',block:'start'});panel.style.outline='2px solid #f59e0b';setTimeout(()=>panel.style.outline='',1800);}},120);}}
+  if(p==='studentfile'){searchStudentFile();}
+  if(p==='attendance'){fillSelects();loadAttendance(true);}
+  if(p==='finance'){fillSelects();if(!document.getElementById('fin-date').value)document.getElementById('fin-date').value=today();fillFinanceStudents();loadFinance(true);}
+  if(p==='discipline'){try{jdateInitAll();}catch(e){}fillSelects();fillDisciplineStudents();fillInviteClasses();if(!document.getElementById('di-date').value)document.getElementById('di-date').value=today();onDateChange('di-date','di-weekday');if(!document.getElementById('iv-date').value)document.getElementById('iv-date').value=today();loadDiscipline(true);if(openInvitation){setTimeout(()=>{const panel=document.getElementById('invite-maker');if(panel){panel.scrollIntoView({behavior:'auto',block:'start'});panel.style.outline='2px solid #f59e0b';setTimeout(()=>panel.style.outline='',1800);}},120);}}
   if(p==='activity'){
     fillSelects();
     const fd=document.getElementById('ac-filter-dt');
@@ -3195,17 +3205,17 @@ function go(p){
     if(fd&&!fd.value) fd.value=today();
     if(fw){const now=weekdayNow();for(let i=0;i<fw.options.length;i++){if(fw.options[i].text===now||fw.options[i].value===now){fw.selectedIndex=i;break;}}}
     onDateChange('ac-filter-dt','ac-filter-wd');
-    loadActivities();
+    loadActivities(true);
     document.getElementById('ac-form').innerHTML='';
   }
-  if(p==='evaluation'){try{if(typeof applyParentLinkPermissionUI==='function')applyParentLinkPermissionUI();}catch(e){}setTimeout(function(){try{if(user&&user.role==='teacher'&&typeof window.startTeacherParentLinkPermissionPolling==='function')window.startTeacherParentLinkPermissionPolling();else if(typeof window.loadTeacherParentLinkAllowed==='function')window.loadTeacherParentLinkAllowed(true);else if(typeof applyParentLinkPermissionUI==='function')applyParentLinkPermissionUI();}catch(e){}},200);fillSelects();const ed=document.getElementById('ev-filter-date');if(ed&&!ed.value)ed.value=today();toggleEvDateFilter();loadEvals();document.getElementById('ev-form').innerHTML='';}
+  if(p==='evaluation'){try{if(typeof applyParentLinkPermissionUI==='function')applyParentLinkPermissionUI();}catch(e){}setTimeout(function(){try{if(user&&user.role==='teacher'&&typeof window.startTeacherParentLinkPermissionPolling==='function')window.startTeacherParentLinkPermissionPolling();else if(typeof window.loadTeacherParentLinkAllowed==='function')window.loadTeacherParentLinkAllowed(true);else if(typeof applyParentLinkPermissionUI==='function')applyParentLinkPermissionUI();}catch(e){}},200);fillSelects();const ed=document.getElementById('ev-filter-date');if(ed&&!ed.value)ed.value=today();toggleEvDateFilter();loadEvals(true);document.getElementById('ev-form').innerHTML='';}
   if(p==='absentees'){try{jdateInitAll();fillAbsenteesClassSelect();loadAbsenteesReport();if(typeof loadAbsenteesNeedsAttention==='function')loadAbsenteesNeedsAttention();}catch(e){}}
   if(p==='charts'){fillSelects();loadChartStudents();renderChartView();}
   if(p==='documents'){fillDocumentClassSelect();loadSchoolDocuments();}
   if(p==='chat'){loadSchoolMessages();}
   if(p==='weekly'){fillSelects();fillWeeklyClasses();renderWeeklyEditor();}
   if(p==='parentmeet'){fillParentClasses();if(!document.getElementById('pm-date').value)document.getElementById('pm-date').value=today();syncParentWeekday();if(!document.getElementById('pm-comments').children.length)addParentComment();renderParentMeetings();}
-  if(p==='report'){fillSelects();loadReportStudents();document.getElementById('rp-edit').innerHTML='';}
+  if(p==='report'){fillSelects();loadReportStudents(true);document.getElementById('rp-edit').innerHTML='';}
   });
   });
 }
@@ -3927,6 +3937,85 @@ async function refreshAdminQaAfterTeacherSync(){
 // هر سه ثانیه، فقط هنگام باز بودن صفحه و فقط در پنل مدیر، تغییرات معلم دریافت می‌شود.
 try{if(!window.__dastyarAdminQaAutoRefreshTimer)window.__dastyarAdminQaAutoRefreshTimer=setInterval(function(){if(document.visibilityState==='visible')refreshAdminQaAfterTeacherSync();},3000);}catch(e){}
 
+function applyLivePendingRows(tableName,serverRows,pending){
+  var rows=(serverRows||[]).slice();
+  (pending||[]).filter(function(item){return item&&item.table===tableName;}).forEach(function(item){
+    var filters=item.filters||[],payload=Array.isArray(item.payload)?item.payload:(item.payload?[item.payload]:[]);
+    function matches(row){return filters.every(function(f){return f.type!=='eq'||String(row&&row[f.col])===String(f.val);});}
+    if(item.method==='POST'||item.method==='UPSERT'){payload.forEach(function(row){if(!row)return;var i=rows.findIndex(function(old){return String(old.id)===String(row.id);});if(i>=0)rows[i]=Object.assign({},rows[i],row);else rows.push(row);});}
+    else if(item.method==='PATCH'){rows.forEach(function(row){if(matches(row))Object.assign(row,item.payload||{});});}
+    else if(item.method==='DELETE'){rows=rows.filter(function(row){return !matches(row);});}
+  });
+  return rows;
+}
+var __dastyarLiveSyncBusy=false,__dastyarLiveSyncAt=0;
+async function refreshActiveSectionLive(){
+  if(__dastyarLiveSyncBusy||!user||!sb||!navigator.onLine||window.isOffline||document.visibilityState!=='visible')return false;
+  if(Date.now()-__dastyarLiveSyncAt<3500)return false;
+  var page=document.querySelector('.page.on');if(!page)return false;
+  var pageId=String(page.id||'').replace(/^page-/,'');
+  var tableNames=[];
+  if(pageId==='dashboard'){if(user.role==='teacher')tableNames=['sa_discipline','sa_evaluations','sa_activities'];}
+  else if(pageId==='attendance')tableNames=['sa_attendance'];
+  else if(pageId==='discipline')tableNames=['sa_discipline'];
+  else if(pageId==='activity')tableNames=['sa_activities','sa_evaluations'];
+  else if(pageId==='evaluation')tableNames=['sa_evaluations','sa_activities'];
+  else if(pageId==='finance')tableNames=['sa_finance'];
+  else if(pageId==='report')tableNames=['sa_scores','sa_competencies','sa_evaluations','sa_activities'];
+  else if(pageId==='charts')tableNames=['sa_scores','sa_competencies','sa_activities','sa_evaluations'];
+  else if(pageId==='studentfile')tableNames=['sa_attendance','sa_scores','sa_competencies','sa_activities','sa_evaluations','sa_discipline','sa_finance'];
+  else if(pageId==='teacherreport')tableNames=['sa_attendance','sa_scores','sa_competencies','sa_activities','sa_evaluations','sa_discipline','sa_finance'];
+  else if(pageId==='monthlyreport')tableNames=['sa_attendance','sa_evaluations','sa_activities','sa_discipline','sa_finance'];
+  else if(pageId==='students'||pageId==='studentdata')tableNames=[];
+  else return false;
+  __dastyarLiveSyncBusy=true;__dastyarLiveSyncAt=Date.now();
+  try{
+    var pending=window.DastyarOffline&&typeof window.DastyarOffline.pending==='function'?await window.DastyarOffline.pending():[];
+    var requests=[sb.from('sa_students').select('*')].concat(tableNames.map(function(table){
+      if(table==='sa_attendance'&&pageId==='attendance'){
+        var cid=String((document.getElementById('at-class')||{}).value||''),dt=String((document.getElementById('at-date')||{}).value||today());
+        return sb.from(table).select('*').eq('class_id',cid).eq('date',dt);
+      }
+      return sb.from(table).select('*');
+    }));
+    var results=await Promise.all(requests);
+    if(!results[0]||results[0].error||!Array.isArray(results[0].data))return false;
+    var oldStudents=cache.students||[];
+    var nextStudents=dedupeStudents(applyLivePendingRows('sa_students',results[0].data,pending)).filter(function(s){return s&&!getDeletedStudentIds().has(String(s.id));});
+    var offlineOnly=await collectOfflineOnlyStudents(nextStudents);if(offlineOnly.length)nextStudents=dedupeStudents(nextStudents.concat(offlineOnly));
+    var removed=reconcileDeletedStudentIds(oldStudents,nextStudents);
+    var changed=JSON.stringify(oldStudents)!==JSON.stringify(nextStudents)||removed.length>0;
+    if(JSON.stringify(oldStudents)!==JSON.stringify(nextStudents))cache.students=nextStudents;
+    if(removed.length)pruneStudentRecords(removed);
+    var tableMap={sa_attendance:'attendance',sa_scores:'scores',sa_competencies:'competencies',sa_activities:'activities',sa_evaluations:'evaluations',sa_discipline:'discipline',sa_finance:'finance'};
+    for(var i=0;i<tableNames.length;i++){
+      var table=tableNames[i],res=results[i+1],cacheName=tableMap[table];
+      if(!res||res.error||!Array.isArray(res.data)||!cacheName)continue;
+      var rows=applyLivePendingRows(table,res.data,pending);
+      if(table==='sa_attendance'&&pageId==='attendance'){
+        var classId=String((document.getElementById('at-class')||{}).value||''),date=String((document.getElementById('at-date')||{}).value||today());
+        rows=(cache.attendance||[]).filter(function(r){return String(r.class_id)!==classId||String(r.date)!==date;}).concat(rows);
+      }
+      if(JSON.stringify(cache[cacheName]||[])!==JSON.stringify(rows)){cache[cacheName]=rows;changed=true;}
+    }
+    if(!changed)return true;
+    try{persistLocalSchoolCache();}catch(e){}
+    try{if(window.DastyarOffline&&window.DastyarOffline.saveSnapshot)await window.DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
+    if(pageId==='dashboard')refreshDash();
+    else if(pageId==='students'||pageId==='studentdata')renderStudents();
+    else if(pageId==='attendance')await loadAttendance(true);
+    else if(pageId==='discipline'){fillDisciplineStudents();renderDisciplineList();}
+    else if(pageId==='activity')await loadActivities(true);
+    else if(pageId==='evaluation')await loadEvals(true);
+    else if(pageId==='finance'){fillFinanceStudents();renderFinance();}
+    else if(pageId==='report')renderReportStudentsList();
+    else if(pageId==='charts')loadChartStudents();
+    else if(pageId==='studentfile')searchStudentFile();
+    return true;
+  }catch(e){console.warn('همگام‌سازی زنده بخش فعال ناموفق بود:',e);return false;}
+  finally{__dastyarLiveSyncBusy=false;}
+}
+try{if(!window.__dastyarLiveSyncTimer){window.__dastyarLiveSyncTimer=setInterval(function(){refreshActiveSectionLive();},4500);document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')refreshActiveSectionLive();});}}catch(e){}
 function refreshDash(){
   try{refreshDashboardEvaluationDisciplineCache();}catch(e){}
   try{ if(typeof refreshDashboardDocumentCache==='function') refreshDashboardDocumentCache(); }catch(e){}
@@ -4024,7 +4113,8 @@ function refreshDash(){
   try{
     var isAdm=user&&user.role==='admin';
     var clsIds={}; (typeof myClasses==='function'?myClasses():[]).forEach(function(c){clsIds[String(c.id)]=true;});
-    var dCount=(cache.discipline||[]).filter(function(r){ if(!r)return false; if(typeof isDisciplinePending==='function'&&!isDisciplinePending(r))return false; if(isAdm)return true; return !!clsIds[String(r.class_id||'')]; }).length;
+    var validDisciplineStudents=new Set((cache.students||[]).map(function(s){return String(s.id);}));
+    var dCount=(cache.discipline||[]).filter(function(r){ if(!r||!validDisciplineStudents.has(String(r.student_id||'')))return false; if(typeof isDisciplinePending==='function'&&!isDisciplinePending(r))return false; if(isAdm)return true; return !!clsIds[String(r.class_id||'')]; }).length;
     var elD=document.getElementById('st-d'); if(elD) elD.textContent=fa(dCount);
   }catch(e){ var elD2=document.getElementById('st-d'); if(elD2) elD2.textContent=fa(0); }
   // غایبین امروز — پایدار، بدون صفر شدن لحظه‌ای
@@ -4397,22 +4487,28 @@ async function addStudentOnline(){
 
 async function deleteStudent(id, name){
   if(!confirm('حذف دانش‌آموز «'+name+'»؟ این عمل قابل بازگشت نیست.')) return;
-  const st=cache.students.find(x=>x.id===id);
+  const st=cache.students.find(x=>String(x.id)===String(id));
   if(!st){toast('یافت نشد');return;}
-  if(user.role==='teacher' && !(user.class_ids||[]).includes(st.class_id)){
+  if(user.role==='teacher' && !(user.class_ids||[]).map(String).includes(String(st.class_id))){
     toast('فقط دانش‌آموزان کلاس خودتان را می‌توانید حذف کنید');return;
   }
-  // حذف وابسته‌ها
-  await sb.from('sa_attendance').delete().eq('student_id', id);
-  await sb.from('sa_scores').delete().eq('student_id', id);
-  await sb.from('sa_competencies').delete().eq('student_id', id);
-  await sb.from('sa_activities').delete().eq('student_id', id);
-  await sb.from('sa_evaluations').delete().eq('student_id', id);
-  const {error}=await sb.from('sa_students').delete().eq('id', id);
-  if(error){toast('خطا: '+error.message);return;}
-  await reloadAll();
-  renderStudents();refreshDash();
-  toast('دانش‌آموز حذف شد');
+  if(!sb){toast('اتصال پایگاه‌داده آماده نیست؛ حذف انجام نشد');return;}
+  const dependentTables=['sa_attendance','sa_scores','sa_competencies','sa_activities','sa_evaluations','sa_discipline','sa_finance','sa_achievements'];
+  try{
+    const results=await Promise.all(dependentTables.map(function(table){return sb.from(table).delete().eq('student_id',String(id));}));
+    const failed=results.find(function(r){return r&&r.error;});
+    if(failed){toast('حذف سوابق کامل نشد؛ دانش‌آموز حذف نشد. '+failed.error.message);return;}
+    const removed=await sb.from('sa_students').delete().eq('id',String(id));
+    if(removed&&removed.error){toast('خطا در حذف دانش‌آموز: '+removed.error.message);return;}
+    rememberDeletedStudentIds([id]);
+    cache.students=(cache.students||[]).filter(function(x){return String(x.id)!==String(id);});
+    pruneStudentRecords([id]);
+    try{persistLocalSchoolCache();}catch(e){}
+    try{renderStudents();}catch(e){}
+    try{refreshDash();}catch(e){}
+    try{var sf=document.getElementById('sf-results');if(sf)searchStudentFile();}catch(e){}
+    toast('دانش‌آموز و تمام سوابق وابسته حذف شدند');
+  }catch(e){toast('حذف کامل انجام نشد: '+(e.message||e));}
 }
 
 
@@ -5530,8 +5626,8 @@ function fillFinanceStudents(){
  const students=cache.students.filter(s=>s.class_id===cls);
  sel.innerHTML=students.map(s=>'<option value="'+s.id+'">'+escHtml((s.first_name||'')+' '+(s.last_name||''))+'</option>').join('')||'<option value="">دانش‌آموزی نیست</option>';
 }
-async function loadFinance(){
- await reloadAll();fillFinanceStudents();renderFinance();
+async function loadFinance(skipServerReload){
+ if(!skipServerReload)await reloadAll();fillFinanceStudents();renderFinance();
 }
 async function saveFinance(){
  const classId=document.getElementById('fin-class').value;
@@ -5616,8 +5712,8 @@ function fillDisciplineStudents(){
  const list=cache.students.filter(s=>s.class_id===(cls||myClasses()[0]?.id));
  sel.innerHTML=list.map(s=>'<option value="'+s.id+'">'+escHtml((s.first_name||'')+' '+(s.last_name||''))+'</option>').join('')||'<option value="">دانش‌آموزی نیست</option>';
 }
-async function loadDiscipline(){
- await reloadAll();
+async function loadDiscipline(skipServerReload){
+ if(!skipServerReload)await reloadAll();
  fillDisciplineStudents();
  renderDisciplineList();
 }
@@ -5919,13 +6015,13 @@ async function deleteAttendanceRecord(id){
    else toast('رکورد از این دستگاه حذف شد'+(serverMsg?('؛ سرور: '+serverMsg):''));
  }catch(e){toast('حذف انجام نشد: '+(e&&e.message||e));}
 }
-async function loadAttendance(){
+async function loadAttendance(skipServerReload){
   const classId=String(document.getElementById('at-class')?.value||'');
   const date=String(document.getElementById('at-date')?.value||today());
   const box=document.getElementById('alist');
   if(!classId){if(box)box.innerHTML='<div class="empty">ابتدا کلاس را انتخاب کنید</div>';return;}
   try{
-    await reloadAll();
+    if(!skipServerReload)await reloadAll();
     const students=(cache.students||[]).filter(s=>String(s.class_id)===classId);
     attState={};
     // خانه‌ها خالی می‌مانند تا معلم «همه حاضر» بزند یا وضعیت را تک‌به‌تک انتخاب کند.
@@ -6833,12 +6929,12 @@ async function buildClosedMonthQaEvaluations(){
   try{refreshDash();}catch(e){}
   return true;
 }
-async function loadEvals(){
-  await reloadAll();
+async function loadEvals(skipServerReload){
+  if(!skipServerReload)await reloadAll();
   try{if(typeof applyParentLinkPermissionUI==='function')applyParentLinkPermissionUI();}catch(e){}
-  try{ if(typeof loadTeacherParentLinkAllowed==='function') await loadTeacherParentLinkAllowed(); }catch(e){}
+  if(!skipServerReload){try{ if(typeof loadTeacherParentLinkAllowed==='function') await loadTeacherParentLinkAllowed(); }catch(e){}}
   try{ if(typeof applyStudentPhotosFromLocal==='function') applyStudentPhotosFromLocal(); }catch(e){}
-  try{await buildClosedMonthQaEvaluations();}catch(e){console.warn('خلاصه خودکار ماهانه پرسش‌وپاسخ ناموفق بود',e);}
+  if(!skipServerReload){try{await buildClosedMonthQaEvaluations();}catch(e){console.warn('خلاصه خودکار ماهانه پرسش‌وپاسخ ناموفق بود',e);}}
   const classId=document.getElementById('ev-class').value;
   const month=document.getElementById('ev-month').value;
   const mode=document.getElementById('ev-filter-mode')?.value||'date';
@@ -6874,8 +6970,8 @@ function renderReportStudentsList(){
  if(!students.length){box.innerHTML='<div class="empty">دانش‌آموزی نیست</div>';return;}
  box.innerHTML=students.map(function(st){const filled=new Set(cache.scores.filter(function(x){return String(x.student_id)===String(st.id);}).map(function(x){return String(x.subject);})).size;return '<div class="card" style="padding:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap"><div style="flex:1" onclick="openScore(\''+st.id+'\')"><div class="name">'+st.first_name+' '+st.last_name+'</div><div class="meta">'+(filled?fa(filled)+' درس':'بدون نمره')+'</div></div><label style="font-size:.75rem"><input type="checkbox" onchange="togP(\''+st.id+'\',this.checked)"/> PDF</label><button class="btn btn-p btn-sm" onclick="openScore(\''+st.id+'\')">ثبت نمره</button></div></div>';}).join('');
 }
-async function loadReportStudents(){
- await reloadAll();try{await syncQaReportCardAverages();}catch(syncErr){console.warn('همگام‌سازی میانگین پرسش‌وپاسخ با کارنامه ناموفق بود',syncErr);}renderReportStudentsList();
+async function loadReportStudents(skipServerReload){
+ if(!skipServerReload){await reloadAll();try{await syncQaReportCardAverages();}catch(syncErr){console.warn('همگام‌سازی میانگین پرسش‌وپاسخ با کارنامه ناموفق بود',syncErr);}}renderReportStudentsList();
 }
 function togP(id,c){if(c)printSet.add(id);else printSet.delete(id);}
 function openScore(sid){
