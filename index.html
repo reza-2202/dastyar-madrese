@@ -3964,8 +3964,8 @@ async function refreshAdminQaAfterTeacherSync(){
   }catch(e){console.warn('تازه‌سازی خودکار پرسش‌وپاسخ و انضباط مدیر ناموفق بود؛ در نوبت بعد دوباره تلاش می‌شود.',e);return false;}
   finally{__dastyarAdminQaAutoRefreshBusy=false;}
 }
-// هر سه ثانیه، فقط هنگام باز بودن صفحه و فقط در پنل مدیر، تغییرات معلم دریافت می‌شود.
-try{if(!window.__dastyarAdminQaAutoRefreshTimer)window.__dastyarAdminQaAutoRefreshTimer=setInterval(function(){if(document.visibilityState==='visible')refreshAdminQaAfterTeacherSync();},12000);}catch(e){}
+// دریافت تغییرات این جدول‌ها توسط refreshDastyarActiveSection و فقط برای بخش فعال انجام می‌شود؛
+// از polling موازی مدیر جلوگیری می‌کنیم تا درخواست‌های تکراری و پردازش هم‌زمان ایجاد نشود.
 
 function refreshDash(){
   try{refreshDashboardEvaluationDisciplineCache();}catch(e){}
