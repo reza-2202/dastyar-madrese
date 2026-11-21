@@ -7677,21 +7677,63 @@ async function uploadSchoolDocument(){
 var __dastyarDocumentsRealtimeChannel=null;
 var __dastyarDocumentsRealtimeClient=null;
 var __dastyarDocumentsRealtimeRefreshTimer=null;
+var __dastyarDashboardRealtimeDirtyTables={};
+function queueDastyarDashboardRealtimeRefresh(table){
+  if(!table)return;
+  __dastyarDashboardRealtimeDirtyTables[table]=true;
+  if(__dastyarDocumentsRealtimeRefreshTimer)clearTimeout(__dastyarDocumentsRealtimeRefreshTimer);
+  __dastyarDocumentsRealtimeRefreshTimer=setTimeout(flushDastyarDashboardRealtimeChanges,350);
+}
+async function flushDastyarDashboardRealtimeChanges(){
+  __dastyarDocumentsRealtimeRefreshTimer=null;
+  if(!window.user||!window.sb||!navigator.onLine||window.isOffline){
+    __dastyarDashboardRealtimeDirtyTables={};
+    return;
+  }
+  var dirty=__dastyarDashboardRealtimeDirtyTables;
+  __dastyarDashboardRealtimeDirtyTables={};
+  var activePage=document.querySelector('.page.on');
+  if(dirty.sa_documents){
+    try{
+      if(activePage&&activePage.id==='page-documents'&&typeof loadSchoolDocuments==='function'){
+        await loadSchoolDocuments();
+      }else{
+        if(__dastyarDashboardDocsRefreshPromise)await __dastyarDashboardDocsRefreshPromise;
+        __dastyarDashboardDocsRefreshAt=0;
+        await refreshDashboardDocumentCache();
+      }
+    }catch(e){console.warn('document realtime refresh',e);}
+  }
+  if(user&&user.role==='admin'&&(dirty.sa_activities||dirty.sa_evaluations||dirty.sa_discipline)){
+    var elapsed=Date.now()-(__dastyarAdminQaAutoRefreshAt||0);
+    if(__dastyarAdminQaAutoRefreshBusy||elapsed<2500){
+      Object.keys(dirty).forEach(function(k){if(dirty[k])__dastyarDashboardRealtimeDirtyTables[k]=true;});
+      var wait=__dastyarAdminQaAutoRefreshBusy?700:Math.max(250,2500-elapsed+100);
+      __dastyarDocumentsRealtimeRefreshTimer=setTimeout(flushDastyarDashboardRealtimeChanges,wait);
+      return;
+    }
+    try{await refreshAdminQaAfterTeacherSync();}
+    catch(e){console.warn('dashboard realtime counters refresh',e);}
+  }
+  if(activePage&&activePage.id==='page-dashboard'){
+    try{if(typeof refreshDash==='function')refreshDash();}catch(e){}
+  }
+}
 function ensureSchoolDocumentRealtimeSync(){
   if(!window.sb||typeof sb.channel!=='function'||!user)return;
   if(__dastyarDocumentsRealtimeChannel&&__dastyarDocumentsRealtimeClient===sb)return;
   try{
     if(__dastyarDocumentsRealtimeChannel&&typeof sb.removeChannel==='function')sb.removeChannel(__dastyarDocumentsRealtimeChannel);
     __dastyarDocumentsRealtimeClient=sb;
-    __dastyarDocumentsRealtimeChannel=sb.channel('dastyar-school-documents-sync')
-      .on('postgres_changes',{event:'*',schema:'public',table:'sa_documents'},function(){
-        if(__dastyarDocumentsRealtimeRefreshTimer)clearTimeout(__dastyarDocumentsRealtimeRefreshTimer);
-        __dastyarDocumentsRealtimeRefreshTimer=setTimeout(function(){
-          if(!window.user||!window.sb||!navigator.onLine||window.isOffline)return;
-          loadSchoolDocuments().then(function(){try{if(typeof refreshDash==='function')refreshDash();}catch(e){}}).catch(function(e){console.warn('document realtime refresh',e);});
-        },350);
-      }).subscribe();
-  }catch(e){console.warn('document realtime sync unavailable',e);}
+    var channel=sb.channel('dastyar-school-dashboard-live-counters');
+    ['sa_documents','sa_activities','sa_evaluations','sa_discipline'].forEach(function(table){
+      channel=channel.on('postgres_changes',{event:'*',schema:'public',table:table},function(){
+        if(table!=='sa_documents'&&(!window.user||user.role!=='admin'))return;
+        queueDastyarDashboardRealtimeRefresh(table);
+      });
+    });
+    __dastyarDocumentsRealtimeChannel=channel.subscribe();
+  }catch(e){console.warn('dashboard realtime sync unavailable',e);}
 }
 async function loadSchoolDocuments(){
   try{ensureSchoolDocumentRealtimeSync();}catch(e){}
