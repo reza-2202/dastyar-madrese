@@ -14137,7 +14137,7 @@ function addSheet(wb,rows,name,widths){
  ws['!cols']=widths.map(function(w){return {wch:w};});
  styleSheet(ws);XLSX.utils.book_append_sheet(wb,ws,name);return ws;
 }
-window.exportAttendanceExcel=async function(){
+window.exportAttendanceExcel=function(){
  try{
   if(typeof XLSX==='undefined'){toast('کتابخانه Excel در دسترس نیست؛ اتصال اینترنت را بررسی کنید');return;}
   var classId=String(document.getElementById('at-class')&&document.getElementById('at-class').value||'');
@@ -14145,7 +14145,6 @@ window.exportAttendanceExcel=async function(){
   var weekday=String(document.getElementById('at-weekday')&&document.getElementById('at-weekday').value||'');
   if(!classId){toast('ابتدا کلاس را انتخاب کنید');return;}
   if(user&&user.role==='teacher'&&typeof myClasses==='function'&&!myClasses().some(function(c){return String(c.id)===classId;})){toast('به اطلاعات این کلاس دسترسی ندارید');return;}
-  if(navigator.onLine&&!window.isOffline&&typeof reloadAll==='function'){try{await reloadAll();}catch(e){console.warn('به‌روزرسانی پیش از خروجی انجام نشد؛ از داده‌های محلی استفاده می‌شود.',e);}}
   var cls=(cache.classes||[]).find(function(c){return String(c.id)===classId;});
   var students=(cache.students||[]).filter(function(st){return String(st.class_id)===classId;}).slice().sort(function(a,b){return String(a.last_name||'').localeCompare(String(b.last_name||''),'fa')||String(a.first_name||'').localeCompare(String(b.first_name||''),'fa');});
   if(!students.length){toast('فهرست دانش‌آموزان این کلاس موجود نیست');return;}
@@ -14162,8 +14161,18 @@ window.exportAttendanceExcel=async function(){
   addSheet(wb,rows,'حضور و غیاب',[8,25,16,16,14,22,32]);
   var summary=[{'عنوان':'مدرسه','مقدار':'دبستان شهید فتح‌الله فلاح‌پور'},{'عنوان':'کلاس','مقدار':cls?(cls.label||cls.id):classId},{'عنوان':'تاریخ','مقدار':date},{'عنوان':'روز هفته','مقدار':weekday},{'عنوان':'تعداد دانش‌آموزان','مقدار':students.length},{'عنوان':'حاضر','مقدار':statusCounts.present},{'عنوان':'غایب غیرموجه','مقدار':statusCounts.unexcused},{'عنوان':'غایب موجه','مقدار':statusCounts.excused},{'عنوان':'تأخیر','مقدار':statusCounts.late},{'عنوان':'ثبت‌نشده','مقدار':statusCounts.blank},{'عنوان':'تاریخ تهیه خروجی','مقدار':today()}];
   addSheet(wb,summary,'خلاصه',[28,36]);wb.Workbook=wb.Workbook||{};wb.Workbook.Views=[{RTL:true}];
-  XLSX.writeFile(wb,'حضور_و_غیاب_'+(cls?(cls.label||classId):classId)+'_'+date.replace(/\//g,'-')+'.xlsx');
-  toast('فایل اکسل فارسی حضور و غیاب آماده شد');
+  var fileName='حضور_و_غیاب_'+(cls?(cls.label||classId):classId)+'_'+date.replace(/\//g,'-')+'.xlsx';
+  var excelBytes=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+  var excelBlob=new Blob([excelBytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  if(window.navigator&&typeof window.navigator.msSaveOrOpenBlob==='function'){
+   window.navigator.msSaveOrOpenBlob(excelBlob,fileName);
+  }else{
+   var excelUrl=URL.createObjectURL(excelBlob),excelLink=document.createElement('a');
+   excelLink.href=excelUrl;excelLink.download=fileName;excelLink.style.display='none';
+   document.body.appendChild(excelLink);excelLink.click();excelLink.remove();
+   setTimeout(function(){URL.revokeObjectURL(excelUrl);},30000);
+  }
+  toast('فایل اکسل فارسی حضور و غیاب برای دانلود آماده شد');
  }catch(e){console.error(e);toast('ساخت خروجی اکسل حضور و غیاب ناموفق بود: '+(e&&e.message||e));}
 };
 function attentionData(){
