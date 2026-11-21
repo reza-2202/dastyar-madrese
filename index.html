@@ -14173,14 +14173,31 @@ function addSheet(wb,rows,name,widths){
  styleSheet(ws);XLSX.utils.book_append_sheet(wb,ws,name);return ws;
 }
 window.downloadExcelBlob=function(blob,fileName){
- var link=window.__dastyarExcelDownloadLink;
- if(!link){
-  link=document.createElement('a');link.id='dastyar-excel-download-link';link.style.position='fixed';link.style.left='-10000px';link.style.top='0';link.style.width='1px';link.style.height='1px';link.style.opacity='0';link.style.pointerEvents='none';document.body.appendChild(link);window.__dastyarExcelDownloadLink=link;
+ /* هر دانلود لینک مستقل داشته باشد؛ لینک قبلی یا وضعیت دانلود قبلی دوباره استفاده نشود. */
+ var link=document.createElement('a');
+ var url=URL.createObjectURL(blob);
+ link.href=url;
+ link.download=String(fileName||'گزارش.xlsx');
+ link.style.position='fixed';
+ link.style.left='-10000px';
+ link.style.top='0';
+ link.style.width='1px';
+ link.style.height='1px';
+ link.style.opacity='0';
+ link.style.pointerEvents='none';
+ link.setAttribute('aria-hidden','true');
+ document.body.appendChild(link);
+ try{
+  /* کلیک در همان رویداد لمس دکمه انجام می‌شود تا مجوز دانلود مرورگر حفظ شود. */
+  link.click();
+ }catch(e){
+  try{URL.revokeObjectURL(url);}catch(ignore){}
+  if(link.parentNode)link.parentNode.removeChild(link);
+  throw e;
  }
- var url=URL.createObjectURL(blob),old=link.dataset.objectUrl||'';
- link.href=url;link.download=fileName;link.dataset.objectUrl=url;
- link.click();
- if(old)setTimeout(function(){try{URL.revokeObjectURL(old);}catch(e){}},120000);
+ /* پاک‌سازی لینک و نشانی پس از آغاز دانلود؛ دانلودهای بعدی مستقل می‌مانند. */
+ setTimeout(function(){if(link.parentNode)link.parentNode.removeChild(link);},1000);
+ setTimeout(function(){try{URL.revokeObjectURL(url);}catch(e){}},120000);
 }
 window.exportAttendanceExcel=function(){
  try{
