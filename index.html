@@ -4439,7 +4439,8 @@ async function deleteStudent(id, name){
     toast('فقط دانش‌آموزان کلاس خودتان را می‌توانید حذف کنید');return;
   }
   if(!sb){toast('اتصال پایگاه‌داده آماده نیست؛ حذف انجام نشد');return;}
-  const dependentTables=['sa_attendance','sa_scores','sa_competencies','sa_activities','sa_evaluations','sa_discipline','sa_finance','sa_achievements'];
+  try{await awardCertificateApi('delete-student',String(id));}catch(awardDeleteError){toast('پاک‌سازی سوابق افتخارات انجام نشد؛ دانش‌آموز حذف نشد: '+(awardDeleteError&&awardDeleteError.message||awardDeleteError));return;}
+  const dependentTables=['sa_attendance','sa_scores','sa_competencies','sa_activities','sa_evaluations','sa_discipline','sa_finance'];
   try{
     const results=await Promise.all(dependentTables.map(function(table){return sb.from(table).delete().eq('student_id',String(id));}));
     const failed=results.find(function(r){return r&&r.error;});
