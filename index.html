@@ -15082,7 +15082,7 @@ observer.observe(document.documentElement,{childList:true,subtree:true});
   if(button)return button;
   button=document.createElement('button');
   button.type='button';button.id=id;button.className='home-tile';
-  button.innerHTML='<span class="tile-icon">'+icon+'</span><span class="tile-label">'+label+'</span>';
+  button.innerHTML='<span class="tile-icon" style="background:#fff7e6">'+icon+'</span><span class="tile-label">'+label+'</span>';
   button.addEventListener('click',action);
   return button;
  }
@@ -15108,6 +15108,7 @@ observer.observe(document.documentElement,{childList:true,subtree:true});
   /* ماژول تشویق ممکن است دکمه را زودتر در ریشه خانه ساخته باشد؛ آن را داخل گروه واقعی قرار بده. */
   if(!ach.classList.contains('home-tile')){
    ach.className='home-tile';
+   ach.style.cssText='';
    ach.innerHTML='<span class="tile-icon" style="background:#fff7e6">'+achievementIconSvg+'</span><span class="tile-label">افتخارات و تشویق دانش‌آموزان</span>';
   }
   if(ach.parentNode!==achievementGrid)achievementGrid.appendChild(ach);
