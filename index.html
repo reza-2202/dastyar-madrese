@@ -14897,58 +14897,66 @@ async function deleteAchievementEverywhere(id){
  try{await load();}catch(e){}
  var original=read(),record=original.find(function(x){return String(x.id)===String(id)});
  if(!record){toast('رکورد تشویق در فهرست تازه‌شده سرور پیدا نشد؛ هیچ چیزی حذف نشد');return}
- if(!confirm('این تشویق به‌طور کامل از سرور، پنل معلم، پرونده چاپی و تصویر لوح حذف شود؟ پرونده الکترونیکی اولیا نیز جداگانه برای به‌روزرسانی تلاش خواهد شد.'))return;
+ if(!confirm('این تشویق به‌طور کامل از سرور، پنل معلم، پرونده چاپی و تصویر لوح حذف شود؟ پرونده الکترونیکی اولیا پس از حذف، جداگانه و در پس‌زمینه به‌روزرسانی می‌شود.'))return;
  var remaining=original.filter(function(x){return String(x.id)!==String(id)});
  var pendingLocal=original.filter(function(x){return x&&x._localPending&&String(x.id)!==String(id)});
  window.__dastyarAchievementsRows=remaining;
- var serverDeleted=false,verifiedRows=null,verifyError=null;
+ // حذف رکورد اصلی مستقل از هرگونه عملیات پرونده اولیا انجام می‌شود.
  try{
   var deleted=await rpc('sa_achievements_delete',{p_username:creds().p_username,p_password:creds().p_password,p_id:String(id)});
   if(!deleted||deleted.deleted!==true)throw new Error('سرور حذف کامل را تأیید نکرد');
-  serverDeleted=true;
  }catch(e){
   window.__dastyarAchievementsRows=original;
   toast('حذف از سرور انجام نشد؛ رکورد حفظ شد: '+(e.message||e));
   return;
  }
- // حذف سرور مستقل از بازسازی بسته رمزگذاری‌شده اولیاست؛ خطای بسته نباید حذف اصلی را لغو کند.
+ // تأیید حذف از سرور؛ خطای خواندن مجدد نباید حذف تأییدشده را برگرداند.
+ var verifiedRows=remaining,verifyError=null;
  try{
-  verifiedRows=normalize(await rpc('sa_achievements_list',creds()));
-  if(verifiedRows.some(function(x){return String(x.id)===String(id)}))throw new Error('رکورد حذف‌شده هنوز در فهرست سرور دیده می‌شود');
-  verifiedRows=verifiedRows.concat(pendingLocal.filter(function(x){return !verifiedRows.some(function(y){return String(y.id)===String(x.id)})}));
+  var remoteRows=normalize(await rpc('sa_achievements_list',creds()));
+  if(remoteRows.some(function(x){return String(x.id)===String(id)}))throw new Error('رکورد حذف‌شده هنوز در فهرست سرور دیده می‌شود');
+  verifiedRows=remoteRows.concat(pendingLocal.filter(function(x){return !remoteRows.some(function(y){return String(y.id)===String(x.id)})}));
  }catch(e){
   verifyError=e&&e.message||String(e);
-  verifiedRows=remaining;
   console.warn('Achievement deletion verification',e);
  }
  write(verifiedRows);
  rows=verifiedRows;
- renderPage();renderDossier(record.student_id);
+ // این متغیر منبع ساخت بسته رمزگذاری‌شده پرونده اولیاست؛ حتماً بعد از حذف به‌روز شود.
+ window.__dastyarAchievementsRows=verifiedRows;
+ try{renderPage();}catch(e){console.warn('Achievement list redraw after deletion',e);}
+ try{renderDossier(record.student_id);}catch(e){console.warn('Achievement dossier redraw after deletion',e);}
  var certificateCleanupError=null;
  if(record.certificate_path){
   try{await awardCertificateApi('delete-award-file',id);}
   catch(fileError){certificateCleanupError=fileError&&fileError.message||String(fileError);console.warn('Award image cleanup after row deletion',fileError);}
  }
- var portalRefresh=null,portalRefreshError=null;
- try{
-  if(typeof window.refreshParentPortalPackageAfterFollowup==='function'){
-   portalRefresh=await window.refreshParentPortalPackageAfterFollowup(String(record.class_id));
-  }else portalRefresh={updated:false,reason:'refresh_helper_unavailable'};
- }catch(portalError){portalRefreshError=portalError&&portalError.message||String(portalError);}
- var portalFailed=!!portalRefreshError||!portalRefresh||(!portalRefresh.updated&&portalRefresh.reason!=='no_active_package');
- var portalWhy=portalRefreshError||(portalRefresh&&(portalRefresh.error||portalRefresh.reason))||'نامشخص';
- if(verifyError||certificateCleanupError){
-  var detail=verifyError?'بررسی نهایی سرور: '+verifyError:'';
-  if(certificateCleanupError)detail+=(detail?'؛ ':'')+'پاک‌سازی تصویر لوح: '+certificateCleanupError;
-  if(portalFailed)detail+=(detail?'؛ ':'')+'پرونده اولیا: '+portalWhy;
-  toast('رکورد از سرور حذف شد و از فهرست برنامه کنار رفت؛ '+detail);
- }else if(portalFailed){
-  toast('لوح از سرور و پنل معلم حذف شد؛ اما پرونده الکترونیکی اولیا به‌روزرسانی نشد: '+portalWhy+' . حذف اصلی انجام شده است.');
- }else if(portalRefresh&&portalRefresh.reason==='no_active_package'){
-  toast('حذف کامل تأیید شد؛ لوح و تصویر آن از سرور و پنل معلم حذف شدند. لینک فعالی برای اولیا وجود ندارد.');
- }else{
-  toast('حذف کامل تأیید شد؛ لوح و تصویر آن از سرور، پنل معلم و پرونده الکترونیکی اولیا حذف شدند.');
- }
+ // نتیجه حذف اصلی را فوراً اعلام می‌کنیم؛ بازسازی بسته اولیا در پس‌زمینه است
+ // و به‌هیچ‌وجه نمی‌تواند حذف تأییدشده را ناموفق یا رکورد را بازگرداند.
+ var deleteMessage='حذف لوح از سرور و پنل معلم انجام شد.';
+ if(verifyError)deleteMessage+=' بررسی مجدد فهرست سرور کامل نشد.';
+ if(certificateCleanupError)deleteMessage+=' پاک‌سازی تصویر لوح نیازمند بررسی است: '+certificateCleanupError;
+ toast(deleteMessage);
+ Promise.resolve().then(async function(){
+  try{
+   if(typeof window.refreshParentPortalPackageAfterFollowup!=='function'){
+    toast('لوح حذف شد؛ ابزار به‌روزرسانی پرونده اولیا در دسترس نیست.');
+    return;
+   }
+   var portalRefresh=await window.refreshParentPortalPackageAfterFollowup(String(record.class_id));
+   if(portalRefresh&&portalRefresh.updated){
+    toast('پرونده الکترونیکی اولیای کلاس نیز با حذف این لوح به‌روزرسانی شد.');
+   }else if(portalRefresh&&portalRefresh.reason==='no_active_package'){
+    console.info('No active parent package; deleted award will be absent from the next package.');
+   }else{
+    var why=(portalRefresh&&(portalRefresh.error||portalRefresh.reason))||'نامشخص';
+    toast('لوح با موفقیت حذف شد؛ فقط به‌روزرسانی پرونده الکترونیکی اولیا انجام نشد: '+why);
+   }
+  }catch(portalError){
+   console.warn('Parent package refresh after achievement deletion',portalError);
+   toast('لوح با موفقیت حذف شد؛ فقط به‌روزرسانی پرونده الکترونیکی اولیا انجام نشد: '+(portalError&&portalError.message||portalError));
+  }
+ });
 }
 function renderDossier(id){
  var root=document.getElementById('print-student-dossier');if(!root)return;
