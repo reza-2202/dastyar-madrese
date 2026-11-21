@@ -3263,19 +3263,21 @@ function fillSelects(){
   onDateChange('at-date','at-weekday');
 }
 
-function toggleAttendanceClassList(){
- var box=document.getElementById('attendance-class-list');if(!box)return;
- var opening=box.style.display==='none'||!box.style.display;box.style.display=opening?'block':'none';
- if(!opening)return;
- // ابتدا فقط از حافظه آماده برنامه نمایش بده؛ لمس کارت نباید منتظر بارگذاری همه جدول‌های سرور بماند.
+function renderAttendanceClassList(){
  var t=String(today()),classes=(typeof myClasses==='function'?myClasses():(cache.classes||[]));
  var byClass=new Map();
  (cache.attendance||[]).forEach(function(a){if(!a||String(a.date||'')!==t||!String(a.status||'').trim())return;var k=String(a.class_id||'');if(!k)return;byClass.set(k,(byClass.get(k)||0)+1);});
  var el=document.getElementById('attendance-class-list-items');
  if(el)el.innerHTML=classes.length?classes.map(function(c){var n=byClass.get(String(c.id))||0,ok=n>0;var label=(c.label||c.id)+(c.teacher_name?' — '+c.teacher_name:'');return '<span style="display:inline-block;margin:4px;padding:7px 11px;border-radius:16px;background:'+(ok?'#dcfce7':'#fee2e2')+';color:'+(ok?'#166534':'#991b1b')+';border:1px solid '+(ok?'#86efac':'#fca5a5')+'">'+(ok?'✓ ':'✕ ')+escHtml(label)+(ok?' — '+fa(n)+' رکورد':' — ثبت نشده')+'</span>';}).join(''):'کلاسی برای این حساب تعریف نشده است.';
  var admBtn=document.getElementById('attendance-remind-admin');
- if(admBtn) admBtn.style.display=(user&&user.role==='admin')?'block':'none';
- // تازه‌سازی فقط جدول حضور امروز در پس‌زمینه؛ نمایش اولیه و واکنش کارت معطل شبکه نمی‌شود.
+ if(admBtn)admBtn.style.display=(user&&user.role==='admin')?'block':'none';
+}
+function toggleAttendanceClassList(){
+ var box=document.getElementById('attendance-class-list');if(!box)return;
+ var opening=box.style.display==='none'||!box.style.display;box.style.display=opening?'block':'none';
+ if(!opening)return;
+ renderAttendanceClassList();
+ // فقط یک درخواست مشترک؛ به‌روزرسانی فهرست پس از پاسخ سرور دیگر خودش درخواست تازه‌ای آغاز نمی‌کند.
  if(navigator.onLine&&!window.isOffline&&typeof refreshTodayAttendanceFromServer==='function'){
   Promise.resolve().then(function(){return refreshTodayAttendanceFromServer();}).catch(function(e){console.warn('تازه‌سازی پس‌زمینه حضور داشبورد انجام نشد',e);});
  }
@@ -4098,7 +4100,10 @@ function refreshDash(){
 }
 
 
+var __dastyarTodayAttendanceRefreshPromise=null;
 async function refreshTodayAttendanceFromServer(){
+ if(__dastyarTodayAttendanceRefreshPromise)return __dastyarTodayAttendanceRefreshPromise;
+ var task=(async function(){
   if(!navigator.onLine||window.isOffline||!SB_URL||!SB_KEY)return false;
   var day=String(today());
   var url=String(SB_URL).replace(/\/$/,'')+'/rest/v1/sa_attendance?select=*&date=eq.'+encodeURIComponent(day);
@@ -4107,26 +4112,35 @@ async function refreshTodayAttendanceFromServer(){
   try{data=raw?JSON.parse(raw):[];}catch(e){throw new Error(raw||'پاسخ نامعتبر حضور و غیاب');}
   if(!response.ok)throw new Error((data&&(data.message||data.details||data.hint))||raw||('HTTP '+response.status));
   if(!Array.isArray(data))throw new Error('فهرست حضور و غیاب امروز معتبر نیست');
+  var oldToday=(cache.attendance||[]).filter(function(r){return r&&String(r.date||'')===day;}).map(function(r){return JSON.stringify(r);}).sort().join(String.fromCharCode(10));
   var byId={};
   (cache.attendance||[]).forEach(function(r){if(r&&String(r.date||'')!==day&&r.id!=null)byId[String(r.id)]=r;});
   data.forEach(function(r){if(r&&r.id!=null)byId[String(r.id)]=r;});
   try{
-    var q=JSON.parse(localStorage.getItem('dastyar_pending_attendance_v1')||'[]')||[];
-    if(Array.isArray(q))q.forEach(function(item){
-      if(!item||String(item.date)!==day)return;
-      var deleted=(item.deleteStudentIds||[]).map(String);
-      if(item.deleteAll)Object.keys(byId).forEach(function(k){var x=byId[k];if(x&&String(x.class_id)===String(item.class_id)&&String(x.date)===day)delete byId[k];});
-      else if(deleted.length)Object.keys(byId).forEach(function(k){var x=byId[k];if(x&&String(x.class_id)===String(item.class_id)&&String(x.date)===day&&deleted.includes(String(x.student_id)))delete byId[k];});
-      (item.rows||[]).forEach(function(r){if(r&&r.id!=null)byId[String(r.id)]=Object.assign({},r,{_offline:true});});
-    });
+   var q=JSON.parse(localStorage.getItem('dastyar_pending_attendance_v1')||'[]')||[];
+   if(Array.isArray(q))q.forEach(function(item){
+    if(!item||String(item.date)!==day)return;
+    var deleted=(item.deleteStudentIds||[]).map(String);
+    if(item.deleteAll)Object.keys(byId).forEach(function(k){var x=byId[k];if(x&&String(x.class_id)===String(item.class_id)&&String(x.date)===day)delete byId[k];});
+    else if(deleted.length)Object.keys(byId).forEach(function(k){var x=byId[k];if(x&&String(x.class_id)===String(item.class_id)&&String(x.date)===day&&deleted.includes(String(x.student_id)))delete byId[k];});
+    (item.rows||[]).forEach(function(r){if(r&&r.id!=null)byId[String(r.id)]=Object.assign({},r,{_offline:true});});
+   });
   }catch(e){}
-  cache.attendance=Object.keys(byId).map(function(k){return byId[k];});
+  var nextAttendance=Object.keys(byId).map(function(k){return byId[k];});
+  var nextToday=nextAttendance.filter(function(r){return r&&String(r.date||'')===day;}).map(function(r){return JSON.stringify(r);}).sort().join(String.fromCharCode(10));
+  var changed=oldToday!==nextToday;
+  cache.attendance=nextAttendance;
   window.__dastyarAttendanceAuthoritative=true;
-  try{persistLocalSchoolCache();}catch(e){}
-  try{refreshDash();}catch(e){}
-  try{var ab=document.getElementById('absent-dash-list');if(ab&&ab.style.display==='block')renderAbsentDashList();}catch(e){}
-  try{var cl=document.getElementById('attendance-class-list');if(cl&&cl.style.display==='block'){cl.style.display='none';await toggleAttendanceClassList();}}catch(e){}
+  if(changed){
+   try{persistLocalSchoolCache();}catch(e){}
+   try{refreshDash();}catch(e){}
+   try{var ab=document.getElementById('absent-dash-list');if(ab&&ab.style.display==='block')renderAbsentDashList();}catch(e){}
+   try{var cl=document.getElementById('attendance-class-list');if(cl&&cl.style.display==='block')renderAttendanceClassList();}catch(e){}
+  }
   return true;
+ })();
+ __dastyarTodayAttendanceRefreshPromise=task;
+ try{return await task;}finally{if(__dastyarTodayAttendanceRefreshPromise===task)__dastyarTodayAttendanceRefreshPromise=null;}
 }
 
 (function setupDashboardLiveRefresh(){
