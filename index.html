@@ -3872,7 +3872,6 @@ async function refreshDashboardDocumentCache(){
     rows=rows.map(function(d){
       const old=previous.get(String(d.id));
       if(old&&old.local_archive_data_url&&!d.local_archive_data_url)d.local_archive_data_url=old.local_archive_data_url;
-      if(old&&old.print_status==='ready_for_pickup'&&(!d.print_status||d.print_status==='pending'))Object.assign(d,{print_status:old.print_status,printed_at:old.printed_at,papers_used:old.papers_used,print_sides:old.print_sides,printed_by:old.printed_by});
       return d;
     });
     if(user.role==='teacher'){
@@ -7671,7 +7670,27 @@ async function uploadSchoolDocument(){
 }
 
 
+var __dastyarDocumentsRealtimeChannel=null;
+var __dastyarDocumentsRealtimeClient=null;
+var __dastyarDocumentsRealtimeRefreshTimer=null;
+function ensureSchoolDocumentRealtimeSync(){
+  if(!window.sb||typeof sb.channel!=='function'||!user)return;
+  if(__dastyarDocumentsRealtimeChannel&&__dastyarDocumentsRealtimeClient===sb)return;
+  try{
+    if(__dastyarDocumentsRealtimeChannel&&typeof sb.removeChannel==='function')sb.removeChannel(__dastyarDocumentsRealtimeChannel);
+    __dastyarDocumentsRealtimeClient=sb;
+    __dastyarDocumentsRealtimeChannel=sb.channel('dastyar-school-documents-sync')
+      .on('postgres_changes',{event:'*',schema:'public',table:'sa_documents'},function(){
+        if(__dastyarDocumentsRealtimeRefreshTimer)clearTimeout(__dastyarDocumentsRealtimeRefreshTimer);
+        __dastyarDocumentsRealtimeRefreshTimer=setTimeout(function(){
+          if(!window.user||!window.sb||!navigator.onLine||window.isOffline)return;
+          loadSchoolDocuments().then(function(){try{if(typeof refreshDash==='function')refreshDash();}catch(e){}}).catch(function(e){console.warn('document realtime refresh',e);});
+        },350);
+      }).subscribe();
+  }catch(e){console.warn('document realtime sync unavailable',e);}
+}
 async function loadSchoolDocuments(){
+  try{ensureSchoolDocumentRealtimeSync();}catch(e){}
   const box=document.getElementById('doc-list');
   if(!box)return;
   box.innerHTML='در حال دریافت فهرست فایل‌ها از سرور…';
@@ -7723,7 +7742,6 @@ async function loadSchoolDocuments(){
         if(i<0){data.push(ld);return;}
         var sr=data[i];
         if(ld.local_archive_data_url&&!sr.local_archive_data_url)sr.local_archive_data_url=ld.local_archive_data_url;
-        if(ld.print_status==='ready_for_pickup'&&(!sr.print_status||sr.print_status==='pending'))Object.assign(sr,{print_status:ld.print_status,printed_at:ld.printed_at,papers_used:ld.papers_used,print_sides:ld.print_sides,printed_by:ld.printed_by});
         data[i]=sr;
       });
       if(window.dastyarDocumentArchive&&typeof dastyarDocumentArchive.all==='function'){
@@ -7734,7 +7752,7 @@ async function loadSchoolDocuments(){
   }
   const deletedIds=getDeletedDocumentIds();
   if(deletedIds.length)data=data.filter(function(d){return !deletedIds.includes(String(d.id));});
-  try{data=applyDocPrintStatusMap(data);}catch(e){}
+  if(!serverLoaded){try{data=applyDocPrintStatusMap(data);}catch(e){}}
   // لینک فایل‌های Storage را در صورت خالی‌بودن file_url از روی مسیر اصلی بازسازی می‌کنیم.
   data.forEach(function(d){if(d&&(!d.file_url||!String(d.file_url).trim())&&d.storage_path&&sb&&sb.storage){try{d.file_url=sb.storage.from('teacher-documents').getPublicUrl(d.storage_path).data.publicUrl;}catch(e){}}});
   // دسترسی معلم: فقط کلاس‌های تخصیص‌یافته خودش و فایل‌های متعلق به همان معلم/کلاس.
@@ -9827,10 +9845,21 @@ window.addEventListener('afterprint',function(){const area=document.getElementBy
    let printItems=[];
    try{
      const all=JSON.parse(localStorage.getItem('dastyar_teacher_notices_v1')||'{}')||{};
-     printItems=(all[u.username]||[]).map(n=>({
+     const readyDocs=(cache.documents||[]).filter(function(d){return d&&d.print_status==='ready_for_pickup'&&String(d.teacher_username||'')===String(u.username||'');});
+     const readyIds=new Set(readyDocs.map(function(d){return String(d.id);}));
+     printItems=(all[u.username]||[]).filter(function(n){return !n.docId||!readyIds.has(String(n.docId));}).map(n=>({
        id:n.id, kind:(n.kind||'print'), title:n.title||(n.kind==='urgent'||n.kind==='attendance_reminder'?'پیام مدیریت':'اعلام چاپ برگه'), category:(n.kind==='urgent'?'پیام ضروری':(n.kind==='attendance_reminder'?'یادآوری حضور':'اسناد و چاپ')), date:'',
        body:n.message||'', read:!!n.read, at:n.at||0, audio:n.audio||''
      }));
+     readyDocs.forEach(function(d){
+       var when=d.printed_at?new Date(d.printed_at):new Date(d.uploaded_at||Date.now());
+       printItems.push({
+         id:'docprint_'+String(d.id),kind:'doc_print_ready',title:'برگه چاپ‌شده و آماده تحویل',
+         category:'اسناد و چاپ',date:when.toLocaleDateString('fa-IR'),
+         body:'فایل «'+String(d.title||d.file_name||'برگه ارسالی')+'» چاپ شده و آماده تحویل است. تعداد برگه: '+String(d.papers_used||d.copies_count||1)+' — این پیام تا زمان حذف فایل باقی می‌ماند.',
+         read:true,at:when.getTime()
+       });
+     });
    }catch(e){}
    const data=perf.concat(printItems).sort(function(a,b){return (b.at||0)-(a.at||0);});
    if(inbox) inbox.style.display='block';
@@ -9842,10 +9871,12 @@ window.addEventListener('afterprint',function(){const area=document.getElementBy
     '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>'+esc(r.title||'پیام مدیریت')+'</b><small>'+esc(r.date||'')+'</small></div>'+
     '<div style="font-size:.76rem;color:#92400e;margin:4px 0">'+esc(r.category||'')+' · از طرف مدیریت</div>'+
     '<p style="white-space:pre-wrap;margin:6px 0">'+esc(r.body)+'</p>'+(r.audio?('<div style="margin:6px 0"><audio controls src="'+String(r.audio).replace(/"/g,'')+'" style="max-width:100%"></audio></div>'):'')+
-    (!r.read?(r.kind==='perf'
-      ?'<button class="btn btn-p btn-sm" onclick="ackTeacherNotice(\''+r.id+'\')">متوجه شدم / تأیید مشاهده</button>'
-      :'<button class="btn btn-p btn-sm" onclick="ackPrintNotice(\''+String(r.id).replace(/'/g,'')+'\')">متوجه شدم</button>')
-      :'<small style="color:#047857">✓ مشاهده‌شده</small>')+
+    (r.kind==='doc_print_ready'
+      ?'<small style="color:#047857">✓ وضعیت مشترک سرور — تا حذف فایل باقی می‌ماند</small>'
+      :(!r.read?(r.kind==='perf'
+        ?'<button class="btn btn-p btn-sm" onclick="ackTeacherNotice(\''+r.id+'\')">متوجه شدم / تأیید مشاهده</button>'
+        :'<button class="btn btn-p btn-sm" onclick="ackPrintNotice(\''+String(r.id).replace(/'/g,'')+'\')">متوجه شدم</button>')
+        :'<small style="color:#047857">✓ مشاهده‌شده</small>'))+
     '</article>').join('');
  };
  window.ackPrintNotice=function(id){
@@ -10873,8 +10904,8 @@ window.sendPrintReadyNoticeOnce=async function(teacherUsername, message, docId){
     all[u]=all[u].slice(0,50);
     localStorage.setItem(key, JSON.stringify(all));
   }catch(e){ console.warn(e); }
-  try{if(window.sb&&window.user){var noticeResult=await sb.from('sa_messages').insert({id:(typeof uid==='function'?uid():('m_'+Date.now())),from_user:user.username,to_user:teacherUsername,body:message,kind:'print_ready'});if(noticeResult&&!noticeResult.error)serverNoticeSaved=true;else console.warn('ثبت پیام آماده تحویل در سرور انجام نشد:',noticeResult&&noticeResult.error&&(noticeResult.error.message||noticeResult.error));}}catch(e){console.warn('ثبت پیام آماده تحویل در سرور انجام نشد:',e);}
-  return true /* پیام محلی حتماً ثبت شده */ || serverNoticeSaved;
+  // وضعیت چاپ در خود رکورد sa_documents ذخیره می‌شود و از همان‌جا در همه دستگاه‌ها نمایش داده خواهد شد.
+  return true;
 };
 window.removeNoticesForDoc=function(docId){
   try{
@@ -10975,29 +11006,26 @@ window.markDocumentPrinted = async function(docId, teacherUsername, fileName){
       if(window.DastyarOffline&&DastyarOffline.saveSnapshot) await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));
     }catch(e){ console.warn(e); }
 
-    // سرور (با حذف ستون‌های ناموجود در صورت خطای schema)
+    // ثبت قطعی وضعیت در سرور؛ پاسخ موفق بدون بررسی ردیف کافی نیست (RLS ممکن است صفر ردیف را بی‌خطا برگرداند).
     var statusSaved=false, statusError='';
     try{
-      if(window.sb){
-        var payload={print_status:'ready_for_pickup',printed_at:new Date().toISOString(),papers_used:sheets,print_sides:sides,printed_by:(u.full_name||u.username)};
-        for(var attempt=0;attempt<10;attempt++){
-          var statusRes=await sb.from('sa_documents').update(payload).eq('id',docId);
-          if(statusRes&&!statusRes.error){statusSaved=true;break;}
-          statusError=(statusRes&&statusRes.error&&statusRes.error.message)||'تغییر وضعیت در سرور تأیید نشد';
-          var msg=String(statusError||'');
-          var col=(msg.match(/column\s+["']?([a-zA-Z0-9_]+)/i)||msg.match(/Could not find the '([^']+)'/i)||[])[1];
-          if(col && payload[col]!==undefined){ delete payload[col]; continue; }
-          // اگر هیچ ستونی نبود، حداقل description را با برچسب وضعیت به‌روز کن
-          if(attempt===0){
-            try{
-              var noteRes=await sb.from('sa_documents').update({description:'[آماده تحویل] '+(fileName||'')}).eq('id',docId);
-              if(noteRes&&!noteRes.error){statusSaved=true;}
-            }catch(_){}
-          }
-          break;
-        }
-      }else statusError='اتصال سرور در دسترس نیست';
-    }catch(e){statusError=e.message||String(e);}
+      if(!window.sb)throw new Error('اتصال سرور در دسترس نیست');
+      var payload={print_status:'ready_for_pickup',printed_at:printedAt,papers_used:sheets,print_sides:sides,printed_by:(u.full_name||u.username)};
+      var statusRes=await sb.from('sa_documents').update(payload).eq('id',String(docId));
+      if(statusRes&&statusRes.error)throw new Error(statusRes.error.message||'به‌روزرسانی وضعیت چاپ ناموفق بود');
+      var verifyRes=await sb.from('sa_documents').select('id,print_status').eq('id',String(docId)).limit(1);
+      if(!verifyRes||verifyRes.error||!Array.isArray(verifyRes.data)||!verifyRes.data.length||String(verifyRes.data[0].print_status||'')!=='ready_for_pickup'){
+        throw new Error((verifyRes&&verifyRes.error&&verifyRes.error.message)||'سرور وضعیت «آماده تحویل» را تأیید نکرد؛ ممکن است مجوز به‌روزرسانی یا شناسه فایل مشکل داشته باشد.');
+      }
+      statusSaved=true;
+    }catch(e){statusError=e&&e.message?e.message:String(e);}
+    if(!statusSaved){
+      // وضعیت محلیِ موقت را پاک می‌کنیم تا این دستگاه هم چیزی را که سرور نپذیرفته، آماده تحویل نشان ندهد.
+      try{var localPrintMap=getDocPrintStatusMap();delete localPrintMap[String(docId)];localStorage.setItem('dastyar_doc_print_status_v1',JSON.stringify(localPrintMap));}catch(e){}
+      try{await loadSchoolDocuments();}catch(e){}
+      if(typeof toast==='function')toast('وضعیت چاپ در سرور ثبت نشد؛ پیام آماده تحویل ارسال نشد. '+statusError);
+      return;
+    }
     // جمع برگه فقط بار اول برای این وضعیت (یا همیشه جمع کن - user wants cumulative on each print action)
     var total=sheets;
     try{
@@ -11082,6 +11110,7 @@ if(typeof _loadDocs === 'function'){
     var r = await _loadDocs.apply(this, arguments);
     enhanceDocListCards();
     renderPaperStats();
+    try{if(window.user&&user.role==='teacher'&&typeof renderTeacherNotices==='function')renderTeacherNotices();}catch(e){}
     return r;
   };
 }
