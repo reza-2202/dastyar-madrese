@@ -1626,6 +1626,7 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <input id="ab-to" type="hidden" value=""/>
 </div>
 <button class="btn btn-p" onclick="loadAbsenteesReport()">نمایش گزارش</button>
+<button class="btn btn-o btn-sm" onclick="exportAbsenteesReportExcel()">📊 خروجی اکسل فارسی</button>
 <button class="btn btn-o btn-sm" onclick="printAbsenteesReport()">🖨️ چاپ</button>
 <button class="btn btn-p" style="background:#b91c1c;border-color:#991b1b" onclick="loadAbsenteesNeedsAttention()">⚠ غایبین نیازمند رسیدگی</button>
 <button class="btn btn-o btn-sm" onclick="exportAbsenteesNeedsAttentionWord()">⬇️ ورد — نیازمند رسیدگی</button>
@@ -9082,6 +9083,32 @@ async function loadAbsenteesReport(skipServerReload){
   });
   box.innerHTML=html;
 }
+window.exportAbsenteesReportExcel=function(){
+ try{
+  if(typeof XLSX==='undefined'){toast('کتابخانه Excel در دسترس نیست؛ اتصال اینترنت را بررسی کنید');return;}
+  var raw=collectAbsenteeRows(),statuses={unexcused:'غایب غیرموجه',absent:'غایب غیرموجه',excused:'غایب موجه',late:'تأخیر'};
+  if(!raw.length){toast('با فیلترهای انتخاب‌شده موردی برای خروجی وجود ندارد');return;}
+  var rows=raw.slice().sort(function(a,b){return String(a.date||'').localeCompare(String(b.date||''))||String(a.class_id||'').localeCompare(String(b.class_id||''))||String(a.student_id||'').localeCompare(String(b.student_id||''));}).map(function(a,i){
+   var st=(cache.students||[]).find(function(x){return String(x.id)===String(a.student_id);});
+   var cl=(cache.classes||[]).find(function(x){return String(x.id)===String(a.class_id);});
+   return {'ردیف':i+1,'کلاس':cl?(cl.label||cl.id):(a.class_id||'—'),'نام و نام خانوادگی':st?((st.first_name||'')+' '+(st.last_name||'')).trim():String(a.student_id||'—'),'شماره تماس':studentPhone(st),'تاریخ شمسی':a.date||'—','وضعیت':statuses[a.status]||a.status||'—','ثبت‌کننده':a.recorded_by||'—'};
+  });
+  var classId=(document.getElementById('ab-class')&&document.getElementById('ab-class').value)||'';
+  var cls=(cache.classes||[]).find(function(c){return String(c.id)===String(classId);});
+  var from=(document.getElementById('ab-from')&&document.getElementById('ab-from').value)||'';
+  var to=(document.getElementById('ab-to')&&document.getElementById('ab-to').value)||'';
+  var counts={'غایب غیرموجه':0,'غایب موجه':0,'تأخیر':0};
+  rows.forEach(function(r){if(r['وضعیت']==='غایب غیرموجه')counts['غایب غیرموجه']++;else if(r['وضعیت']==='غایب موجه')counts['غایب موجه']++;else if(r['وضعیت']==='تأخیر')counts['تأخیر']++;});
+  var wb=XLSX.utils.book_new();
+  addSheet(wb,rows,'گزارش غایبین',[8,18,28,18,16,22,28]);
+  var summary=[{'عنوان':'مدرسه','مقدار':'دبستان شهید فتح‌الله فلاح‌پور'},{'عنوان':'کلاس انتخاب‌شده','مقدار':classId?(cls?(cls.label||cls.id):classId):'همه کلاس‌ها'},{'عنوان':'از تاریخ','مقدار':from||'ابتدای سوابق'},{'عنوان':'تا تاریخ','مقدار':to||'آخرین سوابق'},{'عنوان':'تعداد کل موارد','مقدار':rows.length},{'عنوان':'غایب غیرموجه','مقدار':counts['غایب غیرموجه']},{'عنوان':'غایب موجه','مقدار':counts['غایب موجه']},{'عنوان':'تأخیر','مقدار':counts['تأخیر']},{'عنوان':'تاریخ تهیه خروجی','مقدار':today()}];
+  addSheet(wb,summary,'خلاصه',[28,36]);wb.Workbook=wb.Workbook||{};wb.Workbook.Views=[{RTL:true}];
+  var name='گزارش_غایبین_'+(classId?(cls?(cls.label||classId):classId):'همه_کلاس‌ها')+'_'+(from||'ابتدا')+'_'+(to||'اکنون')+'_'+Date.now()+'.xlsx';
+  var bytes=XLSX.write(wb,{bookType:'xlsx',type:'array'}),blob=new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  if(window.navigator&&typeof window.navigator.msSaveOrOpenBlob==='function')window.navigator.msSaveOrOpenBlob(blob,name);else window.downloadExcelBlob(blob,name);
+  toast('فایل اکسل فارسی گزارش غایبین برای دانلود آماده شد');
+ }catch(e){console.error(e);toast('ساخت اکسل گزارش غایبین ناموفق بود: '+(e&&e.message||e));}
+};
 function printAbsenteesReport(){
   var box=document.getElementById('absentees-report');
   if(!box||!box.innerHTML.trim()){toast('ابتدا گزارش را نمایش دهید');return;}
@@ -14137,6 +14164,16 @@ function addSheet(wb,rows,name,widths){
  ws['!cols']=widths.map(function(w){return {wch:w};});
  styleSheet(ws);XLSX.utils.book_append_sheet(wb,ws,name);return ws;
 }
+window.downloadExcelBlob=function(blob,fileName){
+ var link=window.__dastyarExcelDownloadLink;
+ if(!link){
+  link=document.createElement('a');link.id='dastyar-excel-download-link';link.style.position='fixed';link.style.left='-10000px';link.style.top='0';link.style.width='1px';link.style.height='1px';link.style.opacity='0';link.style.pointerEvents='none';document.body.appendChild(link);window.__dastyarExcelDownloadLink=link;
+ }
+ var url=URL.createObjectURL(blob),old=link.dataset.objectUrl||'';
+ link.href=url;link.download=fileName;link.dataset.objectUrl=url;
+ link.click();
+ if(old)setTimeout(function(){try{URL.revokeObjectURL(old);}catch(e){}},120000);
+}
 window.exportAttendanceExcel=function(){
  try{
   if(typeof XLSX==='undefined'){toast('کتابخانه Excel در دسترس نیست؛ اتصال اینترنت را بررسی کنید');return;}
@@ -14164,14 +14201,9 @@ window.exportAttendanceExcel=function(){
   var fileName='حضور_و_غیاب_'+(cls?(cls.label||classId):classId)+'_'+date.replace(/\//g,'-')+'.xlsx';
   var excelBytes=XLSX.write(wb,{bookType:'xlsx',type:'array'});
   var excelBlob=new Blob([excelBytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-  if(window.navigator&&typeof window.navigator.msSaveOrOpenBlob==='function'){
-   window.navigator.msSaveOrOpenBlob(excelBlob,fileName);
-  }else{
-   var excelUrl=URL.createObjectURL(excelBlob),excelLink=document.createElement('a');
-   excelLink.href=excelUrl;excelLink.download=fileName;excelLink.style.display='none';
-   document.body.appendChild(excelLink);excelLink.click();excelLink.remove();
-   setTimeout(function(){URL.revokeObjectURL(excelUrl);},30000);
-  }
+  fileName=fileName.replace('.xlsx','_'+Date.now()+'.xlsx');
+  if(window.navigator&&typeof window.navigator.msSaveOrOpenBlob==='function')window.navigator.msSaveOrOpenBlob(excelBlob,fileName);
+  else window.downloadExcelBlob(excelBlob,fileName);
   toast('فایل اکسل فارسی حضور و غیاب برای دانلود آماده شد');
  }catch(e){console.error(e);toast('ساخت خروجی اکسل حضور و غیاب ناموفق بود: '+(e&&e.message||e));}
 };
