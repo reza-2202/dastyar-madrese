@@ -14189,8 +14189,18 @@ window.exportAbsenteesNeedsAttentionExcel=function(){
   addSheet(wb,tables.summary,'خلاصه رسیدگی',[18,24,18,12,15,13,12,13,14,18,22,40]);
   addSheet(wb,tables.details.length?tables.details:[{'پیام':'جزئیات غیبت و پیگیری ثبت نشده است'}],'جزئیات غیبت و پیگیری',[18,24,16,18,18,18,48]);
   wb.Workbook=wb.Workbook||{};wb.Workbook.Views=[{RTL:true}];
-  XLSX.writeFile(wb,'غایبین_نیازمند_رسیدگی_'+today().replace(/\//g,'-')+'.xlsx');
-  toast('فایل اکسل کامل غایبین نیازمند رسیدگی آماده شد');
+  var fileName='غایبین_نیازمند_رسیدگی_'+today().replace(/\//g,'-')+'.xlsx';
+  var excelBytes=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+  var excelBlob=new Blob([excelBytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  if(window.navigator&&typeof window.navigator.msSaveOrOpenBlob==='function'){
+   window.navigator.msSaveOrOpenBlob(excelBlob,fileName);
+  }else{
+   var excelUrl=URL.createObjectURL(excelBlob),excelLink=document.createElement('a');
+   excelLink.href=excelUrl;excelLink.download=fileName;excelLink.style.display='none';
+   document.body.appendChild(excelLink);excelLink.click();excelLink.remove();
+   setTimeout(function(){URL.revokeObjectURL(excelUrl);},30000);
+  }
+  toast('فایل اکسل غایبین نیازمند رسیدگی برای دانلود آماده شد');
  }catch(e){console.error(e);toast('ساخت اکسل غایبین ناموفق بود: '+(e&&e.message||e));}
 };
 window.exportAbsenteesNeedsAttentionWord=function(){
