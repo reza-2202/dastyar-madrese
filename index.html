@@ -14422,7 +14422,7 @@ function renderPage(){
  var actions='';
  if(isAdmin()&&r.status==='pending')actions='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button class="btn btn-s btn-sm" data-ach-approve="'+esc(r.id)+'">تأیید و ثبت تقدیر</button><button class="btn btn-o btn-sm" data-ach-reject="'+esc(r.id)+'">رد درخواست</button></div>';
  else if(isAdmin()&&(r.status==='approved'||r.status==='rejected'))actions='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button class="btn btn-o btn-sm" data-ach-hide="'+esc(r.id)+'">حذف فقط از فهرست مدیر</button><button class="btn btn-o btn-sm" data-ach-delete="'+esc(r.id)+'" style="border-color:#dc2626;color:#b91c1c">حذف کامل از همه پرونده‌ها</button></div>';
- if(r.status==='approved'&&(isAdmin()||(user&&user.role==='teacher'&&ownClass(r.class_id))))actions+='<button class="btn btn-p btn-sm" data-ach-share="'+esc(r.id)+'" style="margin-top:7px">⬇️ دانلود / اشتراک‌گذاری تقدیرنامه</button>';
+ if(r.status==='approved'&&isAdmin())actions+='<button class="btn btn-p btn-sm" data-ach-share="'+esc(r.id)+'" style="margin-top:7px">'+(r.certificate_path?'🔄 بازصدور / اشتراک‌گذاری لوح':'🖋️ صدور نهایی لوح')+'</button>';else if(r.status==='approved'&&user&&user.role==='teacher'&&ownClass(r.class_id)&&r.certificate_path)actions+='<button class="btn btn-p btn-sm" data-ach-share="'+esc(r.id)+'" style="margin-top:7px">⬇️ دریافت و اشتراک‌گذاری لوح صادرشده</button>';
  return '<div class="card" style="border-right:4px solid '+m[2]+'"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>'+esc(r.title||'تشویق')+' — '+esc(studentLabel(r.student_id))+'</b><span>'+m[0]+' '+esc(status)+'</span></div><div class="meta">'+esc(classLabel(r.class_id))+' | '+esc(r.date||'')+' | '+esc(r.created_by||'')+' | '+esc(r.category||'')+'</div><p style="white-space:pre-wrap;margin-top:7px">'+esc(r.reason||'')+'</p>'+(r.decision_text?'<div style="padding:7px;background:#f0fdf4;border-radius:8px;margin-top:7px">نتیجه مدیر: '+esc(r.decision_text)+'</div>':'')+(r.medal_level?'<div style="display:flex;align-items:center;gap:8px;margin-top:6px;color:'+m[2]+';font-weight:800"><img alt="مدال '+esc(m[1])+'" src="'+esc(r.medal_image_url||medalImage(r.medal_level))+'" style="width:62px;height:72px;object-fit:contain;filter:drop-shadow(0 2px 4px #0002)"/>'+m[0]+' نشان '+m[1]+'</div>':'')+actions+'</div>';
  }).join('')||'<div class="empty">هنوز تشویقی ثبت نشده است.</div>';
  root.querySelectorAll('[data-ach-approve]').forEach(function(btn){btn.onclick=function(){review(btn.getAttribute('data-ach-approve'),'approved')}});
@@ -14432,11 +14432,34 @@ function renderPage(){
  root.querySelectorAll('[data-ach-share]').forEach(function(btn){btn.onclick=function(){shareAward(btn.getAttribute('data-ach-share'))}});
 }
 async function studentAwardPhotoData(studentId){var st=(cache.students||[]).find(function(x){return String(x.id)===String(studentId)}),src=st&&st.photo?String(st.photo):'';if(!src)return '';if(src.indexOf('data:image/')===0)return src;try{var response=await fetch(src,{mode:'cors',credentials:'omit',cache:'no-store'});if(!response.ok)throw new Error('دریافت عکس ناموفق بود');var blob=await response.blob();if(!blob.type||blob.type.indexOf('image/')!==0||blob.size>1048576)throw new Error('فایل عکس معتبر نیست');return await new Promise(function(resolve,reject){var reader=new FileReader();reader.onload=function(){resolve(String(reader.result||''))};reader.onerror=reject;reader.readAsDataURL(blob)})}catch(e){console.warn('award photo',e);return ''}}
+async function awardCertificateApi(action,id,imageBase64){
+ if(!navigator.onLine||window.isOffline)throw new Error('برای صدور یا دریافت لوح، اتصال اینترنت لازم است');
+ var c=creds(),response=await fetch(SB_URL+'/functions/v1/award-certificate',{
+  method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
+  body:JSON.stringify({action:action,id:String(id),username:c.p_username,password:c.p_password,imageBase64:imageBase64||''})
+ });
+ var data=null;try{data=await response.json()}catch(e){}
+ if(!response.ok||!data||data.ok!==true)throw new Error(data&&data.error||'ارتباط امن با بخش صدور لوح ناموفق بود');
+ return data;
+}
 async function shareAward(id){
- if(!(isAdmin()||(user&&user.role==='teacher'&&rows.some(function(x){return String(x.id)===String(id)&&ownClass(x.class_id)})))){toast('اشتراک‌گذاری این تقدیرنامه مجاز نیست');return}
  var r=rows.find(function(x){return String(x.id)===String(id)});
  if(!r||r.status!=='approved'){toast('تقدیرنامه تأییدشده پیدا نشد');return}
+ var manager=isAdmin(),teacher=!!(user&&user.role==='teacher'&&ownClass(r.class_id));
+ if(!manager&&!teacher){toast('دسترسی به این تقدیرنامه مجاز نیست');return}
  try{
+  if(!manager){
+   if(!r.certificate_path){toast('مدیر هنوز لوح نهایی را صادر نکرده است');return}
+   var shared=await awardCertificateApi('share',id),fileResponse=await fetch(shared.signedUrl);
+   if(!fileResponse.ok)throw new Error('دریافت فایل لوح صادرشده ناموفق بود');
+   var sharedBlob=await fileResponse.blob(),sharedName='لوح-تقدیر-'+String(studentLabel(r.student_id)||'دانش‌آموز')+'.png';
+   var sharedFile=new File([sharedBlob],sharedName,{type:'image/png'});
+   if(navigator.share&&navigator.canShare&&navigator.canShare({files:[sharedFile]})){
+    try{await navigator.share({files:[sharedFile],title:'لوح تقدیر '+studentLabel(r.student_id),text:'لوح تقدیر صادرشده برای '+studentLabel(r.student_id)});toast('پنجره اشتراک‌گذاری لوح صادرشده باز شد؛ شاد را انتخاب کنید.');return}
+    catch(shareError){if(shareError&&shareError.name==='AbortError')return;console.warn('Issued award share failed',shareError)}
+   }
+   var sharedLink=document.createElement('a'),sharedUrl=URL.createObjectURL(sharedBlob);sharedLink.href=sharedUrl;sharedLink.download=sharedName;document.body.appendChild(sharedLink);sharedLink.click();sharedLink.remove();setTimeout(function(){URL.revokeObjectURL(sharedUrl)},3000);toast('لوح صادرشده دانلود شد؛ می‌توانید آن را در شاد ارسال کنید.');return;
+  }
   var name=studentLabel(r.student_id),award=String(r.award_type||'تقدیرنامه'),level=r.medal_level?medal(r)[1]:'';
   var awardStudent=(cache.students||[]).find(function(x){return String(x.id)===String(r.student_id)}),photoSrc=awardStudent&&awardStudent.photo?String(awardStudent.photo):'';
   var awardPrefsKey='dastyar-award-export-prefs-'+String(id),awardPrefs=null,awardFontFamily='',includePhoto=false;
@@ -14468,7 +14491,7 @@ async function shareAward(id){
    if(!awardTemplateCtx)throw new Error('ساخت بوم تقدیرنامه ممکن نشد');
    awardTemplateCtx.drawImage(awardTemplateImage,0,0,1200,1200);awardTemplateCtx.save();awardTemplateCtx.beginPath();awardTemplateCtx.rect(105,105,990,990);awardTemplateCtx.clip();awardTemplateCtx.filter='saturate(.34) brightness(1.25) contrast(.68)';awardTemplateCtx.drawImage(awardTemplateImage,0,0,1200,1200);awardTemplateCtx.filter='none';awardTemplateCtx.fillStyle='rgba(255,255,255,0.48)';awardTemplateCtx.fillRect(0,0,1200,1200);awardTemplateCtx.restore();
    awardTemplateCtx.direction='rtl';awardTemplateCtx.textAlign='center';awardTemplateCtx.textBaseline='middle';
-   function drawAwardText(text,x,y){var fs=parseFloat(awardTemplateCtx.font)||30;awardTemplateCtx.lineJoin='round';awardTemplateCtx.lineWidth=Math.max(1.5,Math.min(10,fs*.18));awardTemplateCtx.strokeStyle='#172033';awardTemplateCtx.strokeText(text,x,y);awardTemplateCtx.lineWidth=Math.max(1,Math.min(5,fs*.09));awardTemplateCtx.strokeStyle='#fff';awardTemplateCtx.strokeText(text,x,y);awardTemplateCtx.fillText(text,x,y)}
+   function drawAwardText(text,x,y){var fs=parseFloat(awardTemplateCtx.font)||30;awardTemplateCtx.lineJoin='round';awardTemplateCtx.lineWidth=Math.max(3,Math.min(12,fs*.25));awardTemplateCtx.strokeStyle='#fff';awardTemplateCtx.strokeText(text,x,y);awardTemplateCtx.lineWidth=Math.max(1.5,Math.min(6,fs*.11));awardTemplateCtx.strokeStyle='#101827';awardTemplateCtx.strokeText(text,x,y);awardTemplateCtx.fillText(text,x,y)}
    awardTemplateCtx.fillStyle='#263B59';awardTemplateCtx.font='bold 38px ' + awardFontFamily;
    drawAwardText('دبستان شهید فتح‌الله فلاح‌پور',600,260);
    awardTemplateCtx.fillStyle='#8A4B08';awardTemplateCtx.font='bold 64px ' + awardFontFamily;
@@ -14481,14 +14504,14 @@ async function shareAward(id){
    drawAwardText(name,600,665);
    var awardReasonText=String(r.reason||r.decision_text||'به پاس تلاش، کوشش و پیشرفت ارزشمند').trim();
    function wrapAwardText(text,maxWidth,fontSize){awardTemplateCtx.font='bold '+fontSize+'px ' + awardFontFamily;var words=String(text||'').split(/\s+/),out=[],line='';words.forEach(function(word){if(!word)return;var candidate=line?line+' '+word:word;if(awardTemplateCtx.measureText(candidate).width>maxWidth&&line){out.push(line);line=word}else line=candidate});if(line)out.push(line);return out}
-   var awardBodyLines=[],awardBodyFont=30,awardBodyLineHeight=54,awardBodyTop=775,awardBodyBottom=1050;
+   var awardBodyLines=[],awardBodyFont=30,awardBodyLineHeight=54,awardBodyTop=775,awardBodyBottom=975;
    for(;awardBodyFont>=14;awardBodyFont--){awardBodyLines=wrapAwardText(awardReasonText,1040,awardBodyFont);awardBodyLineHeight=Math.max(34,Math.round(awardBodyFont*1.82));if(awardBodyLines.length*awardBodyLineHeight<=awardBodyBottom-awardBodyTop)break}
    awardTemplateCtx.fillStyle='#073B78';awardTemplateCtx.font='bold '+awardBodyFont+'px ' + awardFontFamily;
    awardBodyLines.forEach(function(line,index){drawAwardText(line,600,awardBodyTop+index*awardBodyLineHeight)});
-   awardTemplateCtx.fillStyle='#075B66';awardTemplateCtx.font='bold 28px ' + awardFontFamily;
-   drawAwardText('تاریخ: '+String(r.date||''),600,1100);
-   awardTemplateCtx.fillStyle='#8A1747';awardTemplateCtx.font='bold 32px ' + awardFontFamily;
-   drawAwardText('مدیریت دبستان',600,1160);
+   awardTemplateCtx.fillStyle='#064E3B';awardTemplateCtx.font='bold 22px ' + awardFontFamily;
+   drawAwardText('تاریخ صدور: '+String(today()),205,320);
+   awardTemplateCtx.fillStyle='#72143B';awardTemplateCtx.font='bold 26px ' + awardFontFamily;
+   drawAwardText('مدیریت دبستان شهید فتح‌الله فلاح‌پور',600,1040);
    if(photoImage){var photoRadius=78,photoCenterX=205,photoCenterY=205,photoSide=Math.min(photoImage.width,photoImage.height),photoSourceX=(photoImage.width-photoSide)/2,photoSourceY=(photoImage.height-photoSide)/2;awardTemplateCtx.save();awardTemplateCtx.beginPath();awardTemplateCtx.arc(photoCenterX,photoCenterY,photoRadius,0,Math.PI*2);awardTemplateCtx.closePath();awardTemplateCtx.clip();awardTemplateCtx.drawImage(photoImage,photoSourceX,photoSourceY,photoSide,photoSide,photoCenterX-photoRadius,photoCenterY-photoRadius,photoRadius*2,photoRadius*2);awardTemplateCtx.restore();awardTemplateCtx.beginPath();awardTemplateCtx.arc(photoCenterX,photoCenterY,photoRadius+3,0,Math.PI*2);awardTemplateCtx.strokeStyle='#bd963f';awardTemplateCtx.lineWidth=8;awardTemplateCtx.stroke()}
    if(r.medal_level){
     var medalColor=r.medal_level==='bronze'?'#b45309':r.medal_level==='silver'?'#94a3b8':r.medal_level==='special'?'#7c3aed':'#d4a017';
@@ -14502,6 +14525,9 @@ async function shareAward(id){
    var awardTemplateBlob=await new Promise(function(resolve,reject){awardTemplateCanvas.toBlob(function(blob){if(blob)resolve(blob);else reject(new Error('تبدیل لوح به تصویر انجام نشد'))},'image/png')});
    var awardTemplateSafeName=name.replace(/[^\u0600-\u06FF\w-]+/g,'-').replace(/^-+|-+$/g,'')||'دانش‌آموز';
    var awardTemplateFile=new File([awardTemplateBlob],'لوح-'+awardTemplateSafeName+'.png',{type:'image/png'});
+   var awardTemplateDataUrl=await new Promise(function(resolve,reject){var reader=new FileReader();reader.onload=function(){resolve(String(reader.result||''))};reader.onerror=reject;reader.readAsDataURL(awardTemplateBlob)});
+   await awardCertificateApi('save',id,awardTemplateDataUrl);
+   var savedRows=read().map(function(x){return String(x.id)===String(id)?Object.assign({},x,{certificate_path:'awards/'+String(id)+'.png'}):x});write(savedRows);rows=savedRows;renderPage();
    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[awardTemplateFile]})){
     try{await navigator.share({files:[awardTemplateFile],title:award+' '+name,text:award+' دانش‌آموز '+name});toast('پنجره اشتراک‌گذاری لوح باز شد؛ شاد را انتخاب کنید.');return}catch(templateShareError){if(templateShareError&&templateShareError.name==='AbortError')return;console.warn('Certificate template share failed',templateShareError)}
    }
@@ -14509,12 +14535,15 @@ async function shareAward(id){
    awardTemplateLink.href=awardTemplateUrl;awardTemplateLink.download=awardTemplateFile.name;document.body.appendChild(awardTemplateLink);awardTemplateLink.click();awardTemplateLink.remove();
    setTimeout(function(){URL.revokeObjectURL(awardTemplateUrl)},1500);toast('لوح تقدیر با قالب انتخاب‌شده دانلود شد؛ می‌توانید آن را در شاد ارسال کنید.');return;
   }
-  var svg='<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="850" viewBox="0 0 1200 850"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fffdf4"/><stop offset="1" stop-color="#fff"/></linearGradient></defs><rect width="1200" height="850" rx="24" fill="url(#bg)"/><rect x="28" y="28" width="1144" height="794" rx="18" fill="none" stroke="#b58a3c" stroke-width="10"/><rect x="48" y="48" width="1104" height="754" rx="12" fill="none" stroke="#d6bd7c" stroke-width="4"/><text x="600" y="105" text-anchor="middle" direction="rtl" font-family="Noto Nastaliq Urdu, Vazirmatn, serif" font-size="30" fill="#64748b">دبستان شهید فتح‌الله فلاح‌پور</text>'+medalSvg+'<text x="600" y="'+(r.medal_level?'390':'270')+'" text-anchor="middle" direction="rtl" font-family="Noto Nastaliq Urdu, Vazirmatn, serif" font-size="54" font-weight="bold" fill="#8a6418">✦ لوح سپاس و تقدیر ✦</text><text x="600" y="'+(r.medal_level?'450':'330')+'" text-anchor="middle" direction="rtl" font-family="Noto Nastaliq Urdu, Vazirmatn, serif" font-size="31" fill="#334155">'+esc(award)+(level?' — نشان '+esc(level):'')+'</text><text x="600" y="'+(r.medal_level?'520':'400')+'" text-anchor="middle" direction="rtl" font-family="Noto Nastaliq Urdu, Vazirmatn, serif" font-size="28" fill="#475569">تقدیم به دانش‌آموز شایسته</text><text x="600" y="'+(r.medal_level?'570':'450')+'" text-anchor="middle" direction="rtl" font-family="Noto Nastaliq Urdu, Vazirmatn, serif" font-size="43" font-weight="bold" fill="#1e3a8a">'+esc(name)+'</text>'+reasonSvg+'<text x="600" y="'+(r.medal_level?'720':'700')+'" text-anchor="middle" direction="rtl" font-family="Noto Nastaliq Urdu, Vazirmatn, serif" font-size="24" fill="#64748b">تاریخ: '+esc(r.date||'')+'</text><text x="600" y="'+(r.medal_level?'775':'755')+'" text-anchor="middle" direction="rtl" font-family="Noto Nastaliq Urdu, Vazirmatn, serif" font-size="27" font-weight="bold" fill="#8a6418">مدیریت دبستان</text></svg>';
+  var svg='<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="850" viewBox="0 0 1200 850"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fffdf4"/><stop offset="1" stop-color="#fff"/></linearGradient></defs><style>text{paint-order:stroke fill;stroke:#fff;stroke-width:3px;stroke-linejoin:round}</style><rect width="1200" height="850" rx="24" fill="url(#bg)"/><rect x="28" y="28" width="1144" height="794" rx="18" fill="none" stroke="#b58a3c" stroke-width="10"/><rect x="48" y="48" width="1104" height="754" rx="12" fill="none" stroke="#d6bd7c" stroke-width="4"/><text x="600" y="105" text-anchor="middle" direction="rtl" font-family="Noto Nastaliq Urdu, Vazirmatn, serif" font-size="30" fill="#64748b">دبستان شهید فتح‌الله فلاح‌پور</text>'+medalSvg+'<text x="600" y="'+(r.medal_level?'390':'270')+'" text-anchor="middle" direction="rtl" font-family="Noto Nastaliq Urdu, Vazirmatn, serif" font-size="54" font-weight="bold" fill="#8a6418">✦ لوح سپاس و تقدیر ✦</text><text x="600" y="'+(r.medal_level?'450':'330')+'" text-anchor="middle" direction="rtl" font-family="Noto Nastaliq Urdu, Vazirmatn, serif" font-size="31" fill="#334155">'+esc(award)+(level?' — نشان '+esc(level):'')+'</text><text x="600" y="'+(r.medal_level?'520':'400')+'" text-anchor="middle" direction="rtl" font-family="Noto Nastaliq Urdu, Vazirmatn, serif" font-size="28" fill="#475569">تقدیم به دانش‌آموز شایسته</text><text x="600" y="'+(r.medal_level?'570':'450')+'" text-anchor="middle" direction="rtl" font-family="Noto Nastaliq Urdu, Vazirmatn, serif" font-size="43" font-weight="bold" fill="#1e3a8a">'+esc(name)+'</text>'+reasonSvg+'<text x="170" y="340" text-anchor="middle" direction="rtl" font-family="Noto Nastaliq Urdu, Vazirmatn, serif" font-size="21" font-weight="bold" fill="#064e3b">تاریخ صدور: '+esc(today())+'</text><text x="600" y="'+(r.medal_level?'775':'755')+'" text-anchor="middle" direction="rtl" font-family="Noto Nastaliq Urdu, Vazirmatn, serif" font-size="23" font-weight="bold" fill="#72143b">مدیریت دبستان شهید فتح‌الله فلاح‌پور</text></svg>';
   var svgBlob=new Blob([svg],{type:'image/svg+xml;charset=utf-8'}),url=URL.createObjectURL(svgBlob),img=new Image();
   var pngBlob=await new Promise(function(resolve,reject){img.onload=function(){try{var canvas=document.createElement('canvas');canvas.width=1200;canvas.height=850;var ctx=canvas.getContext('2d');ctx.drawImage(img,0,0,1200,850);if(photoImage){ctx.save();ctx.fillStyle='#fff';ctx.fillRect(82,105,178,198);ctx.drawImage(photoImage,97,120,148,170);ctx.strokeStyle='#bd963f';ctx.lineWidth=9;ctx.strokeRect(92,115,158,180);ctx.restore();}canvas.toBlob(function(blob){if(blob)resolve(blob);else reject(new Error('تبدیل تصویر انجام نشد'))},'image/png')}catch(e){reject(e)}};img.onerror=function(){reject(new Error('ساخت تصویر ناموفق بود'))};img.src=url});
   URL.revokeObjectURL(url);
   var safeName=name.replace(/[^\u0600-\u06FF\w-]+/g,'-').replace(/^-+|-+$/g,'')||'دانش‌آموز';
   var file=new File([pngBlob],'تقدیرنامه-'+safeName+'.png',{type:'image/png'});
+  var genericDataUrl=await new Promise(function(resolve,reject){var reader=new FileReader();reader.onload=function(){resolve(String(reader.result||''))};reader.onerror=reject;reader.readAsDataURL(pngBlob)});
+  await awardCertificateApi('save',id,genericDataUrl);
+  var genericSavedRows=read().map(function(x){return String(x.id)===String(id)?Object.assign({},x,{certificate_path:'awards/'+String(id)+'.png'}):x});write(genericSavedRows);rows=genericSavedRows;renderPage();
   if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
    try{await navigator.share({files:[file],title:'تقدیرنامه '+name,text:'تقدیرنامه دانش‌آموز '+name});toast('پنجره اشتراک‌گذاری باز شد؛ شاد را انتخاب کنید.');return}catch(shareError){if(shareError&&shareError.name==='AbortError')return;console.warn('Award share failed',shareError)}
   }
