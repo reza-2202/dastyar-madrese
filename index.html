@@ -14513,7 +14513,7 @@ async function shareAward(id){
    awardTemplateCtx.fillStyle='#073B78';awardTemplateCtx.font='bold '+awardBodyFont+'px ' + awardFontFamily;
    awardBodyLines.forEach(function(line,index){drawAwardText(line,600,awardBodyTop+index*awardBodyLineHeight)});
    awardTemplateCtx.fillStyle='#064E3B';awardTemplateCtx.font='bold 22px ' + awardFontFamily;
-   drawAwardText(String(today()),205,320);
+   awardTemplateCtx.fillStyle='#064E3B';awardTemplateCtx.font='bold 22px ' + awardFontFamily;awardTemplateCtx.fillText(fa(today()),205,320);
    awardTemplateCtx.fillStyle='#72143B';awardTemplateCtx.font='bold 26px ' + awardFontFamily;
    drawAwardText('مدیریت دبستان شهید فتح‌الله فلاح‌پور',600,1040);
    if(photoImage){var photoRadius=78,photoCenterX=205,photoCenterY=205,photoSide=Math.min(photoImage.width,photoImage.height),photoSourceX=(photoImage.width-photoSide)/2,photoSourceY=(photoImage.height-photoSide)/2;awardTemplateCtx.save();awardTemplateCtx.beginPath();awardTemplateCtx.arc(photoCenterX,photoCenterY,photoRadius,0,Math.PI*2);awardTemplateCtx.closePath();awardTemplateCtx.clip();awardTemplateCtx.drawImage(photoImage,photoSourceX,photoSourceY,photoSide,photoSide,photoCenterX-photoRadius,photoCenterY-photoRadius,photoRadius*2,photoRadius*2);awardTemplateCtx.restore();awardTemplateCtx.beginPath();awardTemplateCtx.arc(photoCenterX,photoCenterY,photoRadius+3,0,Math.PI*2);awardTemplateCtx.strokeStyle='#bd963f';awardTemplateCtx.lineWidth=8;awardTemplateCtx.stroke()}
