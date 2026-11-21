@@ -414,11 +414,11 @@
     return removed;
   }
 
-async function syncQueue(){if(!global.navigator.onLine)return;if(syncRunning){syncRequested=true;return;}syncRunning=true;try{
+async function syncQueue(){if(!global.navigator.onLine)return;if(syncRunning){syncRequested=true;return;}syncRunning=true;var probeAttempted=false;try{
       // پیش از ارسال هر مورد، اتصال واقعی به سرور را بررسی کن؛ صرفاً navigator.onLine کافی نیست.
       var liveClient=null;try{liveClient=(typeof sb!=='undefined'&&sb)?sb:global.sb||null;}catch(e){liveClient=global.sb||null;}
       if(!liveClient||typeof liveClient.from!=='function')throw new Error('کلاینت سرور هنوز آماده نیست');
-      var probeSucceeded=false;
+      var probeSucceeded=false;probeAttempted=true;
       var probe=await Promise.race([liveClient.from('sa_users').select('id').limit(1),new Promise(function(_,reject){setTimeout(function(){reject(new Error('مهلت بررسی سرور تمام شد'))},10000)})]);
       if(!probe||probe.error)throw new Error(probe&&probe.error&&probe.error.message||'سرور پاسخ معتبر نداد');
       probeSucceeded=true;noteServerProbeSuccess();
@@ -460,7 +460,7 @@ async function syncQueue(){if(!global.navigator.onLine)return;if(syncRunning){sy
       else if(sentCount>0)notify('تعداد '+sentCount+' مورد ارسال شد؛ '+left.length+' مورد در صف باقی ماند'+(firstFailure?'؛ خطای نخست: '+firstFailure.table+' / '+firstFailure.message:''));
       else notify('تعداد '+left.length+' مورد هنوز همگام نشده است'+(firstFailure?'؛ خطا: '+firstFailure.table+' / '+firstFailure.message:''));
       updateOfflineBadge();
-    }catch(e){if(typeof probeSucceeded==='undefined'||!probeSucceeded)noteServerProbeFailure();console.warn('بررسی/همگام‌سازی سرور ناموفق بود؛ وضعیت اتصال با خطای موقت تغییر نمی‌کند و اطلاعات محفوظ می‌مانند.',e);}finally{syncRunning=false;updateOfflineBadge();if(syncRequested&&global.navigator.onLine){syncRequested=false;setTimeout(function(){syncQueue();},50);}}}
+    }catch(e){if(probeAttempted&&!probeSucceeded)noteServerProbeFailure();console.warn('بررسی/همگام‌سازی سرور ناموفق بود؛ وضعیت اتصال با خطای موقت تغییر نمی‌کند و اطلاعات محفوظ می‌مانند.',e);}finally{syncRunning=false;updateOfflineBadge();if(syncRequested&&global.navigator.onLine){syncRequested=false;setTimeout(function(){syncQueue();},50);}}}
   function queueFingerprint(item){
     return JSON.stringify([String(item.table||''),String(item.method||''),String(item.url||''),item.filters||[],item.payload===undefined?null:item.payload,Number(item.createdAt)||0]);
   }
