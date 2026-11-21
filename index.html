@@ -15090,7 +15090,14 @@ observer.observe(document.documentElement,{childList:true,subtree:true});
    reminderGroup,
    aboutGroup
   ];
-  ordered.forEach(function(group){if(group&&group.parentNode!==home||group&&group!==home.lastElementChild)home.appendChild(group);});
+  /* چیدمان را فقط وقتی واقعاً جابه‌جا شده اصلاح کن؛ از جابه‌جایی مکرر کل گروه‌ها در هر ورود به داشبورد جلوگیری می‌شود. */
+  var existingAllWrap=byId('quick-access-all-group');
+  var orderCursor=existingAllWrap&&existingAllWrap.parentNode===home?existingAllWrap.nextElementSibling:null;
+  ordered.forEach(function(group){
+   if(!group)return;
+   if(orderCursor===group){orderCursor=group.nextElementSibling;return;}
+   home.appendChild(group);
+  });
   /* گروه‌های دسترسی سریع مستقل‌اند؛ کنترل «همه» فقط نمایش همه گروه‌ها را یکجا باز/بسته می‌کند. */
   var allWrap=byId('quick-access-all-group');
   if(!allWrap){
