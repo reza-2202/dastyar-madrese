@@ -3997,6 +3997,7 @@ async function refreshActiveSectionLive(){
         var classId=String((document.getElementById('at-class')||{}).value||''),date=String((document.getElementById('at-date')||{}).value||today());
         rows=(cache.attendance||[]).filter(function(r){return String(r.class_id)!==classId||String(r.date)!==date;}).concat(rows);
       }
+      if(pageId==='studentfile'&&typeof dossierPollId!=='undefined'&&dossierPollId){rows=(cache[cacheName]||[]).filter(function(r){return String(r.student_id)!==dossierPollId;}).concat(rows);}
       if(JSON.stringify(cache[cacheName]||[])!==JSON.stringify(rows)){cache[cacheName]=rows;changed=true;}
     }
     if(!changed)return true;
