@@ -9709,7 +9709,7 @@ async function printPublicInvitations(){
  area.style.display='block';
  // Wait for every invitation photo to load/decode before opening the print dialog.
  await Promise.all(Array.from(area.querySelectorAll('img')).map(img=>{
-  if(img.complete&&img.naturalWidth>0)return Promise.resolve();
+  if(img.complete)return Promise.resolve();
   return new Promise(resolve=>{let done=false;const finish=()=>{if(done)return;done=true;resolve();};img.addEventListener('load',finish,{once:true});img.addEventListener('error',finish,{once:true});setTimeout(finish,6000);});
  }));
  window.print();
