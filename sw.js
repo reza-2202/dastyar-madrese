@@ -1,4 +1,4 @@
-const CACHE = 'dastyar-shell-v75-20261120-navigation-timeout';
+const CACHE = 'dastyar-shell-v76-20261123-cache-first-navigation';
 const BASE = '/dastyar-madrese/';
 const SHELL = [
   BASE,
@@ -92,31 +92,48 @@ self.addEventListener('fetch', function (e) {
   if (url.origin !== self.location.origin) return;
   if (url.pathname.indexOf(BASE) !== 0) return;
 
-  // Navigation requests must never wait forever behind the PWA splash screen.
+  // Serve the cached app shell immediately; refresh it in the background.
+  // This prevents every icon launch from waiting on a network round trip.
   if (e.request.mode === 'navigate') {
-    e.respondWith((async function () {
-      var controller = new AbortController();
-      var timeout = setTimeout(function () { controller.abort(); }, 7000);
-      try {
-        var response = await fetch(e.request, { signal: controller.signal });
-        clearTimeout(timeout);
-        if (response && response.ok) {
-          var copy = response.clone();
-          caches.open(CACHE).then(function (c) {
-            c.put(BASE + 'index.html', copy);
-          }).catch(function () {});
-        }
-        return response;
-      } catch (err) {
-        clearTimeout(timeout);
-        var cached = await caches.match(BASE + 'index.html') || await caches.match(BASE);
-        if (cached) return cached;
-        return new Response('<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>دستیار مدرسه</title><body style="font-family:tahoma;text-align:center;padding:24px">اتصال صفحه برقرار نشد. لطفاً اتصال اینترنت را بررسی و دوباره تلاش کنید.</body></html>', {
-          status: 503,
-          headers: { 'Content-Type': 'text/html; charset=utf-8' }
+    var shellKey = BASE + 'index.html';
+    var cachedShell = caches.match(shellKey).then(function (cached) {
+      return cached || caches.match(BASE);
+    });
+    var controller = new AbortController();
+    var timeout = setTimeout(function () { controller.abort(); }, 7000);
+    var networkUpdate = fetch(e.request, { signal: controller.signal, cache: 'no-cache' }).then(function (response) {
+      clearTimeout(timeout);
+      if (response && response.ok) {
+        var copy = response.clone();
+        return caches.open(CACHE).then(function (cache) {
+          return cache.put(shellKey, copy).then(function () { return response; });
         });
       }
-    })());
+      return response;
+    }).catch(function (error) {
+      clearTimeout(timeout);
+      throw error;
+    });
+
+    // Keep the service worker alive for the background refresh, but never
+    // make a cached launch wait for that refresh.
+    e.waitUntil(cachedShell.then(function (cached) {
+      if (!cached) return;
+      return networkUpdate.then(function () {}).catch(function () {});
+    }));
+
+    e.respondWith(cachedShell.then(function (cached) {
+      if (cached) return cached;
+      return networkUpdate.catch(function () {
+        return caches.match(shellKey).then(function (fallback) {
+          if (fallback) return fallback;
+          return new Response('<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>دستیار مدرسه</title><body style="font-family:tahoma;text-align:center;padding:24px">اتصال صفحه برقرار نشد. لطفاً اتصال اینترنت را بررسی و دوباره تلاش کنید.</body></html>', {
+            status: 503,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' }
+          });
+        });
+      });
+    }));
     return;
   }
 
