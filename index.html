@@ -9649,22 +9649,23 @@ function fillPublicInviteClasses(){
  const el=document.getElementById('pubiv-class'); if(!el)return;
  const old=el.value; const classes=user?.role==='admin'?cache.classes:myClasses();
  el.innerHTML='<option value="">همه کلاس‌های من</option>'+classes.map(c=>'<option value="'+escHtml(c.id)+'">'+escHtml(c.label)+'</option>').join('');
- if(old && classes.some(c=>c.id===old))el.value=old;
+ if(old && classes.some(c=>String(c.id)===String(old)))el.value=old;
  renderPublicInviteStudents();
 }
 function renderPublicInviteStudents(){
  const box=document.getElementById('pubiv-students'); if(!box)return;
  const cls=document.getElementById('pubiv-class')?.value;
- let students=(user?.role==='admin'?cache.students:myStudents()).filter(st=>!cls||st.class_id===cls);
+ let students=(user?.role==='admin'?cache.students:myStudents()).filter(st=>!cls||String(st.class_id)===String(cls));
  students.sort((a,b)=>((a.first_name||'')+' '+(a.last_name||'')).localeCompare((b.first_name||'')+' '+(b.last_name||''),'fa'));
  box.innerHTML=students.length?students.map(st=>{const cl=cache.classes.find(c=>c.id===st.class_id);return '<label style="display:flex;align-items:center;gap:8px;padding:6px;border-bottom:1px solid #f1f5f9;font-weight:normal"><input type="checkbox" class="pubiv-student-check" value="'+escHtml(st.id)+'" checked style="width:18px;height:18px"> <span>'+escHtml((st.first_name||'')+' '+(st.last_name||''))+' <small style="color:#64748b">('+escHtml(cl?.label||'')+')</small></span></label>';}).join(''):'<div class="empty">دانش‌آموزی در این انتخاب وجود ندارد.</div>';
 }
 function selectPublicInviteStudents(checked){document.querySelectorAll('.pubiv-student-check').forEach(el=>el.checked=checked);}
 function togglePublicInviteOther(){const v=document.getElementById('pubiv-reason')?.value;const w=document.getElementById('pubiv-other-wrap');if(w)w.style.display=v==='سایر'?'block':'none';}
-function printPublicInvitations(){
+async function printPublicInvitations(){
  if(!user||user.role!=='admin'){toast('صدور و چاپ دعوتنامه عمومی فقط در پنل مدیر مجاز است');return;}
  const ids=Array.from(document.querySelectorAll('.pubiv-student-check:checked')).map(x=>x.value);
  if(!ids.length){toast('حداقل یک دانش‌آموز را انتخاب کنید');return;}
+ const selectedClass=String(document.getElementById('pubiv-class')?.value||'');
  const reasonChoice=document.getElementById('pubiv-reason').value;
  const reason=reasonChoice==='سایر'?document.getElementById('pubiv-other').value.trim():reasonChoice;
  const date=document.getElementById('pubiv-date').value.trim();
@@ -9679,10 +9680,14 @@ function printPublicInvitations(){
  if(!date||!issued){toast('تاریخ موردنظر و تاریخ صدور را وارد کنید');return;}
  if(!bodyTemplate){toast('متن نامه را وارد کنید');return;}
  const safe= v=>escHtml(String(v??''));
- const students=ids.map(id=>cache.students.find(st=>st.id===id)).filter(Boolean);
+ // Refresh secure server photo URLs before printing; retain the exact checked student IDs.
+ try{if(typeof refreshStudentPhotosFromServer==='function')await refreshStudentPhotosFromServer(false);}catch(photoError){console.warn('تازه‌سازی عکس‌ها برای چاپ انجام نشد:',photoError);}
+ try{if(typeof applyStudentPhotosFromLocal==='function')applyStudentPhotosFromLocal();}catch(e){}
+ const classSelect=document.getElementById('pubiv-class');if(classSelect)classSelect.value=selectedClass;
+ const students=ids.map(id=>(cache.students||[]).find(st=>String(st.id)===String(id))).filter(st=>st&&(!selectedClass||String(st.class_id)===selectedClass));
+ if(!students.length){toast('دانش‌آموزی از کلاس انتخاب‌شده برای چاپ باقی نمانده است');return;}
  const area=document.getElementById('print-area');
  // Replace editable template tokens individually for each student; preserve user-entered line breaks.
- try{ if(typeof applyStudentPhotosFromLocal==='function') applyStudentPhotosFromLocal(); }catch(e){}
  const showStudentPhoto=!!(document.getElementById('pubiv-show-photo')&&document.getElementById('pubiv-show-photo').checked);
  const cardArray=students.map((st,i)=>{
   const cl=cache.classes.find(c=>c.id===st.class_id);
@@ -9702,7 +9707,12 @@ function printPublicInvitations(){
  const perPage=isConsent?3:5;
  area.innerHTML=Array.from({length:Math.ceil(cardArray.length/perPage)},(_,page)=>'<div class="public-invite-page'+(isConsent?' public-consent-page':'')+'">'+cardArray.slice(page*perPage,page*perPage+perPage).join('')+'</div>').join('');
  area.style.display='block';
- setTimeout(()=>window.print(),350);
+ // Wait for every invitation photo to load/decode before opening the print dialog.
+ await Promise.all(Array.from(area.querySelectorAll('img')).map(img=>{
+  if(img.complete&&img.naturalWidth>0)return Promise.resolve();
+  return new Promise(resolve=>{let done=false;const finish=()=>{if(done)return;done=true;resolve();};img.addEventListener('load',finish,{once:true});img.addEventListener('error',finish,{once:true});setTimeout(finish,6000);});
+ }));
+ window.print();
 }
 </script>
 
