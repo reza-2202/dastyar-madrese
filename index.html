@@ -15778,7 +15778,14 @@ window.__dastyarMonthlyQaExamIntegrationV1=true;
 var running=null;
 var SUMMARY_MARKER='| خلاصه خودکار پرسش‌وپاسخ و آزمون';
 function getCache(){try{return typeof cache!=='undefined'?cache:(window.cache||null)}catch(e){return window.cache||null}}
-function getDb(){try{return typeof sb!=='undefined'?sb:(window.sb||null)}catch(e){return window.sb||null}}
+function getDb(){
+ try{
+  if(typeof isAppOfflineNow==='function'&&isAppOfflineNow())return null;
+  if(typeof navigator!=='undefined'&&navigator.onLine===false)return null;
+  if(window.isOffline===true)return null;
+ }catch(e){}
+ try{return typeof sb!=='undefined'?sb:(window.sb||null)}catch(e){return window.sb||null}
+}
 function safe(v){return String(v==null?'':v).replace(/\s+/g,' ').trim()}
 function monthName(m){try{return JALALI_MONTHS[m-1]||''}catch(e){return ''}}
 function getScore(row){
@@ -15915,18 +15922,35 @@ async function buildUnifiedMonthlySummaries(){
    if(db)deletes.push(old);
    else keep.push(Object.assign({},old,{_dastyarMonthlyDeletePending:true}));
   });
+  var remoteSyncOk=!!db;
   if(upserts.length&&db){
-   var saved=await db.from('sa_evaluations').upsert(upserts);
-   if(saved&&saved.error)throw saved.error;
+   try{
+    var saved=await db.from('sa_evaluations').upsert(upserts);
+    if(saved&&saved.error)throw saved.error;
+   }catch(upsertError){remoteSyncOk=false;console.warn('همگام‌سازی خلاصه ماهانه با سرور به تعویق افتاد',upsertError);}
   }
   if(deletes.length&&db){
    for(var i=0;i<deletes.length;i++){
-    var del=await db.from('sa_evaluations').delete().eq('id',String(deletes[i].id));
-    if(del&&del.error)throw del.error;
+    try{
+     var del=await db.from('sa_evaluations').delete().eq('id',String(deletes[i].id));
+     if(del&&del.error)throw del.error;
+    }catch(deleteError){remoteSyncOk=false;console.warn('حذف خلاصه ماهانه از سرور به تعویق افتاد',deleteError);}
    }
   }
-  if(db)keep.forEach(function(row){delete row._dastyarMonthlySyncPending;delete row._dastyarMonthlyDeletePending;});
-  var deleteIds=new Set(deletes.map(function(x){return String(x.id)}));
+  if(remoteSyncOk){
+   keep.forEach(function(row){delete row._dastyarMonthlySyncPending;delete row._dastyarMonthlyDeletePending;});
+  }else if(db){
+   var pendingUpsertIds=new Set(upserts.map(function(row){return String(row.id)}));
+   keep.forEach(function(row){if(pendingUpsertIds.has(String(row.id)))row._dastyarMonthlySyncPending=true;});
+   var pendingDeleteIds=new Set();
+   deletes.forEach(function(row){
+    var id=String(row.id);pendingDeleteIds.add(id);
+    var at=keep.findIndex(function(x){return String(x.id)===id;});
+    if(at>=0)keep[at]._dastyarMonthlyDeletePending=true;
+    else keep.push(Object.assign({},row,{_dastyarMonthlyDeletePending:true}));
+   });
+  }
+  var deleteIds=new Set(remoteSyncOk?deletes.map(function(x){return String(x.id)}):[]);
   var next=(c.evaluations||[]).filter(function(e){return !(isAutoSummary(e)&&deleteIds.has(String(e.id)))});
   keep.forEach(function(row){
    var at=next.findIndex(function(e){return String(e.id)===String(row.id)});
