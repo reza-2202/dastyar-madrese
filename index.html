@@ -453,6 +453,7 @@ async function syncQueue(){if(!global.navigator.onLine)return;if(syncRunning){sy
         try{
           await reloadAll();
           if(typeof buildClosedMonthQaEvaluations==='function')await buildClosedMonthQaEvaluations();
+          if(typeof syncQaReportCardAverages==='function')await syncQaReportCardAverages();
           if(typeof refreshDash==='function')refreshDash();
         }catch(qaRefreshError){console.warn('به‌روزرسانی ارزشیابی پرسش‌وپاسخ‌های آفلاین ناموفق بود؛ داده‌های صف حفظ شدند.',qaRefreshError);}
       }
@@ -6310,15 +6311,59 @@ function getReportScoreRow(studentId,subject){
  var rows=(cache.scores||[]).filter(function(x){return String(x.student_id)===String(studentId)&&String(x.subject)===String(subject);});
  return rows.find(isQaManualOverrideRow)||rows.find(isQaAutoScoreRow)||rows.find(function(x){return !isQaAutoScoreRow(x)&&!isQaManualOverrideRow(x);})||{};
 }
+function assessmentSubjectKey(activity){
+ var subject=String(activity&&activity.subject||'').trim();
+ if(activity&&activity.type==='exam'){
+  var lesson=String(activity.lesson||'').trim();
+  if(lesson)return lesson;
+  var split=subject.indexOf(' — ');
+  if(split>0)subject=subject.slice(0,split).trim();
+ }
+ return subject;
+}
+function assessmentScoreValue(activity){
+ if(!activity)return null;
+ if(activity.score!=null&&String(activity.score).trim()!==''){
+  var numeric=Number(activity.score);
+  if(Number.isFinite(numeric)&&numeric>=0&&numeric<=20)return numeric;
+ }
+ var level=String(activity.level||'');
+ if(['excellent','good','acceptable','needs'].includes(level))return scoreToNum(level,null);
+ return null;
+}
+function assessmentMonthIsClosed(jy,jm){
+ var now=parseJalali(typeof today==='function'?today():'');
+ if(!now)return false;
+ if(jy<now.jy||(jy===now.jy&&jm<now.jm))return true;
+ return jy===now.jy&&jm===now.jm&&now.jd>=jalaliMonthDays(jy,jm);
+}
+function assessmentMonthlyFeedback(avg){
+ if(avg>=18)return 'در این ماه عملکرد بسیار خوبی داشته و بر مفاهیم این درس تسلط مطلوب نشان داده است.';
+ if(avg>=14)return 'در این ماه عملکرد خوبی داشته و بیشتر اهداف یادگیری را محقق کرده است؛ ادامه تمرین به تثبیت آموخته‌ها کمک می‌کند.';
+ if(avg>=10)return 'در این ماه به سطح قابل قبول رسیده است؛ تمرین منظم‌تر به تقویت و تثبیت آموخته‌ها کمک خواهد کرد.';
+ return 'در این ماه برای تقویت پایه‌های یادگیری این درس به تمرین هدفمند و راهنمایی بیشتری نیاز داشته است.';
+}
 async function syncQaReportCardAverages(studentIds){
- var selected=Array.isArray(studentIds)?new Set(studentIds.filter(function(x){return x!=null&&String(x)!=='';}).map(String)):null;if(selected&&selected.size===0)return 0;
- var activities=(cache.activities||[]).filter(function(a){return a&&a.type==='qa'&&a.student_id!=null&&a.subject!=null&&String(a.subject).trim()!==''&&(!selected||selected.has(String(a.student_id)));});
- var grouped=new Map();activities.forEach(function(a){var key=JSON.stringify([String(a.student_id),String(a.subject)]),score=null;
-  if(a.score!=null&&String(a.score).trim()!==''){var numeric=Number(a.score);if(Number.isFinite(numeric))score=numeric;}
-  else if(['excellent','good','acceptable','needs'].includes(String(a.level||'')))score=scoreToNum(a.level,null);
-  if(score==null||!Number.isFinite(score))return;var item=grouped.get(key);if(!item){item={student_id:String(a.student_id),subject:String(a.subject),sum:0,count:0};grouped.set(key,item);}item.sum+=score;item.count++;
+ if(!cache.students||!cache.students.length)return 0;
+ var selected=Array.isArray(studentIds)?new Set(studentIds.filter(function(x){return x!=null&&String(x)!=='';}).map(String)):null;
+ if(selected&&selected.size===0)return 0;
+ var activities=(cache.activities||[]).filter(function(a){
+  return a&&(a.type==='qa'||a.type==='exam')&&a.student_id!=null&&(!selected||selected.has(String(a.student_id)))&&assessmentSubjectKey(a)!=='';
  });
- var nextRows=[];grouped.forEach(function(item){if(!item.count)return;var avg=Math.round((item.sum/item.count)*10)/10;nextRows.push({id:qaAutoScoreId(item.student_id,item.subject),student_id:item.student_id,subject:item.subject,score:avg,level:scoreLv(avg),updated_at:new Date().toISOString()});});
+ var grouped=new Map();
+ activities.forEach(function(a){
+  var subject=assessmentSubjectKey(a),score=assessmentScoreValue(a);
+  if(score==null)return;
+  var key=JSON.stringify([String(a.student_id),subject]),item=grouped.get(key);
+  if(!item){item={student_id:String(a.student_id),subject:subject,sum:0,count:0};grouped.set(key,item);}
+  item.sum+=score;item.count++;
+ });
+ var nextRows=[];
+ grouped.forEach(function(item){
+  if(!item.count)return;
+  var avg=Math.round((item.sum/item.count)*10)/10;
+  nextRows.push({id:qaAutoScoreId(item.student_id,item.subject),student_id:item.student_id,subject:item.subject,score:avg,level:scoreLv(avg),updated_at:new Date().toISOString()});
+ });
  var oldAuto=(cache.scores||[]).filter(function(x){return isQaAutoScoreRow(x)&&(!selected||selected.has(String(x.student_id)));});
  var oldOverrides=(cache.scores||[]).filter(function(x){return isQaManualOverrideRow(x)&&(!selected||selected.has(String(x.student_id)));});
  var nextIds=new Set(nextRows.map(function(x){return String(x.id);}));
@@ -6326,10 +6371,11 @@ async function syncQaReportCardAverages(studentIds){
  var staleIds=oldAuto.filter(function(x){return !nextIds.has(String(x.id));}).concat(oldOverrides.filter(function(x){return !validOverrideIds.has(String(x.id));})).map(function(x){return String(x.id);});
  var staleSet=new Set(staleIds),byId=new Map(nextRows.map(function(x){return [String(x.id),x];}));
  cache.scores=(cache.scores||[]).filter(function(x){return !staleSet.has(String(x.id));}).map(function(x){var u=byId.get(String(x.id));return u?Object.assign({},x,u):x;});
- var present=new Set(cache.scores.map(function(x){return String(x.id);}));nextRows.forEach(function(x){if(!present.has(String(x.id)))cache.scores.push(x);});
- try{persistLocalSchoolCache();}catch(e){}try{if(window.DastyarOffline&&window.DastyarOffline.saveSnapshot)await window.DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
+ var present=new Set(cache.scores.map(function(x){return String(x.id);}));
+ nextRows.forEach(function(x){if(!present.has(String(x.id)))cache.scores.push(x);});
+ try{persistLocalSchoolCache();}catch(e){}
+ try{if(window.DastyarOffline&&window.DastyarOffline.saveSnapshot)await window.DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
  if(sb){
-  // لایه REST داخلی متد in ندارد؛ هر حذف با شناسه مشخص انجام می‌شود و در حالت آفلاین در صف می‌ماند.
   if(nextRows.length){var up=await sb.from('sa_scores').upsert(nextRows);if(up&&up.error)throw up.error;}
   for(var si=0;si<staleIds.length;si++){var del=await sb.from('sa_scores').delete().eq('id',staleIds[si]);if(del&&del.error)throw del.error;}
  }
@@ -6429,7 +6475,7 @@ async function saveExamRecord(){
         documents:cache.documents||[],parent_contacts:cache.parent_contacts||[]
       }));
     }catch(e){}
-    if(navigator.onLine&&sb){
+    if(sb){
       try{
         var payload={id:row.id,student_id:row.student_id,class_id:row.class_id,type:'exam',subject:row.subject,weekday:row.weekday,date:row.date,score:row.score,level:row.level,notes:row.notes,recorded_by:row.recorded_by};
         var res=await sb.from('sa_activities').insert(payload);
@@ -6439,7 +6485,9 @@ async function saveExamRecord(){
     if(typeof toast==='function') toast('آزمون ثبت شد');
     try{ document.getElementById('ex-notes').value=''; document.getElementById('ex-score').value=''; }catch(e){}
     try{ persistLocalSchoolCache(); }catch(e){}
-      loadExams();
+    try{await buildClosedMonthQaEvaluations();}catch(monthError){console.warn('به‌روزرسانی میانگین ماهانه پس از ثبت آزمون انجام نشد',monthError);}
+    try{await syncQaReportCardAverages([studentId]);}catch(scoreError){console.warn('به‌روزرسانی نمره کارنامه پس از ثبت آزمون انجام نشد',scoreError);}
+    loadExams();
   }catch(e){
     console.error(e);
     if(typeof toast==='function') toast('ثبت آزمون ناموفق بود');
@@ -6629,7 +6677,7 @@ async function saveAct(){
         cache.activities=applyQaTombstones(cache.activities);
         try{persistLocalSchoolCache();}catch(e){}
         try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
-        if(syncQa){try{await buildClosedMonthQaEvaluations();}catch(offlineEditQaError){console.warn('به‌روزرسانی آفلاین ارزشیابی پس از ویرایش پرسش‌وپاسخ ناموفق بود',offlineEditQaError);}refreshQaEvaluationDashboard();}
+        if(syncQa){try{await buildClosedMonthQaEvaluations();}catch(offlineEditQaError){console.warn('به‌روزرسانی آفلاین ارزشیابی پس از ویرایش پرسش‌وپاسخ ناموفق بود',offlineEditQaError);}try{await syncQaReportCardAverages([previousActivity&&previousActivity.student_id,row.student_id]);}catch(offlineEditScoreError){console.warn('به‌روزرسانی آفلاین کارنامه پس از ویرایش پرسش‌وپاسخ ناموفق بود',offlineEditScoreError);}refreshQaEvaluationDashboard();}
         document.getElementById('ac-form').innerHTML='';window.editingActivityId='';
         await loadActivities();try{refreshDash();}catch(e){}
         toast('ویرایش در گوشی ذخیره شد و پس از اتصال همگام می‌شود');return;
@@ -6646,6 +6694,7 @@ async function saveAct(){
     try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
     if(rows.some(function(r){return r&&r.type==='qa';})){
       try{await buildClosedMonthQaEvaluations();}catch(qaOfflineError){console.warn('به‌روزرسانی آفلاین پیوند پرسش‌وپاسخ و ارزشیابی انجام نشد',qaOfflineError);}
+      try{await syncQaReportCardAverages(rows.map(function(r){return r.student_id;}));}catch(qaScoreError){console.warn('به‌روزرسانی آفلاین میانگین کارنامه انجام نشد',qaScoreError);}
       refreshQaEvaluationDashboard();
     }
     document.getElementById('ac-form').innerHTML='';window.editingActivityId='';
@@ -6802,6 +6851,8 @@ function refreshQaEvaluationDashboard(){
 async function syncOneDailyQaEvaluation(activity,remove,refreshUi){
   if(!sb||!activity||activity.id==null)return false;
   var evalId=stableQaUuid('qa-activity|'+String(activity.id));
+  var legacyDailyRow=(cache.evaluations||[]).some(function(e){return String(e.id)===String(evalId);});
+  if(!remove&&!legacyDailyRow)return false;
   if(remove){
     var deleted;
     if(!isAppOfflineNow()&&typeof sb.from('sa_evaluations').deleteRemote==='function'){
@@ -6842,9 +6893,9 @@ async function syncOneDailyQaEvaluation(activity,remove,refreshUi){
 }
 async function syncDailyQaEvaluations(){
   if(!sb)return false;
-  var qaRows=(cache.activities||[]).filter(function(a){return a&&a.type==='qa'&&a.id!=null;});
   var existing=(cache.evaluations||[]).filter(isDailyQaEvaluationRow);
   var existingById=new Map(existing.map(function(e){return [String(e.id),e];}));
+  var qaRows=(cache.activities||[]).filter(function(a){return a&&a.type==='qa'&&a.id!=null&&existingById.has(String(stableQaUuid('qa-activity|'+String(a.id))));});
   var currentIds=new Set(),payload=[],synced=[];
   qaRows.forEach(function(a){
     var d=parseJalali(a.date);
@@ -6907,49 +6958,71 @@ async function syncDailyQaEvaluations(){
   return true;
 }
 async function buildClosedMonthQaEvaluations(){
-  try{await syncDailyQaEvaluations();}catch(syncError){console.warn('همگام‌سازی ثبت‌های روزانه با ارزشیابی انجام نشد',syncError);}
-  var months=JALALI_MONTHS.slice(),groups={},fingerprints={},currentFingerprints={};
-  (cache.activities||[]).filter(function(a){return a&&a.type==='qa'&&a.date;}).forEach(function(a){
-    var d=parseJalali(a.date);if(!d||d.jm<1||d.jm>12)return;
-    var key=[a.class_id,a.student_id,a.subject,d.jy,d.jm].join('|');
-    (groups[key]||(groups[key]=[])).push({row:a,date:d});
+ if(!user||!sb||!cache.students||!cache.students.length)return false;
+ try{await syncDailyQaEvaluations();}catch(syncError){console.warn('همگام‌سازی سوابق قدیمی پرسش‌وپاسخ انجام نشد',syncError);}
+ var groups={},existingAuto=(cache.evaluations||[]).filter(function(e){
+  var marker=String(e&&e.recorded_by||'');
+  return marker.indexOf('| خلاصه خودکار پرسش‌وپاسخ')>=0||marker.indexOf('| میانگین ماهانه یکپارچه')>=0;
+ });
+ var existingById=new Map(existingAuto.map(function(e){return [String(e.id),e];}));
+ var seenActivityIds=new Set();
+ (cache.activities||[]).forEach(function(a){
+  if(!a||!(a.type==='qa'||a.type==='exam')||a.id==null||!a.date||a.student_id==null)return;
+  var id=String(a.id);
+  if(seenActivityIds.has(id))return;
+  seenActivityIds.add(id);
+  var date=parseJalali(a.date),subject=assessmentSubjectKey(a),score=assessmentScoreValue(a);
+  if(!date||date.jm<1||date.jm>12||!subject||score==null)return;
+  var key=JSON.stringify([String(a.class_id||''),String(a.student_id),subject,date.jy,date.jm]);
+  (groups[key]||(groups[key]=[])).push({row:a,date:date,score:score});
+ });
+ var payload=[],currentIds=new Set(),syncedRows=[];
+ Object.keys(groups).forEach(function(key){
+  var arr=groups[key];
+  arr.sort(function(a,b){return String(a.row.date||'').localeCompare(String(b.row.date||''))||String(a.row.created_at||'').localeCompare(String(b.row.created_at||''));});
+  var first=arr[0],last=arr[arr.length-1],d=first.date,monthName=JALALI_MONTHS[d.jm-1];
+  var closed=assessmentMonthIsClosed(d.jy,d.jm);
+  if(!closed&&arr.length<3)return;
+  var sum=0;arr.forEach(function(x){sum+=x.score;});
+  var avg=Math.round((sum/arr.length)*10)/10;
+  var monthEnd=jalaliMonthDays(d.jy,d.jm);
+  var finalDate=closed?formatJalali(d.jy,d.jm,monthEnd):last.row.date;
+  var finalWeekday=closed?jalaliWeekday(d.jy,d.jm,monthEnd):(last.row.weekday||'');
+  var seed='qa-month|'+String(first.row.class_id||'')+'|'+String(first.row.student_id)+'|'+String(key?assessmentSubjectKey(first.row):'')+'|'+d.jy+'|'+d.jm;
+  var id=stableQaUuid(seed);
+  var status=closed?'میانگین قطعی':'میانگین موقت';
+  var notes='ارزیابی دوره‌ای ماه '+monthName+' '+d.jy+' — '+status+'؛ تعداد ثبت پرسش‌وپاسخ و آزمون: '+arr.length+'؛ میانگین: '+avg+' از ۲۰. '+assessmentMonthlyFeedback(avg);
+  var row={
+   id:id,student_id:first.row.student_id,class_id:first.row.class_id,month:monthName,
+   subject:assessmentSubjectKey(first.row),weekday:finalWeekday,date:finalDate,
+   score:avg,level:scoreLv(avg),notes:notes,
+   recorded_by:(user&&user.full_name?user.full_name:'سامانه')+' | میانگین ماهانه یکپارچه پرسش‌وپاسخ و آزمون'
+  };
+  currentIds.add(String(id));
+  var old=existingById.get(String(id));
+  var same=old&&['student_id','class_id','month','subject','weekday','date','score','level','notes','recorded_by'].every(function(k){
+   return String(old[k]==null?'':old[k])===String(row[k]==null?'':row[k]);
   });
-  try{fingerprints=JSON.parse(localStorage.getItem('dastyar_qa_month_summary_fingerprint_v1')||'{}')||{};}catch(e){fingerprints={};}
-  var existingAuto=(cache.evaluations||[]).filter(function(e){return e&&String(e.recorded_by||'').indexOf('| خلاصه خودکار پرسش‌وپاسخ')>=0;});
-  var existingById=new Map(existingAuto.map(function(e){return [String(e.id),e];}));
-  var payload=[],currentIds=new Set(),syncedRows=[];
-  Object.keys(groups).forEach(function(key){
-    var arr=groups[key];if(!arr.length)return;
-    arr.sort(function(a,b){return String(a.row.date).localeCompare(String(b.row.date));});
-    var first=arr[0],last=arr[arr.length-1],sum=0;
-    arr.forEach(function(x){sum+=scoreToNum(x.row.level,x.row.score);});
-    var avg=Math.round((sum/arr.length)*10)/10,m=months[first.date.jm-1];
-    var seed='qa-month|'+first.row.class_id+'|'+first.row.student_id+'|'+first.row.subject+'|'+first.date.jy+'|'+first.date.jm;
-    var id=stableQaUuid(seed),fp=arr.length+'|'+last.row.date+'|'+avg;
-    currentIds.add(String(id));currentFingerprints[seed]=fp;
-    var row={id:id,student_id:first.row.student_id,class_id:first.row.class_id,month:m,subject:first.row.subject,weekday:last.row.weekday||'',date:last.row.date,score:avg,level:scoreLv(avg),notes:'خلاصه خودکار پرسش‌وپاسخ‌های ماه '+m+' '+first.date.jy+' — تعداد ثبت: '+arr.length+' — میانگین عملکرد: '+avg+' از ۲۰',recorded_by:(user&&user.full_name?user.full_name:'سامانه')+' | خلاصه خودکار پرسش‌وپاسخ'};
-    var old=existingById.get(String(id));
-    if(fingerprints[seed]!==fp||!old)payload.push(row);
-    syncedRows.push(Object.assign({},old||{},row));
-  });
-  var stale=existingAuto.filter(function(e){return !currentIds.has(String(e.id));});
-  if(payload.length){
-    var up=await sb.from('sa_evaluations').upsert(payload);
-    if(up&&up.error){console.warn('به‌روزرسانی خلاصه پرسش‌وپاسخ در ارزشیابی ناموفق بود',up.error);return false;}
-  }
-  for(var i=0;i<stale.length;i++){
-    var del=await sb.from('sa_evaluations').delete().eq('id',String(stale[i].id));
-    if(del&&del.error){console.warn('حذف خلاصه منسوخ پرسش‌وپاسخ از ارزشیابی ناموفق بود',del.error);return false;}
-  }
-  var nextFingerprints={};
-  Object.keys(fingerprints).forEach(function(k){if(k.indexOf('qa-month|')!==0)nextFingerprints[k]=fingerprints[k];});
-  Object.assign(nextFingerprints,currentFingerprints);
-  try{localStorage.setItem('dastyar_qa_month_summary_fingerprint_v1',JSON.stringify(nextFingerprints));}catch(e){}
-  cache.evaluations=(cache.evaluations||[]).filter(function(e){return !(e&&String(e.recorded_by||'').indexOf('| خلاصه خودکار پرسش‌وپاسخ')>=0);}).concat(syncedRows);
-  try{persistLocalSchoolCache();}catch(e){}
-  try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
-  try{refreshDash();}catch(e){}
-  return true;
+  if(!same)payload.push(row);
+  syncedRows.push(Object.assign({},old||{},row));
+ });
+ var stale=existingAuto.filter(function(e){return !currentIds.has(String(e.id));});
+ for(var start=0;start<payload.length;start+=25){
+  var up=await sb.from('sa_evaluations').upsert(payload.slice(start,start+25));
+  if(up&&up.error){console.warn('ثبت میانگین ماهانه یکپارچه در ارزشیابی ناموفق بود',up.error);return false;}
+ }
+ for(var i=0;i<stale.length;i++){
+  var del=await sb.from('sa_evaluations').delete().eq('id',String(stale[i].id));
+  if(del&&del.error){console.warn('پاک‌سازی خلاصه خودکار منسوخ ناموفق بود',del.error);return false;}
+ }
+ cache.evaluations=(cache.evaluations||[]).filter(function(e){
+  var marker=String(e&&e.recorded_by||'');
+  return !(marker.indexOf('| خلاصه خودکار پرسش‌وپاسخ')>=0||marker.indexOf('| میانگین ماهانه یکپارچه')>=0);
+ }).concat(syncedRows);
+ try{persistLocalSchoolCache();}catch(e){}
+ try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
+ try{refreshDash();}catch(e){}
+ return true;
 }
 async function loadEvals(skipServerReload){
   if(!skipServerReload)await reloadAll();
