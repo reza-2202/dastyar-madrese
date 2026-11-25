@@ -15875,7 +15875,13 @@ async function buildUnifiedMonthlySummaries(){
    var seed='qa-month|'+String(first.row.class_id)+'|'+String(first.row.student_id)+'|'+String(first.row.type==='exam'?normalizedSubject(first.row):normalizedSubject(first.row))+'|'+d.jy+'|'+d.jm;
    var id=stableQaUuid(seed),old=byId.get(String(id));
    seenSummaryIds.add(String(id));
-   if(old&&isFinalSummary(old)){keep.push(old);return}
+   if(old&&isFinalSummary(old)){
+    if(db&&old._dastyarMonthlySyncPending){
+     var finalCopy=Object.assign({},old);delete finalCopy._dastyarMonthlySyncPending;delete finalCopy._dastyarMonthlyDeletePending;
+     upserts.push(finalCopy);keep.push(finalCopy);
+    }else keep.push(old);
+    return;
+   }
    if(arr.length<3&&!closed){
     if(old){
      if(db)deletes.push(old);
@@ -15919,6 +15925,7 @@ async function buildUnifiedMonthlySummaries(){
     if(del&&del.error)throw del.error;
    }
   }
+  if(db)keep.forEach(function(row){delete row._dastyarMonthlySyncPending;delete row._dastyarMonthlyDeletePending;});
   var deleteIds=new Set(deletes.map(function(x){return String(x.id)}));
   var next=(c.evaluations||[]).filter(function(e){return !(isAutoSummary(e)&&deleteIds.has(String(e.id)))});
   keep.forEach(function(row){
