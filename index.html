@@ -3008,6 +3008,7 @@ async function doLogin(){
     (async function(){
       try{
         await reloadAll();
+        try{if(typeof buildClosedMonthQaEvaluations==='function')await buildClosedMonthQaEvaluations();}catch(monthCloseError){console.warn('قطعی‌سازی میانگین‌های ماهانه پس از ورود انجام نشد',monthCloseError);}
         try{ if(typeof mergeLocalSchoolCacheIntoMemory==='function') mergeLocalSchoolCacheIntoMemory(); }catch(e){}
         try{ if(navigator.onLine&&typeof flushPendingAttendanceToServer==='function') await flushPendingAttendanceToServer(); }catch(e){}
         if(typeof loadSchoolDocuments==='function') await loadSchoolDocuments();
