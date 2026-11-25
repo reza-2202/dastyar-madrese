@@ -15933,7 +15933,9 @@ if(typeof originalBuildReport==='function'&&!originalBuildReport.__monthlyAssess
   if(!html||!rows.length)return html;
   var body='<div class="st">جمع‌بندی ماهانه ارزشیابی (پرسش‌وپاسخ و آزمون)</div><table class="rt"><thead><tr><th>ماه</th><th>درس</th><th>میانگین از ۲۰</th><th>وضعیت دوره‌ای</th></tr></thead><tbody>';
   rows.forEach(function(r){
-   body+='<tr><td>'+escHtml(r.month||'')+' '+escHtml((String(r.notes||'').match(/ماه\s+[^،]+/)||[])[0]||'')+'</td><td>'+escHtml(r.subject||'')+'</td><td>'+escHtml(r.score==null?'—':r.score)+'</td><td>'+escHtml(r.notes||'')+'</td></tr>';
+   var periodMatch=String(r.notes||'').match(/ماه\s+([^\s،]+)\s+(\d{4})/);
+   var periodLabel=periodMatch?periodMatch[1]+' '+periodMatch[2]:(r.month||'');
+   body+='<tr><td>'+escHtml(periodLabel)+'</td><td>'+escHtml(r.subject||'')+'</td><td>'+escHtml(r.score==null?'—':r.score)+'</td><td>'+escHtml(r.notes||'')+'</td></tr>';
   });
   body+='</tbody></table>';
   var at=html.lastIndexOf('</div>');
