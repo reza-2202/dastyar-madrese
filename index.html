@@ -15973,5 +15973,55 @@ if(typeof originalLoadReport==='function'&&!originalLoadReport.__monthlyAssessme
  };
  wrappedLoadReport.__monthlyAssessmentWrapped=true;window.loadReportStudents=wrappedLoadReport;
 }
+function getClassMonthSummaries(classId,month){
+ var c=getCache();if(!c)return [];
+ return (c.evaluations||[]).filter(function(e){return isAutoSummary(e)&&String(e.class_id)===String(classId)&&String(e.month||'')===String(month||'')});
+}
+var originalLoadEvals=window.loadEvals;
+if(typeof originalLoadEvals==='function'&&!originalLoadEvals.__monthlyAssessmentWrapped){
+ var wrappedLoadEvals=async function(){
+  var result=await originalLoadEvals.apply(this,arguments);
+  try{
+   var classEl=document.getElementById('ev-class'),monthEl=document.getElementById('ev-month'),box=document.getElementById('ev-list');
+   var classId=classEl&&classEl.value,month=monthEl&&monthEl.value;
+   if(box&&classId&&month){
+    var rows=getClassMonthSummaries(classId,month),added=0,c=getCache();
+    rows.forEach(function(r){
+     if(box.textContent.indexOf(String(r.notes||''))>=0)return;
+     var st=(c.students||[]).find(function(x){return String(x.id)===String(r.student_id)});
+     var card=document.createElement('div');card.className='card';card.setAttribute('data-monthly-summary-id',String(r.id));
+     card.style.cssText='padding:12px;border:1px solid #93c5fd;background:#f8fbff';
+     card.innerHTML='<div class="name">'+escHtml(st?((st.first_name||'')+' '+(st.last_name||'')):'')+'</div><div class="meta">📊 جمع‌بندی ماهانه | '+escHtml(r.month||'')+' | '+escHtml(r.subject||'')+' | میانگین: '+escHtml(r.score==null?'—':r.score)+' از ۲۰</div><div style="margin-top:4px">'+badge(r.level)+'</div><div class="meta" style="margin-top:5px;line-height:1.8">'+escHtml(r.notes||'')+'</div>';
+     box.appendChild(card);added++;
+    });
+    if(added){var empty=box.querySelector('.empty');if(empty)empty.remove();}
+   }
+  }catch(e){console.warn('نمایش خلاصه ماهانه در فهرست ارزشیابی ناموفق بود',e)}
+  return result;
+ };
+ wrappedLoadEvals.__monthlyAssessmentWrapped=true;window.loadEvals=wrappedLoadEvals;
+}
+var originalPrintEvals=window.printEvals;
+if(typeof originalPrintEvals==='function'&&!originalPrintEvals.__monthlyAssessmentWrapped){
+ var wrappedPrintEvals=function(){
+  var result=originalPrintEvals.apply(this,arguments);
+  try{
+   var classEl=document.getElementById('ev-class'),monthEl=document.getElementById('ev-month'),area=document.getElementById('print-area');
+   var classId=classEl&&classEl.value,month=monthEl&&monthEl.value;
+   if(area&&classId&&month){
+    var rows=getClassMonthSummaries(classId,month),c=getCache(),extra='';
+    rows.forEach(function(r){
+     if(area.innerHTML.indexOf(String(r.notes||''))>=0)return;
+     var st=(c.students||[]).find(function(x){return String(x.id)===String(r.student_id)});
+     extra+='<tr><td>'+escHtml(st?((st.first_name||'')+' '+(st.last_name||'')):'')+'</td><td>'+escHtml(r.weekday||'')+'</td><td>'+escHtml(r.date||'')+'</td><td>'+escHtml('جمع‌بندی ماهانه — '+(r.subject||''))+'</td><td>'+escHtml(r.score==null?'—':r.score)+'</td><td>'+escHtml(lvl(r.level))+'</td><td>'+escHtml(r.notes||'')+'</td></tr>';
+    });
+    var at=area.innerHTML.lastIndexOf('</tbody>');
+    if(extra&&at>=0)area.innerHTML=area.innerHTML.slice(0,at)+extra+area.innerHTML.slice(at);
+   }
+  }catch(e){console.warn('افزودن خلاصه ماهانه به چاپ ارزشیابی ناموفق بود',e)}
+  return result;
+ };
+ wrappedPrintEvals.__monthlyAssessmentWrapped=true;window.printEvals=wrappedPrintEvals;
+}
 })();
 </script>
