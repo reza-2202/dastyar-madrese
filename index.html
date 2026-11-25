@@ -15867,16 +15867,20 @@ async function buildUnifiedMonthlySummaries(){
    list.push({row:a,date:d,value:value});
   });
   var existing=(c.evaluations||[]).filter(isAutoSummary),byId=new Map(existing.map(function(e){return [String(e.id),e]}));
-  var upserts=[],deletes=[],keep=[];
+  var upserts=[],deletes=[],keep=[],seenSummaryIds=new Set();
   groups.forEach(function(arr,key){
    if(!arr.length)return;
    arr.sort(function(a,b){return String(a.row.date||'').localeCompare(String(b.row.date||''))});
    var first=arr[0],last=arr[arr.length-1],d=first.date,closed=isMonthClosed(d);
    var seed='qa-month|'+String(first.row.class_id)+'|'+String(first.row.student_id)+'|'+String(first.row.type==='exam'?normalizedSubject(first.row):normalizedSubject(first.row))+'|'+d.jy+'|'+d.jm;
    var id=stableQaUuid(seed),old=byId.get(String(id));
+   seenSummaryIds.add(String(id));
    if(old&&isFinalSummary(old)){keep.push(old);return}
    if(arr.length<3&&!closed){
-    if(old)deletes.push(old);
+    if(old){
+     if(db)deletes.push(old);
+     else keep.push(Object.assign({},old,{_dastyarMonthlyDeletePending:true}));
+    }
     return;
    }
    var avg=average(arr.map(function(x){return {value:x.value}}));
@@ -15892,8 +15896,18 @@ async function buildUnifiedMonthlySummaries(){
     recorded_by:(typeof user!=='undefined'&&user&&user.full_name?user.full_name:'سامانه')+' '+SUMMARY_MARKER+(finalized?' [قطعی]':' [درحال‌به‌روزرسانی]')
    };
    if(old&&old.created_at)row.created_at=old.created_at;
-   if(!old||['student_id','class_id','month','subject','weekday','date','score','level','notes','recorded_by'].some(function(k){return String(old[k]==null?'':old[k])!==String(row[k]==null?'':row[k])}))upserts.push(row);
+   var changed=!old||['student_id','class_id','month','subject','weekday','date','score','level','notes','recorded_by'].some(function(k){return String(old[k]==null?'':old[k])!==String(row[k]==null?'':row[k])});
+   if(db){
+    if(changed||(old&&(old._dastyarMonthlySyncPending||old._dastyarMonthlyDeletePending)))upserts.push(row);
+   }else{
+    row._dastyarMonthlySyncPending=true;
+   }
    keep.push(Object.assign({},old||{},row));
+  });
+  existing.forEach(function(old){
+   if(seenSummaryIds.has(String(old.id))||isFinalSummary(old))return;
+   if(db)deletes.push(old);
+   else keep.push(Object.assign({},old,{_dastyarMonthlyDeletePending:true}));
   });
   if(upserts.length&&db){
    var saved=await db.from('sa_evaluations').upsert(upserts);
@@ -15924,7 +15938,7 @@ window.buildClosedMonthQaEvaluations=buildUnifiedMonthlySummaries;
 window.buildUnifiedMonthlyAssessmentSummaries=buildUnifiedMonthlySummaries;
 function getMonthlyRows(studentId){
  var c=getCache();if(!c)return [];
- return (c.evaluations||[]).filter(function(e){return String(e.student_id)===String(studentId)&&isAutoSummary(e)}).sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''))});
+ return (c.evaluations||[]).filter(function(e){return String(e.student_id)===String(studentId)&&isAutoSummary(e)&&!e._dastyarMonthlyDeletePending}).sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''))});
 }
 var originalBuildReport=window.buildReport;
 if(typeof originalBuildReport==='function'&&!originalBuildReport.__monthlyAssessmentWrapped){
@@ -15975,7 +15989,7 @@ if(typeof originalLoadReport==='function'&&!originalLoadReport.__monthlyAssessme
 }
 function getClassMonthSummaries(classId,month){
  var c=getCache();if(!c)return [];
- return (c.evaluations||[]).filter(function(e){return isAutoSummary(e)&&String(e.class_id)===String(classId)&&String(e.month||'')===String(month||'')});
+ return (c.evaluations||[]).filter(function(e){return isAutoSummary(e)&&!e._dastyarMonthlyDeletePending&&String(e.class_id)===String(classId)&&String(e.month||'')===String(month||'')});
 }
 var originalLoadEvals=window.loadEvals;
 if(typeof originalLoadEvals==='function'&&!originalLoadEvals.__monthlyAssessmentWrapped){
