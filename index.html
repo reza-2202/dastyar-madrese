@@ -15930,7 +15930,7 @@ async function buildUnifiedMonthlySummaries(){
   var next=(c.evaluations||[]).filter(function(e){return !(isAutoSummary(e)&&deleteIds.has(String(e.id)))});
   keep.forEach(function(row){
    var at=next.findIndex(function(e){return String(e.id)===String(row.id)});
-   if(at>=0)next[at]=Object.assign({},next[at],row);else next.push(row);
+   if(at>=0)next[at]=Object.assign({},row);else next.push(row);
   });
   c.evaluations=next;
   try{if(typeof persistLocalSchoolCache==='function')persistLocalSchoolCache()}catch(e){}
