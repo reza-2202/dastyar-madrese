@@ -6309,8 +6309,9 @@ function isQaAutoScoreRow(row){return !!(row&&String(row.id||'').indexOf('qaavg_
 function isQaManualOverrideRow(row){return !!(row&&String(row.id||'').indexOf('qamanual_')===0);}
 function getReportScoreRow(studentId,subject){
  var rows=(cache.scores||[]).filter(function(x){return String(x.student_id)===String(studentId)&&String(x.subject)===String(subject);});
- return rows.find(isQaManualOverrideRow)||rows.find(isQaAutoScoreRow)||rows.find(function(x){return !isQaAutoScoreRow(x)&&!isQaManualOverrideRow(x);})||{};
+ return rows.find(isQaManualOverrideRow)||rows.find(function(x){return !isQaAutoScoreRow(x)&&!isQaManualOverrideRow(x);})||rows.find(isQaAutoScoreRow)||{};
 }
+function isMonthlyAssessmentEvaluation(e){var marker=String(e&&e.recorded_by||'');return marker.indexOf('| خلاصه خودکار پرسش‌وپاسخ')>=0||marker.indexOf('| میانگین ماهانه یکپارچه')>=0;}
 function assessmentSubjectKey(activity){
  var subject=String(activity&&activity.subject||'').trim();
  if(activity&&activity.type==='exam'){
@@ -7035,7 +7036,7 @@ async function loadEvals(skipServerReload){
   const mode=document.getElementById('ev-filter-mode')?.value||'date';
   const date=(document.getElementById('ev-filter-date')?.value||'').trim();
   let list=cache.evaluations.filter(e=>e.class_id===classId&&e.month===month);
-  if(mode==='date'&&date)list=list.filter(e=>e.date===date);
+  if(mode==='date'&&date)list=list.filter(e=>e.date===date||isMonthlyAssessmentEvaluation(e));
   const box=document.getElementById('ev-list');
   if(!list.length){box.innerHTML='<div class="empty">ارزشیابی‌ای در این ماه نیست</div>';return;}
   box.innerHTML=list.map(e=>{
@@ -7049,7 +7050,7 @@ function printEvals(){
   const mode=document.getElementById('ev-filter-mode')?.value||'date';
   const date=(document.getElementById('ev-filter-date')?.value||'').trim();
   let list=cache.evaluations.filter(e=>e.class_id===classId&&e.month===month);
-  if(mode==='date'&&date)list=list.filter(e=>e.date===date);
+  if(mode==='date'&&date)list=list.filter(e=>e.date===date||isMonthlyAssessmentEvaluation(e));
   const cl=cache.classes.find(c=>c.id===classId);
   let rows=list.map(e=>{
     const s=cache.students.find(x=>x.id===e.student_id);
