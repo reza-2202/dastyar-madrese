@@ -6950,7 +6950,7 @@ async function buildClosedMonthQaEvaluations(skipDailySync){
   if(!skipDailySync){try{await syncDailyQaEvaluations();}catch(syncError){console.warn('همگام‌سازی ثبت‌های روزانه با ارزشیابی انجام نشد',syncError);}}
   var months=JALALI_MONTHS.slice(),groups=new Map(),fingerprints={},currentFingerprints={};
   (cache.activities||[]).forEach(function(a){
-    if(!a||(a.type!=='qa'&&a.type!=='exam')||!a.date)return;
+    if(!a||(a.type!=='qa'&&a.type!=='exam')||!a.date||a.student_id==null||a.class_id==null)return;
     var d=parseJalali(a.date),subject=monthlyAssessmentSubject(a),score=monthlyAssessmentScore(a);
     if(!d||d.jm<1||d.jm>12||!subject||score==null)return;
     var key=JSON.stringify([String(a.class_id||''),String(a.student_id||''),subject,d.jy,d.jm]);
@@ -7042,7 +7042,7 @@ async function loadEvals(skipServerReload){
   const mode=document.getElementById('ev-filter-mode')?.value||'date';
   const date=(document.getElementById('ev-filter-date')?.value||'').trim();
   let list=cache.evaluations.filter(e=>e.class_id===classId&&e.month===month);
-  if(mode==='date'&&date)list=list.filter(e=>e.date===date);
+  if(mode==='date'&&date)list=list.filter(e=>e.date===date||(typeof isMonthlyAssessmentRow==='function'&&isMonthlyAssessmentRow(e)));
   const box=document.getElementById('ev-list');
   if(!list.length){box.innerHTML='<div class="empty">ارزشیابی‌ای در این ماه نیست</div>';return;}
   box.innerHTML=list.map(e=>{
