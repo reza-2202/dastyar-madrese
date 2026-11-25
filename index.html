@@ -6743,7 +6743,7 @@ async function loadActivities(skipServerReload){
   html+=list.map(function(a){var st=cache.students.find(function(x){return String(x.id)===String(a.student_id);});var isQa=a.type==='qa';return '<div class="card" style="padding:12px"><div class="name">'+(st&&typeof studentNameWithPhoto==='function'?studentNameWithPhoto(st,32):escHtml(st?st.first_name+' '+st.last_name:''))+'</div><div class="meta">📅 '+escHtml(a.weekday||'')+' '+escHtml(a.date||'')+' | '+(isQa?'پرسش و پاسخ':'فعالیت کلاسی')+' | '+escHtml(a.subject||'')+(isQa&&a.score!=null?' | نمره: '+escHtml(a.score)+'/۲۰':'')+'</div><div style="margin-top:4px">'+badge(a.level)+'</div>'+(a.notes?'<div class="meta" style="margin-top:4px;white-space:pre-wrap">'+escHtml(a.notes)+'</div>':'')+(isQa?'<div style="display:flex;gap:7px;margin-top:9px;flex-wrap:wrap"><button class="btn btn-o btn-sm" onclick="showActForm(\''+String(a.id).replace(/'/g,'')+'\')">✏️ ویرایش</button><button class="btn btn-o btn-sm" onclick="deleteQaActivity(\''+String(a.id).replace(/'/g,'')+'\')">🗑️ حذف</button></div>':'')+'</div>';}).join('');
   box.innerHTML=html;
 }
-try{ if(typeof buildClosedMonthQaEvaluations==='function') buildClosedMonthQaEvaluations(); }catch(e){}
+
 
 function printActs(){
   const classId=document.getElementById('ac-class').value;
