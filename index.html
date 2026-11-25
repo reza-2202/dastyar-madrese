@@ -15795,16 +15795,16 @@ function normalizedSubject(row){
  var raw=safe(row&&(row.lesson||row.subject||row.exam_name)||'');
  if(!raw)return '';
  if(row&&row.type==='exam'){
-  if(row.lesson)return raw;
+  if(row.lesson)return raw.replace(/[<>]/g,'').slice(0,120);
   var list=[];
   try{if(typeof subjectsFor==='function')list=subjectsFor(row.class_id)||[]}catch(e){}
   for(var i=0;i<list.length;i++){
    var sub=safe(list[i]);
    if(raw===sub||raw.indexOf(sub+' — ')===0||raw.indexOf(sub+' - ')===0)return sub;
   }
-  return raw.split(/\s+[—-]\s+/)[0].trim()||raw;
+  return (raw.split(/\s+[—-]\s+/)[0].trim()||raw).replace(/[<>]/g,'').slice(0,120);
  }
- return raw;
+ return raw.replace(/[<>]/g,'').slice(0,120);
 }
 function monthLastDay(jy,jm){
  try{
