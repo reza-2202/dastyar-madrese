@@ -3009,10 +3009,14 @@ async function doLogin(){
       try{
         await reloadAll();
         try{ if(typeof mergeLocalSchoolCacheIntoMemory==='function') mergeLocalSchoolCacheIntoMemory(); }catch(e){}
-        try{if(typeof buildClosedMonthQaEvaluations==='function')await buildClosedMonthQaEvaluations();}catch(monthCloseError){console.warn('قطعی‌سازی میانگین‌های ماهانه پس از ورود انجام نشد',monthCloseError);}
         try{ if(navigator.onLine&&typeof flushPendingAttendanceToServer==='function') await flushPendingAttendanceToServer(); }catch(e){}
         if(typeof loadSchoolDocuments==='function') await loadSchoolDocuments();
         if(typeof ensureStudentsFromServer==='function') await ensureStudentsFromServer();
+        // پس از تکمیل بارگذاری فهرست دانش‌آموزان، سوابق قبلی پرسش‌وپاسخ و آزمون را نیز یکپارچه کن.
+        try{
+          if(typeof buildClosedMonthQaEvaluations==='function') await buildClosedMonthQaEvaluations();
+          if(typeof syncQaReportCardAverages==='function') await syncQaReportCardAverages();
+        }catch(assessmentSyncError){console.warn('همگام‌سازی سوابق قبلی ارزشیابی و کارنامه ناموفق بود؛ در ورود بعدی دوباره تلاش می‌شود.',assessmentSyncError);}
         /* ensureClass4BStudents disabled — no auto student injection */
         try{if(typeof refreshStudentPhotosFromServer==='function')await refreshStudentPhotosFromServer(true);}catch(photoSyncError){console.warn('student photos sync skipped',photoSyncError);}
         if(typeof refreshDash==='function') refreshDash();
@@ -6310,16 +6314,23 @@ function isQaAutoScoreRow(row){return !!(row&&String(row.id||'').indexOf('qaavg_
 function isQaManualOverrideRow(row){return !!(row&&String(row.id||'').indexOf('qamanual_')===0);}
 function getReportScoreRow(studentId,subject){
  var rows=(cache.scores||[]).filter(function(x){return String(x.student_id)===String(studentId)&&String(x.subject)===String(subject);});
- return rows.find(isQaManualOverrideRow)||rows.find(function(x){return !isQaAutoScoreRow(x)&&!isQaManualOverrideRow(x);})||rows.find(isQaAutoScoreRow)||{};
+ var manualOverrides=rows.filter(isQaManualOverrideRow).sort(function(a,b){return String(b.updated_at||'').localeCompare(String(a.updated_at||''));});
+ return manualOverrides[0]||rows.find(function(x){return !isQaAutoScoreRow(x)&&!isQaManualOverrideRow(x);})||rows.find(isQaAutoScoreRow)||{};
 }
 function isMonthlyAssessmentEvaluation(e){var marker=String(e&&e.recorded_by||'');return marker.indexOf('| خلاصه خودکار پرسش‌وپاسخ')>=0||marker.indexOf('| میانگین ماهانه یکپارچه')>=0;}
 function assessmentSubjectKey(activity){
- var subject=String(activity&&activity.subject||'').trim();
- if(activity&&activity.type==='exam'){
+ if(!activity)return '';
+ // از نرمال‌سازی مشترک خود برنامه استفاده کن تا نام درس آزمون و پرسش‌وپاسخ یکی شود؛
+ // این مسیر هم جداکننده «—» و هم «-» و نام درس‌های همان کلاس را پوشش می‌دهد.
+ if(typeof normalizedSubject==='function'){
+  var normalized=String(normalizedSubject(activity)||'').trim();
+  if(normalized)return normalized;
+ }
+ var subject=String(activity.subject||'').trim();
+ if(activity.type==='exam'){
   var lesson=String(activity.lesson||'').trim();
   if(lesson)return lesson;
-  var split=subject.indexOf(' — ');
-  if(split>0)subject=subject.slice(0,split).trim();
+  subject=subject.split(/\s+[—-]\s+/)[0].trim();
  }
  return subject;
 }
@@ -6367,10 +6378,9 @@ async function syncQaReportCardAverages(studentIds){
   nextRows.push({id:qaAutoScoreId(item.student_id,item.subject),student_id:item.student_id,subject:item.subject,score:avg,level:scoreLv(avg),updated_at:new Date().toISOString()});
  });
  var oldAuto=(cache.scores||[]).filter(function(x){return isQaAutoScoreRow(x)&&(!selected||selected.has(String(x.student_id)));});
- var oldOverrides=(cache.scores||[]).filter(function(x){return isQaManualOverrideRow(x)&&(!selected||selected.has(String(x.student_id)));});
  var nextIds=new Set(nextRows.map(function(x){return String(x.id);}));
- var validOverrideIds=new Set(nextRows.map(function(x){return qaManualScoreId(x.student_id,x.subject,qaActivityFingerprint(x.student_id,x.subject));}));
- var staleIds=oldAuto.filter(function(x){return !nextIds.has(String(x.id));}).concat(oldOverrides.filter(function(x){return !validOverrideIds.has(String(x.id));})).map(function(x){return String(x.id);});
+ // نمره‌های دستی/اصلاح‌شده هرگز با تغییر پرسش‌وپاسخ حذف یا بازنویسی نمی‌شوند.
+ var staleIds=oldAuto.filter(function(x){return !nextIds.has(String(x.id));}).map(function(x){return String(x.id);});
  var staleSet=new Set(staleIds),byId=new Map(nextRows.map(function(x){return [String(x.id),x];}));
  cache.scores=(cache.scores||[]).filter(function(x){return !staleSet.has(String(x.id));}).map(function(x){var u=byId.get(String(x.id));return u?Object.assign({},x,u):x;});
  var present=new Set(cache.scores.map(function(x){return String(x.id);}));
@@ -6379,7 +6389,7 @@ async function syncQaReportCardAverages(studentIds){
  try{if(window.DastyarOffline&&window.DastyarOffline.saveSnapshot)await window.DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
  if(sb){
   if(nextRows.length){var up=await sb.from('sa_scores').upsert(nextRows);if(up&&up.error)throw up.error;}
-  for(var si=0;si<staleIds.length;si++){var del=await sb.from('sa_scores').delete().eq('id',staleIds[si]);if(del&&del.error)throw del.error;}
+  for(var si=0;si<staleIds.length;si+=50){var del=await sb.from('sa_scores').delete().in('id',staleIds.slice(si,si+50));if(del&&del.error)throw del.error;}
  }
  return nextRows.length;
 }
@@ -7013,8 +7023,9 @@ async function buildClosedMonthQaEvaluations(){
   var up=await sb.from('sa_evaluations').upsert(payload.slice(start,start+25));
   if(up&&up.error){console.warn('ثبت میانگین ماهانه یکپارچه در ارزشیابی ناموفق بود',up.error);return false;}
  }
- for(var i=0;i<stale.length;i++){
-  var del=await sb.from('sa_evaluations').delete().eq('id',String(stale[i].id));
+ for(var i=0;i<stale.length;i+=50){
+  var staleIds=stale.slice(i,i+50).map(function(e){return String(e.id);});
+  var del=await sb.from('sa_evaluations').delete().in('id',staleIds);
   if(del&&del.error){console.warn('پاک‌سازی خلاصه خودکار منسوخ ناموفق بود',del.error);return false;}
  }
  cache.evaluations=(cache.evaluations||[]).filter(function(e){
@@ -7127,6 +7138,8 @@ function buildReport(sid){
   const examAvg=examN?Math.round((examSum/examN)*10)/10:null;
   const examLevel=examAvg==null?'':(examAvg>=18?'excellent':examAvg>=14?'good':examAvg>=10?'acceptable':'needs');
   const examBlock=examN?('<div class="st">میانگین آزمون‌ها</div><table class="rt"><tbody><tr><td>تعداد</td><td>'+fa(examN)+'</td><td>'+(examLevel&&typeof lvl==='function'?lvl(examLevel):'')+'</td></tr><tr><td>میانگین</td><td colspan="2">'+(examAvg!=null?examAvg:'—')+'</td></tr></tbody></table>'):'';
+  const monthlyRows=(cache.evaluations||[]).filter(function(ev){return String(ev.student_id)===String(sid)&&String(ev.recorded_by||'').indexOf('| میانگین ماهانه یکپارچه')>=0;}).sort(function(a,b){return String(a.date||'').localeCompare(String(b.date||''))||String(a.subject||'').localeCompare(String(b.subject||''));});
+  const monthlyAssessmentBlock=monthlyRows.length?('<div class="st">میانگین ماهانه پرسش‌وپاسخ و آزمون</div><table class="rt"><thead><tr><th>ماه</th><th>درس</th><th>میانگین</th><th>توضیح دوره‌ای</th></tr></thead><tbody>'+monthlyRows.map(function(ev){return '<tr><td>'+escHtml(ev.month||'')+'</td><td>'+escHtml(ev.subject||'')+'</td><td>'+(ev.score==null?'—':escHtml(String(ev.score)))+'</td><td>'+escHtml(ev.notes||'')+'</td></tr>';}).join('')+'</tbody></table>') : '';
   const disRows=(cache.discipline||[]).filter(function(d){return String(d.student_id)===String(sid);}).sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''));});
   const disRecent=disRows.slice(0,3).map(function(d){return '<tr><td>'+escHtml(d.date||'—')+'</td><td>'+escHtml(d.category||'انضباطی')+'</td><td>'+escHtml(((d.details||'')+(d.feedback?' — '+d.feedback:''))||'ثبت نشده')+'</td><td>'+escHtml(d.status==='approved'?'رسیدگی شده':'در انتظار رسیدگی')+'</td></tr>';}).join('');
   const disBlock=disRows.length?('<div class="st">سوابق انضباطی (مستقل از نمره درسی)</div><table class="rt"><thead><tr><th>تاریخ</th><th>موضوع</th><th>شرح / اقدام</th><th>وضعیت</th></tr></thead><tbody>'+disRecent+'</tbody></table><div style="font-size:8pt">تعداد کل موارد: '+fa(disRows.length)+(disRows.length>3?' — جزئیات سایر موارد در پرونده دانش‌آموز':'')+'</div>'):'';
@@ -7136,7 +7149,7 @@ function buildReport(sid){
   const compBlockPrint=crPrint?('<div class="st">شایستگی‌های عمومی</div><table class="rt"><thead><tr><th colspan="2">شایستگی</th><th>سطح</th></tr></thead><tbody>'+crPrint+'</tbody></table>'):'';
   const subjectBlock='<div class="st">دروس</div><table class="rt"><thead><tr><th>درس</th><th>نمره</th><th>ارزشیابی توصیفی</th></tr></thead><tbody>'+sr+'</tbody></table>';
   const compBlock='<div class="st">شایستگی‌های عمومی</div><table class="rt"><thead><tr><th colspan="2">شایستگی</th><th>سطح توصیفی</th></tr></thead><tbody>'+cr+'</tbody></table>';
-  return '<div class="rc">'+(s.photo?('<img class="rc-photo" src="'+String(s.photo).replace(/"/g,'')+'" alt=""/>'):'')+'<div class="rh"><h2>کارنامه تحصیلی</h2><p>دبستان شهید فتح‌الله فلاح‌پور — ۱۴۰۵–۱۴۰۶</p></div><div class="ri ri-3row"><div><b>نام:</b> '+s.first_name+' '+s.last_name+'</div><div><b>کد:</b> '+(s.code||'')+'</div><div><b>کلاس:</b> '+(cl?cl.label:'')+'</div><div><b>پدر:</b> '+(s.father_name||'')+'</div><div><b>معلم:</b> '+tn+'</div><div><b>تاریخ:</b> '+today()+'</div></div><div class="rc-body">'+subjectBlock+examBlock+compBlockPrint+'</div><div class="rc-att">حضور '+fa(p)+' | موجه '+fa(e)+' | غیرموجه '+fa(u)+' | تأخیر '+fa(l)+'</div><div class="rs"><div><b>معلم:</b> '+tn+'</div><div><b>مدیر:</b> '+PRINCIPAL+'</div></div></div>';
+  return '<div class="rc">'+(s.photo?('<img class="rc-photo" src="'+String(s.photo).replace(/"/g,'')+'" alt=""/>'):'')+'<div class="rh"><h2>کارنامه تحصیلی</h2><p>دبستان شهید فتح‌الله فلاح‌پور — ۱۴۰۵–۱۴۰۶</p></div><div class="ri ri-3row"><div><b>نام:</b> '+s.first_name+' '+s.last_name+'</div><div><b>کد:</b> '+(s.code||'')+'</div><div><b>کلاس:</b> '+(cl?cl.label:'')+'</div><div><b>پدر:</b> '+(s.father_name||'')+'</div><div><b>معلم:</b> '+tn+'</div><div><b>تاریخ:</b> '+today()+'</div></div><div class="rc-body">'+subjectBlock+examBlock+monthlyAssessmentBlock+compBlockPrint+'</div><div class="rc-att">حضور '+fa(p)+' | موجه '+fa(e)+' | غیرموجه '+fa(u)+' | تأخیر '+fa(l)+'</div><div class="rs"><div><b>معلم:</b> '+tn+'</div><div><b>مدیر:</b> '+PRINCIPAL+'</div></div></div>';
 }
 function printOne(id){printSet.clear();printSet.add(id);printReports();}
 function printReports(){
