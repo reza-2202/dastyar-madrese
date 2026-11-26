@@ -6374,6 +6374,9 @@ async function syncQaReportCardAverages(studentIds){
  var nextRows=[];
  grouped.forEach(function(item){
   if(!item.count)return;
+  // sa_scores برای هر دانش‌آموز و درس کلید یکتای جداگانه دارد؛ نمره دستی را با میانگین خودکار جایگزین نکن.
+  var hasManual=(cache.scores||[]).some(function(x){return String(x.student_id)===String(item.student_id)&&String(x.subject)===String(item.subject)&&!isQaAutoScoreRow(x);});
+  if(hasManual)return;
   var avg=Math.round((item.sum/item.count)*10)/10;
   nextRows.push({id:qaAutoScoreId(item.student_id,item.subject),student_id:item.student_id,subject:item.subject,score:avg,level:scoreLv(avg),updated_at:new Date().toISOString()});
  });
@@ -7100,16 +7103,46 @@ function openScore(sid){
 }
 function al(sub){const v=parseFloat(document.getElementById('sc-'+sub).value);if(!isNaN(v))document.getElementById('lv-'+sub).value=scoreLv(v);}
 async function saveScores(){
- if(!editSid)return;const sid=String(editSid),student=(cache.students||[]).find(function(x){return String(x.id)===sid;});if(!student){toast('دانش‌آموز پیدا نشد');return;}
- const subs=subjectsFor(student.class_id)||[],oldRows=(cache.scores||[]).filter(function(x){return String(x.student_id)===sid;}),oldManualIds=oldRows.filter(function(x){return !isQaAutoScoreRow(x)&&!isQaManualOverrideRow(x);}).map(function(x){return String(x.id);}),oldAuto=oldRows.filter(isQaAutoScoreRow),oldOverrides=oldRows.filter(isQaManualOverrideRow),manualRows=[],overrideRows=[];
- for(const sub of subs){const input=document.getElementById('sc-'+sub),levelEl=document.getElementById('lv-'+sub);if(!input||!levelEl)continue;const raw=String(input.value||'').trim(),level=String(levelEl.value||'').trim();if(raw===''&&!level)continue;const score=raw===''?null:parseFloat(raw);if(score!=null&&(!Number.isFinite(score)||score<0||score>20)){toast('نمره «'+sub+'» معتبر نیست');return;}const finalLevel=level||(score!=null?scoreLv(score):null);manualRows.push({id:sid+'_'+sub,student_id:sid,subject:sub,score:score,level:finalLevel});if(oldAuto.some(function(x){return String(x.subject)===String(sub);})||oldOverrides.some(function(x){return String(x.subject)===String(sub);}))overrideRows.push({id:qaManualScoreId(sid,sub,qaActivityFingerprint(sid,sub)),student_id:sid,subject:sub,score:score,level:finalLevel,updated_at:new Date().toISOString()});}
- const compRows=[];(COMPS||[]).forEach(function(c){const el=document.getElementById('cp-'+c);if(!el)return;const lv=String(el.value||'').trim();if(lv)compRows.push({id:sid+'_'+c,student_id:sid,name:c,level:lv});});
- const newOverrideIds=new Set(overrideRows.map(function(x){return String(x.id);})),replacedOverrideIds=new Set(overrideRows.map(function(x){return String(x.subject);})),keptOverrides=oldOverrides.filter(function(x){return !replacedOverrideIds.has(String(x.subject))&&!newOverrideIds.has(String(x.id));});
- cache.scores=(cache.scores||[]).filter(function(x){return String(x.student_id)!==sid;}).concat(oldAuto,keptOverrides,manualRows,overrideRows);cache.competencies=(cache.competencies||[]).filter(function(x){return String(x.student_id)!==sid;}).concat(compRows);
+ if(!editSid)return;
+ const sid=String(editSid),student=(cache.students||[]).find(function(x){return String(x.id)===sid;});
+ if(!student){toast('دانش‌آموز پیدا نشد');return;}
+ const subs=subjectsFor(student.class_id)||[];
+ const oldRows=(cache.scores||[]).filter(function(x){return String(x.student_id)===sid;});
+ const oldManualIds=oldRows.filter(function(x){return !isQaAutoScoreRow(x)&&!isQaManualOverrideRow(x);}).map(function(x){return String(x.id);});
+ const oldAuto=oldRows.filter(isQaAutoScoreRow),oldOverrides=oldRows.filter(isQaManualOverrideRow),manualRows=[];
+ for(const sub of subs){
+  const input=document.getElementById('sc-'+sub),levelEl=document.getElementById('lv-'+sub);
+  if(!input||!levelEl)continue;
+  const raw=String(input.value||'').trim(),level=String(levelEl.value||'').trim();
+  if(raw===''&&!level)continue;
+  const score=raw===''?null:parseFloat(raw);
+  if(score!=null&&(!Number.isFinite(score)||score<0||score>20)){toast('نمره «'+sub+'» معتبر نیست');return;}
+  const finalLevel=level||(score!=null?scoreLv(score):null);
+  manualRows.push({id:sid+'_'+sub,student_id:sid,subject:sub,score:score,level:finalLevel});
+ }
+ const manualSubjects=new Set(manualRows.map(function(x){return String(x.subject);}));
+ const keptAuto=oldAuto.filter(function(x){return !manualSubjects.has(String(x.subject));});
+ const compRows=[];
+ (COMPS||[]).forEach(function(c){const el=document.getElementById('cp-'+c);if(!el)return;const lv=String(el.value||'').trim();if(lv)compRows.push({id:sid+'_'+c,student_id:sid,name:c,level:lv});});
+ // برای هر دانش‌آموز و درس فقط یک ردیف کارنامه نگه می‌داریم؛ ثبت دستی، ردیف خودکار همان درس را جایگزین می‌کند.
+ cache.scores=(cache.scores||[]).filter(function(x){return String(x.student_id)!==sid;}).concat(keptAuto,manualRows);
+ cache.competencies=(cache.competencies||[]).filter(function(x){return String(x.student_id)!==sid;}).concat(compRows);
  try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
  try{localStorage.setItem('dastyar_school_snapshot_v1',JSON.stringify({users:cache.users,classes:cache.classes,students:cache.students,attendance:cache.attendance,scores:cache.scores,competencies:cache.competencies,activities:cache.activities,evaluations:cache.evaluations,discipline:cache.discipline,finance:cache.finance,documents:cache.documents||[],parent_contacts:cache.parent_contacts||[]}));}catch(e){}
- if(sb){try{const newIds=new Set(manualRows.map(function(x){return String(x.id);})),removed=oldManualIds.filter(function(id){return !newIds.has(id);}).concat(oldOverrides.filter(function(x){return replacedOverrideIds.has(String(x.subject))&&!newOverrideIds.has(String(x.id));}).map(function(x){return String(x.id);}));for(const removedId of removed){const del=await sb.from('sa_scores').delete().eq('id',removedId);if(del&&del.error)throw del.error;}const upRows=manualRows.concat(overrideRows);if(upRows.length){const up=await sb.from('sa_scores').upsert(upRows);if(up&&up.error)throw up.error;}try{await sb.from('sa_competencies').delete().eq('student_id',sid);}catch(e){}if(compRows.length){const up2=await sb.from('sa_competencies').upsert(compRows);if(up2&&up2.error)console.warn(up2.error);}}catch(e){console.warn('ذخیره کارنامه',e);toast('ذخیره محلی انجام شد؛ همگام‌سازی سرور کامل نشد: '+(e.message||e));}}
- try{document.getElementById('rp-edit').innerHTML='';}catch(e){}try{renderReportStudentsList();}catch(e){}try{persistLocalSchoolCache();}catch(e){}
+ if(sb){
+  try{
+   const newIds=new Set(manualRows.map(function(x){return String(x.id);}));
+   const replacedAutoIds=oldAuto.filter(function(x){return manualSubjects.has(String(x.subject));}).map(function(x){return String(x.id);});
+   const removed=Array.from(new Set(oldManualIds.filter(function(id){return !newIds.has(id);}).concat(oldOverrides.map(function(x){return String(x.id);}),replacedAutoIds)));
+   for(let i=0;i<removed.length;i+=50){const del=await sb.from('sa_scores').delete().in('id',removed.slice(i,i+50));if(del&&del.error)throw del.error;}
+   if(manualRows.length){const up=await sb.from('sa_scores').upsert(manualRows);if(up&&up.error)throw up.error;}
+   try{await sb.from('sa_competencies').delete().eq('student_id',sid);}catch(e){}
+   if(compRows.length){const up2=await sb.from('sa_competencies').upsert(compRows);if(up2&&up2.error)console.warn(up2.error);}
+  }catch(e){console.warn('ذخیره کارنامه',e);toast('ذخیره محلی انجام شد؛ همگام‌سازی سرور کامل نشد: '+(e.message||e));}
+ }
+ try{document.getElementById('rp-edit').innerHTML='';}catch(e){}
+ try{renderReportStudentsList();}catch(e){}
+ try{persistLocalSchoolCache();}catch(e){}
  toast(manualRows.length?'کارنامه ذخیره شد':'نمرات دستی کارنامه پاک شد؛ میانگین پرسش‌های ثبت‌شده حفظ می‌شود');
 }
 function buildReport(sid){
