@@ -7453,15 +7453,14 @@ window.loadTeacherBirthdayReminders=async function(){
   var pending=[];
   try{pending=JSON.parse(localStorage.getItem(pendingKey)||'[]')||[];}catch(e){}
   if(Array.isArray(pending)&&pending.length){
-   var pendingResult=await sb.from('sa_birthday_reminders')
-    .update({dismissed_at:new Date().toISOString(),updated_at:new Date().toISOString()})
-    .eq('teacher_username',username).in('id',pending).is('dismissed_at',null);
+   var pendingResult=await sb.rpc('sa_birthday_reminders_dismiss',{
+    p_username:username,p_password:String(window.__dastyarSessionPassword||''),p_ids:pending
+   });
    if(!pendingResult.error)localStorage.removeItem(pendingKey);
   }
-  var result=await sb.from('sa_birthday_reminders')
-   .select('id,teacher_username,student_id,class_id,birthday_jalali_year,birthday_month,birthday_day,day_offset,created_at,dismissed_at')
-   .eq('teacher_username',username).is('dismissed_at',null)
-   .order('created_at',{ascending:false});
+  var result=await sb.rpc('sa_birthday_reminders_list',{
+   p_username:username,p_password:String(window.__dastyarSessionPassword||'')
+  });
   if(result.error)throw result.error;
   var hiddenPending=new Set((Array.isArray(pending)?pending:[]).map(String));
   window.__dastyarBirthdayReminderRecords=(Array.isArray(result.data)?result.data:[]).filter(function(r){return !hiddenPending.has(String(r.id));});
@@ -7495,9 +7494,9 @@ async function dismissStudentBirthdayReminders(){
   return;
  }
  try{
-  var result=await sb.from('sa_birthday_reminders')
-   .update({dismissed_at:now,updated_at:now})
-   .eq('teacher_username',username).in('id',ids).is('dismissed_at',null).select('id');
+  var result=await sb.rpc('sa_birthday_reminders_dismiss',{
+   p_username:username,p_password:String(window.__dastyarSessionPassword||''),p_ids:ids
+  });
   if(result.error)throw result.error;
   window.__dastyarBirthdayReminderRecords=(window.__dastyarBirthdayReminderRecords||[]).filter(function(r){return ids.indexOf(String(r.id))<0;});
   try{localStorage.setItem(cacheKey,JSON.stringify(window.__dastyarBirthdayReminderRecords));}catch(e){}
