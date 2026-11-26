@@ -3252,7 +3252,7 @@ function go(p){
   if(p==='parentcontact'){try{if(typeof initParentContactPage==='function')initParentContactPage();}catch(e){}}
   if(p==='monthlyreport'){try{if(typeof initMonthlyReportPage==='function')initMonthlyReportPage();}catch(e){}}
   window.__dastyarFastNavigation=true;
-  if(p==='dashboard'){try{if(typeof refreshSyncStatusPanel==='function')refreshSyncStatusPanel();}catch(e){}refreshDash();if(user&&user.role==='teacher'){renderTeacherNotices();renderTeacherTodaySchedule();setTimeout(function(){try{var ni=document.getElementById('teacher-notice-inbox');if(ni&&ni.style.display!=='none')ni.scrollIntoView({behavior:'auto',block:'start'});}catch(e){}},100);}else{var ts=document.getElementById('teacher-today-schedule');if(ts)ts.style.display='none';}}
+  if(p==='dashboard'){try{if(typeof refreshSyncStatusPanel==='function')refreshSyncStatusPanel();}catch(e){}refreshDash();if(user&&user.role==='teacher'){renderTeacherNotices();renderTeacherTodaySchedule();if(typeof loadTeacherBirthdayReminders==='function')loadTeacherBirthdayReminders();setTimeout(function(){try{var ni=document.getElementById('teacher-notice-inbox');if(ni&&ni.style.display!=='none')ni.scrollIntoView({behavior:'auto',block:'start'});}catch(e){}},100);}else{var ts=document.getElementById('teacher-today-schedule');if(ts)ts.style.display='none';}}
   if(p==='teacheraccounts'){if(!user||user.role!=='admin'){go('dashboard');toast('این بخش فقط برای مدیر است');return;}renderTeacherAdminList();}
   if(p==='teacherperformance'){if(!user||user.role!=='admin'){go('dashboard');toast('این بخش فقط برای مدیر است');return;}fillTeacherPerformanceSelects();renderTeacherPerformance();}
   if(p==='studentdata'){if(!user||user.role!=='admin'){go('dashboard');toast('این بخش فقط برای مدیر است');return;}try{initExportPrincipalName();}catch(e){}document.getElementById('student-import-preview').innerHTML='';document.getElementById('student-import-status').textContent='';document.getElementById('student-import-commit').classList.add('hidden');if(!navigator.onLine||window.isOffline){restoreOfflineSnapshot().then(()=>{renderStudents();refreshDash();}).catch(()=>{});}else{Promise.race([reloadAll(),new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),2500))]).catch(async()=>{globalStatus(true);await restoreOfflineSnapshot();renderStudents();refreshDash();});}}
@@ -7422,50 +7422,111 @@ async function shareBirthdayGreeting(studentId){
  }else prompt('متن تبریک را کپی کنید:',msg);
 }
 
-function birthdayReminderDismissKey(studentId){
- return 'dastyar_birth_reminder_dismissed_'+today()+'_'+encodeURIComponent(String(studentId));
+
+function birthdayReminderCacheKey(username){
+ return 'dastyar_birth_reminders_cache_'+encodeURIComponent(String(username||''));
 }
-function dismissStudentBirthdayReminders(){
- var ids=Array.isArray(window.__dastyarBirthdayReminderStudentIds)?window.__dastyarBirthdayReminderStudentIds:[];
+function birthdayReminderPendingKey(username){
+ return 'dastyar_birth_reminders_pending_'+encodeURIComponent(String(username||''));
+}
+window.__dastyarBirthdayReminderRecords=window.__dastyarBirthdayReminderRecords||[];
+window.loadTeacherBirthdayReminders=async function(){
+ var u=null;try{u=window.user||user;}catch(e){}
+ if(!u||u.role!=='teacher'){
+  window.__dastyarBirthdayReminderRecords=[];
+  checkUpcomingStudentBirthdays();
+  return;
+ }
+ var username=String(u.username||'');
+ var cacheKey=birthdayReminderCacheKey(username),pendingKey=birthdayReminderPendingKey(username);
+ function loadLocal(){
+  try{
+   var cached=JSON.parse(localStorage.getItem(cacheKey)||'[]');
+   var pending=JSON.parse(localStorage.getItem(pendingKey)||'[]');
+   var hidden=new Set((Array.isArray(pending)?pending:[]).map(String));
+   window.__dastyarBirthdayReminderRecords=(Array.isArray(cached)?cached:[]).filter(function(r){return r&&!r.dismissed_at&&!hidden.has(String(r.id));});
+  }catch(e){window.__dastyarBirthdayReminderRecords=[];}
+  checkUpcomingStudentBirthdays();
+ }
+ if(!window.sb||!navigator.onLine){loadLocal();return;}
+ try{
+  var pending=[];
+  try{pending=JSON.parse(localStorage.getItem(pendingKey)||'[]')||[];}catch(e){}
+  if(Array.isArray(pending)&&pending.length){
+   var pendingResult=await sb.from('sa_birthday_reminders')
+    .update({dismissed_at:new Date().toISOString(),updated_at:new Date().toISOString()})
+    .eq('teacher_username',username).in('id',pending).is('dismissed_at',null);
+   if(!pendingResult.error)localStorage.removeItem(pendingKey);
+  }
+  var result=await sb.from('sa_birthday_reminders')
+   .select('id,teacher_username,student_id,class_id,birthday_jalali_year,birthday_month,birthday_day,day_offset,created_at,dismissed_at')
+   .eq('teacher_username',username).is('dismissed_at',null)
+   .order('created_at',{ascending:false});
+  if(result.error)throw result.error;
+  window.__dastyarBirthdayReminderRecords=Array.isArray(result.data)?result.data:[];
+  try{localStorage.setItem(cacheKey,JSON.stringify(window.__dastyarBirthdayReminderRecords));}catch(e){}
+  checkUpcomingStudentBirthdays();
+ }catch(e){
+  console.warn('دریافت یادآوری‌های ذخیره‌شده تولد انجام نشد:',e);
+  loadLocal();
+ }
+};
+
+async function dismissStudentBirthdayReminders(){
+ var ids=Array.isArray(window.__dastyarBirthdayReminderIds)?window.__dastyarBirthdayReminderIds:[];
  if(!ids.length)return;
  var confirmed=false;
  try{confirmed=window.confirm('آیا یادآوری تولد و پیام‌های تبریک نمایش‌داده‌شده از برنامه امروز حذف شوند؟');}catch(e){}
  if(!confirmed)return;
- try{ids.forEach(function(id){localStorage.setItem(birthdayReminderDismissKey(id),'1');});}catch(e){}
- var box=document.getElementById('teacher-birthday-reminders');if(box)box.style.display='none';
+ var u=null;try{u=window.user||user;}catch(e){}
+ if(!u||u.role!=='teacher')return;
+ var username=String(u.username||''),cacheKey=birthdayReminderCacheKey(username);
+ var now=new Date().toISOString();
+ if(!window.sb||!navigator.onLine){
+  try{
+   var key=birthdayReminderPendingKey(username),pending=JSON.parse(localStorage.getItem(key)||'[]')||[];
+   localStorage.setItem(key,JSON.stringify(Array.from(new Set(pending.concat(ids).map(String)))));
+  }catch(e){}
+  window.__dastyarBirthdayReminderRecords=(window.__dastyarBirthdayReminderRecords||[]).filter(function(r){return ids.indexOf(String(r.id))<0;});
+  try{localStorage.setItem(cacheKey,JSON.stringify(window.__dastyarBirthdayReminderRecords));}catch(e){}
+  checkUpcomingStudentBirthdays();
+  if(typeof toast==='function')toast('یادآوری پس از اتصال اینترنت به‌طور دائمی حذف می‌شود.');
+  return;
+ }
+ try{
+  var result=await sb.from('sa_birthday_reminders')
+   .update({dismissed_at:now,updated_at:now})
+   .eq('teacher_username',username).in('id',ids).is('dismissed_at',null).select('id');
+  if(result.error)throw result.error;
+  window.__dastyarBirthdayReminderRecords=(window.__dastyarBirthdayReminderRecords||[]).filter(function(r){return ids.indexOf(String(r.id))<0;});
+  try{localStorage.setItem(cacheKey,JSON.stringify(window.__dastyarBirthdayReminderRecords));}catch(e){}
+  checkUpcomingStudentBirthdays();
+  if(typeof toast==='function')toast('یادآوری تولد حذف شد.');
+ }catch(e){
+  console.warn('حذف یادآوری تولد در سرور انجام نشد:',e);
+  if(typeof toast==='function')toast('حذف در سرور انجام نشد؛ دوباره تلاش کنید.');
+ }
 }
 
 function checkUpcomingStudentBirthdays(){
  var box=document.getElementById('teacher-birthday-reminders');
  if(!box)return;
- if(!user||user.role!=='teacher'||!Array.isArray(cache.students)||!cache.students.length){box.style.display='none';box.innerHTML='';window.__dastyarBirthdayReminderStudentIds=[];return;}
- var p=null;try{p=parseJalali(today());}catch(e){}
- if(!p){box.style.display='none';return;}
- var offsets=[-1,0,1],targets={};
- offsets.forEach(function(offset){
-  var g=jalaliToGregorian(p.jy,p.jm,p.jd);
-  var dt=new Date(Date.UTC(g.gy,g.gm-1,g.gd,12,0,0));
-  dt.setUTCDate(dt.getUTCDate()+offset);
-  var j=gregorianToJalali(dt.getUTCFullYear(),dt.getUTCMonth()+1,dt.getUTCDate());
-  targets[String(j.jm).padStart(2,'0')+'/'+String(j.jd).padStart(2,'0')]=offset;
- });
+ var u=null;try{u=window.user||user;}catch(e){}
+ if(!u||u.role!=='teacher'){
+  box.style.display='none';box.innerHTML='';window.__dastyarBirthdayReminderIds=[];return;
+ }
  var allowed=new Set((typeof myClasses==='function'?myClasses():[]).map(function(c){return String(c.id).trim();}));
- var upcoming=(cache.students||[]).map(function(st){
-  if(!st||!st.birth_date||!allowed.has(String(st.class_id||'').trim()))return null;
-  var birth=null;try{birth=parseJalali(st.birth_date);}catch(e){}
-  if(!birth||birth.jm<1||birth.jm>12||birth.jd<1||birth.jd>31)return null;
-  var offset=targets[String(birth.jm).padStart(2,'0')+'/'+String(birth.jd).padStart(2,'0')];
-  if(offset===undefined)return null;
-  try{if(localStorage.getItem(birthdayReminderDismissKey(st.id))==='1')return null;}catch(e){}
-  return {student:st,offset:offset};
- }).filter(Boolean);
- window.__dastyarBirthdayReminderStudentIds=upcoming.map(function(item){return String(item.student.id);});
- if(!upcoming.length){box.style.display='none';box.innerHTML='';return;}
- var rows=upcoming.map(function(item){
-  var st=item.student,offset=Number(item.offset);
+ var records=(Array.isArray(window.__dastyarBirthdayReminderRecords)?window.__dastyarBirthdayReminderRecords:[])
+  .filter(function(r){return r&&!r.dismissed_at&&allowed.has(String(r.class_id||'').trim());});
+ window.__dastyarBirthdayReminderIds=records.map(function(r){return String(r.id);});
+ if(!records.length){box.style.display='none';box.innerHTML='';return;}
+ var rows=records.map(function(rec){
+  var st=(cache.students||[]).find(function(x){return String(x.id)===String(rec.student_id);})||{};
+  var studentName=String((st.first_name||'')+' '+(st.last_name||'')).trim()||'دانش‌آموز';
+  var offset=Number(rec.day_offset);
   var when=offset===1?'تولد فردا است':(offset===0?'امروز تولد این دانش‌آموز است':'تولد دیروز بوده؛ یادآوری جامانده');
-  var sid=String(st.id).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 0;border-top:1px solid #bfdbfe"><div><b>'+escHtml((st.first_name||'')+' '+(st.last_name||''))+'</b><div style="font-size:.78rem;color:#475569">'+when+'</div></div><button type="button" class="btn btn-p btn-sm" data-student-id="'+sid+'" onclick="shareBirthdayGreeting(this.getAttribute(\'data-student-id\'))">🎁 آماده‌سازی و اشتراک‌گذاری پیام</button></div>';
+  var sid=String(rec.student_id||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 0;border-top:1px solid #bfdbfe"><div><b>'+escHtml(studentName)+'</b><div style="font-size:.78rem;color:#475569">'+when+'</div></div><button type="button" class="btn btn-p btn-sm" data-student-id="'+sid+'" onclick="shareBirthdayGreeting(this.getAttribute(\'data-student-id\'))">🎁 آماده‌سازی و اشتراک‌گذاری پیام</button></div>';
  }).join('');
  if(!document.getElementById('dastyar-birthday-glow-style')){
   var birthdayStyle=document.createElement('style');
@@ -7473,8 +7534,8 @@ function checkUpcomingStudentBirthdays(){
   birthdayStyle.textContent='#teacher-birthday-reminders .dastyar-birthday-glow{border:2px solid #f472b6!important;border-radius:16px;background:linear-gradient(120deg,#fff1f2 0%,#fdf2f8 28%,#fef9c3 62%,#ecfeff 100%);color:#831843;box-shadow:0 3px 12px rgba(236,72,153,.16);animation:dastyarBirthdayGlow 3.2s ease-in-out infinite}#teacher-birthday-reminders .dastyar-birthday-title{font-size:1rem;color:#9d174d;text-shadow:0 1px 0 #fff;font-weight:900}#teacher-birthday-reminders .dastyar-birthday-subtitle{color:#7c2d5b!important}#teacher-birthday-reminders .dastyar-birthday-row{border-top:1px solid rgba(219,39,119,.22)!important}#teacher-birthday-reminders .dastyar-birthday-row b{color:#831843}@keyframes dastyarBirthdayGlow{0%,100%{box-shadow:0 3px 12px rgba(236,72,153,.16);border-color:#f472b6}50%{box-shadow:0 4px 19px rgba(236,72,153,.34),0 0 8px rgba(250,204,21,.22);border-color:#e879f9}}@media(prefers-reduced-motion:reduce){#teacher-birthday-reminders .dastyar-birthday-glow{animation:none}}';
   document.head.appendChild(birthdayStyle);
  }
-box.innerHTML='<section class="dastyar-birthday-glow" style="margin:10px 12px;padding:13px"><div class="dastyar-birthday-title" style="margin-bottom:5px">🎉🎂✨ یادآوری تولد دانش‌آموزان 🎈</div><div class="dastyar-birthday-subtitle" style="font-size:.8rem;margin-bottom:7px">🌈 این یادآوری فقط برای دانش‌آموزان کلاس‌های تحت مسئولیت شما نمایش داده می‌شود.</div>'+rows+'<div style="display:flex;justify-content:flex-end;margin-top:9px"><button type="button" class="btn btn-s btn-sm" onclick="dismissStudentBirthdayReminders()">💖 متوجه شدم</button></div></section>';
-box.querySelectorAll('section > div[style*="border-top"]').forEach(function(row){row.classList.add('dastyar-birthday-row');});
+ box.innerHTML='<section class="dastyar-birthday-glow" style="margin:10px 12px;padding:13px"><div class="dastyar-birthday-title" style="margin-bottom:5px">🎉🎂✨ یادآوری تولد دانش‌آموزان 🎈</div><div class="dastyar-birthday-subtitle" style="font-size:.8rem;margin-bottom:7px">🌈 این یادآوری فقط برای دانش‌آموزان کلاس‌های تحت مسئولیت شما نمایش داده می‌شود.</div>'+rows+'<div style="display:flex;justify-content:flex-end;margin-top:9px"><button type="button" class="btn btn-s btn-sm" onclick="dismissStudentBirthdayReminders()">💖 متوجه شدم</button></div></section>';
+ box.querySelectorAll('section > div[style*="border-top"]').forEach(function(row){row.classList.add('dastyar-birthday-row');});
  box.style.display='block';
 }
 
