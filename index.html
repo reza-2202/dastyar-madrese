@@ -7194,38 +7194,38 @@ function monthlyAssessmentSubjectAnalysis(studentId,ev,allRows){
   if(!monthlyAssessmentDateInSelectedMonth(a,monthNumber,year))return false;
   return monthlyAssessmentNormalizeSubject(assessmentSubjectKey(a))===key;
  }).map(function(a){return {score:monthlyAssessmentScore(a),date:String(a.date||'')};}).filter(function(a){return a.score!=null;}).sort(function(a,b){return a.date.localeCompare(b.date);});
- var feedback=monthlyAssessmentFeedbackFromNotes(ev.notes);
- var score=monthlyAssessmentScore(ev);
- var base=feedback||'';
- if(!base&&score!=null)base=score>=18?'عملکرد این درس بسیار خوب و نشان‌دهنده تسلط مطلوب است.':score>=14?'عملکرد این درس خوب است؛ تمرین پیوسته به تثبیت آموخته‌ها کمک می‌کند.':score>=10?'برای تثبیت آموخته‌های این درس، تمرین منظم‌تر پیشنهاد می‌شود.':'برای تقویت پایه‌های این درس، تمرین هدفمند و راهنمایی بیشتر لازم است.';
- var maxLength=(allRows||[]).length>10?92:((allRows||[]).length>7?125:165);
- var extra='';
+ var feedback=monthlyAssessmentFeedbackFromNotes(ev.notes),score=monthlyAssessmentScore(ev),parts=[];
+ if(feedback)parts.push(feedback);
+ else if(score!=null)parts.push(score>=18?'عملکرد این درس بسیار خوب و نشان‌دهنده تسلط مطلوب است.':score>=14?'عملکرد این درس خوب است؛ تمرین پیوسته به تثبیت آموخته‌ها کمک می‌کند.':score>=10?'برای تثبیت آموخته‌های این درس، تمرین منظم‌تر پیشنهاد می‌شود.':'برای تقویت پایه‌های این درس، تمرین هدفمند و راهنمایی بیشتر لازم است.');
  if(activities.length>=2){
   var first=activities[0].score,last=activities[activities.length-1].score,delta=last-first;
-  if(delta>=1)extra=' در تمرین‌های ثبت‌شده این ماه روند نمره‌ها رو به بهبود بوده است.';
-  else if(delta<=-1)extra=' در ثبت‌های این ماه افتی دیده می‌شود؛ مرور هدفمند مفید است.';
-  else extra=' نمره‌های ثبت‌شده این ماه تقریباً پایدار بوده‌اند.';
- }
- if(!base&&activities.length)base='در این ماه '+activities.length+' فعالیت نمره‌دار برای این درس ثبت شده است.';
- if(!base)base='برای این درس توضیح یا سابقه کافی جهت تحلیل دقیق‌تر ثبت نشده است.';
- var compact=monthlyAssessmentCompactText(base,maxLength);
- var combined=compact+extra;
- return monthlyAssessmentCompactText(combined,maxLength+75);
+  if(delta>=1)parts.push('در تمرین‌های ثبت‌شده این ماه روند نمره‌ها رو به بهبود بوده است.');
+  else if(delta<=-1)parts.push('در ثبت‌های این ماه افتی دیده می‌شود؛ مرور هدفمند مفید است.');
+  else parts.push('نمره‌های ثبت‌شده این ماه تقریباً پایدار بوده‌اند.');
+ }else if(activities.length===1)parts.push('یک فعالیت نمره‌دار برای این درس در این ماه ثبت شده است.');
+ if(!parts.length)parts.push('برای این درس توضیح یا سابقه کافی جهت تحلیل دقیق‌تر ثبت نشده است.');
+ /* متن تحلیل عمداً بریده یا خلاصه اجباری نمی‌شود؛ ارتفاع ردیف باید با تمام متن هماهنگ شود. */
+ return parts.join(' ');
 }
 function monthlyStudentAssessmentHtml(student,rows,month,cl,photo){
  const yearMatch=rows.length?String(rows[0].date||'').match(/^(14[0-9]{2})/):null,year=yearMatch?yearMatch[1]:'';
- const title='گزارش ارزشیابی دوره‌ای '+month+(year?' '+year:'');let body='';
+ const title='گزارش ارزشیابی دوره‌ای '+month+(year?' '+year:'');let body='',analysisTexts=[];
  rows.forEach(function(ev,i){
   const count=monthlyAssessmentCountFromNotes(ev.notes),feedback=monthlyAssessmentSubjectAnalysis(student.id,ev,rows);
+  analysisTexts.push(feedback||'—');
   const marker=String(ev.recorded_by||''),note=String(ev.notes||'');
   const status=marker.indexOf('[قطعی]')>=0||note.indexOf('میانگین قطعی')>=0?'قطعی':(marker.indexOf('[درحال‌به‌روزرسانی]')>=0||note.indexOf('میانگین موقت')>=0?'در حال به‌روزرسانی':'ثبت‌شده');
   body+='<tr><td>'+fa(i+1)+'</td><td>'+escHtml(ev.subject||'—')+'</td><td>'+escHtml(String(count))+'</td><td>'+escHtml(ev.score==null?'—':String(ev.score))+'</td><td>'+escHtml(lvl(ev.level)||'—')+'</td><td>'+status+'</td><td class="monthly-assessment-subject-note">'+escHtml(feedback||'—')+'</td></tr>';
  });
+ var longestAnalysis=analysisTexts.reduce(function(max,value){return Math.max(max,String(value||'').length)},0);
+ var noteWidth=Math.min(66,Math.max(48,48+Math.ceil(longestAnalysis/120)*2));
+ var otherWidths=[4,12,7,9,8,8],otherTotal=otherWidths.reduce(function(a,b){return a+b},0);
+ var colgroup='<colgroup>'+otherWidths.map(function(w){return '<col style="width:'+((100-noteWidth)*w/otherTotal).toFixed(2)+'%">'}).join('')+'<col style="width:'+noteWidth+'%"></colgroup>';
  return '<section class="monthly-student-assessment-print" dir="rtl" style="direction:rtl;text-align:right;font-family:Tahoma,Arial,sans-serif;color:#172033;padding:0;break-inside:avoid;page-break-inside:avoid">'+
  '<div style="display:flex;align-items:center;gap:8px;margin:0 0 5px">'+(photo?'<img src="'+escHtml(photo)+'" alt="عکس دانش‌آموز" style="width:20mm;height:25mm;object-fit:cover;border:1px solid #94a3b8;border-radius:3px;flex-shrink:0">':'')+
  '<div style="flex:1;min-width:0"><h2 style="text-align:center;margin:0 0 4px;font-size:15px">گزارش ارزشیابی دوره‌ای '+escHtml(month+(year?' '+year:''))+'</h2><p style="text-align:center;margin:0;font-size:9px">دبستان شهید فتح‌الله فلاح‌پور</p></div></div>'+
  '<table style="width:100%;border-collapse:collapse;margin-bottom:5px;font-size:9px"><tbody><tr><th style="width:18%;border:1px solid #64748b;padding:3px;background:#eaf2fb;text-align:right">نام دانش‌آموز</th><td style="width:37%;border:1px solid #64748b;padding:3px">'+escHtml(student.first_name+' '+student.last_name)+'</td><th style="width:15%;border:1px solid #64748b;padding:3px;background:#eaf2fb;text-align:right">کلاس</th><td style="width:30%;border:1px solid #64748b;padding:3px">'+escHtml(cl?cl.label:'—')+'</td></tr></tbody></table>'+
- '<table dir="rtl" class="monthly-assessment-subject-table" style="direction:rtl;width:100%;border-collapse:collapse;font-size:8px;table-layout:fixed;overflow-wrap:anywhere"><colgroup><col style="width:4%"><col style="width:13%"><col style="width:8%"><col style="width:9%"><col style="width:8%"><col style="width:9%"><col style="width:49%"></colgroup><thead><tr>'+
+ '<table dir="rtl" class="monthly-assessment-subject-table" style="direction:rtl;width:100%;border-collapse:collapse;font-size:8px;table-layout:auto;overflow-wrap:anywhere"><colgroup>'+colgroup+'</colgroup><thead><tr>'+
  ['ردیف','درس','تعداد ثبت‌ها','میانگین از ۲۰','سطح','وضعیت','توضیح کوتاه و تحلیل همین درس'].map(function(x){return '<th style="border:1px solid #475569;background:#dbeafe;padding:3px 2px;text-align:center;vertical-align:middle;line-height:1.2">'+x+'</th>';}).join('')+
  '</tr></thead><tbody>'+(body||'<tr><td colspan="7" style="border:1px solid #64748b;padding:7px;text-align:center">برای این دانش‌آموز در ماه انتخاب‌شده میانگین یکپارچه‌ای ثبت نشده است.</td></tr>')+'</tbody></table>'+
  '<p style="font-size:7px;margin:4px 0 0;line-height:1.2">توضیحات هر درس بر اساس سوابق همان درس تهیه شده است؛ در نبود داده کافی از نتیجه‌گیری حدسی خودداری می‌شود.</p><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;border-top:1px solid #94a3b8;padding-top:4px;margin-top:4px;font-size:8px;font-weight:700"><span>معلم: '+escHtml(cl&&cl.teacher_name?cl.teacher_name:'—')+'</span><span>مدیر: '+escHtml(typeof PRINCIPAL!=='undefined'?PRINCIPAL:'—')+'</span></div></section>';
@@ -7262,7 +7262,7 @@ function getSelectedMonthlyStudentAssessment(){
 function printMonthlyStudentAssessment(){
  const data=getSelectedMonthlyStudentAssessment();if(!data)return;
  const area=document.getElementById('print-area');if(!area)return;
- area.innerHTML='<style>@page{size:A4 portrait;margin:4mm}@media print{#print-area .monthly-assessment-fit-wrap{width:100%;overflow:visible;break-inside:avoid;page-break-inside:avoid}#print-area .monthly-student-assessment-print{width:100%;max-width:200mm;margin:0 auto;font-size:8px;transform-origin:top center;break-inside:avoid;page-break-inside:avoid}#print-area .monthly-student-assessment-print table{width:100%;table-layout:fixed;border-collapse:collapse}#print-area .monthly-student-assessment-print th,#print-area .monthly-student-assessment-print td{padding:2px!important;font-size:8px!important;line-height:1.2!important;overflow-wrap:anywhere;word-break:normal}#print-area .monthly-student-assessment-print tr{break-inside:avoid;page-break-inside:avoid}}</style><div class="monthly-assessment-fit-wrap" id="monthly-assessment-fit-wrap" style="direction:rtl;text-align:right;font-family:Tahoma,Arial,sans-serif"><div id="monthly-assessment-fit-content">'+data.html+'</div></div>';
+ area.innerHTML='<style>@page{size:A4 portrait;margin:4mm}@media print{#print-area .monthly-assessment-fit-wrap{width:100%;overflow:visible;break-inside:avoid;page-break-inside:avoid}#print-area .monthly-student-assessment-print{width:100%;max-width:200mm;margin:0 auto;font-size:8px;transform-origin:top center;break-inside:avoid;page-break-inside:avoid}#print-area .monthly-student-assessment-print table{width:100%;table-layout:auto;border-collapse:collapse}#print-area .monthly-student-assessment-print th,#print-area .monthly-student-assessment-print td{padding:2px!important;font-size:8px!important;line-height:1.25!important;white-space:normal!important;overflow-wrap:anywhere;word-break:normal;vertical-align:top}#print-area .monthly-student-assessment-print .monthly-assessment-subject-note{white-space:normal!important;overflow:visible!important;word-break:normal;overflow-wrap:anywhere;line-height:1.3!important}#print-area .monthly-student-assessment-print tr{break-inside:avoid;page-break-inside:avoid}}</style><div class="monthly-assessment-fit-wrap" id="monthly-assessment-fit-wrap" style="direction:rtl;text-align:right;font-family:Tahoma,Arial,sans-serif"><div id="monthly-assessment-fit-content">'+data.html+'</div></div>';
  setTimeout(async function(){
   try{
    var wrap=document.getElementById('monthly-assessment-fit-wrap'),section=wrap&&wrap.querySelector('.monthly-student-assessment-print');
@@ -7271,11 +7271,15 @@ function printMonthlyStudentAssessment(){
      if(img.complete)return Promise.resolve();
      return new Promise(function(resolve){var done=false,finish=function(){if(done)return;done=true;resolve();};img.addEventListener('load',finish,{once:true});img.addEventListener('error',finish,{once:true});setTimeout(finish,2500);});
     }));
+    /* ابتدا عرض و شکست سطرها بر اساس طول واقعی تحلیل هر درس محاسبه می‌شود؛ سپس کل جدول بدون حذف متن برای ارتفاع A4 مقیاس می‌گیرد. */
+    section.style.width='100%';
+    section.style.transform='none';
+    section.querySelectorAll('.monthly-assessment-subject-note').forEach(function(cell){cell.style.height='auto';cell.style.whiteSpace='normal';cell.style.overflow='visible';});
     var naturalHeight=section.scrollHeight||section.getBoundingClientRect().height||1;
     var scale=Math.min(1,1040/naturalHeight);
     if(scale<0.84){
-     section.querySelectorAll('.monthly-assessment-subject-note').forEach(function(cell){cell.style.fontSize='7px';cell.style.lineHeight='1.12';});
-     section.querySelectorAll('tbody td').forEach(function(cell){cell.style.padding='1.5px 1px';});
+     section.querySelectorAll('.monthly-assessment-subject-note').forEach(function(cell){cell.style.fontSize='7px';cell.style.lineHeight='1.15';});
+     section.querySelectorAll('tbody td,thead th').forEach(function(cell){cell.style.padding='1.25px 1px';});
      naturalHeight=section.scrollHeight||section.getBoundingClientRect().height||naturalHeight;
      scale=Math.min(1,1040/naturalHeight);
     }
