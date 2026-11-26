@@ -7172,21 +7172,33 @@ function monthlyAssessmentSubjectAnalysis(studentId,ev,allRows,activityIndex){
 function monthlyStudentAssessmentHtml(student,rows,month,cl,photo,analysis){
  const yearMatch=rows.length?String(rows[0].date||'').match(/^(14[0-9]{2})/):null,year=yearMatch?yearMatch[1]:'';
  const activityIndex=monthlyAssessmentBuildSubjectActivityIndex(student.id,rows);
- let body='';
+ let body='',totalCount=0,validRows=[];
  rows.forEach(function(ev,i){
-  const count=monthlyAssessmentCountFromNotes(ev.notes,ev);let feedback=monthlyAssessmentSubjectAnalysis(student.id,ev,rows,activityIndex);
+  const count=monthlyAssessmentCountFromNotes(ev.notes,ev),countNum=Number(String(count).replace(/[۰-۹]/g,function(c){return String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c));}));
+  if(Number.isFinite(countNum))totalCount+=countNum;
+  const score=monthlyAssessmentScore(ev);if(score!=null)validRows.push({subject:ev.subject,score:score});
+  let feedback=monthlyAssessmentSubjectAnalysis(student.id,ev,rows,activityIndex);
   const marker=String(ev.recorded_by||''),note=String(ev.notes||'');
   const status=marker.indexOf('[بدون ثبت]')>=0?'ثبت‌نشده':(marker.indexOf('[قطعی]')>=0||note.indexOf('میانگین قطعی')>=0?'قطعی':(marker.indexOf('[درحال‌به‌روزرسانی]')>=0||note.indexOf('میانگین موقت')>=0?'در حال به‌روزرسانی':'ثبت‌شده'));
-  const unrecorded=status==='ثبت‌نشده';
-  if(unrecorded)feedback='—';
-  body+='<tr'+(unrecorded?' class="monthly-assessment-unrecorded"':'')+'><td>'+fa(i+1)+'</td><td>'+escHtml(ev.subject||'—')+'</td><td>'+escHtml(String(count))+'</td><td>'+escHtml(ev.score==null?'—':String(ev.score))+'</td><td>'+escHtml(lvl(ev.level)||'—')+'</td><td>'+escHtml(status)+'</td><td class="monthly-assessment-subject-note">'+escHtml(feedback||'—')+'</td></tr>';
+  if(status==='ثبت‌نشده')feedback='—';
+  body+='<tr'+(status==='ثبت‌نشده'?' class="monthly-assessment-unrecorded"':'')+'><td>'+fa(i+1)+'</td><td>'+escHtml(ev.subject||'—')+'</td><td>'+escHtml(String(count))+'</td><td>'+escHtml(ev.score==null?'—':String(ev.score))+'</td><td>'+escHtml(lvl(ev.level)||'—')+'</td><td>'+escHtml(status)+'</td><td class="monthly-assessment-subject-note">'+escHtml(feedback||'—')+'</td></tr>';
  });
+ const mean=validRows.length?Math.round(validRows.reduce(function(a,b){return a+b.score;},0)/validRows.length*10)/10:null;
+ const analysisItems=(Array.isArray(analysis)?analysis:[String(analysis||'')]).filter(Boolean);
+ const summary='<section class="monthly-assessment-summary"><div class="monthly-assessment-metrics">'+
+ '<div><b>درس‌های گزارش‌شده</b><strong>'+fa(rows.length)+'</strong></div>'+
+ '<div><b>مجموع تعداد ثبت‌ها</b><strong>'+fa(totalCount)+'</strong></div>'+
+ '<div><b>میانگین کل درس‌های دارای نمره</b><strong>'+(mean==null?'—':fa(mean)+' از ۲۰')+'</strong></div>'+
+ '<div><b>درس‌های دارای نمره</b><strong>'+fa(validRows.length)+'</strong></div></div>'+
+ '<div class="monthly-assessment-summary-title">خلاصه و تحلیل وضعیت ماهانه</div>'+
+ '<div class="monthly-assessment-analysis">'+analysisItems.map(function(p){return '<p>'+escHtml(p)+'</p>';}).join('')+'</div></section>';
  const colWidths=[3,13,6,6.5,6.5,6,59];
  const colgroup='<colgroup>'+colWidths.map(function(w){return '<col style="width:'+w+'%">';}).join('')+'</colgroup>';
  return '<section class="monthly-student-assessment-print" dir="rtl">'+
  '<header class="monthly-assessment-heading">'+(photo?'<img src="'+escHtml(photo)+'" alt="عکس دانش‌آموز" class="monthly-assessment-photo">':'')+
  '<div class="monthly-assessment-title"><h2>گزارش ارزشیابی دوره‌ای '+escHtml(month+(year?' '+year:''))+'</h2><p>دبستان شهید فتح‌الله فلاح‌پور</p></div></header>'+
  '<table class="monthly-assessment-identity"><tbody><tr><th>نام دانش‌آموز</th><td>'+escHtml(student.first_name+' '+student.last_name)+'</td><th>کلاس</th><td>'+escHtml(cl?cl.label:'—')+'</td></tr></tbody></table>'+
+ summary+
  '<table dir="rtl" class="monthly-assessment-subject-table"><colgroup>'+colgroup+'</colgroup><thead><tr>'+
  ['ردیف','درس','تعداد ثبت‌ها','میانگین از ۲۰','سطح','وضعیت','توضیحات و تحلیل همین درس'].map(function(x){return '<th>'+x+'</th>';}).join('')+
  '</tr></thead><tbody>'+(body||'<tr><td colspan="7" class="monthly-assessment-empty">برای این دانش‌آموز در ماه انتخاب‌شده میانگین یکپارچه‌ای ثبت نشده است.</td></tr>')+'</tbody></table>'+
@@ -7228,40 +7240,59 @@ function printMonthlyStudentAssessment(){
  const printHtml='<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>گزارش ارزشیابی ماهانه</title><style>'+
  '@page{size:A4 portrait;margin:5mm}'+
  '*{box-sizing:border-box}'+
- 'html,body{display:block!important;margin:0!important;padding:0!important;width:100%!important;min-width:0!important;max-width:100%!important;direction:rtl!important;text-align:right!important;font-family:Tahoma,Arial,sans-serif!important;color:#111;background:#fff}'+
+ 'html,body{margin:0!important;padding:0!important;width:100%!important;min-width:0!important;max-width:100%!important;direction:rtl!important;text-align:right!important;font-family:Tahoma,Arial,sans-serif!important;color:#111;background:#fff}'+
  'body{font-size:8pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
- '.monthly-student-assessment-print{display:flex!important;flex-direction:column!important;direction:rtl!important;text-align:right!important;width:100%!important;min-width:0!important;max-width:100%!important;margin:0!important;padding:1.5mm!important;border:1px solid #1f2937;height:auto!important;min-height:287mm!important;max-height:none!important;overflow:visible!important;background:#fff}'+
- '.monthly-assessment-heading{display:flex!important;align-items:center;justify-content:center;position:relative;min-height:13mm;padding:0 0 1mm;margin-bottom:1mm;border-bottom:1px solid #334155;width:100%!important}'+
+ '.monthly-student-assessment-print{display:block!important;direction:rtl!important;text-align:right!important;width:100%!important;max-width:none!important;margin:0!important;padding:2mm!important;border:1px solid #1f2937;background:#fff;zoom:1}'+
+ '.monthly-assessment-heading{display:block!important;position:relative;text-align:center!important;min-height:13mm;padding:0 14mm 1mm;margin:0 0 1.5mm;border-bottom:1px solid #334155;width:100%!important}'+
  '.monthly-assessment-photo{position:absolute;right:0;top:0;width:12mm;height:13mm;object-fit:cover;border:1px solid #334155}'+
- '.monthly-assessment-title{flex:1;text-align:center}'+
- '.monthly-assessment-title h2{font-size:11pt;margin:0 0 .5mm;font-weight:700}'+
- '.monthly-assessment-title p{font-size:7pt;margin:0}'+
- 'table{display:table!important;float:none!important;width:100%!important;min-width:100%!important;max-width:100%!important;border-collapse:collapse!important;table-layout:fixed!important;margin:0 0 1mm!important;padding:0!important;direction:rtl!important}'+
+ '.monthly-assessment-title h2{font-size:11pt;line-height:1.25;margin:0 0 .5mm;font-weight:700}'+
+ '.monthly-assessment-title p{font-size:7pt;line-height:1.2;margin:0}'+
+ 'table{display:table!important;float:none!important;width:100%!important;min-width:100%!important;max-width:100%!important;border-collapse:collapse!important;table-layout:fixed!important;margin:0 0 1.5mm!important;padding:0!important;direction:rtl!important}'+
  '.monthly-assessment-identity{font-size:8pt}'+
  '.monthly-assessment-identity th,.monthly-assessment-identity td{border:1px solid #334155;padding:1mm 1.5mm;text-align:right!important;vertical-align:middle;white-space:normal}'+
  '.monthly-assessment-identity th{background:#e8eef5;font-weight:700;width:13%}'+
- '.monthly-assessment-subject-table{font-size:7.5pt;flex:1 1 auto!important;height:auto!important;min-height:0!important;margin-bottom:0!important}'+
- '.monthly-assessment-subject-table th,.monthly-assessment-subject-table td{border:1px solid #263445;padding:.9mm 1mm;text-align:center;vertical-align:middle;white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:none;line-height:1.2;direction:rtl}'+
+ '.monthly-assessment-summary{display:block!important;width:100%;margin:0 0 1.5mm;padding:1mm;border:1px solid #64748b;break-inside:avoid;page-break-inside:avoid}'+
+ '.monthly-assessment-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1mm;margin-bottom:1mm}'+
+ '.monthly-assessment-metrics>div{border:1px solid #9aa8b8;padding:1mm;text-align:center;min-width:0}'+
+ '.monthly-assessment-metrics b{display:block;font-size:6.3pt;line-height:1.2;font-weight:700}'+
+ '.monthly-assessment-metrics strong{display:block;font-size:8pt;line-height:1.25;margin-top:.5mm}'+
+ '.monthly-assessment-summary-title{font-weight:700;font-size:7.5pt;padding:.5mm 0;border-bottom:1px solid #aab5c2;margin-bottom:.5mm}'+
+ '.monthly-assessment-analysis{columns:2;column-gap:4mm;column-rule:1px solid #cbd5e1}'+
+ '.monthly-assessment-analysis p{font-size:6.1pt;line-height:1.2;margin:0 0 .8mm;text-align:justify;break-inside:avoid;page-break-inside:avoid}'+
+ '.monthly-assessment-subject-table{font-size:7.2pt;margin-bottom:1.5mm!important}'+
+ '.monthly-assessment-subject-table th,.monthly-assessment-subject-table td{border:1px solid #263445;padding:.8mm .9mm;text-align:center;vertical-align:middle;white-space:normal;overflow-wrap:anywhere;word-break:normal;line-height:1.18;direction:rtl}'+
  '.monthly-assessment-subject-table tbody td:nth-child(2){white-space:nowrap!important}'+
- '.monthly-assessment-subject-table tbody{height:auto!important}'+
  '.monthly-assessment-subject-table th{background:#dce8f5;font-weight:700}'+
- '.monthly-assessment-subject-table .monthly-assessment-subject-note{text-align:right!important;font-size:7.5pt;line-height:1.22;padding:1mm 1.4mm!important;vertical-align:top!important;white-space:normal;overflow-wrap:break-word;word-break:normal}'+
- '.monthly-assessment-subject-table thead{height:auto!important}.monthly-assessment-subject-table thead th{padding:.9mm 1mm!important;line-height:1.15!important}.monthly-assessment-subject-table tbody{height:auto!important}.monthly-assessment-subject-table tr{break-inside:avoid;page-break-inside:avoid;height:auto!important}.monthly-assessment-subject-table tbody tr td{vertical-align:middle!important}'+
- '.monthly-assessment-subject-table tr.monthly-assessment-unrecorded td{padding-top:.5mm!important;padding-bottom:.5mm!important;line-height:1.1!important}'+
+ '.monthly-assessment-subject-table .monthly-assessment-subject-note{text-align:right!important;font-size:7pt;line-height:1.2;padding:.8mm 1.2mm!important;vertical-align:top!important;white-space:normal;overflow-wrap:anywhere;word-break:normal}'+
+ '.monthly-assessment-subject-table thead{height:auto!important}.monthly-assessment-subject-table tr{break-inside:avoid;page-break-inside:avoid;height:auto!important}'+
+ '.monthly-assessment-unrecorded td{padding-top:.5mm!important;padding-bottom:.5mm!important}'+
  '.monthly-assessment-empty{padding:2mm!important}'+
- '.monthly-assessment-signatures{display:flex!important;justify-content:space-between;gap:5mm;padding-top:1mm;border-top:1px solid #334155;font-size:7.5pt;font-weight:700;width:100%!important;flex:0 0 auto}'+
- '@media print{html,body{display:block!important;width:100%!important;min-width:0!important;max-width:100%!important;height:auto!important;min-height:0!important;margin:0!important;padding:0!important;overflow:visible!important}.monthly-student-assessment-print{display:flex!important;flex-direction:column!important;width:100%!important;min-width:0!important;max-width:none!important;height:auto!important;min-height:287mm!important;max-height:none!important;break-inside:avoid;page-break-inside:avoid}table{width:100%!important;min-width:100%!important;max-width:100%!important}}'+
+ '.monthly-assessment-signatures{display:flex!important;justify-content:space-between;gap:5mm;padding-top:1mm;border-top:1px solid #334155;font-size:7.5pt;font-weight:700;width:100%!important}'+
  '</style></head><body>'+data.html+'</body></html>';
  printWindow.document.open();printWindow.document.write(printHtml);printWindow.document.close();
  const runPrint=function(){
   const images=Array.from(printWindow.document.images||[]);
   Promise.all(images.map(function(img){if(img.complete)return Promise.resolve();return new Promise(function(resolve){img.onload=resolve;img.onerror=resolve;setTimeout(resolve,1500);});})).then(function(){
-   try{const report=printWindow.document.querySelector('.monthly-student-assessment-print'),table=report&&report.querySelector('.monthly-assessment-subject-table');if(report&&table){table.style.flex='1 1 auto';table.style.height='auto';table.style.minHeight='0';table.style.width='100%';report.style.height='auto';report.style.maxHeight='none';report.style.minHeight='287mm';const targetPx=287*96/25.4;let scale=Math.min(1,targetPx/Math.max(report.scrollHeight,report.getBoundingClientRect().height));if(scale<1){report.style.setProperty('width',(100/scale)+'%','important');const expandedHeight=report.scrollHeight;scale=Math.min(scale,targetPx/Math.max(expandedHeight,1));report.style.setProperty('width',(100/scale)+'%','important');report.style.setProperty('min-height',(287/scale)+'mm','important');report.style.zoom=String(scale);} }printWindow.focus();printWindow.print();}catch(e){toast('آماده‌سازی چاپ ناموفق بود');}
+   try{
+    const report=printWindow.document.querySelector('.monthly-student-assessment-print');
+    if(report){
+     report.style.setProperty('zoom','1','important');
+     const pageHeight=287*96/25.4;
+     let naturalHeight=report.scrollHeight;
+     let scale=Math.min(1,pageHeight/Math.max(naturalHeight,1));
+     if(scale<1){
+      report.style.setProperty('width',(100/scale)+'%','important');
+      naturalHeight=report.scrollHeight;
+      scale=Math.min(1,pageHeight/Math.max(naturalHeight,1));
+      report.style.setProperty('zoom',String(scale),'important');
+     }
+    }
+    printWindow.focus();printWindow.print();
+   }catch(e){toast('آماده‌سازی چاپ ناموفق بود');}
   });
  };
  if(printWindow.document.readyState==='complete')runPrint();else printWindow.onload=runPrint;
 }
-
 function exportMonthlyStudentAssessmentWord(){
  const data=getSelectedMonthlyStudentAssessment();if(!data)return;
  const safeName=(data.student.first_name+'-'+data.student.last_name).replace(/[\\/:*?"<>|]/g,'-');
