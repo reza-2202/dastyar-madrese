@@ -7181,7 +7181,7 @@ function monthlyStudentAssessmentHtml(student,rows,month,cl,photo,analysis){
   if(unrecorded)feedback='—';
   body+='<tr'+(unrecorded?' class="monthly-assessment-unrecorded"':'')+'><td>'+fa(i+1)+'</td><td>'+escHtml(ev.subject||'—')+'</td><td>'+escHtml(String(count))+'</td><td>'+escHtml(ev.score==null?'—':String(ev.score))+'</td><td>'+escHtml(lvl(ev.level)||'—')+'</td><td>'+escHtml(status)+'</td><td class="monthly-assessment-subject-note">'+escHtml(feedback||'—')+'</td></tr>';
  });
- const colWidths=[4,8,8,9,9,10,52];
+ const colWidths=[4,9,8,8,8,8,55];
  const colgroup='<colgroup>'+colWidths.map(function(w){return '<col style="width:'+w+'%">';}).join('')+'</colgroup>';
  return '<section class="monthly-student-assessment-print" dir="rtl">'+
  '<header class="monthly-assessment-heading">'+(photo?'<img src="'+escHtml(photo)+'" alt="عکس دانش‌آموز" class="monthly-assessment-photo">':'')+
@@ -7226,35 +7226,57 @@ function printMonthlyStudentAssessment(){
  const printWindow=window.open('','_blank');
  if(!printWindow){toast('اجازه باز شدن پنجره چاپ را بدهید');return;}
  const printHtml='<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>گزارش ارزشیابی ماهانه</title><style>'+
- '@page{size:A4 landscape;margin:7mm}'+
+ '@page{size:A4 portrait;margin:5mm}'+
  '*{box-sizing:border-box}'+
  'html,body{margin:0!important;padding:0!important;width:100%!important;direction:rtl!important;text-align:right!important;font-family:Tahoma,Arial,sans-serif!important;color:#111;background:#fff}'+
  'body{font-size:8pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
- '.monthly-student-assessment-print{direction:rtl!important;text-align:right!important;display:flex;flex-direction:column;gap:2mm;width:100%!important;max-width:none!important;margin:0!important;padding:2.5mm!important;border:1.2px solid #1f2937;min-height:0;height:auto;background:#fff}'+
- '.monthly-assessment-heading{display:flex;align-items:center;justify-content:center;position:relative;min-height:15mm;padding:0 0 1.5mm;border-bottom:1px solid #334155;flex:0 0 auto}'+
- '.monthly-assessment-photo{position:absolute;right:0;top:0;width:14mm;height:16mm;object-fit:cover;border:1px solid #334155}'+
+ '.monthly-student-assessment-print{direction:rtl!important;text-align:right!important;display:flex;flex-direction:column;gap:1mm;width:100%!important;max-width:none!important;margin:0!important;padding:1.5mm!important;border:1px solid #1f2937;min-height:0;height:auto;background:#fff}'+
+ '.monthly-assessment-heading{display:flex;align-items:center;justify-content:center;position:relative;min-height:13mm;padding:0 0 1mm;border-bottom:1px solid #334155;flex:0 0 auto}'+
+ '.monthly-assessment-photo{position:absolute;right:0;top:0;width:12mm;height:13mm;object-fit:cover;border:1px solid #334155}'+
  '.monthly-assessment-title{flex:1;text-align:center}'+
- '.monthly-assessment-title h2{font-size:12pt;margin:0 0 1mm;font-weight:700}'+
- '.monthly-assessment-title p{font-size:8pt;margin:0}'+
+ '.monthly-assessment-title h2{font-size:11pt;margin:0 0 .5mm;font-weight:700}'+
+ '.monthly-assessment-title p{font-size:7pt;margin:0}'+
  'table{display:table!important;width:100%!important;max-width:none!important;min-width:100%!important;border-collapse:collapse!important;table-layout:fixed!important;margin:0!important;direction:rtl!important}'+
- '.monthly-assessment-identity{font-size:8.5pt;flex:0 0 auto}'+
- '.monthly-assessment-identity th,.monthly-assessment-identity td{border:1px solid #334155;padding:1.5mm 2mm;text-align:right;vertical-align:middle;white-space:normal}'+
+ '.monthly-assessment-identity{font-size:8pt;flex:0 0 auto}'+
+ '.monthly-assessment-identity th,.monthly-assessment-identity td{border:1px solid #334155;padding:1mm 1.5mm;text-align:right!important;vertical-align:middle;white-space:normal}'+
  '.monthly-assessment-identity th{background:#e8eef5;font-weight:700;width:13%}'+
- '.monthly-assessment-subject-table{font-size:7.7pt;flex:0 0 auto}'+
- '.monthly-assessment-subject-table th,.monthly-assessment-subject-table td{border:1px solid #263445;padding:1.2mm 1.3mm;text-align:center;vertical-align:middle;white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:none;line-height:1.28;direction:rtl}'+
+ '.monthly-assessment-subject-table{font-size:7.5pt;flex:0 0 auto}'+
+ '.monthly-assessment-subject-table th,.monthly-assessment-subject-table td{border:1px solid #263445;padding:.9mm 1mm;text-align:center;vertical-align:middle;white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:none;line-height:1.2;direction:rtl}'+
  '.monthly-assessment-subject-table th{background:#dce8f5;font-weight:700}'+
- '.monthly-assessment-subject-table .monthly-assessment-subject-note{text-align:right!important;font-size:7.7pt;line-height:1.3;padding:1.4mm 1.8mm!important;vertical-align:top!important;white-space:normal;overflow-wrap:break-word;word-break:normal}'+
+ '.monthly-assessment-subject-table .monthly-assessment-subject-note{text-align:right!important;font-size:7.5pt;line-height:1.22;padding:1mm 1.4mm!important;vertical-align:top!important;white-space:normal;overflow-wrap:break-word;word-break:normal}'+
  '.monthly-assessment-subject-table tr{break-inside:avoid;page-break-inside:avoid;height:auto!important}'+
- '.monthly-assessment-subject-table tr.monthly-assessment-unrecorded td{padding-top:.8mm!important;padding-bottom:.8mm!important;line-height:1.15!important}'+
- '.monthly-assessment-empty{padding:3mm!important}'+
- '.monthly-assessment-signatures{display:flex;justify-content:space-between;gap:8mm;padding-top:1.5mm;border-top:1px solid #334155;font-size:8.5pt;font-weight:700;flex:0 0 auto}'+
+ '.monthly-assessment-subject-table tr.monthly-assessment-unrecorded td{padding-top:.5mm!important;padding-bottom:.5mm!important;line-height:1.1!important}'+
+ '.monthly-assessment-empty{padding:2mm!important}'+
+ '.monthly-assessment-signatures{display:flex;justify-content:space-between;gap:5mm;padding-top:1mm;border-top:1px solid #334155;font-size:7.5pt;font-weight:700;flex:0 0 auto}'+
  '@media print{html,body{width:100%!important;height:auto!important}.monthly-student-assessment-print{break-inside:avoid;page-break-inside:avoid}}'+
  '</style></head><body>'+data.html+'</body></html>';
  printWindow.document.open();printWindow.document.write(printHtml);printWindow.document.close();
  const runPrint=function(){
   const images=Array.from(printWindow.document.images||[]);
-  Promise.all(images.map(function(img){if(img.complete)return Promise.resolve();return new Promise(function(resolve){img.onload=resolve;img.onerror=resolve;setTimeout(resolve,2000);});})).then(function(){
-   try{printWindow.focus();printWindow.print();}catch(e){toast('باز کردن پیش‌نمایش چاپ ناموفق بود');}
+  Promise.all(images.map(function(img){if(img.complete)return Promise.resolve();return new Promise(function(resolve){img.onload=resolve;img.onerror=resolve;setTimeout(resolve,1500);});})).then(function(){
+   try{
+    const doc=printWindow.document,report=doc.querySelector('.monthly-student-assessment-print');
+    if(report){
+     const available=287*96/25.4;
+     let size=7.5;
+     report.style.fontSize=size+'pt';
+     const table=report.querySelector('.monthly-assessment-subject-table');
+     const identity=report.querySelector('.monthly-assessment-identity');
+     const heading=report.querySelector('.monthly-assessment-heading');
+     const notes=report.querySelectorAll('.monthly-assessment-subject-note');
+     for(let attempt=0;attempt<8;attempt++){
+      const height=report.getBoundingClientRect().height;
+      if(height<=available||size<=5.2)break;
+      size=Math.max(5.2,size-0.35);
+      report.style.fontSize=size+'pt';
+      if(table)table.style.fontSize=size+'pt';
+      if(identity)identity.style.fontSize=Math.max(6,size+0.3)+'pt';
+      notes.forEach(function(cell){cell.style.fontSize=size+'pt';});
+      report.querySelectorAll('th,td').forEach(function(cell){cell.style.padding=(Math.max(.35,(size/7.5)*.9))+'mm '+(Math.max(.45,(size/7.5)*1))+'mm';});
+     }
+    }
+    printWindow.focus();printWindow.print();
+   }catch(e){toast('آماده‌سازی چاپ ناموفق بود');}
   });
  };
  if(printWindow.document.readyState==='complete')runPrint();else printWindow.onload=runPrint;
