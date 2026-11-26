@@ -7192,14 +7192,14 @@ function monthlyStudentAssessmentHtml(student,rows,month,cl,photo,analysis){
  '<div><b>درس‌های دارای نمره</b><strong>'+fa(validRows.length)+'</strong></div></div>'+
  '<div class="monthly-assessment-summary-title">خلاصه و تحلیل وضعیت ماهانه</div>'+
  '<div class="monthly-assessment-analysis">'+analysisItems.map(function(p){return '<p>'+escHtml(p)+'</p>';}).join('')+'</div></section>';
- const colWidths=[7.5,13,2.5,4.5,6,8,58.5];
+ const colWidths=[5,8,4,8,5,11,59];
  const colgroup='<colgroup>'+colWidths.map(function(w){return '<col style="width:'+w+'%">';}).join('')+'</colgroup>';
  return '<section class="monthly-student-assessment-print" dir="rtl">'+
  '<header class="monthly-assessment-heading">'+(photo?'<img src="'+escHtml(photo)+'" alt="عکس دانش‌آموز" class="monthly-assessment-photo">':'')+
  '<div class="monthly-assessment-title"><h2>گزارش ارزشیابی دوره‌ای '+escHtml(month+(year?' '+year:''))+'</h2><p>دبستان شهید فتح‌الله فلاح‌پور</p></div></header>'+
  '<table class="monthly-assessment-identity"><tbody><tr><th>نام دانش‌آموز</th><td>'+escHtml(student.first_name+' '+student.last_name)+'</td><th>کلاس</th><td>'+escHtml(cl?cl.label:'—')+'</td></tr></tbody></table>'+
  summary+
- '<table dir="rtl" class="monthly-assessment-subject-table"><colgroup>'+colgroup+'</colgroup><thead><tr>'+
+ '<table dir="rtl" class="monthly-assessment-subject-table">'+colgroup+'<thead><tr>'+
  ['ردیف','درس','تعداد ثبت‌ها','میانگین از ۲۰','سطح','وضعیت','توضیحات و تحلیل همین درس'].map(function(x){return '<th>'+x+'</th>';}).join('')+
  '</tr></thead><tbody>'+(body||'<tr><td colspan="7" class="monthly-assessment-empty">برای این دانش‌آموز در ماه انتخاب‌شده میانگین یکپارچه‌ای ثبت نشده است.</td></tr>')+'</tbody></table>'+
  '<footer class="monthly-assessment-signatures"><span>معلم: '+escHtml(cl&&cl.teacher_name?cl.teacher_name:'—')+'</span><span>مدیر: '+escHtml(typeof PRINCIPAL!=='undefined'?PRINCIPAL:'—')+'</span></footer></section>';
@@ -7261,13 +7261,13 @@ function printMonthlyStudentAssessment(){
  '.monthly-assessment-analysis p{font-size:6.1pt;line-height:1.2;margin:0 0 .8mm;text-align:justify;break-inside:avoid;page-break-inside:avoid}'+
  '.monthly-assessment-subject-table{font-size:7.2pt;margin-bottom:1.5mm!important}'+
  '.monthly-assessment-subject-table{table-layout:fixed!important;width:100%!important}'+
- '.monthly-assessment-subject-table col:nth-child(1),.monthly-assessment-subject-table th:nth-child(1),.monthly-assessment-subject-table td:nth-child(1){width:7.5%!important}'+
- '.monthly-assessment-subject-table col:nth-child(2),.monthly-assessment-subject-table th:nth-child(2),.monthly-assessment-subject-table td:nth-child(2){width:13%!important}'+
- '.monthly-assessment-subject-table col:nth-child(3),.monthly-assessment-subject-table th:nth-child(3),.monthly-assessment-subject-table td:nth-child(3){width:2.5%!important;max-width:2.5%!important;padding-left:.2mm!important;padding-right:.2mm!important;font-size:6.2pt!important}'+
- '.monthly-assessment-subject-table col:nth-child(4),.monthly-assessment-subject-table th:nth-child(4),.monthly-assessment-subject-table td:nth-child(4){width:4.5%!important;max-width:4.5%!important;padding-left:.2mm!important;padding-right:.2mm!important;font-size:6.2pt!important}'+
- '.monthly-assessment-subject-table col:nth-child(5),.monthly-assessment-subject-table th:nth-child(5),.monthly-assessment-subject-table td:nth-child(5){width:6%!important}'+
- '.monthly-assessment-subject-table col:nth-child(6),.monthly-assessment-subject-table th:nth-child(6),.monthly-assessment-subject-table td:nth-child(6){width:8%!important}'+
- '.monthly-assessment-subject-table col:nth-child(7),.monthly-assessment-subject-table th:nth-child(7),.monthly-assessment-subject-table td:nth-child(7){width:58.5%!important}'+
+ '.monthly-assessment-subject-table col:nth-child(1),.monthly-assessment-subject-table th:nth-child(1),.monthly-assessment-subject-table td:nth-child(1){width:5%!important}'+
+ '.monthly-assessment-subject-table col:nth-child(2),.monthly-assessment-subject-table th:nth-child(2),.monthly-assessment-subject-table td:nth-child(2){width:8%!important}'+
+ '.monthly-assessment-subject-table col:nth-child(3),.monthly-assessment-subject-table th:nth-child(3),.monthly-assessment-subject-table td:nth-child(3){width:4%!important;max-width:4%!important;padding-left:.35mm!important;padding-right:.35mm!important;font-size:6.2pt!important}'+
+ '.monthly-assessment-subject-table col:nth-child(4),.monthly-assessment-subject-table th:nth-child(4),.monthly-assessment-subject-table td:nth-child(4){width:8%!important;max-width:8%!important;padding-left:.5mm!important;padding-right:.5mm!important;font-size:7pt!important}'+
+ '.monthly-assessment-subject-table col:nth-child(5),.monthly-assessment-subject-table th:nth-child(5),.monthly-assessment-subject-table td:nth-child(5){width:5%!important}'+
+ '.monthly-assessment-subject-table col:nth-child(6),.monthly-assessment-subject-table th:nth-child(6),.monthly-assessment-subject-table td:nth-child(6){width:11%!important}'+
+ '.monthly-assessment-subject-table col:nth-child(7),.monthly-assessment-subject-table th:nth-child(7),.monthly-assessment-subject-table td:nth-child(7){width:59%!important}'+
  '.monthly-assessment-subject-table th,.monthly-assessment-subject-table td{border:1px solid #263445;padding:.8mm .9mm;text-align:center;vertical-align:middle;white-space:normal;overflow-wrap:anywhere;word-break:normal;line-height:1.18;direction:rtl}'+
  '.monthly-assessment-subject-table tbody td:nth-child(2){white-space:nowrap!important}'+
  '.monthly-assessment-subject-table th{background:#dce8f5;font-weight:700}'+
