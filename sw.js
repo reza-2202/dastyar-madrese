@@ -1,4 +1,4 @@
-const CACHE = 'dastyar-shell-v81-20261126-birthday-cron';
+const CACHE = 'dastyar-shell-v82-20261126-birthday-private-rpc';
 const BASE = '/dastyar-madrese/';
 const SHELL = [
   BASE,
