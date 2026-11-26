@@ -7167,7 +7167,7 @@ function monthlyStudentAssessmentHtml(student,rows,month,cl,photo,analysis){
  const activityIndex=monthlyAssessmentBuildSubjectActivityIndex(student.id,rows);
  let body='';
  rows.forEach(function(ev,i){
-  const count=monthlyAssessmentCountFromNotes(ev.notes,ev),feedback=monthlyAssessmentSubjectAnalysis(student.id,ev,rows,activityIndex);
+  const count=monthlyAssessmentCountFromNotes(ev.notes,ev);let feedback=monthlyAssessmentSubjectAnalysis(student.id,ev,rows,activityIndex);
   const marker=String(ev.recorded_by||''),note=String(ev.notes||'');
   const status=marker.indexOf('[بدون ثبت]')>=0?'ثبت‌نشده':(marker.indexOf('[قطعی]')>=0||note.indexOf('میانگین قطعی')>=0?'قطعی':(marker.indexOf('[درحال‌به‌روزرسانی]')>=0||note.indexOf('میانگین موقت')>=0?'در حال به‌روزرسانی':'ثبت‌شده'));
   const unrecorded=status==='ثبت‌نشده';
