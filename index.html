@@ -6562,9 +6562,9 @@ function shareExamRecord(examId){
  var st=(cache.students||[]).find(function(x){return String(x.id)===String(row.student_id);});
  var cl=(cache.classes||[]).find(function(x){return String(x.id)===String(row.class_id);});
  var extras=guidanceRows('exam',examId),name=st?((st.first_name||'')+' '+(st.last_name||'')).trim():'دانش‌آموز';
- var msg='دبستان شهید فتح‌الله فلاح‌پور\\nگزارش آزمون دانش‌آموز\\nدانش‌آموز: '+name+'\\nکلاس: '+(cl&&cl.label||'')+'\\nآزمون: '+(row.exam_name||row.subject||'')+'\\nدرس: '+(row.lesson||'')+'\\nمباحث: '+(row.chapters||'—')+'\\nتاریخ: '+(row.date||'')+'\\nنمره: '+(row.score==null?'ثبت نشده':row.score+'/۲۰')+'\\nسطح: '+(row.level||'ثبت نشده')+'\\nتوضیحات: '+(row.notes||'—');
- if(extras.length){msg+='\\n\\nراهکار معلم و تکلیف:';extras.forEach(function(g,i){msg+='\\n'+(i+1)+') راهکار: '+(g.guidance||'—')+'\\nتکلیف: '+(g.homework||'—')+(g.duration?'\\nمدت/تکرار: '+g.duration:'');});}
- msg+='\\n\\nمعلم: '+(row.recorded_by||(user&&user.full_name)||'معلم مربوطه');
+ var msg='دبستان شهید فتح‌الله فلاح‌پور\nگزارش آزمون دانش‌آموز\nدانش‌آموز: '+name+'\nکلاس: '+(cl&&cl.label||'')+'\nآزمون: '+(row.exam_name||row.subject||'')+'\nدرس: '+(row.lesson||'')+'\nمباحث: '+(row.chapters||'—')+'\nتاریخ: '+(row.date||'')+'\nنمره: '+(row.score==null?'ثبت نشده':row.score+'/۲۰')+'\nسطح: '+(row.level||'ثبت نشده')+'\nتوضیحات: '+(row.notes||'—');
+ if(extras.length){msg+='\n\nراهکار معلم و تکلیف:';extras.forEach(function(g,i){msg+='\n'+(i+1)+') راهکار: '+(g.guidance||'—')+'\nتکلیف: '+(g.homework||'—')+(g.duration?'\nمدت/تکرار: '+g.duration:'');});}
+ msg+='\n\nمعلم: '+(row.recorded_by||(user&&user.full_name)||'معلم مربوطه');
  if(navigator.share){navigator.share({title:'گزارش آزمون دانش‌آموز',text:msg}).catch(function(e){if(e&&e.name!=='AbortError')copyGuidanceText(msg);});}
  else copyGuidanceText(msg);
 }
