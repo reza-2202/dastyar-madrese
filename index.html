@@ -1225,7 +1225,6 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <p style="font-size:.75rem;opacity:.9;margin-top:8px">مدیریت مدرسه شهید فتح‌الله فلاح‌پور</p>
 <p style="font-size:.72rem;opacity:.85">صاحب امتیاز و سازنده: رضا فلاحتکار</p>
 </div>
-<div id="teacher-birthday-reminders" style="display:none"></div>
 <div class="home-tiles" aria-label="نمایش داشبورد">
 <details class="home-tile-group group-dashboard" id="dashboard-stats-toggle" aria-label="داشبورد آمار" ontoggle="toggleDashboardStatsRail(this.open)">
 <summary class="home-tile-group-title"><span class="home-tile-group-mark">📊</span><span>داشبورد</span></summary>
@@ -1302,6 +1301,7 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
  <div id="teacher-today-schedule-content" style="font-size:.84rem;line-height:1.9"></div>
  <button class="btn btn-o btn-sm" style="margin-top:8px" onclick="go('weekly')">مشاهده و تنظیم برنامه هفتگی</button>
 </div>
+<div id="teacher-birthday-reminders" style="display:none"></div>
 <div id="pending-file-class-list" class="card" style="display:none"><div class="ct">📂 کلاس‌های دارای فایل در انتظار</div><div id="pending-file-class-list-items" class="meta"></div></div>
 <div id="attendance-class-list" class="card" style="display:none"><div class="ct">🏫 وضعیت حضور و غیاب امروز کلاس‌ها</div><div class="meta" style="margin-bottom:8px">سبز: ثبت شده | قرمز: ثبت نشده</div><div id="attendance-class-list-items" class="meta"></div><div id="attendance-remind-admin" style="display:none;margin-top:10px"><button type="button" class="btn btn-p btn-sm" onclick="sendAttendanceReminderToMissing()">📨 یادآوری ثبت حضور و غیاب به کلاس‌های ثبت‌نشده</button><div class="meta" style="margin-top:6px">فقط مدیر — پیام مشترک فقط به معلمان کلاس‌هایی که امروز حاضری ثبت نکرده‌اند.</div></div></div>
 <div id="discipline-dash-list" class="card" style="display:none;border:1px solid #fca5a5;background:#fff7f7"><div class="ct">موارد انضباطی ثبت‌شده</div><div class="meta" style="margin-bottom:8px">مدیر: همه کلاس‌ها | معلم: فقط کلاس خود</div><div id="discipline-dash-list-items" class="meta"></div></div>
@@ -7378,9 +7378,14 @@ function birthdayReminderDismissKey(studentId){
 }
 function dismissStudentBirthdayReminders(){
  var ids=Array.isArray(window.__dastyarBirthdayReminderStudentIds)?window.__dastyarBirthdayReminderStudentIds:[];
+ if(!ids.length)return;
+ var confirmed=false;
+ try{confirmed=window.confirm('آیا یادآوری تولد و پیام‌های تبریک نمایش‌داده‌شده از برنامه امروز حذف شوند؟');}catch(e){}
+ if(!confirmed)return;
  try{ids.forEach(function(id){localStorage.setItem(birthdayReminderDismissKey(id),'1');});}catch(e){}
  var box=document.getElementById('teacher-birthday-reminders');if(box)box.style.display='none';
 }
+
 function checkUpcomingStudentBirthdays(){
  var box=document.getElementById('teacher-birthday-reminders');
  if(!box)return;
