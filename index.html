@@ -7434,12 +7434,20 @@ function birthdayReminderDailyCheckKey(username){
 }
 function birthdayReminderTehranDateKey(){
  try{
-  var parts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Tehran',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+  var parts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Tehran',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'}).formatToParts(new Date());
   var values={};
   parts.forEach(function(part){if(part.type!=='literal')values[part.type]=part.value;});
-  if(values.year&&values.month&&values.day)return values.year+'-'+values.month+'-'+values.day;
+  if(values.year&&values.month&&values.day){
+   var cycleDate=new Date(Date.UTC(Number(values.year),Number(values.month)-1,Number(values.day)));
+   /* چرخه جدید پس از اجرای زمان‌بندی ۲۳:۰۰ تهران آغاز می‌شود. */
+   if(Number(values.hour)<23)cycleDate.setUTCDate(cycleDate.getUTCDate()-1);
+   return cycleDate.toISOString().slice(0,10);
+  }
  }catch(e){}
- return new Date(Date.now()+210*60000).toISOString().slice(0,10);
+ var fallback=new Date(Date.now()+210*60000);
+ var fallbackCycle=new Date(Date.UTC(fallback.getUTCFullYear(),fallback.getUTCMonth(),fallback.getUTCDate()));
+ if(fallback.getUTCHours()<23)fallbackCycle.setUTCDate(fallbackCycle.getUTCDate()-1);
+ return fallbackCycle.toISOString().slice(0,10);
 }
 window.__dastyarBirthdayReminderRecords=window.__dastyarBirthdayReminderRecords||[];
 window.loadTeacherBirthdayReminders=async function(){
