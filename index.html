@@ -5812,7 +5812,7 @@ async function saveDiscipline(){
  if(!(result&&result.offline)) await reloadAll();
  if(!(cache.discipline||[]).some(function(r){return String(r.id)===String(row.id);})) cache.discipline=(cache.discipline||[]).concat([row]);
  try{persistLocalSchoolCache();}catch(e){}
- if(inlineGuidance||inlineHomework){await saveStudentGuidance({student_id:String(studentId),class_id:String(classId),source_type:'discipline',source_id:String(row.id),subject:category,month:date,guidance:inlineGuidance,homework:inlineHomework,duration:inlineDuration});}
+ var guidanceSaved=true;if(inlineGuidance||inlineHomework){guidanceSaved=await saveStudentGuidance({student_id:String(studentId),class_id:String(classId),source_type:'discipline',source_id:String(row.id),subject:category,month:date,guidance:inlineGuidance,homework:inlineHomework,duration:inlineDuration});}
  document.getElementById('di-details').value='';document.getElementById('di-guidance').value='';document.getElementById('di-homework').value='';document.getElementById('di-guidance-duration').value='';document.getElementById('di-feedback').value='';document.getElementById('di-category').value='انضباطی';
  const inviteDateInput=document.getElementById('di-invite-date');if(inviteDateInput)inviteDateInput.value='';const inviteTimeInput=document.getElementById('di-invite-time');if(inviteTimeInput)inviteTimeInput.value='';toggleDisciplineInviteFields();
  renderDisciplineList();
@@ -5820,7 +5820,7 @@ async function saveDiscipline(){
  const dossier=document.getElementById('print-student-dossier');
  if(dossier) openStudentDossier(studentId);
  try{refreshDash();}catch(e){}
- toast(result&&result.offline?'مورد انضباطی در گوشی ذخیره شد و پس از اتصال اینترنت همگام‌سازی می‌شود.':'مورد انضباطی آنلاین ثبت شد و در پرونده دانش‌آموز قرار گرفت');
+ toast(!guidanceSaved?'مورد انضباطی ثبت شد، اما ذخیره راهکار/تکلیف ناموفق بود.':(result&&result.offline?'مورد انضباطی در گوشی ذخیره شد و پس از اتصال اینترنت همگام‌سازی می‌شود.':'مورد انضباطی آنلاین ثبت شد و در پرونده دانش‌آموز قرار گرفت'));
 }
 function isParentInviteFeedback(value){return String(value||'').replace(/[\u200c\s]/g,'').trim()==='دعوتاولیا';}
 let selectedDisciplineInvites=new Set();
@@ -6683,8 +6683,10 @@ function showActForm(editId){
 function refreshQaGroupBadges(){var subject=document.getElementById('ac-sub')?.value||'',classId=document.getElementById('ac-class')?.value||'';document.querySelectorAll('.ac-group-check').forEach(function(check){var label=check.closest('label');if(!label)return;var spans=label.querySelectorAll('span');if(spans.length<2)return;var st=(cache.students||[]).find(function(x){return String(x.id)===String(check.value);});if(!st)return;var perf=qaTeacherGroupBadge(st.id,subject,classId);spans[0].style.color=perf.color;spans[1].style.background=perf.bg;spans[1].style.color=perf.color;spans[1].textContent=perf.label;});}
 function toggleQaGroupStudent(check){var wrap=document.querySelector('.ac-group-fields[data-student="'+String(check.value).replace(/"/g,'\\"')+'"]');if(wrap){wrap.style.display=check.checked?'block':'none';if(check.checked){var score=wrap.querySelector('.ac-group-score');if(score)qaRefreshGroupFeedback(score);}}}
 async function saveActivityGuidanceDrafts(drafts){
- if(!Array.isArray(drafts)||!drafts.length)return;
- for(var item of drafts){if(!item||!item.row||(!item.guidance&&!item.homework))continue;var old=guidanceRows('daily_qa',item.row.id)[0];var ok=await saveStudentGuidance({id:old&&old.id,student_id:String(item.row.student_id),class_id:String(item.row.class_id),source_type:'daily_qa',source_id:String(item.row.id),subject:item.row.subject||'',month:item.row.date||'',guidance:item.guidance||'',homework:item.homework||'',duration:item.duration||''});if(!ok)console.warn('راهکار اختیاری پرسش‌وپاسخ ذخیره نشد',item.row.id);}
+ if(!Array.isArray(drafts)||!drafts.length)return true;
+ var allSaved=true;
+ for(var item of drafts){if(!item||!item.row||(!item.guidance&&!item.homework))continue;var old=guidanceRows('daily_qa',item.row.id)[0];var ok=await saveStudentGuidance({id:old&&old.id,student_id:String(item.row.student_id),class_id:String(item.row.class_id),source_type:'daily_qa',source_id:String(item.row.id),subject:item.row.subject||'',month:item.row.date||'',guidance:item.guidance||'',homework:item.homework||'',duration:item.duration||''});if(!ok){allSaved=false;console.warn('راهکار اختیاری پرسش‌وپاسخ ذخیره نشد',item.row.id);}}
+ return allSaved;
 }
 async function saveAct(){
   var editingId=String(window.editingActivityId||'');
@@ -6692,7 +6694,7 @@ async function saveAct(){
   var type=document.getElementById('ac-ty').value;
   var classId=document.getElementById('ac-class').value;
   var subject=document.getElementById('ac-sub').value;
-  var rows=[],guidanceDrafts=[];
+  var rows=[],guidanceDrafts=[],guidanceSaved=true;
   if(mode==='group'&&type==='qa'&&!editingId){
     var checks=Array.from(document.querySelectorAll('.ac-group-check:checked'));
     if(!checks.length){toast('حداقل یک دانش‌آموز را انتخاب کنید');return;}
@@ -6715,11 +6717,12 @@ async function saveAct(){
         try{persistLocalSchoolCache();}catch(e){}
         try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
         if(syncQa){try{await buildClosedMonthQaEvaluations();}catch(offlineEditQaError){console.warn('به‌روزرسانی آفلاین ارزشیابی پس از ویرایش پرسش‌وپاسخ ناموفق بود',offlineEditQaError);}try{await syncQaReportCardAverages([previousActivity&&previousActivity.student_id,row.student_id]);}catch(offlineEditScoreError){console.warn('به‌روزرسانی آفلاین کارنامه پس از ویرایش پرسش‌وپاسخ ناموفق بود',offlineEditScoreError);}refreshQaEvaluationDashboard();}
+        if(guidanceDrafts.length){guidanceDrafts[0].row.id=editingId;guidanceSaved=await saveActivityGuidanceDrafts(guidanceDrafts);}
         document.getElementById('ac-form').innerHTML='';window.editingActivityId='';
         await loadActivities();try{refreshDash();}catch(e){}
-        toast('ویرایش در گوشی ذخیره شد و پس از اتصال همگام می‌شود');return;
+        toast(guidanceSaved?'ویرایش در گوشی ذخیره شد و پس از اتصال همگام می‌شود':'ویرایش ذخیره شد، اما راهکار/تکلیف ذخیره نشد');return;
       }
-      var res=await sb.from('sa_activities').update(row).eq('id',editingId);if(res.error){toast('خطا در ویرایش: '+res.error.message);return;}await reloadAll();cache.activities=applyQaTombstones(cache.activities);if(syncQa){var editedQa=(cache.activities||[]).find(function(a){return String(a.id)===editingId;});if(editedQa&&editedQa.type==='qa'){try{await syncOneDailyQaEvaluation(editedQa,false,false);}catch(syncErr){console.warn('به‌روزرسانی ارزشیابی مرتبط با پرسش‌وپاسخ ناموفق بود',syncErr);}}await buildClosedMonthQaEvaluations();refreshQaEvaluationDashboard();}if(guidanceDrafts.length){guidanceDrafts[0].row.id=editingId;await saveActivityGuidanceDrafts(guidanceDrafts);}document.getElementById('ac-form').innerHTML='';window.editingActivityId='';await loadActivities();if(syncQa){try{await syncQaReportCardAverages([previousActivity&&previousActivity.student_id,row.student_id]);}catch(scoreSyncErr){console.warn('به‌روزرسانی میانگین کارنامه پس از ویرایش پرسش ناموفق بود',scoreSyncErr);}}try{refreshDash();}catch(e){}toast('فقط همین پرسش و پاسخ ویرایش شد');return;}
+      var res=await sb.from('sa_activities').update(row).eq('id',editingId);if(res.error){toast('خطا در ویرایش: '+res.error.message);return;}await reloadAll();cache.activities=applyQaTombstones(cache.activities);if(syncQa){var editedQa=(cache.activities||[]).find(function(a){return String(a.id)===editingId;});if(editedQa&&editedQa.type==='qa'){try{await syncOneDailyQaEvaluation(editedQa,false,false);}catch(syncErr){console.warn('به‌روزرسانی ارزشیابی مرتبط با پرسش‌وپاسخ ناموفق بود',syncErr);}}await buildClosedMonthQaEvaluations();refreshQaEvaluationDashboard();}if(guidanceDrafts.length){guidanceDrafts[0].row.id=editingId;guidanceSaved=await saveActivityGuidanceDrafts(guidanceDrafts);}document.getElementById('ac-form').innerHTML='';window.editingActivityId='';await loadActivities();if(syncQa){try{await syncQaReportCardAverages([previousActivity&&previousActivity.student_id,row.student_id]);}catch(scoreSyncErr){console.warn('به‌روزرسانی میانگین کارنامه پس از ویرایش پرسش ناموفق بود',scoreSyncErr);}}try{refreshDash();}catch(e){}toast(guidanceSaved?'فقط همین پرسش و پاسخ ویرایش شد':'پرسش و پاسخ ویرایش شد، اما ذخیره راهکار/تکلیف ناموفق بود');return;}
     row.id=uid();rows.push(row);
   }
   var result=await sb.from('sa_activities').insert(rows);
@@ -6727,7 +6730,7 @@ async function saveAct(){
   if(result.offline||isAppOfflineNow()){
     rows.forEach(function(row){var ix=(cache.activities||[]).findIndex(function(a){return String(a.id)===String(row.id);});if(ix>=0)cache.activities[ix]=Object.assign({},cache.activities[ix],row);else cache.activities.push(row);});
     cache.activities=applyQaTombstones(cache.activities);
-    await saveActivityGuidanceDrafts(guidanceDrafts);
+    guidanceSaved=await saveActivityGuidanceDrafts(guidanceDrafts);
     try{persistLocalSchoolCache();}catch(e){}
     try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
     if(rows.some(function(r){return r&&r.type==='qa';})){
@@ -6737,11 +6740,11 @@ async function saveAct(){
     }
     document.getElementById('ac-form').innerHTML='';window.editingActivityId='';
     await loadActivities();try{refreshDash();}catch(e){}
-    toast(rows.length>1?fa(rows.length)+' پرسش و پاسخ در گوشی ذخیره شد و پس از اتصال همگام می‌شود.':'پرسش و پاسخ در گوشی ذخیره شد و پس از اتصال همگام می‌شود.');
+    toast(!guidanceSaved?'پرسش و پاسخ ثبت شد، اما ذخیره راهکار/تکلیف ناموفق بود.':(rows.length>1?fa(rows.length)+' پرسش و پاسخ در گوشی ذخیره شد و پس از اتصال همگام می‌شود.':'پرسش و پاسخ در گوشی ذخیره شد و پس از اتصال همگام می‌شود.'));
     return;
   }
-  await reloadAll();cache.activities=applyQaTombstones(cache.activities);await saveActivityGuidanceDrafts(guidanceDrafts);if(rows.some(function(r){return r&&r.type==='qa';})){for(var qaRow of rows.filter(function(r){return r&&r.type==='qa';})){var savedQa=(cache.activities||[]).find(function(a){return String(a.id)===String(qaRow.id);})||qaRow;try{await syncOneDailyQaEvaluation(savedQa,false,false);}catch(syncErr){console.warn('ثبت ارزشیابی مرتبط با پرسش‌وپاسخ ناموفق بود',syncErr);}}await buildClosedMonthQaEvaluations();refreshQaEvaluationDashboard();}document.getElementById('ac-form').innerHTML='';window.editingActivityId='';await loadActivities();if(rows.some(function(r){return r&&r.type==='qa';})){try{await syncQaReportCardAverages(rows.filter(function(r){return r&&r.type==='qa';}).map(function(r){return r.student_id;}));}catch(scoreSyncErr){console.warn('به‌روزرسانی میانگین کارنامه پس از ثبت پرسش ناموفق بود',scoreSyncErr);}}try{refreshDash();}catch(e){}toast(rows.length>1?fa(rows.length)+' پرسش و پاسخ ثبت شد':'ثبت آنلاین شد');
- if(guidanceDrafts.length)toast('راهکار و تکلیف اختیاری همراه سابقه پرسش‌وپاسخ ذخیره شد.');
+  await reloadAll();cache.activities=applyQaTombstones(cache.activities);guidanceSaved=await saveActivityGuidanceDrafts(guidanceDrafts);if(rows.some(function(r){return r&&r.type==='qa';})){for(var qaRow of rows.filter(function(r){return r&&r.type==='qa';})){var savedQa=(cache.activities||[]).find(function(a){return String(a.id)===String(qaRow.id);})||qaRow;try{await syncOneDailyQaEvaluation(savedQa,false,false);}catch(syncErr){console.warn('ثبت ارزشیابی مرتبط با پرسش‌وپاسخ ناموفق بود',syncErr);}}await buildClosedMonthQaEvaluations();refreshQaEvaluationDashboard();}document.getElementById('ac-form').innerHTML='';window.editingActivityId='';await loadActivities();if(rows.some(function(r){return r&&r.type==='qa';})){try{await syncQaReportCardAverages(rows.filter(function(r){return r&&r.type==='qa';}).map(function(r){return r.student_id;}));}catch(scoreSyncErr){console.warn('به‌روزرسانی میانگین کارنامه پس از ثبت پرسش ناموفق بود',scoreSyncErr);}}try{refreshDash();}catch(e){}toast(rows.length>1?fa(rows.length)+' پرسش و پاسخ ثبت شد':'ثبت آنلاین شد');
+ if(guidanceDrafts.length)toast(guidanceSaved?'راهکار و تکلیف اختیاری همراه سابقه پرسش‌وپاسخ ذخیره شد.':'پرسش و پاسخ ثبت شد، اما ذخیره راهکار/تکلیف ناموفق بود.');
 }
 async function deleteQaActivity(id){
   var row=cache.activities.find(function(a){return String(a.id)===String(id)&&a.type==='qa';});if(!row){toast('فقط رکورد پرسش و پاسخ قابل حذف است');return;}
