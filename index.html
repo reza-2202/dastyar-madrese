@@ -6389,7 +6389,7 @@ async function syncQaReportCardAverages(studentIds){
  try{if(window.DastyarOffline&&window.DastyarOffline.saveSnapshot)await window.DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
  if(sb){
   if(nextRows.length){var up=await sb.from('sa_scores').upsert(nextRows);if(up&&up.error)throw up.error;}
-  for(var si=0;si<staleIds.length;si++){var del=await sb.from('sa_scores').delete().eq('id',staleIds[si]);if(del&&del.error)throw del.error;}
+  for(var si=0;si<staleIds.length;si+=50){var del=await sb.from('sa_scores').delete().in('id',staleIds.slice(si,si+50));if(del&&del.error)throw del.error;}
  }
  return nextRows.length;
 }
@@ -7023,8 +7023,9 @@ async function buildClosedMonthQaEvaluations(){
   var up=await sb.from('sa_evaluations').upsert(payload.slice(start,start+25));
   if(up&&up.error){console.warn('ثبت میانگین ماهانه یکپارچه در ارزشیابی ناموفق بود',up.error);return false;}
  }
- for(var i=0;i<stale.length;i++){
-  var del=await sb.from('sa_evaluations').delete().eq('id',String(stale[i].id));
+ for(var i=0;i<stale.length;i+=50){
+  var staleIds=stale.slice(i,i+50).map(function(e){return String(e.id);});
+  var del=await sb.from('sa_evaluations').delete().in('id',staleIds);
   if(del&&del.error){console.warn('پاک‌سازی خلاصه خودکار منسوخ ناموفق بود',del.error);return false;}
  }
  cache.evaluations=(cache.evaluations||[]).filter(function(e){
