@@ -649,7 +649,7 @@ body *{visibility:hidden}
 .finance-print-page table th{background:#eee}
 @media print{.finance-print-page{display:block!important;visibility:visible!important}.finance-print-page *{visibility:visible!important}}
 .no-print,.bnav,.hdr{display:none!important}
-@page{size:A4 portrait;margin:8mm}
+@page{size:A4 portrait;margin:5mm}
 .a4{width:100%;height:277mm;max-height:277mm;display:flex;flex-direction:column;justify-content:flex-start;page-break-after:always;page-break-inside:avoid;overflow:hidden;box-sizing:border-box}
 .a4 .rc{position:relative;flex:1 1 48.5%;min-height:0;max-height:48.5%;overflow:hidden;margin:0;border-radius:0;padding:2.2mm 2.8mm 1.8mm;font-size:7pt;line-height:1.22;display:flex;flex-direction:column;box-sizing:border-box}
 .a4 .rc-photo,.rc-photo{position:absolute;top:1.5mm;left:1.5mm;width:11mm;height:11mm;object-fit:cover;border-radius:2px;border:1px solid #64748b;z-index:2}
@@ -7192,7 +7192,7 @@ function monthlyStudentAssessmentHtml(student,rows,month,cl,photo,analysis){
  '<div><b>درس‌های دارای نمره</b><strong>'+fa(validRows.length)+'</strong></div></div>'+
  '<div class="monthly-assessment-summary-title">خلاصه و تحلیل وضعیت ماهانه</div>'+
  '<div class="monthly-assessment-analysis">'+analysisItems.map(function(p){return '<p>'+escHtml(p)+'</p>';}).join('')+'</div></section>';
- const colWidths=[5,8,4,8,5,11,59];
+ const colWidths=[5,8,4,4,4,4,71];
  const colgroup='<colgroup>'+colWidths.map(function(w){return '<col style="width:'+w+'%">';}).join('')+'</colgroup>';
  return '<section class="monthly-student-assessment-print" dir="rtl">'+
  '<header class="monthly-assessment-heading">'+(photo?'<img src="'+escHtml(photo)+'" alt="عکس دانش‌آموز" class="monthly-assessment-photo">':'')+
@@ -7242,7 +7242,7 @@ function printMonthlyStudentAssessment(){
  '*{box-sizing:border-box}'+
  'html,body{margin:0!important;padding:0!important;width:100%!important;min-width:0!important;max-width:100%!important;direction:rtl!important;text-align:right!important;font-family:Tahoma,Arial,sans-serif!important;color:#111;background:#fff}'+
  'body{font-size:8pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
- '.monthly-student-assessment-print{display:block!important;direction:rtl!important;text-align:right!important;width:100%!important;max-width:none!important;margin:0!important;padding:2mm!important;border:1px solid #1f2937;background:#fff;zoom:1}'+
+ '.monthly-student-assessment-print{display:block!important;direction:rtl!important;text-align:right!important;width:100%!important;max-width:none!important;min-height:287mm!important;margin:0!important;padding:2mm!important;border:1px solid #1f2937;background:#fff;zoom:1}'+
  '.monthly-assessment-heading{display:block!important;position:relative;text-align:center!important;min-height:13mm;padding:0 14mm 1mm;margin:0 0 1.5mm;border-bottom:1px solid #334155;width:100%!important}'+
  '.monthly-assessment-photo{position:absolute;right:0;top:0;width:12mm;height:13mm;object-fit:cover;border:1px solid #334155}'+
  '.monthly-assessment-title h2{font-size:11pt;line-height:1.25;margin:0 0 .5mm;font-weight:700}'+
@@ -7264,10 +7264,10 @@ function printMonthlyStudentAssessment(){
  '.monthly-assessment-subject-table col:nth-child(1),.monthly-assessment-subject-table th:nth-child(1),.monthly-assessment-subject-table td:nth-child(1){width:5%!important}'+
  '.monthly-assessment-subject-table col:nth-child(2),.monthly-assessment-subject-table th:nth-child(2),.monthly-assessment-subject-table td:nth-child(2){width:8%!important}'+
  '.monthly-assessment-subject-table col:nth-child(3),.monthly-assessment-subject-table th:nth-child(3),.monthly-assessment-subject-table td:nth-child(3){width:4%!important;max-width:4%!important;padding-left:.35mm!important;padding-right:.35mm!important;font-size:6.2pt!important}'+
- '.monthly-assessment-subject-table col:nth-child(4),.monthly-assessment-subject-table th:nth-child(4),.monthly-assessment-subject-table td:nth-child(4){width:8%!important;max-width:8%!important;padding-left:.5mm!important;padding-right:.5mm!important;font-size:7pt!important}'+
- '.monthly-assessment-subject-table col:nth-child(5),.monthly-assessment-subject-table th:nth-child(5),.monthly-assessment-subject-table td:nth-child(5){width:5%!important}'+
- '.monthly-assessment-subject-table col:nth-child(6),.monthly-assessment-subject-table th:nth-child(6),.monthly-assessment-subject-table td:nth-child(6){width:11%!important}'+
- '.monthly-assessment-subject-table col:nth-child(7),.monthly-assessment-subject-table th:nth-child(7),.monthly-assessment-subject-table td:nth-child(7){width:59%!important}'+
+ '.monthly-assessment-subject-table col:nth-child(4),.monthly-assessment-subject-table th:nth-child(4),.monthly-assessment-subject-table td:nth-child(4){width:4%!important;max-width:4%!important;padding-left:.35mm!important;padding-right:.35mm!important;font-size:6.2pt!important}'+
+ '.monthly-assessment-subject-table col:nth-child(5),.monthly-assessment-subject-table th:nth-child(5),.monthly-assessment-subject-table td:nth-child(5){width:4%!important}'+
+ '.monthly-assessment-subject-table col:nth-child(6),.monthly-assessment-subject-table th:nth-child(6),.monthly-assessment-subject-table td:nth-child(6){width:4%!important}'+
+ '.monthly-assessment-subject-table col:nth-child(7),.monthly-assessment-subject-table th:nth-child(7),.monthly-assessment-subject-table td:nth-child(7){width:71%!important}'+
  '.monthly-assessment-subject-table th,.monthly-assessment-subject-table td{border:1px solid #263445;padding:.8mm .9mm;text-align:center;vertical-align:middle;white-space:normal;overflow-wrap:anywhere;word-break:normal;line-height:1.18;direction:rtl}'+
  '.monthly-assessment-subject-table tbody td:nth-child(2){white-space:nowrap!important}'+
  '.monthly-assessment-subject-table th{background:#dce8f5;font-weight:700}'+
