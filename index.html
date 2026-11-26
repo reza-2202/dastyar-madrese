@@ -7438,16 +7438,23 @@ function birthdayReminderTehranDateKey(){
   var values={};
   parts.forEach(function(part){if(part.type!=='literal')values[part.type]=part.value;});
   if(values.year&&values.month&&values.day){
-   var cycleDate=new Date(Date.UTC(Number(values.year),Number(values.month)-1,Number(values.day)));
-   /* چرخه جدید پس از اجرای زمان‌بندی ۲۳:۰۰ تهران آغاز می‌شود. */
-   if(Number(values.hour)<23)cycleDate.setUTCDate(cycleDate.getUTCDate()-1);
-   return cycleDate.toISOString().slice(0,10);
+   var slotDate=new Date(Date.UTC(Number(values.year),Number(values.month)-1,Number(values.day)));
+   var hour=Number(values.hour),slot='07';
+   if(hour>=23)slot='23';
+   else if(hour>=18)slot='18';
+   else if(hour>=7)slot='07';
+   else{slot='23';slotDate.setUTCDate(slotDate.getUTCDate()-1);}
+   return slotDate.toISOString().slice(0,10)+'|'+slot;
   }
  }catch(e){}
  var fallback=new Date(Date.now()+210*60000);
- var fallbackCycle=new Date(Date.UTC(fallback.getUTCFullYear(),fallback.getUTCMonth(),fallback.getUTCDate()));
- if(fallback.getUTCHours()<23)fallbackCycle.setUTCDate(fallbackCycle.getUTCDate()-1);
- return fallbackCycle.toISOString().slice(0,10);
+ var slotDate=new Date(Date.UTC(fallback.getUTCFullYear(),fallback.getUTCMonth(),fallback.getUTCDate()));
+ var hour=fallback.getUTCHours(),slot='07';
+ if(hour>=23)slot='23';
+ else if(hour>=18)slot='18';
+ else if(hour>=7)slot='07';
+ else{slot='23';slotDate.setUTCDate(slotDate.getUTCDate()-1);}
+ return slotDate.toISOString().slice(0,10)+'|'+slot;
 }
 window.__dastyarBirthdayReminderRecords=window.__dastyarBirthdayReminderRecords||[];
 window.loadTeacherBirthdayReminders=async function(){
@@ -7471,12 +7478,11 @@ window.loadTeacherBirthdayReminders=async function(){
  }
  if(!window.sb||!navigator.onLine){loadLocal();return;}
  try{
-  /* یادآوری‌ها فقط یک بار در هر روز شمسیِ تهران از سرور خوانده می‌شوند؛
-     جستجوی دانش‌آموزان فقط وظیفه زمان‌بندی شبانه سرور است. */
+  /* در هر یک از سه نوبت ۰۷، ۱۸ و ۲۳ تهران فقط یک بار از سرور دریافت می‌شود؛
+     جستجو و تولید یادآوری‌ها همچنان فقط در زمان‌بندی مستقل سرور انجام می‌شود. */
   var alreadyChecked=false;
   try{alreadyChecked=localStorage.getItem(dailyCheckKey)===tehranDateKey;}catch(e){}
   if(alreadyChecked){loadLocal();return;}
-  try{localStorage.setItem(dailyCheckKey,tehranDateKey);}catch(e){}
   var pending=[];
   try{pending=JSON.parse(localStorage.getItem(pendingKey)||'[]')||[];}catch(e){}
   if(Array.isArray(pending)&&pending.length){
@@ -7489,6 +7495,8 @@ window.loadTeacherBirthdayReminders=async function(){
    p_username:username,p_password:String(window.__dastyarSessionPassword||'')
   });
   if(result.error)throw result.error;
+  /* فقط پس از دریافت موفق، نوبت جاری ثبت می‌شود تا خطا مانع تلاش مجدد نشود. */
+  try{localStorage.setItem(dailyCheckKey,tehranDateKey);}catch(e){}
   var hiddenPending=new Set((Array.isArray(pending)?pending:[]).map(String));
   window.__dastyarBirthdayReminderRecords=(Array.isArray(result.data)?result.data:[]).filter(function(r){return !hiddenPending.has(String(r.id));});
   try{localStorage.setItem(cacheKey,JSON.stringify(window.__dastyarBirthdayReminderRecords));}catch(e){}
