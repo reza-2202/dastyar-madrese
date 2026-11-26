@@ -117,7 +117,7 @@
     },220);
   }
   function installBadge(){updateOfflineBadge();}
-  function tableForCache(name){var map={sa_users:'users',sa_classes:'classes',sa_students:'students',sa_attendance:'attendance',sa_scores:'scores',sa_competencies:'competencies',sa_activities:'activities',sa_evaluations:'evaluations',sa_discipline:'discipline',sa_finance:'finance'};return map[name]||null;}
+  function tableForCache(name){var map={sa_users:'users',sa_classes:'classes',sa_students:'students',sa_attendance:'attendance',sa_scores:'scores',sa_competencies:'competencies',sa_activities:'activities',sa_evaluations:'evaluations',sa_discipline:'discipline',sa_finance:'finance',sa_student_guidance:'student_guidance'};return map[name]||null;}
   function rowMatches(row,filters){return (filters||[]).every(function(f){if(f.type==='in')return Array.isArray(f.val)&&f.val.some(function(v){return String(row&&row[f.col])===String(v);});if(f.type!=='eq')return true;return String(row&&row[f.col])===String(f.val);});}
   function overlayPending(name,filters,data){return allQueue().then(function(items){var out=clone(data);items.filter(function(i){return i.table===name;}).forEach(function(i){var rows=Array.isArray(out)?out:(out?[out]:[]);if(i.method==='POST'){var payload=Array.isArray(i.payload)?i.payload:[i.payload];payload.forEach(function(p){if(!p)return;var ix=rows.findIndex(function(r){return r&&p.id!=null&&String(r.id)===String(p.id);});if(ix<0&&p.code)ix=rows.findIndex(function(r){return r&&r.code&&String(r.code)===String(p.code);});if(ix<0&&p.username)ix=rows.findIndex(function(r){return r&&r.username&&String(r.username)===String(p.username);});if(ix>=0)rows[ix]=Object.assign({},rows[ix],p);else if(rowMatches(p,filters))rows.push(clone(p));});}else if(i.method==='PATCH'){rows.forEach(function(r){if(rowMatches(r,i.filters))Object.assign(r,clone(i.payload));});}else if(i.method==='DELETE'){rows=rows.filter(function(r){return !rowMatches(r,i.filters);});}out=Array.isArray(out)?rows:(rows[0]||null);});return out;}).catch(function(){return data;});}
   function isNetworkFailure(err){return !global.navigator.onLine||!!(err&&(err.name==='TypeError'||err.name==='AbortError'||/fetch|network|failed|timeout|اتصال|پاسخ نگرفت/i.test(String(err.message||err))));}
@@ -2124,7 +2124,7 @@ const TEACHERS = {
 };
 
 let sb, user=null, loginRole='admin', attState={}, printSet=new Set(), editSid=null;
-let cache={users:[],classes:[],students:[],attendance:[],parent_contacts:[],scores:[],competencies:[],activities:[],evaluations:[],discipline:[],finance:[]};
+let cache={users:[],classes:[],students:[],attendance:[],parent_contacts:[],scores:[],competencies:[],activities:[],evaluations:[],discipline:[],finance:[],student_guidance:[]};
 
 function uid(){
   try{if(window.crypto&&typeof window.crypto.randomUUID==='function')return window.crypto.randomUUID();}catch(e){}
@@ -2663,7 +2663,7 @@ async function flushPendingAttendanceToServer(){
 
 async function reloadAll(){
   if(window.__dastyarFastNavigation)return Promise.resolve();
-  const [u,c,s,a,sc,co,ac,ev,di,fi,pc] = await Promise.all([
+  const [u,c,s,a,sc,co,ac,ev,di,fi,pc,sg] = await Promise.all([
     sb.from('sa_users').select('*'),
     sb.from('sa_classes').select('*').order('grade'),
     sb.from('sa_students').select('*'),
@@ -2674,12 +2674,13 @@ async function reloadAll(){
     sb.from('sa_evaluations').select('*').order('created_at',{ascending:false}),
     sb.from('sa_discipline').select('*').order('created_at',{ascending:false}),
     sb.from('sa_finance').select('*').order('created_at',{ascending:false}),
-    sb.from('sa_parent_contacts').select('*').order('created_at',{ascending:false})
+    sb.from('sa_parent_contacts').select('*').order('created_at',{ascending:false}),
+    sb.from('sa_student_guidance').select('*').order('created_at',{ascending:false})
   ]);
   if(a&&!a.error&&Array.isArray(a.data)) window.__dastyarAttendanceAuthoritative=true;
-  const previous={users:cache.users,classes:cache.classes,students:cache.students,attendance:cache.attendance,scores:cache.scores,competencies:cache.competencies,activities:cache.activities,evaluations:cache.evaluations,discipline:cache.discipline,finance:cache.finance,parent_contacts:cache.parent_contacts};
-  const results=[u,c,s,a,sc,co,ac,ev,di,fi,pc];
-  const names=['users','classes','students','attendance','scores','competencies','activities','evaluations','discipline','finance','parent_contacts'];
+  const previous={users:cache.users,classes:cache.classes,students:cache.students,attendance:cache.attendance,scores:cache.scores,competencies:cache.competencies,activities:cache.activities,evaluations:cache.evaluations,discipline:cache.discipline,finance:cache.finance,parent_contacts:cache.parent_contacts,student_guidance:cache.student_guidance};
+  const results=[u,c,s,a,sc,co,ac,ev,di,fi,pc,sg];
+  const names=['users','classes','students','attendance','scores','competencies','activities','evaluations','discipline','finance','parent_contacts','student_guidance'];
   names.forEach((name,i)=>{
     const r=results[i];
     const prev=previous[name]||[];
@@ -2724,6 +2725,7 @@ async function reloadAll(){
   }
   if((cache.students||[]).length>0 && results.some(r=>r&&!r.error&&r.data!==null&&r.data!==undefined)){
     try{if(window.DastyarOffline)await window.DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){console.warn('ذخیره نسخه محلی اطلاعات انجام نشد',e);}
+    try{checkUpcomingStudentBirthdays();}catch(birthdayError){console.warn('یادآوری تولد اجرا نشد',birthdayError);}
   } else if(!(cache.students||[]).length&&!studentsServerAuthoritative){
     await restoreOfflineSnapshot();
     applyCacheDedupe();
@@ -4041,6 +4043,7 @@ function refreshDash(){
   // محاسبه شمارنده‌ها و درخواست‌های مخصوص داشبورد را به نوبت ورود به داشبورد موکول کن.
   var dashboardPage=document.getElementById('page-dashboard');
   if(dashboardPage&&!dashboardPage.classList.contains('on'))return;
+  try{checkUpcomingStudentBirthdays();}catch(birthdayError){console.warn('یادآوری تولد اجرا نشد',birthdayError);}
   try{refreshDashboardEvaluationDisciplineCache();}catch(e){}
   try{ if(typeof refreshDashboardDocumentCache==='function') refreshDashboardDocumentCache(); }catch(e){}
   try{ if(typeof renderSmartReminders==='function') renderSmartReminders(); }catch(e){}
@@ -5811,6 +5814,7 @@ async function saveDiscipline(){
  if(dossier) openStudentDossier(studentId);
  try{refreshDash();}catch(e){}
  toast(result&&result.offline?'مورد انضباطی در گوشی ذخیره شد و پس از اتصال اینترنت همگام‌سازی می‌شود.':'مورد انضباطی آنلاین ثبت شد و در پرونده دانش‌آموز قرار گرفت');
+ await promptGuidanceAfterRecord(studentId,classId,'discipline',row.id,category,date);
 }
 function isParentInviteFeedback(value){return String(value||'').replace(/[\u200c\s]/g,'').trim()==='دعوتاولیا';}
 let selectedDisciplineInvites=new Set();
@@ -5864,7 +5868,7 @@ function renderDisciplineList(){
   const proposed=(r.feedback==='دعوت اولیا'&&(r.invite_date||r.invite_time))?'<div class="meta" style="margin-top:5px;color:#1d4ed8">زمان پیشنهادی حضور اولیا: '+escHtml(r.invite_date||'تعیین نشده')+(r.invite_time?' ساعت '+escHtml(r.invite_time):'')+'</div>':'';
   var warnCount=(st&&typeof disciplineWarningCount==='function')?disciplineWarningCount(st.id):0;
   var warnBadge=warnCount>=3?' <span style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:999px;padding:2px 8px;font-size:.75rem;font-weight:800">هشدار انضباطی ('+fa(warnCount)+')</span>':'';
-  return '<div class="card" style="padding:12px">'+inviteSelect+'<div class="name">'+(st&&typeof studentNameWithPhoto==='function'?studentNameWithPhoto(st,32):escHtml(st?(st.first_name||'')+' '+(st.last_name||''):'دانش‌آموز'))+warnBadge+'</div><div class="meta">کلاس: '+escHtml(cl?.label||'')+' | تاریخ: '+escHtml(r.date||'')+' | '+escHtml(r.weekday||'')+'</div><div class="meta">موضوع: '+escHtml(r.category||'انضباطی')+' | بازخورد: <b>'+escHtml(r.feedback||'ثبت نشده')+'</b></div>'+proposed+'<div style="margin-top:8px;white-space:pre-wrap">'+escHtml(r.details||'')+'</div><small>ثبت‌کننده: '+escHtml(r.created_by||'')+' · سابقه انضباطی: '+fa(warnCount)+' مورد</small>'+decision+action+'</div>';
+  return '<div class="card" style="padding:12px">'+inviteSelect+'<div class="name">'+(st&&typeof studentNameWithPhoto==='function'?studentNameWithPhoto(st,32):escHtml(st?(st.first_name||'')+' '+(st.last_name||''):'دانش‌آموز'))+warnBadge+'</div><div class="meta">کلاس: '+escHtml(cl?.label||'')+' | تاریخ: '+escHtml(r.date||'')+' | '+escHtml(r.weekday||'')+'</div><div class="meta">موضوع: '+escHtml(r.category||'انضباطی')+' | بازخورد: <b>'+escHtml(r.feedback||'ثبت نشده')+'</b></div>'+proposed+'<div style="margin-top:8px;white-space:pre-wrap">'+escHtml(r.details||'')+'</div><small>ثبت‌کننده: '+escHtml(r.created_by||'')+' · سابقه انضباطی: '+fa(warnCount)+' مورد</small>'+'<div class="no-print" style="margin-top:8px"><button type="button" class="btn btn-p btn-sm" onclick="startGuidanceForRecord(\'discipline\',\''+guidanceEscape(r.id)+'\')">✍️ راهکار و تکلیف برای رفع مشکل</button></div>'+renderGuidanceForSource('discipline',r.id)+decision+action+'</div>';
  }).join('');
  // خلاصه هشدار برای مدیر
  try{
@@ -6722,6 +6726,8 @@ async function saveAct(){
     return;
   }
   await reloadAll();cache.activities=applyQaTombstones(cache.activities);if(rows.some(function(r){return r&&r.type==='qa';})){for(var qaRow of rows.filter(function(r){return r&&r.type==='qa';})){var savedQa=(cache.activities||[]).find(function(a){return String(a.id)===String(qaRow.id);})||qaRow;try{await syncOneDailyQaEvaluation(savedQa,false,false);}catch(syncErr){console.warn('ثبت ارزشیابی مرتبط با پرسش‌وپاسخ ناموفق بود',syncErr);}}await buildClosedMonthQaEvaluations();refreshQaEvaluationDashboard();}document.getElementById('ac-form').innerHTML='';window.editingActivityId='';await loadActivities();if(rows.some(function(r){return r&&r.type==='qa';})){try{await syncQaReportCardAverages(rows.filter(function(r){return r&&r.type==='qa';}).map(function(r){return r.student_id;}));}catch(scoreSyncErr){console.warn('به‌روزرسانی میانگین کارنامه پس از ثبت پرسش ناموفق بود',scoreSyncErr);}}try{refreshDash();}catch(e){}toast(rows.length>1?fa(rows.length)+' پرسش و پاسخ ثبت شد':'ثبت آنلاین شد');
+ if(rows.length===1&&rows[0].type==='qa')await promptGuidanceAfterRecord(rows[0].student_id,rows[0].class_id,'daily_qa',rows[0].id,rows[0].subject,rows[0].date);
+ else if(rows.length>1&&rows.every(function(r){return r&&r.type==='qa';}))toast('برای ثبت راهکار هر دانش‌آموز، دکمه «راهکار و تکلیف» را در کارت همان دانش‌آموز انتخاب کنید.');
 }
 async function deleteQaActivity(id){
   var row=cache.activities.find(function(a){return String(a.id)===String(id)&&a.type==='qa';});if(!row){toast('فقط رکورد پرسش و پاسخ قابل حذف است');return;}
@@ -6757,7 +6763,7 @@ async function loadActivities(skipServerReload){
   var html=renderQaPerformance(performanceRows);
   if(!list.length){box.innerHTML=html+'<div class="empty">برای این فیلتر موردی ثبت نشده</div>';return;}
   html+='<div class="card"><div class="ct">📋 '+(fWd||'')+' '+(fDate||'همه روزها')+' — '+fa(list.length)+' مورد</div></div>';
-  html+=list.map(function(a){var st=cache.students.find(function(x){return String(x.id)===String(a.student_id);});var isQa=a.type==='qa';return '<div class="card" style="padding:12px"><div class="name">'+(st&&typeof studentNameWithPhoto==='function'?studentNameWithPhoto(st,32):escHtml(st?st.first_name+' '+st.last_name:''))+'</div><div class="meta">📅 '+escHtml(a.weekday||'')+' '+escHtml(a.date||'')+' | '+(isQa?'پرسش و پاسخ':'فعالیت کلاسی')+' | '+escHtml(a.subject||'')+(isQa&&a.score!=null?' | نمره: '+escHtml(a.score)+'/۲۰':'')+'</div><div style="margin-top:4px">'+badge(a.level)+'</div>'+(a.notes?'<div class="meta" style="margin-top:4px;white-space:pre-wrap">'+escHtml(a.notes)+'</div>':'')+(isQa?'<div style="display:flex;gap:7px;margin-top:9px;flex-wrap:wrap"><button class="btn btn-o btn-sm" onclick="showActForm(\''+String(a.id).replace(/'/g,'')+'\')">✏️ ویرایش</button><button class="btn btn-o btn-sm" onclick="deleteQaActivity(\''+String(a.id).replace(/'/g,'')+'\')">🗑️ حذف</button></div>':'')+'</div>';}).join('');
+  html+=list.map(function(a){var st=cache.students.find(function(x){return String(x.id)===String(a.student_id);});var isQa=a.type==='qa';return '<div class="card" style="padding:12px"><div class="name">'+(st&&typeof studentNameWithPhoto==='function'?studentNameWithPhoto(st,32):escHtml(st?st.first_name+' '+st.last_name:''))+'</div><div class="meta">📅 '+escHtml(a.weekday||'')+' '+escHtml(a.date||'')+' | '+(isQa?'پرسش و پاسخ':'فعالیت کلاسی')+' | '+escHtml(a.subject||'')+(isQa&&a.score!=null?' | نمره: '+escHtml(a.score)+'/۲۰':'')+'</div><div style="margin-top:4px">'+badge(a.level)+'</div>'+(a.notes?'<div class="meta" style="margin-top:4px;white-space:pre-wrap">'+escHtml(a.notes)+'</div>':'')+(isQa?'<div style="display:flex;gap:7px;margin-top:9px;flex-wrap:wrap"><button class="btn btn-p btn-sm" onclick="startGuidanceForRecord(\'daily_qa\',\''+String(a.id).replace(/'/g,'')+'\')">✍️ راهکار و تکلیف</button><button class="btn btn-o btn-sm" onclick="showActForm(\''+String(a.id).replace(/'/g,'')+'\')">✏️ ویرایش</button><button class="btn btn-o btn-sm" onclick="deleteQaActivity(\''+String(a.id).replace(/'/g,'')+'\')">🗑️ حذف</button></div>'+renderGuidanceForSource('daily_qa',a.id):'')+'</div>';}).join('');
   box.innerHTML=html;
 }
 try{ if(typeof buildClosedMonthQaEvaluations==='function') buildClosedMonthQaEvaluations(); }catch(e){}
@@ -7300,6 +7306,63 @@ function monthlyStudentAssessmentHtml(student,rows,month,cl,photo,analysis){
  '</tr></thead><tbody>'+(body||'<tr><td colspan="7" class="monthly-assessment-empty">برای این دانش‌آموز در ماه انتخاب‌شده میانگین یکپارچه‌ای ثبت نشده است.</td></tr>')+'</tbody></table>'+
  '<footer class="monthly-assessment-signatures"><span>معلم: '+escHtml(cl&&cl.teacher_name?cl.teacher_name:'—')+'</span><span>مدیر: '+escHtml(typeof PRINCIPAL!=='undefined'?PRINCIPAL:'—')+'</span></footer></section>';
 }
+
+/* راهکار و تکلیف اختصاصی دانش‌آموز؛ مستقل از سوابق اصلی */
+function guidanceEscape(v){return escHtml(String(v==null?'':v));}
+function guidanceRows(sourceType,sourceId){return (cache.student_guidance||[]).filter(function(r){return String(r.source_type)===String(sourceType)&&String(r.source_id||'')===String(sourceId||'');}).sort(function(a,b){return String(b.created_at||'').localeCompare(String(a.created_at||''));});}
+async function saveStudentGuidance(row){
+ if(!row||!row.student_id||!row.class_id||(!String(row.guidance||'').trim()&&!String(row.homework||'').trim())){toast('راهکار یا تکلیف را بنویسید');return false;}
+ row.id=row.id||uid();row.updated_at=new Date().toISOString();row.created_at=row.created_at||row.updated_at;row.created_by=row.created_by||(user&&user.full_name)||'';row.created_role=row.created_role||(user&&user.role)||'';
+ var res=await sb.from('sa_student_guidance').upsert(row);if(res&&res.error){toast('ذخیره راهکار انجام نشد: '+res.error.message);return false;}
+ var at=(cache.student_guidance||[]).findIndex(function(x){return String(x.id)===String(row.id);});if(at>=0)cache.student_guidance[at]=Object.assign({},cache.student_guidance[at],row);else cache.student_guidance=(cache.student_guidance||[]).concat([row]);
+ try{persistLocalSchoolCache();}catch(e){}try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}return true;
+}
+function shareStudentGuidance(id){
+ var r=(cache.student_guidance||[]).find(function(x){return String(x.id)===String(id);});if(!r){toast('راهکار پیدا نشد');return;}
+ var st=(cache.students||[]).find(function(x){return String(x.id)===String(r.student_id);}),cl=(cache.classes||[]).find(function(x){return String(x.id)===String(r.class_id);});
+ var context='';if(r.source_type==='monthly_assessment'){try{var mr=monthlyAssessmentRowsForStudent(r.student_id)||[],an=monthlyAssessmentBuildNarrative(r.student_id,mr,r.month||'');context='\n\nخلاصه ارزشیابی ماهانه:\n'+String(an||'')+'\nشواهد و نتایج ثبت‌شده:\n'+mr.map(function(x){return (x.subject||'درس')+': '+(x.score==null?(x.level||'ثبت شده'):x.score+'/۲۰')+(x.notes?' — '+x.notes:'');}).join('\n');}catch(e){}}else if(r.source_type==='daily_qa'){var qa=(cache.activities||[]).find(function(x){return String(x.id)===String(r.source_id);});if(qa)context='\n\nپرسش و پاسخ ثبت‌شده: '+(qa.subject||'')+'، تاریخ '+(qa.date||'')+'، نمره '+(qa.score==null?'ثبت نشده':qa.score+'/۲۰')+(qa.notes?'\nتوضیحات: '+qa.notes:'');}else if(r.source_type==='discipline'){var di=(cache.discipline||[]).find(function(x){return String(x.id)===String(r.source_id);});if(di)context='\n\nمورد ثبت‌شده: '+(di.category||'انضباطی')+'، تاریخ '+(di.date||'')+'\nشرح: '+(di.details||'');}var msg='دبستان شهید فتح‌الله فلاح‌پور\n'+(st?'دانش‌آموز: '+st.first_name+' '+st.last_name:'')+'\n'+(cl?'کلاس: '+cl.label:'')+'\n'+(r.subject?'درس/موضوع: '+r.subject+'\n':'')+(r.month?'ماه: '+r.month+'\n':'')+context+'\n\nراهکار معلم:\n'+(r.guidance||'—')+'\n\nتکلیف پیشنهادی:\n'+(r.homework||'—')+(r.duration?'\n\nمدت/تکرار: '+r.duration:'')+'\n\nمعلم: '+(r.created_by||'معلم مربوطه');
+ if(navigator.share)navigator.share({title:'راهکار و تکلیف دانش‌آموز',text:msg}).catch(function(e){if(e&&e.name!=='AbortError')copyGuidanceText(msg);});else copyGuidanceText(msg);
+}
+function copyGuidanceText(msg){if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(msg).then(function(){toast('متن آماده شد؛ آن را در شاد یا پیام‌رسان دلخواه جای‌گذاری کنید');}).catch(function(){prompt('متن را کپی کنید',msg);});else prompt('متن را کپی کنید',msg);}
+function renderGuidanceForSource(sourceType,sourceId){var rows=guidanceRows(sourceType,sourceId);var action='<button type="button" class="btn btn-p btn-sm no-print" style="margin-top:5px" onclick="startGuidanceForRecord(\''+guidanceEscape(sourceType)+'\',\''+guidanceEscape(sourceId)+'\')">✍️ ثبت یا تکمیل راهکار و تکلیف</button>';if(!rows.length)return '<div class="no-print" style="margin-top:8px">'+action+'</div>';return '<div style="margin-top:9px;padding:9px;border:1px solid #bfdbfe;border-radius:10px;background:#eff6ff"><b style="color:#1e40af">راهکار و تکلیف معلم</b>'+action+rows.map(function(r){return '<div style="margin-top:6px;white-space:pre-wrap;font-size:.82rem">'+(r.guidance?'<b>راهکار:</b> '+guidanceEscape(r.guidance)+'<br>':'')+(r.homework?'<b>تکلیف:</b> '+guidanceEscape(r.homework)+'<br>':'')+(r.duration?'<small>مدت/تکرار: '+guidanceEscape(r.duration)+'</small><br>':'')+'<button type="button" class="btn btn-s btn-sm no-print" style="margin-top:5px" onclick="shareStudentGuidance(\''+guidanceEscape(r.id)+'\')">اشتراک‌گذاری در شاد و پیام‌رسان‌ها</button></div>';}).join('')+'</div>';}
+function startGuidanceForRecord(sourceType,sourceId){var row=sourceType==='daily_qa'?(cache.activities||[]).find(function(x){return String(x.id)===String(sourceId);}):(cache.discipline||[]).find(function(x){return String(x.id)===String(sourceId);});if(!row){toast('سابقه موردنظر پیدا نشد');return;}promptGuidanceAfterRecord(row.student_id,row.class_id,sourceType,sourceId,sourceType==='daily_qa'?row.subject:row.category,row.date);}
+async function promptGuidanceAfterRecord(studentId,classId,sourceType,sourceId,subject,month){
+ var st=(cache.students||[]).find(function(x){return String(x.id)===String(studentId);});if(!st)return;
+ if(!confirm('ثبت انجام شد. آیا می‌خواهید برای '+st.first_name+' '+st.last_name+' راهکار و تکلیف اختصاصی معلم ثبت کنید؟'))return;
+ var guidance=prompt('راهکار معلم برای رفع مشکل یا تقویت یادگیری را بنویسید:');if(guidance===null)return;
+ var homework=prompt('تکلیف اختصاصی دانش‌آموز را بنویسید (در صورت نداشتن، خالی بگذارید):');if(homework===null)return;
+ var duration=prompt('مدت یا تعداد دفعات انجام تکلیف (اختیاری):')||'';
+ if(await saveStudentGuidance({student_id:String(studentId),class_id:String(classId),source_type:sourceType,source_id:String(sourceId),subject:subject||'',month:month||'',guidance:guidance.trim(),homework:homework.trim(),duration:duration.trim()})){toast('راهکار و تکلیف ذخیره شد؛ قابل اشتراک‌گذاری است');try{if(sourceType==='daily_qa')await loadActivities(true);else if(sourceType==='discipline')renderDisciplineList();}catch(e){}}
+}
+function renderMonthlyStudentGuidance(student,month){
+ var key='monthly:'+String(month||'')+':'+String(student.id),old=guidanceRows('monthly_assessment',key)[0]||'';
+ return '<section class="no-print" style="margin-top:12px;padding:12px;border:1px solid #93c5fd;border-radius:12px;background:#eff6ff"><div style="font-weight:800;color:#1e40af">✍️ راهکارها و تکالیف پیشنهادی معلم</div><p class="meta">بر اساس تحلیل نمرات و شواهد همگام‌شده این ماه، راهکار و تکلیف را خود معلم تعیین و ثبت می‌کند.</p><div class="fg"><label>راهکار معلم</label><textarea id="monthly-guidance-text" rows="3" placeholder="راهکار پیشنهادی...">'+guidanceEscape(old.guidance||'')+'</textarea></div><div class="fg"><label>تکلیف اختصاصی دانش‌آموز</label><textarea id="monthly-homework-text" rows="3" placeholder="تمرین‌ها و تکالیف مشخص...">'+guidanceEscape(old.homework||'')+'</textarea></div><div class="fg"><label>مدت یا تکرار (اختیاری)</label><input id="monthly-guidance-duration" value="'+guidanceEscape(old.duration||'')+'" placeholder="مثلاً روزانه ۱۵ دقیقه به مدت یک هفته"/></div><button type="button" class="btn btn-p btn-sm" onclick="saveMonthlyStudentGuidance()">💾 ثبت راهکار و تکلیف</button>'+(old.id?'<button type="button" class="btn btn-s btn-sm" style="margin-right:6px" onclick="shareStudentGuidance(\''+guidanceEscape(old.id)+'\')">اشتراک‌گذاری در شاد و پیام‌رسان‌ها</button>':'')+'</section>';
+}
+async function saveMonthlyStudentGuidance(){
+ var sid=(document.getElementById('ev-monthly-student')||{}).value,student=(cache.students||[]).find(function(x){return String(x.id)===String(sid);}),month=(document.getElementById('ev-month')||{}).value||'',classId=(document.getElementById('ev-class')||{}).value||'';
+ if(!student||!classId){toast('دانش‌آموز و کلاس را انتخاب کنید');return;}
+ var key='monthly:'+String(month)+':'+String(student.id),old=guidanceRows('monthly_assessment',key)[0]||{};
+ var ok=await saveStudentGuidance({id:old.id||uid(),student_id:String(student.id),class_id:String(classId),source_type:'monthly_assessment',source_id:key,month:month,subject:'جمع‌بندی ارزشیابی ماهانه',guidance:(document.getElementById('monthly-guidance-text')||{}).value||'',homework:(document.getElementById('monthly-homework-text')||{}).value||'',duration:(document.getElementById('monthly-guidance-duration')||{}).value||'',created_by:old.created_by||''});
+ if(ok){renderMonthlyStudentAssessment();toast('راهکار ماهانه ثبت شد و آماده اشتراک‌گذاری است');}
+}
+function shareBirthdayGreeting(studentId){
+ var st=(cache.students||[]).find(function(x){return String(x.id)===String(studentId);});if(!st)return;
+ var msg='🌷 یک روز مانده به تولدت، تولدت را تبریک می‌گوییم!\nدانش‌آموز عزیز '+st.first_name+' '+st.last_name+'، امیدواریم سالی سرشار از سلامتی، شادی، یادگیری و موفقیت پیش رو داشته باشی.\n\nبا مهر؛ مدیریت دبستان شهید فتح‌الله فلاح‌پور و معلم عزیزت';
+ if(navigator.share)navigator.share({title:'تبریک تولد دانش‌آموز',text:msg}).catch(function(e){if(e&&e.name!=='AbortError')copyGuidanceText(msg);});else copyGuidanceText(msg);
+}
+function checkUpcomingStudentBirthdays(){
+ if(!user||user.role!=='teacher'||!Array.isArray(cache.students)||!cache.students.length)return;
+ var p=null;try{p=parseJalali(today());}catch(e){}if(!p)return;
+ var lastDay=p.jm<=6?31:(p.jm<=11?30:Math.round((Date.UTC(jalaliToGregorian(p.jy+1,1,1).gy,jalaliToGregorian(p.jy+1,1,1).gm-1,jalaliToGregorian(p.jy+1,1,1).gd)-Date.UTC(jalaliToGregorian(p.jy,12,1).gy,jalaliToGregorian(p.jy,12,1).gm-1,jalaliToGregorian(p.jy,12,1).gd))/86400000));
+ var y=p.jy,m=p.jm,d=p.jd+1;if(d>lastDay){d=1;m++;if(m>12){m=1;y++;}}
+ var target=String(m).padStart(2,'0')+'/'+String(d).padStart(2,'0'),key='dastyar_birth_reminder_'+today(),seen=[];try{seen=JSON.parse(localStorage.getItem(key)||'[]');}catch(e){}
+ var allowed=new Set((typeof myClasses==='function'?myClasses():[]).map(function(c){return String(c.id);}));
+ var upcoming=(cache.students||[]).filter(function(st){if(!st||!st.birth_date||!allowed.has(String(st.class_id))||seen.includes(String(st.id)))return false;var b=null;try{b=parseJalali(st.birth_date);}catch(e){}return !!(b&&String(b.jm).padStart(2,'0')+'/'+String(b.jd).padStart(2,'0')===target);});
+ if(!upcoming.length)return;upcoming.forEach(function(st){seen.push(String(st.id));});try{localStorage.setItem(key,JSON.stringify(seen));}catch(e){}
+ alert('🎂 یادآوری تولد فردا\n\n'+upcoming.map(function(st){return '• '+st.first_name+' '+st.last_name;}).join('\n')+'\n\nبرای هر دانش‌آموز پیام تبریک آماده و قابل اشتراک‌گذاری است.');
+ if(upcoming.length===1&&confirm('پیام تبریک '+upcoming[0].first_name+' '+upcoming[0].last_name+' را برای اشتراک‌گذاری آماده کنم؟'))shareBirthdayGreeting(upcoming[0].id);
+}
+
 function renderMonthlyStudentAssessment(){
  const select=document.getElementById('ev-monthly-student'),box=document.getElementById('ev-monthly-student-report'),actions=document.getElementById('ev-monthly-student-actions');
  if(!select||!box)return;
@@ -7314,7 +7377,7 @@ function renderMonthlyStudentAssessment(){
  const rows=monthlyAssessmentRowsForStudent(sid),cl=(cache.classes||[]).find(function(c){return String(c.id)===String(classId);}),month=(document.getElementById('ev-month')||{}).value||'';
  var photoCheck=document.getElementById('ev-monthly-include-photo');if(photoCheck){photoCheck.disabled=!student.photo;photoCheck.title=student.photo?'عکس ثبت‌شده در پرونده دانش‌آموز استفاده می‌شود':'برای این دانش‌آموز عکسی در پرونده ثبت نشده است';}
  const analysis=monthlyAssessmentBuildNarrative(sid,rows,month);
- box.innerHTML=monthlyStudentAssessmentHtml(student,rows,month,cl,monthlyAssessmentPhotoForStudent(student.id),analysis);
+ box.innerHTML=monthlyStudentAssessmentHtml(student,rows,month,cl,monthlyAssessmentPhotoForStudent(student.id),analysis)+renderMonthlyStudentGuidance(student,month);
  if(actions)actions.style.display='flex';
 }
 function getSelectedMonthlyStudentAssessment(){
