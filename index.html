@@ -7081,16 +7081,16 @@ function monthlyAssessmentRowsForStudent(studentId){
 }
 function monthlyAssessmentCountFromNotes(notes){
  const text=String(notes||'');
- let m=text.match(/تعداد ثبت پرسش(?:‌|\\s)*و(?:‌|\\s)*پاسخ و آزمون\\s*:\\s*([۰-۹0-9]+)/);
- if(!m)m=text.match(/تعداد\\s*([۰-۹0-9]+)\\s*ارزیابی/);
+ let m=text.match(/تعداد ثبت پرسش(?:‌|\s)*و(?:‌|\s)*پاسخ و آزمون\s*:\s*([۰-۹0-9]+)/);
+ if(!m)m=text.match(/تعداد\s*([۰-۹0-9]+)\s*ارزیابی/);
  if(!m)return '—';
  return m[1].replace(/[۰-۹]/g,function(c){return String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c));});
 }
 function monthlyAssessmentFeedbackFromNotes(notes){
  const text=String(notes||'');
- const modern=text.match(/از\\s*۲۰[.。]\\s*(.*)$/);
+ const modern=text.match(/از\s*۲۰[.。]\s*(.*)$/);
  if(modern&&modern[1])return modern[1].trim();
- const legacy=text.replace(/^در ماه .*?سطح آن .*?است[.。]\\s*/,'').trim();
+ const legacy=text.replace(/^در ماه .*?سطح آن .*?است[.。]\s*/,'').trim();
  return legacy||text;
 }
 function monthlyStudentAssessmentHtml(student,rows,month,cl){
