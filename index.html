@@ -6617,14 +6617,7 @@ function exportQaReportWord(){
       return;
     }
     var blob=new Blob(['\ufeff'+full],{type:'application/msword'});
-    var url=URL.createObjectURL(blob);
-    var a=document.createElement('a');
-    a.href=url;
-    a.download='گزارش-پرسش-و-پاسخ.doc';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(function(){URL.revokeObjectURL(url);},2000);
+    window.downloadFileBlob(blob,'گزارش-پرسش-و-پاسخ.doc');
     toast('فایل Word آماده شد');
   }catch(e){
     try{
@@ -10637,13 +10630,14 @@ var downloadFileSequence=0;
     var link=document.createElement('a'),url=URL.createObjectURL(blob);
     var raw=String(fileName||'گزارش'),dot=raw.lastIndexOf('.');
     var ext=dot>0?raw.slice(dot):'',stem=dot>0?raw.slice(0,dot):raw;
-    var stamp=new Date().toISOString().replace(/\D/g,'').slice(0,14);
+    var stamp=new Date().toISOString().replace(/\D/g,'').slice(0,17);
     link.href=url;link.download=stem+'_'+stamp+'_'+(++downloadFileSequence)+ext;
-    link.style.cssText='position:fixed;left:0;top:0;width:1px;height:1px;opacity:.01;z-index:-1;pointer-events:none';
+    link.target='_self';link.rel='noopener';link.tabIndex=-1;
+    link.style.cssText='position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:.01;z-index:2147483647;overflow:hidden;pointer-events:auto';
     link.setAttribute('aria-hidden','true');document.body.appendChild(link);
     try{link.click();}catch(e){try{URL.revokeObjectURL(url);}catch(ignore){}if(link.parentNode)link.parentNode.removeChild(link);throw e;}
-    setTimeout(function(){if(link.parentNode)link.parentNode.removeChild(link);},1500);
-    setTimeout(function(){try{URL.revokeObjectURL(url);}catch(ignore){}},120000);
+    setTimeout(function(){if(link.parentNode)link.parentNode.removeChild(link);},30000);
+    setTimeout(function(){try{URL.revokeObjectURL(url);}catch(ignore){}},180000);
     return true;
   };
   window.downloadWordHtml=function(title,html,landscape){
@@ -10918,7 +10912,7 @@ function docxParagraph(text,bold,align){return '<w:p><w:pPr><w:bidi/><w:jc w:val
 function docxCell(text,header){return '<w:tc><w:tcPr><w:tcW w:w="1900" w:type="dxa"/><w:shd w:fill="'+(header?'DCEBFA':'FFFFFF')+'"/></w:tcPr>'+docxParagraph(text,!!header,'center')+'</w:tc>';}
 function docxRow(cells,header){return '<w:tr>'+(header?'<w:trPr><w:tblHeader/></w:trPr>':'')+cells.map(function(c){return docxCell(c,header)}).join('')+'</w:tr>';}
 function downloadDocx(name,rows,from,to){var head=['ردیف','کلاس','نام و نام خانوادگی','شماره تلفن','تاریخ','وضعیت'];var body=[docxParagraph('گزارش غایبین دبستان شهید فتح‌الله فلاح‌پور',true,'center'),docxParagraph('از تاریخ: '+(from||'ابتدای سوابق')+' — تا تاریخ: '+(to||'امروز'),false,'center'),docxParagraph('تعداد موارد: '+rows.length,false,'right')];var table='<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/><w:bidiVisual/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="94A3B8"/><w:left w:val="single" w:sz="6" w:color="94A3B8"/><w:bottom w:val="single" w:sz="6" w:color="94A3B8"/><w:right w:val="single" w:sz="6" w:color="94A3B8"/><w:insideH w:val="single" w:sz="4" w:color="CBD5E1"/><w:insideV w:val="single" w:sz="4" w:color="CBD5E1"/></w:tblBorders></w:tblPr>'+docxRow(head,true)+rows.map(function(r,i){return docxRow([String(i+1),r.className,r.studentName,r.phone||'—',r.date,r.status],false)}).join('')+'</w:tbl>';body.push(table);var documentXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'+body.join('')+'<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="850" w:right="850" w:bottom="850" w:left="850"/><w:bidi/></w:sectPr></w:body></w:document>';
- var files=[{name:'[Content_Types].xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>'},{name:'_rels/.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'},{name:'word/document.xml',data:documentXml},{name:'word/styles.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:lang w:val="fa-IR" w:bidi="fa-IR"/></w:rPr></w:rPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/><w:lang w:val="fa-IR" w:bidi="fa-IR"/></w:rPr></w:style></w:styles>'}];var blob=new Blob([zipStore(files)],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});var url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name+'-'+new Date().toISOString().slice(0,10)+'.docx';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url)},60000);}
+ var files=[{name:'[Content_Types].xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>'},{name:'_rels/.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'},{name:'word/document.xml',data:documentXml},{name:'word/styles.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:lang w:val="fa-IR" w:bidi="fa-IR"/></w:rPr></w:rPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/><w:lang w:val="fa-IR" w:bidi="fa-IR"/></w:rPr></w:style></w:styles>'}];var blob=new Blob([zipStore(files)],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});window.downloadFileBlob(blob,name+'-'+new Date().toISOString().slice(0,10)+'.docx');}
 window.exportAbsenteesWord=function(){var classId=(byId('ab-class')&&byId('ab-class').value)||'',from=(byId('ab-from')&&byId('ab-from').value)||'',to=(byId('ab-to')&&byId('ab-to').value)||'',statuses={unexcused:'غایب',absent:'غایب',excused:'غایب موجه',late:'تأخیر'};var rows=(cache.attendance||[]).filter(function(a){if(!a||!(a.status in statuses))return false;if(classId&&String(a.class_id)!==String(classId))return false;if(from&&String(a.date||'')<from)return false;if(to&&String(a.date||'')>to)return false;if(user&&user.role==='teacher'){var allowed=user.class_ids||[];if(allowed.length&&allowed.indexOf(a.class_id)<0)return false;}return true;}).sort(function(a,b){return String(a.class_id).localeCompare(String(b.class_id))||String(a.date||'').localeCompare(String(b.date||''));});if(!rows.length){if(typeof toast==='function')toast('برای بازه و کلاس انتخاب‌شده موردی برای خروجی وجود ندارد');return;}var mapped=rows.map(function(a){var st=(cache.students||[]).find(function(x){return String(x.id)===String(a.student_id)}),cl=(cache.classes||[]).find(function(x){return String(x.id)===String(a.class_id)});return {className:cl?(cl.label||cl.id):a.class_id,studentName:st?((st.first_name||'')+' '+(st.last_name||'')):a.student_id,phone:st?(st.emergency_phone_1||st.phone||st.mobile||st.father_phone||st.emergency_phone||'—'):'—',date:a.date||'—',status:statuses[a.status]||a.status};});downloadDocx('گزارش-غایبین',mapped,from,to);if(typeof toast==='function')toast('فایل Word با '+mapped.length+' مورد آماده شد.');};
 function addWordButton(){var panel=byId('page-absentees');if(!panel||byId('absentees-word-export'))return;var buttons=panel.querySelectorAll('button');var printBtn=null;buttons.forEach(function(b){if((b.getAttribute('onclick')||'').indexOf('printAbsenteesReport')>=0)printBtn=b;});if(!printBtn)return;var b=document.createElement('button');b.type='button';b.id='absentees-word-export';b.className='btn btn-p';b.style.cssText='margin:6px 0';b.textContent='⬇️ خروجی Word';b.addEventListener('click',window.exportAbsenteesWord);printBtn.parentNode.insertBefore(b,printBtn.nextSibling);}
 
@@ -11082,8 +11076,7 @@ window.downloadPublicInvitationsWord=function(){
   if(typeof window.downloadWordHtml==='function') window.downloadWordHtml(title,html,false);
   else {
     var blob=new Blob(['\ufeff<html><head><meta charset="utf-8"></head><body dir="rtl">'+html+'</body></html>'],{type:'application/msword'});
-    var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=title+'.doc';
-    document.body.appendChild(a); a.click(); a.remove();
+    window.downloadFileBlob(blob,title+'.doc');
   }
 };
 function hideLoginChrome(){
@@ -13151,7 +13144,7 @@ window.sfeExportWordAdvanced=function(){
   var html='<div dir="rtl" style="direction:rtl;text-align:right;font-family:Tahoma,Arial,sans-serif;line-height:1.9"><h2 style="text-align:center">'+String(title).replace(/</g,'')+'</h2><p style="white-space:pre-wrap">'+String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</p></div>';
   if(typeof window.downloadWordHtml==='function'){window.downloadWordHtml(title,html,false);say('فایل Word حرفه‌ای آماده شد.');return;}
   var blob=new Blob(['\ufeff<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"></head><body dir="rtl" style="direction:rtl;text-align:right;font-family:Tahoma">'+html+'</body></html>'],{type:'application/msword'});
-  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=title+'.doc';document.body.appendChild(a);a.click();a.remove();
+  window.downloadFileBlob(blob,title+'.doc');
   say('فایل Word آماده شد.');
 };
 window.sfeOpenFromUrl=async function(url,name){
