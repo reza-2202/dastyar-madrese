@@ -7192,7 +7192,7 @@ function monthlyStudentAssessmentHtml(student,rows,month,cl,photo,analysis){
  '<div><b>درس‌های دارای نمره</b><strong>'+fa(validRows.length)+'</strong></div></div>'+
  '<div class="monthly-assessment-summary-title">خلاصه و تحلیل وضعیت ماهانه</div>'+
  '<div class="monthly-assessment-analysis">'+analysisItems.map(function(p){return '<p>'+escHtml(p)+'</p>';}).join('')+'</div></section>';
- const colWidths=[3,13,6,6.5,6.5,6,59];
+ const colWidths=[5,13,4.5,5,6,6,60.5];
  const colgroup='<colgroup>'+colWidths.map(function(w){return '<col style="width:'+w+'%">';}).join('')+'</colgroup>';
  return '<section class="monthly-student-assessment-print" dir="rtl">'+
  '<header class="monthly-assessment-heading">'+(photo?'<img src="'+escHtml(photo)+'" alt="عکس دانش‌آموز" class="monthly-assessment-photo">':'')+
