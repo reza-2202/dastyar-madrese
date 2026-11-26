@@ -7429,6 +7429,18 @@ function birthdayReminderCacheKey(username){
 function birthdayReminderPendingKey(username){
  return 'dastyar_birth_reminders_pending_'+encodeURIComponent(String(username||''));
 }
+function birthdayReminderDailyCheckKey(username){
+ return 'dastyar_birth_reminders_checked_'+encodeURIComponent(String(username||''));
+}
+function birthdayReminderTehranDateKey(){
+ try{
+  var parts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Tehran',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+  var values={};
+  parts.forEach(function(part){if(part.type!=='literal')values[part.type]=part.value;});
+  if(values.year&&values.month&&values.day)return values.year+'-'+values.month+'-'+values.day;
+ }catch(e){}
+ return new Date(Date.now()+210*60000).toISOString().slice(0,10);
+}
 window.__dastyarBirthdayReminderRecords=window.__dastyarBirthdayReminderRecords||[];
 window.loadTeacherBirthdayReminders=async function(){
  var u=null;try{u=window.user||user;}catch(e){}
@@ -7439,6 +7451,7 @@ window.loadTeacherBirthdayReminders=async function(){
  }
  var username=String(u.username||'');
  var cacheKey=birthdayReminderCacheKey(username),pendingKey=birthdayReminderPendingKey(username);
+ var dailyCheckKey=birthdayReminderDailyCheckKey(username),tehranDateKey=birthdayReminderTehranDateKey();
  function loadLocal(){
   try{
    var cached=JSON.parse(localStorage.getItem(cacheKey)||'[]');
@@ -7450,6 +7463,12 @@ window.loadTeacherBirthdayReminders=async function(){
  }
  if(!window.sb||!navigator.onLine){loadLocal();return;}
  try{
+  /* یادآوری‌ها فقط یک بار در هر روز شمسیِ تهران از سرور خوانده می‌شوند؛
+     جستجوی دانش‌آموزان فقط وظیفه زمان‌بندی شبانه سرور است. */
+  var alreadyChecked=false;
+  try{alreadyChecked=localStorage.getItem(dailyCheckKey)===tehranDateKey;}catch(e){}
+  if(alreadyChecked){loadLocal();return;}
+  try{localStorage.setItem(dailyCheckKey,tehranDateKey);}catch(e){}
   var pending=[];
   try{pending=JSON.parse(localStorage.getItem(pendingKey)||'[]')||[];}catch(e){}
   if(Array.isArray(pending)&&pending.length){
