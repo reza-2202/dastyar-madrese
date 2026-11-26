@@ -1765,6 +1765,11 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 </div>
 </div>
 <div class="page" id="page-evaluation">
+<div class="card no-print" id="assessment-overview-card" style="border:1px solid #c7d2fe;background:linear-gradient(135deg,#f8faff,#f0fdfa);margin-bottom:12px">
+ <div class="ct">📊 نمای کلی ارزشیابی و پیشرفت کلاس</div>
+ <p class="meta" style="line-height:1.8">خلاصه‌ای از شواهد ثبت‌شده و همگام‌شده همین ماه؛ این آمار از اطلاعات موجود برنامه ساخته می‌شود و جایگزین قضاوت و تأیید معلم نیست.</p>
+ <div id="assessment-overview-content" aria-live="polite"><div class="empty">پس از بارگذاری اطلاعات کلاس، خلاصه ارزشیابی نمایش داده می‌شود.</div></div>
+</div>
 <div class="card no-print">
 <div class="ct">📝 ارزشیابی ماهانه</div>
 <div class="fg"><label>کلاس</label><select id="ev-class" onchange="loadEvals(true)"></select></div>
@@ -6988,6 +6993,60 @@ async function loadEvals(skipServerReload){
   const box=document.getElementById('ev-list');
   if(box){box.innerHTML='';box.style.display='none';}
   try{renderMonthlyStudentAssessment();}catch(monthlyViewError){console.warn('نمایش گزارش مستقل ارزشیابی دانش‌آموز ناموفق بود',monthlyViewError);}
+  try{renderAssessmentOverview();}catch(overviewError){console.warn('نمای کلی ارزشیابی ناموفق بود',overviewError);}
+}
+
+
+// نمای کلی سبک و محلی ارزشیابی؛ بدون درخواست شبکه یا تغییر در داده‌های ذخیره‌شده
+function renderAssessmentOverview(){
+ var host=document.getElementById('assessment-overview-content');if(!host)return;
+ var classSelect=document.getElementById('ev-class'),monthSelect=document.getElementById('ev-month');
+ var classId=classSelect&&classSelect.value?String(classSelect.value):'';
+ var month=monthSelect&&monthSelect.value?String(monthSelect.value):'';
+ var allowed=(typeof myClasses==='function'?myClasses():[]).filter(function(c){return c&&c.id!=null;});
+ var selectedClass=allowed.find(function(c){return String(c.id)===classId;});
+ if(!selectedClass){host.innerHTML='<div class="empty">برای نمایش آمار، کلاس مجاز را انتخاب کنید.</div>';return;}
+ var students=(typeof myStudents==='function'?myStudents():(cache.students||[])).filter(function(st){return st&&String(st.class_id)===classId;});
+ var rows=[],covered=0,scoredSubjectCount=0,scoreSum=0,scoreCount=0;
+ students.forEach(function(st){
+  var assessmentRows=[];
+  try{assessmentRows=monthlyAssessmentRowsForStudent(st.id)||[];}catch(e){}
+  var scored=assessmentRows.filter(function(r){return monthlyAssessmentScore(r)!=null;});
+  var avg=scored.length?scored.reduce(function(a,r){return a+monthlyAssessmentScore(r);},0)/scored.length:null;
+  if(scored.length){covered++;scoredSubjectCount+=scored.length;scoreSum+=avg;scoreCount++;}
+  rows.push({student:st,avg:avg,subjects:scored.length,total:assessmentRows.length});
+ });
+ var classAverage=scoreCount?Math.round(scoreSum/scoreCount*10)/10:null;
+ var activityCount=(cache.activities||[]).filter(function(a){
+  if(!a||String(a.class_id)!==classId)return false;
+  var d=null;try{d=parseJalali(a.date||a.created_at);}catch(e){}
+  var selectedMonth=JALALI_MONTHS.indexOf(month)+1;
+  var selectedYear=0;try{var td=parseJalali((document.getElementById('ev-filter-date')||{}).value||today());selectedYear=td&&td.jm===selectedMonth?td.jy:0;}catch(e){}
+  return !!(d&&d.jm===selectedMonth&&(!selectedYear||d.jy===selectedYear)&&['qa','question','exam'].indexOf(String(a.type||''))>=0);
+ }).length;
+ rows.sort(function(a,b){var an=String((a.student.first_name||'')+' '+(a.student.last_name||'')),bn=String((b.student.first_name||'')+' '+(b.student.last_name||''));return an.localeCompare(bn,'fa');});
+ var pct=students.length?Math.round(covered/students.length*100):0;
+ var metric=function(label,value,sub){return '<div style="min-width:125px;flex:1;padding:10px;border:1px solid #e2e8f0;border-radius:10px;background:#fff"><div style="font-size:.72rem;color:#64748b">'+label+'</div><div style="font-size:1.15rem;font-weight:800;color:#1e3a8a;margin-top:4px">'+value+'</div><div style="font-size:.68rem;color:#64748b;margin-top:3px">'+sub+'</div></div>';};
+ var html='<div style="display:flex;flex-wrap:wrap;gap:7px">'+
+ metric('دانش‌آموزان کلاس',fa(students.length),'فهرست کلاس انتخاب‌شده')+
+ metric('دارای نمره/سطح معتبر',fa(covered),'از '+fa(students.length)+' دانش‌آموز')+
+ metric('پوشش شواهد',fa(pct)+'٪','دانش‌آموزان دارای نتیجه معتبر')+
+ metric('میانگین کلاس',classAverage==null?'—':fa(classAverage.toFixed(1))+' از ۲۰','میانگینِ دانش‌آموزان دارای نتیجه')+
+ metric('فعالیت‌های آموزشی',fa(activityCount),'آزمون و پرسش‌وپاسخ این ماه')+
+ '</div>';
+ html+='<div style="margin-top:12px;font-weight:800;font-size:.86rem">وضعیت دانش‌آموزان</div>';
+ if(!rows.length)html+='<div class="empty">برای این کلاس دانش‌آموزی ثبت نشده است.</div>';
+ else{
+  html+='<div style="overflow-x:auto;margin-top:7px"><table style="width:100%;border-collapse:collapse;font-size:.78rem"><thead><tr style="background:#eef2ff"><th style="padding:8px;text-align:right">دانش‌آموز</th><th style="padding:8px">میانگین معتبر</th><th style="padding:8px">درس‌های دارای نتیجه</th><th style="padding:8px">وضعیت شواهد</th></tr></thead><tbody>';
+  rows.forEach(function(r){
+   var name=String((r.student.first_name||'')+' '+(r.student.last_name||'')).trim()||'بدون نام';
+   var state=r.subjects?'دارای شواهد':'نیازمند تکمیل ثبت';
+   html+='<tr style="border-bottom:1px solid #e2e8f0"><td style="padding:8px">'+escHtml(name)+'</td><td style="padding:8px;text-align:center">'+(r.avg==null?'—':fa(r.avg.toFixed(1))+' از ۲۰')+'</td><td style="padding:8px;text-align:center">'+fa(r.subjects)+' از '+fa(r.total)+'</td><td style="padding:8px;text-align:center;color:'+(r.subjects?'#166534':'#a16207')+'">'+state+'</td></tr>';
+  });
+  html+='</tbody></table></div>';
+ }
+ html+='<div class="meta" style="margin-top:9px;line-height:1.8">توجه: میانگین فقط از درس‌هایی محاسبه شده که نتیجه عددی یا سطح معتبر دارند. فعالیت‌های آزمون و پرسش‌وپاسخ جداگانه نمایش داده شده‌اند تا یک ثبت دوبار در میانگین شمرده نشود. این نمای کلی، گزارش تشخیصی یا نمره نهایی دانش‌آموز نیست.</div>';
+ host.innerHTML=html;
 }
 
 // گزارش مستقل ماهانه هر دانش‌آموز؛ همه درس‌های کلاس با ارزشیابی دستی و سوابق همگام‌شده مرتبط
