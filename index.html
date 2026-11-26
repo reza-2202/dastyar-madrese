@@ -7284,14 +7284,13 @@ function printMonthlyStudentAssessment(){
    try{
     const report=printWindow.document.querySelector('.monthly-student-assessment-print');
     if(report){
-     report.style.setProperty('zoom','1','important');
+     report.style.setProperty('width','100%','important');
+     report.style.setProperty('max-width','100%','important');
+     report.style.setProperty('box-sizing','border-box','important');
      const pageHeight=281*96/25.4;
-     let naturalHeight=report.scrollHeight;
-     let scale=Math.min(1,pageHeight/Math.max(naturalHeight,1));
+     const naturalHeight=report.scrollHeight;
+     const scale=Math.min(1,pageHeight/Math.max(naturalHeight,1));
      if(scale<1){
-      report.style.setProperty('width',(100/scale)+'%','important');
-      naturalHeight=report.scrollHeight;
-      scale=Math.min(1,pageHeight/Math.max(naturalHeight,1));
       report.style.setProperty('zoom',String(scale),'important');
      }
     }
