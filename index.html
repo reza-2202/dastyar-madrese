@@ -7007,21 +7007,21 @@ function renderAssessmentOverview(){
  var selectedClass=allowed.find(function(c){return String(c.id)===classId;});
  if(!selectedClass){host.innerHTML='<div class="empty">برای نمایش آمار، کلاس مجاز را انتخاب کنید.</div>';return;}
  var students=(typeof myStudents==='function'?myStudents():(cache.students||[])).filter(function(st){return st&&String(st.class_id)===classId;});
- var rows=[],covered=0,scoredSubjectCount=0,scoreSum=0,scoreCount=0;
+ var rows=[],covered=0,scoreSum=0,scoreCount=0;
  students.forEach(function(st){
   var assessmentRows=[];
   try{assessmentRows=monthlyAssessmentRowsForStudent(st.id)||[];}catch(e){}
   var scored=assessmentRows.filter(function(r){return monthlyAssessmentScore(r)!=null;});
   var avg=scored.length?scored.reduce(function(a,r){return a+monthlyAssessmentScore(r);},0)/scored.length:null;
-  if(scored.length){covered++;scoredSubjectCount+=scored.length;scoreSum+=avg;scoreCount++;}
+  if(scored.length){covered++;scoreSum+=avg;scoreCount++;}
   rows.push({student:st,avg:avg,subjects:scored.length,total:assessmentRows.length});
  });
  var classAverage=scoreCount?Math.round(scoreSum/scoreCount*10)/10:null;
+ var selectedMonth=JALALI_MONTHS.indexOf(month)+1,selectedYear=0;
+ try{var td=parseJalali((document.getElementById('ev-filter-date')||{}).value||today());selectedYear=td&&td.jm===selectedMonth?td.jy:0;}catch(e){}
  var activityCount=(cache.activities||[]).filter(function(a){
   if(!a||String(a.class_id)!==classId)return false;
   var d=null;try{d=parseJalali(a.date||a.created_at);}catch(e){}
-  var selectedMonth=JALALI_MONTHS.indexOf(month)+1;
-  var selectedYear=0;try{var td=parseJalali((document.getElementById('ev-filter-date')||{}).value||today());selectedYear=td&&td.jm===selectedMonth?td.jy:0;}catch(e){}
   return !!(d&&d.jm===selectedMonth&&(!selectedYear||d.jy===selectedYear)&&['qa','question','exam'].indexOf(String(a.type||''))>=0);
  }).length;
  rows.sort(function(a,b){var an=String((a.student.first_name||'')+' '+(a.student.last_name||'')),bn=String((b.student.first_name||'')+' '+(b.student.last_name||''));return an.localeCompare(bn,'fa');});
