@@ -6978,12 +6978,19 @@ async function loadEvals(skipServerReload){
 function monthlyAssessmentRowsForStudent(studentId){
  const month=(document.getElementById('ev-month')||{}).value||'',monthNumber=JALALI_MONTHS.indexOf(String(month))+1;
  var selectedDate=(document.getElementById('ev-filter-date')||{}).value||today(),selectedYear=0;
- try{var selectedParsed=parseJalali(selectedDate);selectedYear=selectedParsed&&selectedParsed.jy||0;}catch(e){}
+ // سال فیلتر تاریخ فقط وقتی معتبر است که ماه فیلتر با ماه گزارش یکی باشد؛
+ // در غیر این صورت انتخاب ماه مستقل نباید به‌اشتباه با سال/ماه تاریخ روز محدود شود.
+ try{var selectedParsed=parseJalali(selectedDate);if(selectedParsed&&selectedParsed.jm===monthNumber)selectedYear=selectedParsed.jy||0;else{var currentParsed=parseJalali(today());selectedYear=currentParsed&&currentParsed.jy||0;}}catch(e){}
  var groups=new Map();
  function groupFor(subject){var label=String(subject||'').trim(),key=monthlyAssessmentNormalizeSubject(label);if(!key)return null;var g=groups.get(key);if(!g){g={subject:label,auto:null,manual:[],activities:[]};groups.set(key,g);}return g;}
  (cache.evaluations||[]).forEach(function(ev){
-  if(String(ev.student_id)!==String(studentId)||String(ev.month||'')!==String(month))return;
-  if(monthNumber>0&&!monthlyAssessmentDateInSelectedMonth(ev,monthNumber,selectedYear))return;
+  if(String(ev.student_id)!==String(studentId))return;
+  // تاریخ ثبت مرجع اصلی تعیین ماه است؛ فیلد month در رکوردهای قدیمی/همگام‌شده
+  // ممکن است خالی یا با قالب متفاوت باشد. فقط در نبود تاریخ، از month استفاده می‌کنیم.
+  if(monthNumber>0){
+   if(ev.date||ev.created_at||ev.updated_at){if(!monthlyAssessmentDateInSelectedMonth(ev,monthNumber,selectedYear))return;}
+   else if(String(ev.month||'')!==String(month))return;
+  }
   var marker=String(ev.recorded_by||''),isAuto=marker.indexOf('| میانگین ماهانه یکپارچه')>=0||marker.indexOf('| خلاصه خودکار پرسش‌وپاسخ و آزمون')>=0;
   if(marker.indexOf('| پرسش‌وپاسخ روزانه [')>=0)return;
   var g=groupFor(ev.subject);if(!g)return;
