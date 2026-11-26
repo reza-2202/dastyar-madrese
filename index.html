@@ -7172,7 +7172,7 @@ function monthlyStudentAssessmentHtml(student,rows,month,cl,photo,analysis){
   const status=marker.indexOf('[بدون ثبت]')>=0?'ثبت‌نشده':(marker.indexOf('[قطعی]')>=0||note.indexOf('میانگین قطعی')>=0?'قطعی':(marker.indexOf('[درحال‌به‌روزرسانی]')>=0||note.indexOf('میانگین موقت')>=0?'در حال به‌روزرسانی':'ثبت‌شده'));
   body+='<tr><td>'+fa(i+1)+'</td><td>'+escHtml(ev.subject||'—')+'</td><td>'+escHtml(String(count))+'</td><td>'+escHtml(ev.score==null?'—':String(ev.score))+'</td><td>'+escHtml(lvl(ev.level)||'—')+'</td><td>'+escHtml(status)+'</td><td class="monthly-assessment-subject-note">'+escHtml(feedback||'—')+'</td></tr>';
  });
- const otherWidths=[5,14,9,10,9,9],otherTotal=otherWidths.reduce(function(a,b){return a+b},0),noteWidth=52;
+ const otherWidths=[5,14,9,10,9,9],otherTotal=otherWidths.reduce(function(a,b){return a+b},0),noteWidth=64;
  const colgroup='<colgroup>'+otherWidths.map(function(w){return '<col style="width:'+((100-noteWidth)*w/otherTotal).toFixed(2)+'%">';}).join('')+'<col style="width:'+noteWidth+'%"></colgroup>';
  return '<section class="monthly-student-assessment-print" dir="rtl">'+
  '<header class="monthly-assessment-heading">'+(photo?'<img src="'+escHtml(photo)+'" alt="عکس دانش‌آموز" class="monthly-assessment-photo">':'')+
@@ -7218,15 +7218,16 @@ function printMonthlyStudentAssessment(){
  area.innerHTML='<style>'+
  '@page{size:A4 portrait;margin:8mm}'+
  '@media print{'+
- '#print-area{display:block!important;width:100%!important;margin:0!important;padding:0!important;background:#fff!important;color:#111!important}'+
- '#print-area .monthly-assessment-fit-wrap{width:100%;height:273mm;max-height:273mm;overflow:hidden!important;direction:rtl;text-align:right;font-family:Tahoma,Arial,sans-serif;position:relative;box-sizing:border-box}'+
+ '#print-area{display:block!important;width:194mm!important;max-width:194mm!important;margin:0!important;padding:0!important;background:#fff!important;color:#111!important}'+
+ '#print-area .monthly-assessment-fit-wrap{width:194mm!important;max-width:194mm!important;height:273mm;max-height:273mm;overflow:hidden!important;direction:rtl;text-align:right;font-family:Tahoma,Arial,sans-serif;position:relative;box-sizing:border-box}'+
  '#print-area .monthly-student-assessment-print{direction:rtl;box-sizing:border-box;width:100%;min-height:0;height:auto;margin:0;padding:4mm;border:1.5px solid #1f2937;display:flex;flex-direction:column;gap:2.5mm;break-inside:avoid;page-break-inside:avoid;color:#111;background:#fff;font-family:Tahoma,Arial,sans-serif;transform-origin:top right}'+
  '#print-area .monthly-assessment-heading{display:flex;align-items:center;justify-content:center;gap:5mm;min-height:23mm;padding-bottom:2mm;border-bottom:1.5px solid #334155;position:relative;flex:0 0 auto}'+
  '#print-area .monthly-assessment-photo{position:absolute;right:0;top:0;width:19mm;height:23mm;object-fit:cover;border:1px solid #334155}'+
  '#print-area .monthly-assessment-title{flex:1;text-align:center}'+
  '#print-area .monthly-assessment-title h2{font-size:15pt;margin:0 0 2mm;font-weight:700}'+
  '#print-area .monthly-assessment-title p{font-size:9pt;margin:0}'+
- '#print-area .monthly-student-assessment-print table{width:100%;border-collapse:collapse;table-layout:fixed;margin:0}'+
+ '#print-area .monthly-assessment-page-inner{display:block!important;width:194mm!important;max-width:194mm!important;min-width:194mm!important;box-sizing:border-box}'+
+ '#print-area .monthly-student-assessment-print table{width:100%!important;max-width:none!important;border-collapse:collapse;table-layout:fixed;margin:0}'+
  '#print-area .monthly-assessment-identity{flex:0 0 auto;font-size:10pt}'+
  '#print-area .monthly-assessment-identity th,#print-area .monthly-assessment-identity td{border:1px solid #334155;padding:2.5mm 2mm;text-align:right;vertical-align:middle}'+
  '#print-area .monthly-assessment-identity th{background:#e8eef5;font-weight:700;width:16%}'+
