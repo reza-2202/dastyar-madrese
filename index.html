@@ -7037,16 +7037,37 @@ function renderAssessmentOverview(){
  html+='<div style="margin-top:12px;font-weight:800;font-size:.86rem">وضعیت دانش‌آموزان</div>';
  if(!rows.length)html+='<div class="empty">برای این کلاس دانش‌آموزی ثبت نشده است.</div>';
  else{
-  html+='<div style="overflow-x:auto;margin-top:7px"><table style="width:100%;border-collapse:collapse;font-size:.78rem"><thead><tr style="background:#eef2ff"><th style="padding:8px;text-align:right">دانش‌آموز</th><th style="padding:8px">میانگین معتبر</th><th style="padding:8px">درس‌های دارای نتیجه</th><th style="padding:8px">وضعیت شواهد</th></tr></thead><tbody>';
+  html+='<div style="overflow-x:auto;margin-top:7px"><table style="width:100%;border-collapse:collapse;font-size:.78rem"><thead><tr style="background:#eef2ff"><th style="padding:8px;text-align:right">دانش‌آموز</th><th style="padding:8px">میانگین معتبر</th><th style="padding:8px">درس‌های دارای نتیجه</th><th style="padding:8px">وضعیت شواهد</th><th style="padding:8px">گزارش تفصیلی</th></tr></thead><tbody>';
   rows.forEach(function(r){
    var name=String((r.student.first_name||'')+' '+(r.student.last_name||'')).trim()||'بدون نام';
    var state=r.subjects?'دارای شواهد':'نیازمند تکمیل ثبت';
-   html+='<tr style="border-bottom:1px solid #e2e8f0"><td style="padding:8px">'+escHtml(name)+'</td><td style="padding:8px;text-align:center">'+(r.avg==null?'—':fa(r.avg.toFixed(1))+' از ۲۰')+'</td><td style="padding:8px;text-align:center">'+fa(r.subjects)+' از '+fa(r.total)+'</td><td style="padding:8px;text-align:center;color:'+(r.subjects?'#166534':'#a16207')+'">'+state+'</td></tr>';
+   html+='<tr style="border-bottom:1px solid #e2e8f0"><td style="padding:8px">'+escHtml(name)+'</td><td style="padding:8px;text-align:center">'+(r.avg==null?'—':fa(r.avg.toFixed(1))+' از ۲۰')+'</td><td style="padding:8px;text-align:center">'+fa(r.subjects)+' از '+fa(r.total)+'</td><td style="padding:8px;text-align:center;color:'+(r.subjects?'#166534':'#a16207')+'">'+state+'</td><td style="padding:6px;text-align:center"><button type="button" class="btn btn-o btn-sm" onclick="openAssessmentStudentDetail(\''+escHtml(String(r.student.id))+'\')">مشاهده گزارش</button></td></tr>';
   });
   html+='</tbody></table></div>';
  }
  html+='<div class="meta" style="margin-top:9px;line-height:1.8">توجه: میانگین فقط از درس‌هایی محاسبه شده که نتیجه عددی یا سطح معتبر دارند. فعالیت‌های آزمون و پرسش‌وپاسخ جداگانه نمایش داده شده‌اند تا یک ثبت دوبار در میانگین شمرده نشود. این نمای کلی، گزارش تشخیصی یا نمره نهایی دانش‌آموز نیست.</div>';
  host.innerHTML=html;
+}
+
+
+// باز کردن گزارش کامل دانش‌آموز از نمای کلاس؛ فقط دانش‌آموزان کلاس‌های مجاز
+function openAssessmentStudentDetail(studentId){
+ var allowedStudents=typeof myStudents==='function'?myStudents():[];
+ var student=allowedStudents.find(function(st){return String(st.id)===String(studentId);});
+ if(!student){toast('این دانش‌آموز در کلاس‌های مجاز شما نیست');return;}
+ var classSelect=document.getElementById('ev-class');
+ if(classSelect&&String(classSelect.value)!==String(student.class_id)){
+  var allowedClasses=typeof myClasses==='function'?myClasses():[];
+  if(!allowedClasses.some(function(c){return String(c.id)===String(student.class_id);}))return;
+  classSelect.value=String(student.class_id);
+ }
+ var select=document.getElementById('ev-monthly-student');
+ if(!select)return;
+ renderMonthlyStudentAssessment();
+ select.value=String(student.id);
+ monthlyAssessmentStudentChanged();
+ var report=document.getElementById('ev-monthly-student-report');
+ if(report&&typeof report.scrollIntoView==='function')report.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
 // گزارش مستقل ماهانه هر دانش‌آموز؛ همه درس‌های کلاس با ارزشیابی دستی و سوابق همگام‌شده مرتبط
