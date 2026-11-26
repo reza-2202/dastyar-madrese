@@ -7360,7 +7360,8 @@ async function shareBirthdayGreeting(studentId){
  var classTeacherName='';
  var studentClass=classes.find(function(c){return String(c.id)===String(st.class_id);});
  if(studentClass)classTeacherName=String(studentClass.teacher_name||'').trim();
- var teacherName=(ownTeacherName&&ownTeacherName!==String(user.username||'')?ownTeacherName:classTeacherName)||ownTeacherName||'معلم مهربانت';
+ var teacherFullName=(ownTeacherName&&ownTeacherName!==String(user.username||'')?ownTeacherName:classTeacherName)||'معلم مهربانت';
+ var teacherName=teacherFullName==='معلم مهربانت'?teacherFullName:teacherFullName.trim().split(/\s+/).filter(Boolean).pop();
  var msg='🎉🎂🌈\nاز طرف مدرسه، یک عالمه شادی برای تو!\n\n💖 تولدت مبارک، قهرمان کوچک! 💖\n\n🌟 امروز روز توست؛ روز لبخندهای قشنگ، آرزوهای رنگارنگ و شروع یک سال تازه پر از ماجراهای شیرین!\n\n🎁 '+studentName+' عزیز 🎁\n\nامیدواریم در سال جدید زندگی‌ات، همیشه سالم و شاد باشی، با انگیزه چیزهای تازه یاد بگیری، در درس‌هایت بدرخشی، دوستان خوب داشته باشی و به همه آرزوهای قشنگت برسی. یادت باشد تو توانایی‌های ویژه خودت را داری و می‌توانی هر روز یک قدم به رویاهایت نزدیک‌تر شوی! 🚀📚✨\n\n🍰 شمع‌های کیک تولدت را فوت کن و یک آرزوی بزرگ و قشنگ بکن!\n\nبا بهترین آرزوها و کلی لبخند؛\n🏫 مدیریت دبستان شهید فتح‌الله فلاح‌پور\n🌷 معلم مهربانت: '+teacherName+'\n\n🎈 همیشه شاد، موفق و درخشان باشی! 🎈';
  if(typeof navigator.share==='function'){
   try{await navigator.share({title:'🎂 تولدت مبارک '+studentName+'!',text:msg});return;}
