@@ -3845,7 +3845,8 @@ function toggleEvaluationClassList(){
    var isAuto=String(e.recorded_by||'').indexOf('| خلاصه خودکار پرسش‌وپاسخ')>=0;
    if(isAuto){
      var ed=null;try{ed=parseJalali(e.date||e.created_at);}catch(err){}
-     if(currentEvalMonth&&ed&&ed.jy===currentEvalMonth.jy&&ed.jm===currentEvalMonth.jm)autoMonthCounts.set(cid,(autoMonthCounts.get(cid)||0)+1);
+     var sourceCount=Number(typeof monthlyAssessmentCountFromNotes==='function'?monthlyAssessmentCountFromNotes(e.notes,e):0)||0;
+     if(sourceCount>=3&&currentEvalMonth&&ed&&ed.jy===currentEvalMonth.jy&&ed.jm===currentEvalMonth.jm)autoMonthCounts.set(cid,(autoMonthCounts.get(cid)||0)+1);
      return;
    }
    if(typeof isEvaluationInCurrentWeek==='function'?isEvaluationInCurrentWeek(e):false)weekCounts.set(cid,(weekCounts.get(cid)||0)+1);
@@ -4094,7 +4095,8 @@ function refreshDash(){
     if(!belongs)return;
     if(String(e.recorded_by||'').indexOf('| خلاصه خودکار پرسش‌وپاسخ')>=0){
       var ed=null;try{ed=parseJalali(e.date||e.created_at);}catch(err){}
-      if(dashEvalMonth&&ed&&ed.jy===dashEvalMonth.jy&&ed.jm===dashEvalMonth.jm)autoMonthEvCount++;
+      var sourceCount=Number(typeof monthlyAssessmentCountFromNotes==='function'?monthlyAssessmentCountFromNotes(e.notes,e):0)||0;
+      if(sourceCount>=3&&dashEvalMonth&&ed&&ed.jy===dashEvalMonth.jy&&ed.jm===dashEvalMonth.jm)autoMonthEvCount++;
       return;
     }
     if(typeof isEvaluationInCurrentWeek==='function'?isEvaluationInCurrentWeek(e):true)evCount++;
