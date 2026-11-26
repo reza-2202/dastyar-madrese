@@ -16080,23 +16080,6 @@ function getMonthlyRows(studentId){
  var c=getCache();if(!c)return [];
  return (c.evaluations||[]).filter(function(e){return String(e.student_id)===String(studentId)&&isAutoSummary(e)}).sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''))});
 }
-var originalBuildReport=window.buildReport;
-if(typeof originalBuildReport==='function'&&!originalBuildReport.__monthlyAssessmentWrapped){
- var wrappedReport=function(studentId){
-  var html=originalBuildReport.apply(this,arguments),rows=getMonthlyRows(studentId);
-  if(!html||!rows.length)return html;
-  var body='<div class="st">جمع‌بندی ماهانه ارزشیابی (پرسش‌وپاسخ و آزمون)</div><table class="rt"><thead><tr><th>ماه</th><th>درس</th><th>میانگین از ۲۰</th><th>وضعیت دوره‌ای</th></tr></thead><tbody>';
-  rows.forEach(function(r){
-   var periodMatch=String(r.notes||'').match(/ماه\s+([^\s،]+)\s+(\d{4})/);
-   var periodLabel=periodMatch?periodMatch[1]+' '+periodMatch[2]:(r.month||'');
-   body+='<tr><td>'+escHtml(periodLabel)+'</td><td>'+escHtml(r.subject||'')+'</td><td>'+escHtml(r.score==null?'—':r.score)+'</td><td>'+escHtml(r.notes||'')+'</td></tr>';
-  });
-  body+='</tbody></table>';
-  var at=html.lastIndexOf('</div>');
-  return at>=0?html.slice(0,at)+body+html.slice(at):html+body;
- };
- wrappedReport.__monthlyAssessmentWrapped=true;window.buildReport=wrappedReport;
-}
 var originalLoadReport=window.loadReportStudents;
 if(typeof originalLoadReport==='function'&&!originalLoadReport.__monthlyAssessmentWrapped){
  var wrappedLoadReport=async function(){
