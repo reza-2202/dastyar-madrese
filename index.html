@@ -10778,17 +10778,21 @@ var downloadFileSequence=0;
     if(window.navigator&&typeof window.navigator.msSaveOrOpenBlob==='function'){
       window.navigator.msSaveOrOpenBlob(blob,String(fileName||'گزارش'));return true;
     }
+    /* Fresh anchor and object URL for every export. Keep the click synchronous
+       with the user's tap, remove the anchor promptly, and retain the URL briefly
+       so mobile Chrome/PWA can finish opening the download more reliably. */
     var link=document.createElement('a'),url=URL.createObjectURL(blob);
     var raw=String(fileName||'گزارش'),dot=raw.lastIndexOf('.');
     var ext=dot>0?raw.slice(dot):'',stem=dot>0?raw.slice(0,dot):raw;
-    var stamp=new Date().toISOString().replace(/\D/g,'').slice(0,17);
-    link.href=url;link.download=stem+'_'+stamp+'_'+(++downloadFileSequence)+ext;
-    link.target='_self';link.rel='noopener';link.tabIndex=-1;
+    var stamp=Date.now().toString(36)+'_'+(++downloadFileSequence).toString(36);
+    var uniqueName=stem+'_'+stamp+ext;
+    link.href=url;link.download=uniqueName;link.setAttribute('download',uniqueName);
+    link.rel='noopener';link.tabIndex=-1;
     link.style.cssText='position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:.01;z-index:2147483647;overflow:hidden;pointer-events:auto';
     link.setAttribute('aria-hidden','true');document.body.appendChild(link);
     try{link.click();}catch(e){try{URL.revokeObjectURL(url);}catch(ignore){}if(link.parentNode)link.parentNode.removeChild(link);throw e;}
-    setTimeout(function(){if(link.parentNode)link.parentNode.removeChild(link);},30000);
-    setTimeout(function(){try{URL.revokeObjectURL(url);}catch(ignore){}},180000);
+    setTimeout(function(){if(link.parentNode)link.parentNode.removeChild(link);},1000);
+    setTimeout(function(){try{URL.revokeObjectURL(url);}catch(ignore){}},60000);
     return true;
   };
   window.downloadWordHtml=function(title,html,landscape){
