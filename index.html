@@ -7181,7 +7181,7 @@ function monthlyStudentAssessmentHtml(student,rows,month,cl,photo,analysis){
   if(unrecorded)feedback='—';
   body+='<tr'+(unrecorded?' class="monthly-assessment-unrecorded"':'')+'><td>'+fa(i+1)+'</td><td>'+escHtml(ev.subject||'—')+'</td><td>'+escHtml(String(count))+'</td><td>'+escHtml(ev.score==null?'—':String(ev.score))+'</td><td>'+escHtml(lvl(ev.level)||'—')+'</td><td>'+escHtml(status)+'</td><td class="monthly-assessment-subject-note">'+escHtml(feedback||'—')+'</td></tr>';
  });
- const colWidths=[4,9,8,8,8,8,55];
+ const colWidths=[3,13,6,6.5,6.5,6,59];
  const colgroup='<colgroup>'+colWidths.map(function(w){return '<col style="width:'+w+'%">';}).join('')+'</colgroup>';
  return '<section class="monthly-student-assessment-print" dir="rtl">'+
  '<header class="monthly-assessment-heading">'+(photo?'<img src="'+escHtml(photo)+'" alt="عکس دانش‌آموز" class="monthly-assessment-photo">':'')+
@@ -7242,6 +7242,8 @@ function printMonthlyStudentAssessment(){
  '.monthly-assessment-identity th{background:#e8eef5;font-weight:700;width:13%}'+
  '.monthly-assessment-subject-table{font-size:7.5pt;flex:1 1 0!important;height:100%!important;min-height:0!important;margin-bottom:0!important}'+
  '.monthly-assessment-subject-table th,.monthly-assessment-subject-table td{border:1px solid #263445;padding:.9mm 1mm;text-align:center;vertical-align:middle;white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:none;line-height:1.2;direction:rtl}'+
+ '.monthly-assessment-subject-table tbody td:nth-child(2){white-space:nowrap!important}'+
+ '.monthly-assessment-subject-table tbody{height:auto!important}'+
  '.monthly-assessment-subject-table th{background:#dce8f5;font-weight:700}'+
  '.monthly-assessment-subject-table .monthly-assessment-subject-note{text-align:right!important;font-size:7.5pt;line-height:1.22;padding:1mm 1.4mm!important;vertical-align:top!important;white-space:normal;overflow-wrap:break-word;word-break:normal}'+
  '.monthly-assessment-subject-table thead{height:18mm!important}.monthly-assessment-subject-table tbody{height:100%!important}.monthly-assessment-subject-table tr{break-inside:avoid;page-break-inside:avoid;height:auto!important}.monthly-assessment-subject-table tbody tr td{vertical-align:middle!important}'+
