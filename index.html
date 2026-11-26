@@ -1803,7 +1803,7 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <div class="no-print" id="ev-list"></div>
 <div class="card no-print" id="monthly-student-assessment-card" style="border:1px solid #bfdbfe;background:#f8fbff;margin-top:12px">
  <div class="ct">📊 گزارش مستقل ارزشیابی ماهانه دانش‌آموز</div>
- <p class="meta" style="line-height:1.8">این گزارش فقط میانگین‌های یکپارچه پرسش‌وپاسخ روزانه و آزمون را نشان می‌دهد و هیچ بخشی از آن وارد کارنامه چاپی نمی‌شود.</p>
+ <p class="meta" style="line-height:1.8">این گزارش برای همین دانش‌آموز، همه درس‌های کلاس را با ترکیب ارزشیابی‌های ثبت‌شده معلم و سوابق همگام‌شده پرسش‌وپاسخ و آزمون نمایش می‌دهد؛ درس‌های بدون ثبت نیز مشخص می‌شوند و این گزارش وارد کارنامه چاپی نمی‌شود.</p>
  <div class="fg"><label for="ev-monthly-student">انتخاب دانش‌آموز</label><select id="ev-monthly-student" onchange="monthlyAssessmentStudentChanged()"><option value="">ابتدا دانش‌آموز را انتخاب کنید</option></select></div>
  <div id="ev-monthly-student-report" aria-live="polite"><div class="empty">پس از انتخاب دانش‌آموز، گزارش ماه انتخاب‌شده نمایش داده می‌شود.</div></div>
  <div id="ev-monthly-student-actions" class="no-print" style="display:none;gap:7px;flex-wrap:wrap;margin-top:10px">
@@ -6974,7 +6974,7 @@ async function loadEvals(skipServerReload){
   try{renderMonthlyStudentAssessment();}catch(monthlyViewError){console.warn('نمایش گزارش مستقل ارزشیابی دانش‌آموز ناموفق بود',monthlyViewError);}
 }
 
-// گزارش مستقل ماهانه هر دانش‌آموز؛ فقط رکوردهای میانگین یکپارچه پرسش‌وپاسخ و آزمون
+// گزارش مستقل ماهانه هر دانش‌آموز؛ همه درس‌های کلاس با ارزشیابی دستی و سوابق همگام‌شده مرتبط
 function monthlyAssessmentRowsForStudent(studentId){
  const month=(document.getElementById('ev-month')||{}).value||'',monthNumber=JALALI_MONTHS.indexOf(String(month))+1;
  var selectedDate=(document.getElementById('ev-filter-date')||{}).value||today(),selectedYear=0;
@@ -6994,6 +6994,8 @@ function monthlyAssessmentRowsForStudent(studentId){
   if(monthNumber>0&&!monthlyAssessmentDateInSelectedMonth(a,monthNumber,selectedYear))return;
   var g=groupFor(assessmentSubjectKey(a)||String(a.lesson||a.subject||''));if(g)g.activities.push(a);
  });
+ var selectedStudent=(cache.students||[]).find(function(st){return String(st.id)===String(studentId);});
+ if(selectedStudent&&typeof subjectsFor==='function')(subjectsFor(selectedStudent.class_id)||[]).forEach(groupFor);
  var result=[];
  groups.forEach(function(g){
   var manual=g.manual.slice().sort(function(a,b){return String(a.date||a.created_at||'').localeCompare(String(b.date||b.created_at||''));});
@@ -7015,7 +7017,8 @@ function monthlyAssessmentRowsForStudent(studentId){
   if(manual.length){row.date=String(manual[manual.length-1].date||row.date||'');if(!g.auto&&!g.activities.length)row.recorded_by=manual[manual.length-1].recorded_by||'';}
   if(g.auto&&manual.length&&manualScores.length)notes.push('تعداد ارزشیابی‌های دستی این درس: '+manual.length+'؛ نمره‌های دستی نیز در میانگین گزارش لحاظ شده‌اند.');
   if(!g.auto&&!manual.length&&g.activities.length)notes.unshift('تعداد ثبت‌های پرسش‌وپاسخ و آزمون: '+g.activities.length+'؛ میانگین بر اساس نمره‌های معتبر همین ماه محاسبه شده است.');
-  row.assessment_count=totalCount||g.activities.length||manual.length||baseCount||1;if(notes.length)row.notes=notes.filter(Boolean).join(' ');result.push(row);
+  if(!totalCount&&!g.activities.length&&!manual.length&&!g.auto){row.assessment_count=0;row.notes='در ماه انتخاب‌شده برای این درس ارزشیابی ثبت نشده است.';row.recorded_by='[بدون ثبت]';result.push(row);return;}
+  row.assessment_count=totalCount||g.activities.length||manual.length||baseCount;if(notes.length)row.notes=notes.filter(Boolean).join(' ');result.push(row);
  });
  return result.sort(function(a,b){return String(a.subject||'').localeCompare(String(b.subject||''),'fa');});
 }
@@ -7166,7 +7169,7 @@ function monthlyStudentAssessmentHtml(student,rows,month,cl,photo,analysis){
  rows.forEach(function(ev,i){
   const count=monthlyAssessmentCountFromNotes(ev.notes,ev),feedback=monthlyAssessmentSubjectAnalysis(student.id,ev,rows,activityIndex);
   const marker=String(ev.recorded_by||''),note=String(ev.notes||'');
-  const status=marker.indexOf('[قطعی]')>=0||note.indexOf('میانگین قطعی')>=0?'قطعی':(marker.indexOf('[درحال‌به‌روزرسانی]')>=0||note.indexOf('میانگین موقت')>=0?'در حال به‌روزرسانی':'ثبت‌شده');
+  const status=marker.indexOf('[بدون ثبت]')>=0?'ثبت‌نشده':(marker.indexOf('[قطعی]')>=0||note.indexOf('میانگین قطعی')>=0?'قطعی':(marker.indexOf('[درحال‌به‌روزرسانی]')>=0||note.indexOf('میانگین موقت')>=0?'در حال به‌روزرسانی':'ثبت‌شده'));
   body+='<tr><td>'+fa(i+1)+'</td><td>'+escHtml(ev.subject||'—')+'</td><td>'+escHtml(String(count))+'</td><td>'+escHtml(ev.score==null?'—':String(ev.score))+'</td><td>'+escHtml(lvl(ev.level)||'—')+'</td><td>'+escHtml(status)+'</td><td class="monthly-assessment-subject-note">'+escHtml(feedback||'—')+'</td></tr>';
  });
  const otherWidths=[5,14,9,10,9,9],otherTotal=otherWidths.reduce(function(a,b){return a+b},0),noteWidth=52;
