@@ -15845,7 +15845,7 @@ function levelText(avg){
 function monthlyComment(arr,avg,subject,m,year,finalized){
  var comment='در ماه '+m+' '+year+'، در درس «'+subject+'»، تعداد '+arr.length+' ارزیابی از پرسش‌وپاسخ روزانه و آزمون ثبت شد؛ میانگین عملکرد '+avg+' از ۲۰ و سطح آن '+levelText(avg)+' است.';
  if(arr.length>=4){
-  var sorted=arr.slice().sort(function(a,b){return String(a.row.date||'').localeCompare(String(b.row.date||''))});
+  var sorted=arr.slice().sort(function(a,b){var x=a.date||parseJalali(a.row.date)||{},y=b.date||parseJalali(b.row.date)||{};return (x.jy||0)-(y.jy||0)||(x.jm||0)-(y.jm||0)||(x.jd||0)-(y.jd||0)||String(a.row.created_at||'').localeCompare(String(b.row.created_at||''));});
   var cut=Math.floor(sorted.length/2),first=average(sorted.slice(0,cut)),last=average(sorted.slice(cut));
   if(first!=null&&last!=null&&last-first>=1)comment+=' در بخش پایانی ماه، نسبت به ابتدای ماه روند رو به رشدی دیده می‌شود.';
   else if(first!=null&&last!=null&&first-last>=1)comment+=' عملکرد بخش پایانی ماه افت داشته و تمرین و پیگیری بیشتر پیشنهاد می‌شود.';
@@ -15883,11 +15883,11 @@ async function buildUnifiedMonthlySummaries(){
   var upserts=[],deletes=[],keep=[];
   groups.forEach(function(arr,key){
    if(!arr.length)return;
-   arr.sort(function(a,b){return String(a.row.date||'').localeCompare(String(b.row.date||''))});
+   arr.sort(function(a,b){return a.date.jy-b.date.jy||a.date.jm-b.date.jm||a.date.jd-b.date.jd||String(a.row.created_at||'').localeCompare(String(b.row.created_at||''));});
    var first=arr[0],last=arr[arr.length-1],d=first.date,closed=isMonthClosed(d);
    var seed='qa-month|'+String(first.row.class_id)+'|'+String(first.row.student_id)+'|'+String(first.row.type==='exam'?normalizedSubject(first.row):normalizedSubject(first.row))+'|'+d.jy+'|'+d.jm;
    var id=stableQaUuid(seed),old=byId.get(String(id));
-   if(old&&isFinalSummary(old)){keep.push(old);return}
+   /* خلاصه قطعی نیز در صورت اصلاح یا حذف سابقه منبع، دوباره محاسبه می‌شود. */
    if(arr.length<3&&!closed){
     if(old)deletes.push(old);
     return;
@@ -15907,6 +15907,13 @@ async function buildUnifiedMonthlySummaries(){
    if(old&&old.created_at)row.created_at=old.created_at;
    if(!old||['student_id','class_id','month','subject','weekday','date','score','level','notes','recorded_by'].some(function(k){return String(old[k]==null?'':old[k])!==String(row[k]==null?'':row[k])}))upserts.push(row);
    keep.push(Object.assign({},old||{},row));
+  });
+  // خلاصه‌های خودکاری که دیگر هیچ سابقه منبع معتبر ندارند پاک می‌شوند؛ سوابق دستی خارج از این فهرست‌اند.
+  var keptSummaryIds=new Set(keep.map(function(row){return String(row.id)}));
+  var scheduledDeleteIds=new Set(deletes.map(function(row){return String(row.id)}));
+  existing.forEach(function(row){
+   var id=String(row.id);
+   if(!keptSummaryIds.has(id)&&!scheduledDeleteIds.has(id)){deletes.push(row);scheduledDeleteIds.add(id);}
   });
   if(upserts.length&&db){
    var saved=await db.from('sa_evaluations').upsert(upserts);
@@ -15956,27 +15963,6 @@ if(typeof originalBuildReport==='function'&&!originalBuildReport.__monthlyAssess
  };
  wrappedReport.__monthlyAssessmentWrapped=true;window.buildReport=wrappedReport;
 }
-var originalOpenDossier=window.openStudentDossier;
-if(typeof originalOpenDossier==='function'&&!originalOpenDossier.__monthlyAssessmentWrapped){
- var wrappedDossier=function(id){
-  window.__dastyarCurrentDossierStudentId=String(id);
-  var result=originalOpenDossier.apply(this,arguments);
-  Promise.resolve(buildUnifiedMonthlySummaries()).then(function(){
-   if(window.__dastyarCurrentDossierStudentId===String(id)&&document.getElementById('print-student-dossier'))originalOpenDossier.call(window,id);
-  }).catch(function(){});
-  return result;
- };
- wrappedDossier.__monthlyAssessmentWrapped=true;window.openStudentDossier=wrappedDossier;
-}
-var originalSaveExam=window.saveExamRecord;
-if(typeof originalSaveExam==='function'&&!originalSaveExam.__monthlyAssessmentWrapped){
- var wrappedExam=async function(){
-  var result=await originalSaveExam.apply(this,arguments);
-  try{await buildUnifiedMonthlySummaries()}catch(e){console.warn(e)}
-  return result;
- };
- wrappedExam.__monthlyAssessmentWrapped=true;window.saveExamRecord=wrappedExam;
-}
 var originalLoadReport=window.loadReportStudents;
 if(typeof originalLoadReport==='function'&&!originalLoadReport.__monthlyAssessmentWrapped){
  var wrappedLoadReport=async function(){
@@ -15989,30 +15975,6 @@ if(typeof originalLoadReport==='function'&&!originalLoadReport.__monthlyAssessme
 function getClassMonthSummaries(classId,month){
  var c=getCache();if(!c)return [];
  return (c.evaluations||[]).filter(function(e){return isAutoSummary(e)&&String(e.class_id)===String(classId)&&String(e.month||'')===String(month||'')});
-}
-var originalLoadEvals=window.loadEvals;
-if(typeof originalLoadEvals==='function'&&!originalLoadEvals.__monthlyAssessmentWrapped){
- var wrappedLoadEvals=async function(){
-  var result=await originalLoadEvals.apply(this,arguments);
-  try{
-   var classEl=document.getElementById('ev-class'),monthEl=document.getElementById('ev-month'),box=document.getElementById('ev-list');
-   var classId=classEl&&classEl.value,month=monthEl&&monthEl.value;
-   if(box&&classId&&month){
-    var rows=getClassMonthSummaries(classId,month),added=0,c=getCache();
-    rows.forEach(function(r){
-     if(box.textContent.indexOf(String(r.notes||''))>=0)return;
-     var st=(c.students||[]).find(function(x){return String(x.id)===String(r.student_id)});
-     var card=document.createElement('div');card.className='card';card.setAttribute('data-monthly-summary-id',String(r.id));
-     card.style.cssText='padding:12px;border:1px solid #93c5fd;background:#f8fbff';
-     card.innerHTML='<div class="name">'+escHtml(st?((st.first_name||'')+' '+(st.last_name||'')):'')+'</div><div class="meta">📊 جمع‌بندی ماهانه | '+escHtml(r.month||'')+' | '+escHtml(r.subject||'')+' | میانگین: '+escHtml(r.score==null?'—':r.score)+' از ۲۰</div><div style="margin-top:4px">'+badge(r.level)+'</div><div class="meta" style="margin-top:5px;line-height:1.8">'+escHtml(r.notes||'')+'</div>';
-     box.appendChild(card);added++;
-    });
-    if(added){var empty=box.querySelector('.empty');if(empty)empty.remove();}
-   }
-  }catch(e){console.warn('نمایش خلاصه ماهانه در فهرست ارزشیابی ناموفق بود',e)}
-  return result;
- };
- wrappedLoadEvals.__monthlyAssessmentWrapped=true;window.loadEvals=wrappedLoadEvals;
 }
 var originalPrintEvals=window.printEvals;
 if(typeof originalPrintEvals==='function'&&!originalPrintEvals.__monthlyAssessmentWrapped){
