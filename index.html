@@ -7350,21 +7350,28 @@ async function saveMonthlyStudentGuidance(){
 async function shareBirthdayGreeting(studentId){
  var st=(cache.students||[]).find(function(x){return String(x.id)===String(studentId);});
  if(!st)return;
+ var classes=typeof myClasses==='function'?myClasses():[];
  if(user&&user.role==='teacher'){
-  var allowed=new Set((typeof myClasses==='function'?myClasses():[]).map(function(c){return String(c.id).trim();}));
+  var allowed=new Set(classes.map(function(c){return String(c.id).trim();}));
   if(!allowed.has(String(st.class_id||'').trim())){toast('این دانش‌آموز در کلاس‌های شما نیست');return;}
  }
- var fullName=[st.first_name,st.last_name].filter(Boolean).join(' ').trim()||'دانش‌آموز عزیز';
- var msg='🌷 تولدت مبارک!\nدانش‌آموز عزیز '+fullName+'، امیدواریم سالی سرشار از سلامتی، شادی، یادگیری و موفقیت پیش رو داشته باشی.\n\nبا مهر؛ مدیریت دبستان شهید فتح‌الله فلاح‌پور و معلم عزیزت';
+ var studentName=[st.first_name,st.last_name].filter(Boolean).join(' ').trim()||'دانش‌آموز عزیز';
+ var ownTeacherName=String(user&&(user.full_name||user.username)||'').trim();
+ var classTeacherName='';
+ var studentClass=classes.find(function(c){return String(c.id)===String(st.class_id);});
+ if(studentClass)classTeacherName=String(studentClass.teacher_name||'').trim();
+ var teacherName=(ownTeacherName&&ownTeacherName!==String(user.username||'')?ownTeacherName:classTeacherName)||ownTeacherName||'معلم مهربانت';
+ var msg='🎉🎂🌈\nاز طرف مدرسه، یک عالمه شادی برای تو!\n\n💖 تولدت مبارک، قهرمان کوچک! 💖\n\n🌟 امروز روز توست؛ روز لبخندهای قشنگ، آرزوهای رنگارنگ و شروع یک سال تازه پر از ماجراهای شیرین!\n\n🎁 '+studentName+' عزیز 🎁\n\nامیدواریم در سال جدید زندگی‌ات، همیشه سالم و شاد باشی، با انگیزه چیزهای تازه یاد بگیری، در درس‌هایت بدرخشی، دوستان خوب داشته باشی و به همه آرزوهای قشنگت برسی. یادت باشد تو توانایی‌های ویژه خودت را داری و می‌توانی هر روز یک قدم به رویاهایت نزدیک‌تر شوی! 🚀📚✨\n\n🍰 شمع‌های کیک تولدت را فوت کن و یک آرزوی بزرگ و قشنگ بکن!\n\nبا بهترین آرزوها و کلی لبخند؛\n🏫 مدیریت دبستان شهید فتح‌الله فلاح‌پور\n🌷 معلم مهربانت: '+teacherName+'\n\n🎈 همیشه شاد، موفق و درخشان باشی! 🎈';
  if(typeof navigator.share==='function'){
-  try{await navigator.share({title:'تبریک تولد '+fullName,text:msg});return;}
+  try{await navigator.share({title:'🎂 تولدت مبارک '+studentName+'!',text:msg});return;}
   catch(e){if(e&&e.name==='AbortError')return;console.warn('Birthday native share failed',e);}
  }
  if(typeof copyGuidanceText==='function')copyGuidanceText(msg);
  else if(navigator.clipboard&&navigator.clipboard.writeText){
-  navigator.clipboard.writeText(msg).then(function(){toast('پیام تبریک کپی شد؛ آن را در شاد جای‌گذاری کنید');}).catch(function(){prompt('متن تبریک را کپی کنید:',msg);});
+  navigator.clipboard.writeText(msg).then(function(){toast('پیام زیبای تبریک کپی شد؛ آن را در شاد جای‌گذاری کنید');}).catch(function(){prompt('متن تبریک را کپی کنید:',msg);});
  }else prompt('متن تبریک را کپی کنید:',msg);
 }
+
 function birthdayReminderDismissKey(studentId){
  return 'dastyar_birth_reminder_dismissed_'+today()+'_'+encodeURIComponent(String(studentId));
 }
