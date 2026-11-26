@@ -7170,7 +7170,9 @@ function monthlyStudentAssessmentHtml(student,rows,month,cl,photo,analysis){
   const count=monthlyAssessmentCountFromNotes(ev.notes,ev),feedback=monthlyAssessmentSubjectAnalysis(student.id,ev,rows,activityIndex);
   const marker=String(ev.recorded_by||''),note=String(ev.notes||'');
   const status=marker.indexOf('[بدون ثبت]')>=0?'ثبت‌نشده':(marker.indexOf('[قطعی]')>=0||note.indexOf('میانگین قطعی')>=0?'قطعی':(marker.indexOf('[درحال‌به‌روزرسانی]')>=0||note.indexOf('میانگین موقت')>=0?'در حال به‌روزرسانی':'ثبت‌شده'));
-  body+='<tr><td>'+fa(i+1)+'</td><td>'+escHtml(ev.subject||'—')+'</td><td>'+escHtml(String(count))+'</td><td>'+escHtml(ev.score==null?'—':String(ev.score))+'</td><td>'+escHtml(lvl(ev.level)||'—')+'</td><td>'+escHtml(status)+'</td><td class="monthly-assessment-subject-note">'+escHtml(feedback||'—')+'</td></tr>';
+  const unrecorded=status==='ثبت‌نشده';
+  if(unrecorded)feedback='—';
+  body+='<tr'+(unrecorded?' class="monthly-assessment-unrecorded"':'')+'><td>'+fa(i+1)+'</td><td>'+escHtml(ev.subject||'—')+'</td><td>'+escHtml(String(count))+'</td><td>'+escHtml(ev.score==null?'—':String(ev.score))+'</td><td>'+escHtml(lvl(ev.level)||'—')+'</td><td>'+escHtml(status)+'</td><td class="monthly-assessment-subject-note">'+escHtml(feedback||'—')+'</td></tr>';
  });
  const otherWidths=[5,14,9,10,9,9],otherTotal=otherWidths.reduce(function(a,b){return a+b},0),noteWidth=64;
  const colgroup='<colgroup>'+otherWidths.map(function(w){return '<col style="width:'+((100-noteWidth)*w/otherTotal).toFixed(2)+'%">';}).join('')+'<col style="width:'+noteWidth+'%"></colgroup>';
@@ -7218,48 +7220,39 @@ function printMonthlyStudentAssessment(){
  area.innerHTML='<style>'+
  '@page{size:A4 portrait;margin:8mm}'+
  '@media print{'+
- '#print-area{display:block!important;width:194mm!important;max-width:194mm!important;margin:0!important;padding:0!important;background:#fff!important;color:#111!important}'+
- '#print-area .monthly-assessment-fit-wrap{width:194mm!important;max-width:194mm!important;height:273mm;max-height:273mm;overflow:hidden!important;direction:rtl;text-align:right;font-family:Tahoma,Arial,sans-serif;position:relative;box-sizing:border-box}'+
- '#print-area .monthly-student-assessment-print{direction:rtl;box-sizing:border-box;width:100%;min-height:0;height:auto;margin:0;padding:4mm;border:1.5px solid #1f2937;display:flex;flex-direction:column;gap:2.5mm;break-inside:avoid;page-break-inside:avoid;color:#111;background:#fff;font-family:Tahoma,Arial,sans-serif;transform-origin:top right}'+
+ '#print-area{display:block!important;width:100%!important;max-width:194mm!important;margin:0 auto!important;padding:0!important;box-sizing:border-box!important;background:#fff!important;color:#111!important}'+
+ '#print-area .monthly-assessment-fit-wrap{display:block!important;width:100%!important;max-width:194mm!important;height:auto!important;max-height:none!important;overflow:visible!important;direction:rtl;text-align:right;font-family:Tahoma,Arial,sans-serif;position:static!important;box-sizing:border-box}'+
+ '#print-area .monthly-student-assessment-print{direction:rtl;box-sizing:border-box;width:100%;min-height:0;height:auto;margin:0;padding:4mm;border:1.5px solid #1f2937;display:flex;flex-direction:column;gap:2.5mm;color:#111;background:#fff;font-family:Tahoma,Arial,sans-serif;transform:none!important;zoom:1!important}'+
  '#print-area .monthly-assessment-heading{display:flex;align-items:center;justify-content:center;gap:5mm;min-height:23mm;padding-bottom:2mm;border-bottom:1.5px solid #334155;position:relative;flex:0 0 auto}'+
  '#print-area .monthly-assessment-photo{position:absolute;right:0;top:0;width:19mm;height:23mm;object-fit:cover;border:1px solid #334155}'+
  '#print-area .monthly-assessment-title{flex:1;text-align:center}'+
  '#print-area .monthly-assessment-title h2{font-size:15pt;margin:0 0 2mm;font-weight:700}'+
  '#print-area .monthly-assessment-title p{font-size:9pt;margin:0}'+
- '#print-area .monthly-assessment-page-inner{display:block!important;width:194mm!important;max-width:194mm!important;min-width:194mm!important;box-sizing:border-box}'+
- '#print-area .monthly-student-assessment-print table{width:100%!important;max-width:none!important;border-collapse:collapse;table-layout:fixed;margin:0}'+
+ '#print-area .monthly-assessment-page-inner{display:block!important;width:100%!important;max-width:194mm!important;min-width:0!important;box-sizing:border-box}'+
+ '#print-area .monthly-student-assessment-print table{display:table!important;width:100%!important;max-width:100%!important;min-width:100%!important;border-collapse:collapse;table-layout:fixed;margin:0;box-sizing:border-box}'+
  '#print-area .monthly-assessment-identity{flex:0 0 auto;font-size:10pt}'+
  '#print-area .monthly-assessment-identity th,#print-area .monthly-assessment-identity td{border:1px solid #334155;padding:2.5mm 2mm;text-align:right;vertical-align:middle}'+
  '#print-area .monthly-assessment-identity th{background:#e8eef5;font-weight:700;width:16%}'+
  '#print-area .monthly-assessment-subject-table{flex:0 0 auto;font-size:9pt;overflow:visible}'+
  '#print-area .monthly-assessment-subject-table thead{display:table-header-group}'+
- '#print-area .monthly-assessment-subject-table tr{break-inside:avoid;page-break-inside:avoid}'+
+ '#print-area .monthly-assessment-subject-table tr{break-inside:avoid;page-break-inside:avoid;height:auto!important}'+
  '#print-area .monthly-assessment-subject-table th,#print-area .monthly-assessment-subject-table td{border:1px solid #263445;padding:2.5mm 1.5mm;text-align:center;vertical-align:middle;white-space:normal;overflow-wrap:anywhere;word-break:normal;line-height:1.45}'+
  '#print-area .monthly-assessment-subject-table th{background:#dce8f5;font-weight:700}'+
- '#print-area .monthly-assessment-subject-table .monthly-assessment-subject-note{text-align:right;white-space:normal;overflow:visible;font-size:9pt;line-height:1.5;overflow-wrap:anywhere}'+
+ '#print-area .monthly-assessment-subject-table .monthly-assessment-subject-note{text-align:right;white-space:normal;overflow:visible;font-size:9pt;line-height:1.5;overflow-wrap:anywhere;min-height:0;height:auto;padding:2mm!important}'+
+ '#print-area .monthly-assessment-subject-table tr.monthly-assessment-unrecorded td{padding-top:1mm!important;padding-bottom:1mm!important;line-height:1.2!important}'+
  '#print-area .monthly-assessment-empty{padding:5mm!important}'+
  '#print-area .monthly-assessment-signatures{display:flex;justify-content:space-between;gap:8mm;padding-top:2.5mm;border-top:1px solid #334155;font-size:10pt;font-weight:700;flex:0 0 auto}'+
  '}'+
  '</style><div class="monthly-assessment-fit-wrap"><div class="monthly-assessment-page-inner">'+data.html+'</div></div>';
  setTimeout(async function(){
   try{
-   const wrap=area.querySelector('.monthly-assessment-fit-wrap'),section=area.querySelector('.monthly-student-assessment-print');
-   if(section&&wrap){
+   const section=area.querySelector('.monthly-student-assessment-print');
+   if(section){
     await Promise.all(Array.from(section.querySelectorAll('img')).map(function(img){
      if(img.complete)return Promise.resolve();
      return new Promise(function(resolve){let done=false;const finish=function(){if(done)return;done=true;resolve();};img.addEventListener('load',finish,{once:true});img.addEventListener('error',finish,{once:true});setTimeout(finish,2500);});
     }));
-    const available=273*96/25.4;let scale=1;
-    section.style.minHeight='0';section.style.height='auto';section.style.maxHeight='none';section.style.overflow='visible';
-    for(let pass=0;pass<4;pass++){
-     section.style.zoom='1';section.style.width=(100/scale)+'%';
-     const needed=section.scrollHeight;
-     const next=Math.min(1,available/Math.max(needed,1));
-     if(Math.abs(next-scale)<0.008){scale=next;break;}scale=next;
-    }
-    section.style.width=(100/scale)+'%';section.style.zoom=String(scale);
-    wrap.style.height='273mm';wrap.style.maxHeight='273mm';wrap.style.overflow='hidden';
-    if(scale<0.72)console.warn('گزارش یک‌صفحه‌ای فشرده شده است؛ برای خوانایی بهتر تعداد توضیحات باید متناسب باشد.');
+    section.style.width='100%';section.style.maxWidth='100%';section.style.height='auto';section.style.maxHeight='none';section.style.overflow='visible';section.style.zoom='1';section.style.transform='none';
    }
   }catch(printPrepError){console.warn('آماده‌سازی گزارش برای چاپ:',printPrepError);}
   window.print();
