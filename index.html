@@ -7230,7 +7230,7 @@ function printMonthlyStudentAssessment(){
  '*{box-sizing:border-box}'+
  'html,body{display:block!important;margin:0!important;padding:0!important;width:100%!important;min-width:0!important;max-width:100%!important;direction:rtl!important;text-align:right!important;font-family:Tahoma,Arial,sans-serif!important;color:#111;background:#fff}'+
  'body{font-size:8pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
- '.monthly-student-assessment-print{display:block!important;direction:rtl!important;text-align:right!important;width:100%!important;min-width:0!important;max-width:100%!important;margin:0!important;padding:1.5mm!important;border:1px solid #1f2937;height:auto!important;min-height:0!important;background:#fff}'+
+ '.monthly-student-assessment-print{display:flex!important;flex-direction:column!important;direction:rtl!important;text-align:right!important;width:100%!important;min-width:0!important;max-width:100%!important;margin:0!important;padding:1.5mm!important;border:1px solid #1f2937;height:287mm!important;min-height:287mm!important;max-height:287mm!important;background:#fff}'+
  '.monthly-assessment-heading{display:flex!important;align-items:center;justify-content:center;position:relative;min-height:13mm;padding:0 0 1mm;margin-bottom:1mm;border-bottom:1px solid #334155;width:100%!important}'+
  '.monthly-assessment-photo{position:absolute;right:0;top:0;width:12mm;height:13mm;object-fit:cover;border:1px solid #334155}'+
  '.monthly-assessment-title{flex:1;text-align:center}'+
@@ -7240,21 +7240,21 @@ function printMonthlyStudentAssessment(){
  '.monthly-assessment-identity{font-size:8pt}'+
  '.monthly-assessment-identity th,.monthly-assessment-identity td{border:1px solid #334155;padding:1mm 1.5mm;text-align:right!important;vertical-align:middle;white-space:normal}'+
  '.monthly-assessment-identity th{background:#e8eef5;font-weight:700;width:13%}'+
- '.monthly-assessment-subject-table{font-size:7.5pt}'+
+ '.monthly-assessment-subject-table{font-size:7.5pt;flex:1 1 auto!important;height:100%!important;margin-bottom:0!important}'+
  '.monthly-assessment-subject-table th,.monthly-assessment-subject-table td{border:1px solid #263445;padding:.9mm 1mm;text-align:center;vertical-align:middle;white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:none;line-height:1.2;direction:rtl}'+
  '.monthly-assessment-subject-table th{background:#dce8f5;font-weight:700}'+
  '.monthly-assessment-subject-table .monthly-assessment-subject-note{text-align:right!important;font-size:7.5pt;line-height:1.22;padding:1mm 1.4mm!important;vertical-align:top!important;white-space:normal;overflow-wrap:break-word;word-break:normal}'+
- '.monthly-assessment-subject-table tr{break-inside:avoid;page-break-inside:avoid;height:auto!important}'+
+ '.monthly-assessment-subject-table thead{height:18mm!important}.monthly-assessment-subject-table tbody{height:100%!important}.monthly-assessment-subject-table tr{break-inside:avoid;page-break-inside:avoid;height:auto!important}.monthly-assessment-subject-table tbody tr td{vertical-align:middle!important}'+
  '.monthly-assessment-subject-table tr.monthly-assessment-unrecorded td{padding-top:.5mm!important;padding-bottom:.5mm!important;line-height:1.1!important}'+
  '.monthly-assessment-empty{padding:2mm!important}'+
- '.monthly-assessment-signatures{display:flex!important;justify-content:space-between;gap:5mm;padding-top:1mm;border-top:1px solid #334155;font-size:7.5pt;font-weight:700;width:100%!important}'+
- '@media print{html,body{display:block!important;width:100%!important;min-width:0!important;max-width:100%!important;margin:0!important;padding:0!important}.monthly-student-assessment-print{display:block!important;width:100%!important;min-width:0!important;max-width:100%!important;break-inside:avoid;page-break-inside:avoid}table{width:100%!important;min-width:100%!important;max-width:100%!important}}'+
+ '.monthly-assessment-signatures{display:flex!important;justify-content:space-between;gap:5mm;padding-top:1mm;border-top:1px solid #334155;font-size:7.5pt;font-weight:700;width:100%!important;flex:0 0 auto}'+
+ '@media print{html,body{display:block!important;width:100%!important;min-width:0!important;max-width:100%!important;height:287mm!important;margin:0!important;padding:0!important}.monthly-student-assessment-print{display:flex!important;flex-direction:column!important;width:100%!important;min-width:0!important;max-width:100%!important;height:287mm!important;min-height:287mm!important;max-height:287mm!important;break-inside:avoid;page-break-inside:avoid}table{width:100%!important;min-width:100%!important;max-width:100%!important}}'+
  '</style></head><body>'+data.html+'</body></html>';
  printWindow.document.open();printWindow.document.write(printHtml);printWindow.document.close();
  const runPrint=function(){
   const images=Array.from(printWindow.document.images||[]);
   Promise.all(images.map(function(img){if(img.complete)return Promise.resolve();return new Promise(function(resolve){img.onload=resolve;img.onerror=resolve;setTimeout(resolve,1500);});})).then(function(){
-   try{printWindow.focus();printWindow.print();}catch(e){toast('آماده‌سازی چاپ ناموفق بود');}
+   try{const report=printWindow.document.querySelector('.monthly-student-assessment-print'),head=report&&report.querySelector('.monthly-assessment-heading'),identity=report&&report.querySelector('.monthly-assessment-identity'),table=report&&report.querySelector('.monthly-assessment-subject-table'),footer=report&&report.querySelector('.monthly-assessment-signatures');if(report&&table){const pagePx=287*96/25.4;const fixed=(head?head.getBoundingClientRect().height:0)+(identity?identity.getBoundingClientRect().height:0)+(footer?footer.getBoundingClientRect().height:0)+16;const target=Math.max(table.getBoundingClientRect().height,pagePx-fixed);table.style.height=target+'px';table.style.flex='1 1 auto';table.style.width='100%';}printWindow.focus();printWindow.print();}catch(e){toast('آماده‌سازی چاپ ناموفق بود');}
   });
  };
  if(printWindow.document.readyState==='complete')runPrint();else printWindow.onload=runPrint;
