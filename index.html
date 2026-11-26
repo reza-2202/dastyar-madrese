@@ -7180,7 +7180,9 @@ function renderMonthlyStudentAssessment(){
  const student=students.find(function(st){return String(st.id)===String(sid);});
  if(!student){if(actions)actions.style.display='none';return;}
  const rows=monthlyAssessmentRowsForStudent(sid),cl=(cache.classes||[]).find(function(c){return String(c.id)===String(classId);}),month=(document.getElementById('ev-month')||{}).value||'';
- var photoCheck=document.getElementById('ev-monthly-include-photo');if(photoCheck){photoCheck.disabled=!student.photo;photoCheck.title=student.photo?'عکس ثبت‌شده در پرونده دانش‌آموز استفاده می‌شود':'برای این دانش‌آموز عکسی در پرونده ثبت نشده است';}\n const analysis=monthlyAssessmentBuildNarrative(sid,rows,month);\n box.innerHTML=monthlyStudentAssessmentHtml(student,rows,month,cl,monthlyAssessmentPhotoForStudent(student.id),analysis);
+ var photoCheck=document.getElementById('ev-monthly-include-photo');if(photoCheck){photoCheck.disabled=!student.photo;photoCheck.title=student.photo?'عکس ثبت‌شده در پرونده دانش‌آموز استفاده می‌شود':'برای این دانش‌آموز عکسی در پرونده ثبت نشده است';}
+ const analysis=monthlyAssessmentBuildNarrative(sid,rows,month);
+ box.innerHTML=monthlyStudentAssessmentHtml(student,rows,month,cl,monthlyAssessmentPhotoForStudent(student.id),analysis);
  if(actions)actions.style.display='flex';
 }
 function getSelectedMonthlyStudentAssessment(){
@@ -7191,7 +7193,9 @@ function getSelectedMonthlyStudentAssessment(){
  const rows=monthlyAssessmentRowsForStudent(sid),classId=(document.getElementById('ev-class')||{}).value||'';
  const cl=(cache.classes||[]).find(function(c){return String(c.id)===String(classId);});
  const month=(document.getElementById('ev-month')||{}).value||'';
- const photoCheck=document.getElementById('ev-monthly-include-photo'),photo=photoCheck&&photoCheck.checked&&student.photo?String(student.photo):'';\n const analysis=monthlyAssessmentBuildNarrative(student.id,rows,month);\n return {student:student,rows:rows,cl:cl,month:month,html:monthlyStudentAssessmentHtml(student,rows,month,cl,photo,analysis)};
+ const photoCheck=document.getElementById('ev-monthly-include-photo'),photo=photoCheck&&photoCheck.checked&&student.photo?String(student.photo):'';
+ const analysis=monthlyAssessmentBuildNarrative(student.id,rows,month);
+ return {student:student,rows:rows,cl:cl,month:month,html:monthlyStudentAssessmentHtml(student,rows,month,cl,photo,analysis)};
 }
 function printMonthlyStudentAssessment(){
  const data=getSelectedMonthlyStudentAssessment();if(!data)return;
