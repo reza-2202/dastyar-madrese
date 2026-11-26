@@ -7463,7 +7463,8 @@ window.loadTeacherBirthdayReminders=async function(){
    .eq('teacher_username',username).is('dismissed_at',null)
    .order('created_at',{ascending:false});
   if(result.error)throw result.error;
-  window.__dastyarBirthdayReminderRecords=Array.isArray(result.data)?result.data:[];
+  var hiddenPending=new Set((Array.isArray(pending)?pending:[]).map(String));
+  window.__dastyarBirthdayReminderRecords=(Array.isArray(result.data)?result.data:[]).filter(function(r){return !hiddenPending.has(String(r.id));});
   try{localStorage.setItem(cacheKey,JSON.stringify(window.__dastyarBirthdayReminderRecords));}catch(e){}
   checkUpcomingStudentBirthdays();
  }catch(e){
