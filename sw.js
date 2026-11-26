@@ -1,4 +1,4 @@
-const CACHE = 'dastyar-shell-v77-20261126-birthday-reminder-fix';
+const CACHE = 'dastyar-shell-v78-20261126-birthday-guidance-share';
 const BASE = '/dastyar-madrese/';
 const SHELL = [
   BASE,
