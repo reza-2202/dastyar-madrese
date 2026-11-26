@@ -1801,6 +1801,16 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
  <div id="parent-portal-evaluation-result" style="margin-top:10px"></div>
 </div>
 <div class="no-print" id="ev-list"></div>
+<div class="card no-print" id="monthly-student-assessment-card" style="border:1px solid #bfdbfe;background:#f8fbff;margin-top:12px">
+ <div class="ct">📊 گزارش مستقل ارزشیابی ماهانه دانش‌آموز</div>
+ <p class="meta" style="line-height:1.8">این گزارش فقط میانگین‌های یکپارچه پرسش‌وپاسخ روزانه و آزمون را نشان می‌دهد و هیچ بخشی از آن وارد کارنامه چاپی نمی‌شود.</p>
+ <div class="fg"><label for="ev-monthly-student">انتخاب دانش‌آموز</label><select id="ev-monthly-student" onchange="renderMonthlyStudentAssessment()"><option value="">ابتدا دانش‌آموز را انتخاب کنید</option></select></div>
+ <div id="ev-monthly-student-report" aria-live="polite"><div class="empty">پس از انتخاب دانش‌آموز، گزارش ماه انتخاب‌شده نمایش داده می‌شود.</div></div>
+ <div id="ev-monthly-student-actions" class="no-print" style="display:none;gap:7px;flex-wrap:wrap;margin-top:10px">
+  <button type="button" class="btn btn-p btn-sm" onclick="printMonthlyStudentAssessment()">🖨️ چاپ گزارش</button>
+  <button type="button" class="btn btn-s btn-sm" onclick="exportMonthlyStudentAssessmentWord()">⬇️ دریافت فایل Word</button>
+ </div>
+</div>
 </div>
 <div class="page" id="page-report">
 <div class="card no-print">
@@ -7053,12 +7063,99 @@ async function loadEvals(skipServerReload){
   let list=cache.evaluations.filter(e=>e.class_id===classId&&e.month===month);
   if(mode==='date'&&date)list=list.filter(e=>e.date===date||isMonthlyAssessmentEvaluation(e));
   const box=document.getElementById('ev-list');
+  try{renderMonthlyStudentAssessment();}catch(monthlyViewError){console.warn('نمایش گزارش مستقل ارزشیابی دانش‌آموز ناموفق بود',monthlyViewError);}
   if(!list.length){box.innerHTML='<div class="empty">ارزشیابی‌ای در این ماه نیست</div>';return;}
   box.innerHTML=list.map(e=>{
     const s=cache.students.find(x=>x.id===e.student_id);
     return '<div class="card" style="padding:12px"><div class="name">'+(s?((typeof studentNameWithPhoto==='function')?studentNameWithPhoto(s,32):(s.first_name+' '+s.last_name)):'')+'</div><div class="meta">'+e.weekday+' '+e.date+' | '+e.subject+(e.score!=null?' | '+e.score:'')+'</div><div style="margin-top:4px">'+badge(e.level)+'</div>'+(e.notes?'<div class="meta" style="margin-top:4px">'+e.notes+'</div>':'')+'</div>';
   }).join('');
 }
+
+// گزارش مستقل ماهانه هر دانش‌آموز؛ فقط رکوردهای میانگین یکپارچه پرسش‌وپاسخ و آزمون
+function monthlyAssessmentRowsForStudent(studentId){
+ const month=(document.getElementById('ev-month')||{}).value||'';
+ return (cache.evaluations||[]).filter(function(ev){
+  return String(ev.student_id)===String(studentId)&&String(ev.month||'')===String(month)&&String(ev.recorded_by||'').indexOf('| میانگین ماهانه یکپارچه')>=0;
+ }).sort(function(a,b){return String(a.subject||'').localeCompare(String(b.subject||''),'fa');});
+}
+function monthlyAssessmentCountFromNotes(notes){
+ const text=String(notes||'');
+ const m=text.match(/تعداد ثبت پرسش(?:‌|\s)*و(?:‌|\s)*پاسخ و آزمون\s*:\s*([۰-۹0-9]+)/);
+ if(!m)return '—';
+ return m[1].replace(/[۰-۹]/g,function(c){return String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c));});
+}
+function monthlyAssessmentFeedbackFromNotes(notes){
+ const text=String(notes||'');
+ const m=text.match(/از\s*۲۰[.。]\s*(.*)$/);
+ return m&&m[1]?m[1].trim():text.replace(/^ارزیابی دوره‌ای ماه[^؛]*؛\s*/,'').trim();
+}
+function monthlyStudentAssessmentHtml(student,rows,month,cl){
+ const yearMatch=rows.length?String(rows[0].date||'').match(/^(14[0-9]{2})/):null;
+ const year=yearMatch?yearMatch[1]:'';
+ const title='گزارش ارزشیابی دوره‌ای '+month+(year?' '+year:'');
+ let body='';
+ rows.forEach(function(ev,i){
+  const count=monthlyAssessmentCountFromNotes(ev.notes);
+  const feedback=monthlyAssessmentFeedbackFromNotes(ev.notes);
+  const status=String(ev.notes||'').indexOf('میانگین قطعی')>=0?'قطعی':'موقت';
+  body+='<tr><td>'+fa(i+1)+'</td><td>'+escHtml(ev.subject||'—')+'</td><td>'+escHtml(String(count))+'</td><td>'+escHtml(ev.score==null?'—':String(ev.score))+'</td><td>'+escHtml(lvl(ev.level)||'—')+'</td><td>'+status+'</td><td>'+escHtml(feedback||'—')+'</td></tr>';
+ });
+ return '<section dir="rtl" style="direction:rtl;text-align:right;font-family:Tahoma,Arial,sans-serif;color:#172033;padding:12px">'+
+  '<h2 style="text-align:center;margin:0 0 8px;font-size:18px">'+escHtml(title)+'</h2>'+
+  '<p style="text-align:center;margin:0 0 14px;font-size:12px">دبستان شهید فتح‌الله فلاح‌پور</p>'+
+  '<table style="width:100%;border-collapse:collapse;margin-bottom:12px;font-size:12px"><tbody>'+
+  '<tr><th style="border:1px solid #64748b;padding:7px;background:#eaf2fb;text-align:right">نام دانش‌آموز</th><td style="border:1px solid #64748b;padding:7px">'+escHtml(student.first_name+' '+student.last_name)+'</td>'+
+  '<th style="border:1px solid #64748b;padding:7px;background:#eaf2fb;text-align:right">کلاس</th><td style="border:1px solid #64748b;padding:7px">'+escHtml(cl?cl.label:'—')+'</td></tr></tbody></table>'+
+  '<table dir="rtl" style="direction:rtl;width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed"><thead><tr>'+
+  ['ردیف','درس','تعداد ثبت‌ها','میانگین از ۲۰','سطح','وضعیت','توضیح کوتاه'].map(function(x){return '<th style="border:1px solid #475569;background:#dbeafe;padding:7px;text-align:center">'+x+'</th>';}).join('')+
+  '</tr></thead><tbody>'+(body||'<tr><td colspan="7" style="border:1px solid #64748b;padding:12px;text-align:center">برای این دانش‌آموز در ماه انتخاب‌شده میانگین یکپارچه‌ای ثبت نشده است.</td></tr>')+
+  '</tbody></table><p style="font-size:10px;margin-top:12px">این گزارش مستقل از کارنامه تحصیلی است. میانگین‌ها بر اساس سوابق ثبت‌شده پرسش‌وپاسخ روزانه و آزمون محاسبه شده‌اند.</p></section>';
+}
+function renderMonthlyStudentAssessment(){
+ const select=document.getElementById('ev-monthly-student'),box=document.getElementById('ev-monthly-student-report'),actions=document.getElementById('ev-monthly-student-actions');
+ if(!select||!box)return;
+ const classId=(document.getElementById('ev-class')||{}).value||'',students=sortStudentsByLastName((cache.students||[]).filter(function(st){return String(st.class_id)===String(classId);}));
+ const previous=select.value;
+ select.innerHTML='<option value="">ابتدا دانش‌آموز را انتخاب کنید</option>'+students.map(function(st){return '<option value="'+escHtml(String(st.id))+'">'+escHtml(st.first_name+' '+st.last_name)+'</option>';}).join('');
+ if(students.some(function(st){return String(st.id)===String(previous);}))select.value=previous;
+ const sid=select.value;
+ if(!sid){box.innerHTML='<div class="empty">پس از انتخاب دانش‌آموز، گزارش ماه انتخاب‌شده نمایش داده می‌شود.</div>';if(actions)actions.style.display='none';return;}
+ const student=students.find(function(st){return String(st.id)===String(sid);});
+ if(!student){if(actions)actions.style.display='none';return;}
+ const rows=monthlyAssessmentRowsForStudent(sid),cl=(cache.classes||[]).find(function(c){return String(c.id)===String(classId);}),month=(document.getElementById('ev-month')||{}).value||'';
+ box.innerHTML=monthlyStudentAssessmentHtml(student,rows,month,cl);
+ if(actions)actions.style.display='flex';
+}
+function getSelectedMonthlyStudentAssessment(){
+ const select=document.getElementById('ev-monthly-student'),sid=select&&select.value;
+ if(!sid){toast('ابتدا دانش‌آموز را انتخاب کنید');return null;}
+ const student=(cache.students||[]).find(function(st){return String(st.id)===String(sid);});
+ if(!student){toast('دانش‌آموز پیدا نشد');return null;}
+ const rows=monthlyAssessmentRowsForStudent(sid),classId=(document.getElementById('ev-class')||{}).value||'';
+ const cl=(cache.classes||[]).find(function(c){return String(c.id)===String(classId);});
+ const month=(document.getElementById('ev-month')||{}).value||'';
+ return {student:student,rows:rows,cl:cl,month:month,html:monthlyStudentAssessmentHtml(student,rows,month,cl)};
+}
+function printMonthlyStudentAssessment(){
+ const data=getSelectedMonthlyStudentAssessment();if(!data)return;
+ const area=document.getElementById('print-area');if(!area)return;
+ area.innerHTML='<div style="direction:rtl;text-align:right;font-family:Tahoma,Arial,sans-serif">'+data.html+'</div>';
+ setTimeout(function(){window.print();},200);
+}
+function exportMonthlyStudentAssessmentWord(){
+ const data=getSelectedMonthlyStudentAssessment();if(!data)return;
+ const html='<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><title>گزارش ارزشیابی ماهانه</title>'+
+ '<style>@page{size:A4 portrait;margin:15mm}body{direction:rtl;text-align:right;font-family:Tahoma,Arial,sans-serif;color:#172033}table{direction:rtl;border-collapse:collapse;width:100%}th,td{border:1px solid #475569;padding:7px;text-align:right;vertical-align:middle}th{background:#dbeafe;text-align:center}h2{text-align:center}</style>'+
+ '</head><body>'+data.html+'</body></html>';
+ const blob=new Blob(['\ufeff',html],{type:'application/msword;charset=utf-8'});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');
+ const safeName=(data.student.first_name+'-'+data.student.last_name).replace(/[\\/:*?"<>|]/g,'-');
+ a.href=url;a.download='ارزشیابی-'+safeName+'-'+data.month+'.doc';
+ document.body.appendChild(a);a.click();document.body.removeChild(a);
+ setTimeout(function(){URL.revokeObjectURL(url);},1500);
+ toast('فایل Word گزارش ارزشیابی آماده شد');
+}
+
 function printEvals(){
   const classId=document.getElementById('ev-class').value;
   const month=document.getElementById('ev-month').value;
@@ -7171,8 +7268,6 @@ function buildReport(sid){
   const examAvg=examN?Math.round((examSum/examN)*10)/10:null;
   const examLevel=examAvg==null?'':(examAvg>=18?'excellent':examAvg>=14?'good':examAvg>=10?'acceptable':'needs');
   const examBlock=examN?('<div class="st">میانگین آزمون‌ها</div><table class="rt"><tbody><tr><td>تعداد</td><td>'+fa(examN)+'</td><td>'+(examLevel&&typeof lvl==='function'?lvl(examLevel):'')+'</td></tr><tr><td>میانگین</td><td colspan="2">'+(examAvg!=null?examAvg:'—')+'</td></tr></tbody></table>'):'';
-  const monthlyRows=(cache.evaluations||[]).filter(function(ev){return String(ev.student_id)===String(sid)&&String(ev.recorded_by||'').indexOf('| میانگین ماهانه یکپارچه')>=0;}).sort(function(a,b){return String(a.date||'').localeCompare(String(b.date||''))||String(a.subject||'').localeCompare(String(b.subject||''));});
-  const monthlyAssessmentBlock=monthlyRows.length?('<div class="st">میانگین ماهانه پرسش‌وپاسخ و آزمون</div><table class="rt"><thead><tr><th>ماه</th><th>درس</th><th>میانگین</th><th>توضیح دوره‌ای</th></tr></thead><tbody>'+monthlyRows.map(function(ev){return '<tr><td>'+escHtml(ev.month||'')+'</td><td>'+escHtml(ev.subject||'')+'</td><td>'+(ev.score==null?'—':escHtml(String(ev.score)))+'</td><td>'+escHtml(ev.notes||'')+'</td></tr>';}).join('')+'</tbody></table>') : '';
   const disRows=(cache.discipline||[]).filter(function(d){return String(d.student_id)===String(sid);}).sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''));});
   const disRecent=disRows.slice(0,3).map(function(d){return '<tr><td>'+escHtml(d.date||'—')+'</td><td>'+escHtml(d.category||'انضباطی')+'</td><td>'+escHtml(((d.details||'')+(d.feedback?' — '+d.feedback:''))||'ثبت نشده')+'</td><td>'+escHtml(d.status==='approved'?'رسیدگی شده':'در انتظار رسیدگی')+'</td></tr>';}).join('');
   const disBlock=disRows.length?('<div class="st">سوابق انضباطی (مستقل از نمره درسی)</div><table class="rt"><thead><tr><th>تاریخ</th><th>موضوع</th><th>شرح / اقدام</th><th>وضعیت</th></tr></thead><tbody>'+disRecent+'</tbody></table><div style="font-size:8pt">تعداد کل موارد: '+fa(disRows.length)+(disRows.length>3?' — جزئیات سایر موارد در پرونده دانش‌آموز':'')+'</div>'):'';
@@ -7182,7 +7277,7 @@ function buildReport(sid){
   const compBlockPrint=crPrint?('<div class="st">شایستگی‌های عمومی</div><table class="rt"><thead><tr><th colspan="2">شایستگی</th><th>سطح</th></tr></thead><tbody>'+crPrint+'</tbody></table>'):'';
   const subjectBlock='<div class="st">دروس</div><table class="rt"><thead><tr><th>درس</th><th>نمره</th><th>ارزشیابی توصیفی</th></tr></thead><tbody>'+sr+'</tbody></table>';
   const compBlock='<div class="st">شایستگی‌های عمومی</div><table class="rt"><thead><tr><th colspan="2">شایستگی</th><th>سطح توصیفی</th></tr></thead><tbody>'+cr+'</tbody></table>';
-  return '<div class="rc">'+(s.photo?('<img class="rc-photo" src="'+String(s.photo).replace(/"/g,'')+'" alt=""/>'):'')+'<div class="rh"><h2>کارنامه تحصیلی</h2><p>دبستان شهید فتح‌الله فلاح‌پور — ۱۴۰۵–۱۴۰۶</p></div><div class="ri ri-3row"><div><b>نام:</b> '+s.first_name+' '+s.last_name+'</div><div><b>کد:</b> '+(s.code||'')+'</div><div><b>کلاس:</b> '+(cl?cl.label:'')+'</div><div><b>پدر:</b> '+(s.father_name||'')+'</div><div><b>معلم:</b> '+tn+'</div><div><b>تاریخ:</b> '+today()+'</div></div><div class="rc-body">'+subjectBlock+examBlock+monthlyAssessmentBlock+compBlockPrint+'</div><div class="rc-att">حضور '+fa(p)+' | موجه '+fa(e)+' | غیرموجه '+fa(u)+' | تأخیر '+fa(l)+'</div><div class="rs"><div><b>معلم:</b> '+tn+'</div><div><b>مدیر:</b> '+PRINCIPAL+'</div></div></div>';
+  return '<div class="rc">'+(s.photo?('<img class="rc-photo" src="'+String(s.photo).replace(/"/g,'')+'" alt=""/>'):'')+'<div class="rh"><h2>کارنامه تحصیلی</h2><p>دبستان شهید فتح‌الله فلاح‌پور — ۱۴۰۵–۱۴۰۶</p></div><div class="ri ri-3row"><div><b>نام:</b> '+s.first_name+' '+s.last_name+'</div><div><b>کد:</b> '+(s.code||'')+'</div><div><b>کلاس:</b> '+(cl?cl.label:'')+'</div><div><b>پدر:</b> '+(s.father_name||'')+'</div><div><b>معلم:</b> '+tn+'</div><div><b>تاریخ:</b> '+today()+'</div></div><div class="rc-body">'+subjectBlock+examBlock+compBlockPrint+'</div><div class="rc-att">حضور '+fa(p)+' | موجه '+fa(e)+' | غیرموجه '+fa(u)+' | تأخیر '+fa(l)+'</div><div class="rs"><div><b>معلم:</b> '+tn+'</div><div><b>مدیر:</b> '+PRINCIPAL+'</div></div></div>';
 }
 function printOne(id){printSet.clear();printSet.add(id);printReports();}
 function printReports(){
