@@ -7238,11 +7238,11 @@ function printMonthlyStudentAssessment(){
  const printWindow=window.open('','_blank');
  if(!printWindow){toast('اجازه باز شدن پنجره چاپ را بدهید');return;}
  const printHtml='<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>گزارش ارزشیابی ماهانه</title><style>'+
- '@page{size:A4 portrait;margin:5mm}'+
+ '@page{size:A4 portrait;margin:8mm}'+
  '*{box-sizing:border-box}'+
  'html,body{margin:0!important;padding:0!important;width:100%!important;min-width:0!important;max-width:100%!important;direction:rtl!important;text-align:right!important;font-family:Tahoma,Arial,sans-serif!important;color:#111;background:#fff}'+
  'body{font-size:8pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
- '.monthly-student-assessment-print{display:block!important;direction:rtl!important;text-align:right!important;width:100%!important;max-width:none!important;min-height:287mm!important;margin:0!important;padding:2mm!important;border:1px solid #1f2937;background:#fff;zoom:1}'+
+ '.monthly-student-assessment-print{display:block!important;direction:rtl!important;text-align:right!important;width:100%!important;max-width:none!important;min-height:281mm!important;margin:0!important;padding:2mm!important;border:1px solid #1f2937;background:#fff;zoom:1}'+
  '.monthly-assessment-heading{display:block!important;position:relative;text-align:center!important;min-height:13mm;padding:0 14mm 1mm;margin:0 0 1.5mm;border-bottom:1px solid #334155;width:100%!important}'+
  '.monthly-assessment-photo{position:absolute;right:0;top:0;width:12mm;height:13mm;object-fit:cover;border:1px solid #334155}'+
  '.monthly-assessment-title h2{font-size:11pt;line-height:1.25;margin:0 0 .5mm;font-weight:700}'+
@@ -7285,7 +7285,7 @@ function printMonthlyStudentAssessment(){
     const report=printWindow.document.querySelector('.monthly-student-assessment-print');
     if(report){
      report.style.setProperty('zoom','1','important');
-     const pageHeight=287*96/25.4;
+     const pageHeight=281*96/25.4;
      let naturalHeight=report.scrollHeight;
      let scale=Math.min(1,pageHeight/Math.max(naturalHeight,1));
      if(scale<1){
