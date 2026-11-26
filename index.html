@@ -7229,18 +7229,18 @@ function printMonthlyStudentAssessment(){
  '@page{size:A4 portrait;margin:5mm}'+
  '*{box-sizing:border-box}'+
  'html,body{margin:0!important;padding:0!important;width:100%!important;direction:rtl!important;text-align:right!important;font-family:Tahoma,Arial,sans-serif!important;color:#111;background:#fff}'+
- 'body{font-size:8pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
- '.monthly-student-assessment-print{direction:rtl!important;text-align:right!important;display:flex;flex-direction:column;gap:1mm;width:100%!important;max-width:none!important;margin:0!important;padding:1.5mm!important;border:1px solid #1f2937;min-height:0;height:auto;background:#fff}'+
+ 'body{font-size:8pt;width:200mm!important;min-width:200mm!important;max-width:200mm!important;margin:0 auto!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
+ '.monthly-student-assessment-print{direction:rtl!important;text-align:right!important;display:flex;flex-direction:column;align-items:stretch!important;gap:1mm;width:200mm!important;min-width:200mm!important;max-width:200mm!important;flex:0 0 200mm!important;margin:0!important;padding:1.5mm!important;border:1px solid #1f2937;min-height:0;height:auto;background:#fff}'+
  '.monthly-assessment-heading{display:flex;align-items:center;justify-content:center;position:relative;min-height:13mm;padding:0 0 1mm;border-bottom:1px solid #334155;flex:0 0 auto}'+
  '.monthly-assessment-photo{position:absolute;right:0;top:0;width:12mm;height:13mm;object-fit:cover;border:1px solid #334155}'+
  '.monthly-assessment-title{flex:1;text-align:center}'+
  '.monthly-assessment-title h2{font-size:11pt;margin:0 0 .5mm;font-weight:700}'+
  '.monthly-assessment-title p{font-size:7pt;margin:0}'+
- 'table{display:table!important;width:100%!important;max-width:none!important;min-width:100%!important;border-collapse:collapse!important;table-layout:fixed!important;margin:0!important;direction:rtl!important}'+
- '.monthly-assessment-identity{font-size:8pt;flex:0 0 auto}'+
+ 'table{display:table!important;width:200mm!important;min-width:200mm!important;max-width:200mm!important;border-collapse:collapse!important;table-layout:fixed!important;margin:0!important;direction:rtl!important}'+
+ '.monthly-assessment-identity{display:table!important;width:200mm!important;min-width:200mm!important;max-width:200mm!important;font-size:8pt;flex:0 0 auto}'+
  '.monthly-assessment-identity th,.monthly-assessment-identity td{border:1px solid #334155;padding:1mm 1.5mm;text-align:right!important;vertical-align:middle;white-space:normal}'+
  '.monthly-assessment-identity th{background:#e8eef5;font-weight:700;width:13%}'+
- '.monthly-assessment-subject-table{font-size:7.5pt;flex:0 0 auto}'+
+ '.monthly-assessment-subject-table{display:table!important;width:200mm!important;min-width:200mm!important;max-width:200mm!important;font-size:7.5pt;flex:0 0 200mm!important}'+
  '.monthly-assessment-subject-table th,.monthly-assessment-subject-table td{border:1px solid #263445;padding:.9mm 1mm;text-align:center;vertical-align:middle;white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:none;line-height:1.2;direction:rtl}'+
  '.monthly-assessment-subject-table th{background:#dce8f5;font-weight:700}'+
  '.monthly-assessment-subject-table .monthly-assessment-subject-note{text-align:right!important;font-size:7.5pt;line-height:1.22;padding:1mm 1.4mm!important;vertical-align:top!important;white-space:normal;overflow-wrap:break-word;word-break:normal}'+
@@ -7248,7 +7248,7 @@ function printMonthlyStudentAssessment(){
  '.monthly-assessment-subject-table tr.monthly-assessment-unrecorded td{padding-top:.5mm!important;padding-bottom:.5mm!important;line-height:1.1!important}'+
  '.monthly-assessment-empty{padding:2mm!important}'+
  '.monthly-assessment-signatures{display:flex;justify-content:space-between;gap:5mm;padding-top:1mm;border-top:1px solid #334155;font-size:7.5pt;font-weight:700;flex:0 0 auto}'+
- '@media print{html,body{width:100%!important;height:auto!important}.monthly-student-assessment-print{break-inside:avoid;page-break-inside:avoid}}'+
+ '@media print{html,body{width:200mm!important;min-width:200mm!important;max-width:200mm!important;height:auto!important;margin:0 auto!important}.monthly-student-assessment-print{width:200mm!important;min-width:200mm!important;max-width:200mm!important;break-inside:avoid;page-break-inside:avoid}}'+
  '</style></head><body>'+data.html+'</body></html>';
  printWindow.document.open();printWindow.document.write(printHtml);printWindow.document.close();
  const runPrint=function(){
