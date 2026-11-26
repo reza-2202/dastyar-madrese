@@ -7370,18 +7370,17 @@ function checkUpcomingStudentBirthdays(){
    targets[String(j.jm).padStart(2,'0')+'/'+String(j.jd).padStart(2,'0')]=offset;
  });
  var allowed=new Set((typeof myClasses==='function'?myClasses():[]).map(function(c){return String(c.id).trim();}));
- var upcoming=(cache.students||[]).filter(function(st){
-   if(!st||!st.birth_date||!allowed.has(String(st.class_id||'').trim()))return false;
+ var upcoming=(cache.students||[]).map(function(st){
+   if(!st||!st.birth_date||!allowed.has(String(st.class_id||'').trim()))return null;
    var birth=null;try{birth=parseJalali(st.birth_date);}catch(e){}
-   if(!birth)return false;
+   if(!birth)return null;
    var offset=targets[String(birth.jm).padStart(2,'0')+'/'+String(birth.jd).padStart(2,'0')];
-   if(offset===undefined)return false;
-   st.__birthdayReminderOffset=offset;return true;
- });
+   return offset===undefined?null:{student:st,offset:offset};
+ }).filter(Boolean);
  if(!upcoming.length){box.style.display='none';box.innerHTML='';return;}
- var rows=upcoming.map(function(st){
-   var offset=Number(st.__birthdayReminderOffset),when=offset===-1?'تولد فردا':(offset===0?'امروز تولد این دانش‌آموز است':'تولد دیروز بوده؛ یادآوری جامانده');
-   return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 0;border-top:1px solid #bfdbfe"><div><b>'+escHtml((st.first_name||'')+' '+(st.last_name||''))+'</b><div style="font-size:.78rem;color:#475569">'+when+'</div></div><button type="button" class="btn btn-p btn-sm" onclick="shareBirthdayGreeting(\''+String(st.id).replace(/'/g,'')+'\')">🎁 آماده‌سازی پیام تبریک</button></div>';
+ var rows=upcoming.map(function(item){
+   var st=item.student,offset=Number(item.offset),when=offset===-1?'تولد فردا':(offset===0?'امروز تولد این دانش‌آموز است':'تولد دیروز بوده؛ یادآوری جامانده');
+   return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 0;border-top:1px solid #bfdbfe"><div><b>'+escHtml((st.first_name||'')+' '+(st.last_name||''))+'</b><div style="font-size:.78rem;color:#475569">'+when+'</div></div><button type="button" class="btn btn-p btn-sm" onclick="shareBirthdayGreeting(\\''+String(st.id).replace(/'/g,'')+'\\')">🎁 آماده‌سازی پیام تبریک</button></div>';
  }).join('');
  box.innerHTML='<section style="margin:10px 12px;padding:12px;border:1px solid #93c5fd;border-radius:12px;background:#eff6ff;color:#1e3a8a"><div style="font-weight:800;margin-bottom:4px">🎂 یادآوری تولد دانش‌آموزان</div><div style="font-size:.8rem;color:#475569;margin-bottom:6px">این یادآوری فقط برای دانش‌آموزان کلاس‌های تحت مسئولیت شما نمایش داده می‌شود.</div>'+rows+'<div style="display:flex;justify-content:flex-end;margin-top:8px"><button type="button" class="btn btn-s btn-sm" onclick="dismissStudentBirthdayReminders()">متوجه شدم</button></div></section>';
  box.style.display='block';
