@@ -1291,17 +1291,17 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
   </div>
 </div>
 
-<div class="card" id="teacher-notice-inbox" style="display:none;border:1px solid #fbbf24;background:#fffbeb">
-<div class="ct">📨 ابلاغیه‌ها و تذکرهای مدیر</div>
-<p style="font-size:.78rem;color:#92400e;margin-bottom:8px">این پیام‌ها فقط برای حساب کاربری شما ارسال شده‌اند.</p>
-<div id="teacher-notice-list"></div>
-</div>
 <div id="teacher-today-schedule" class="card" style="display:none;border:1px solid #93c5fd;background:#f0f9ff">
  <div class="ct">📚 برنامه امروز کلاس شما</div>
  <div id="teacher-today-schedule-content" style="font-size:.84rem;line-height:1.9"></div>
  <button class="btn btn-o btn-sm" style="margin-top:8px" onclick="go('weekly')">مشاهده و تنظیم برنامه هفتگی</button>
 </div>
 <div id="teacher-birthday-reminders" style="display:none"></div>
+<div class="card" id="teacher-notice-inbox" style="display:none;border:1px solid #fbbf24;background:#fffbeb">
+<div class="ct">📨 ابلاغیه‌ها و تذکرهای مدیر</div>
+<p style="font-size:.78rem;color:#92400e;margin-bottom:8px">این پیام‌ها فقط برای حساب کاربری شما ارسال شده‌اند.</p>
+<div id="teacher-notice-list"></div>
+</div>
 <div id="pending-file-class-list" class="card" style="display:none"><div class="ct">📂 کلاس‌های دارای فایل در انتظار</div><div id="pending-file-class-list-items" class="meta"></div></div>
 <div id="attendance-class-list" class="card" style="display:none"><div class="ct">🏫 وضعیت حضور و غیاب امروز کلاس‌ها</div><div class="meta" style="margin-bottom:8px">سبز: ثبت شده | قرمز: ثبت نشده</div><div id="attendance-class-list-items" class="meta"></div><div id="attendance-remind-admin" style="display:none;margin-top:10px"><button type="button" class="btn btn-p btn-sm" onclick="sendAttendanceReminderToMissing()">📨 یادآوری ثبت حضور و غیاب به کلاس‌های ثبت‌نشده</button><div class="meta" style="margin-top:6px">فقط مدیر — پیام مشترک فقط به معلمان کلاس‌هایی که امروز حاضری ثبت نکرده‌اند.</div></div></div>
 <div id="discipline-dash-list" class="card" style="display:none;border:1px solid #fca5a5;background:#fff7f7"><div class="ct">موارد انضباطی ثبت‌شده</div><div class="meta" style="margin-bottom:8px">مدیر: همه کلاس‌ها | معلم: فقط کلاس خود</div><div id="discipline-dash-list-items" class="meta"></div></div>
@@ -1749,6 +1749,7 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 </select>
 </div>
 <div class="fg"><label>توضیحات</label><textarea id="ex-notes" rows="2" placeholder="توضیح اختیاری معلم"></textarea></div>
+<div class="card" style="padding:10px;margin:8px 0;background:#eff6ff;border:1px solid #bfdbfe"><b>✍️ راهکار و تکلیف معلم (اختیاری)</b><p class="meta">می‌توانید هنگام ثبت آزمون، برای همین دانش‌آموز راهکار یا تکلیف اختصاصی تعیین کنید؛ خالی گذاشتن این قسمت مانع ثبت آزمون نیست.</p><div class="fg"><label>راهکار پیشنهادی</label><textarea id="ex-guidance" rows="2" placeholder="راهکار آموزشی یا حمایتی (اختیاری)"></textarea></div><div class="fg"><label>تکلیف اختصاصی دانش‌آموز</label><textarea id="ex-homework" rows="2" placeholder="تمرین یا تکلیف (اختیاری)"></textarea></div><div class="fg"><label>مدت یا تکرار (اختیاری)</label><input id="ex-guidance-duration" placeholder="مثلاً روزانه ۱۰ دقیقه به مدت یک هفته"/></div></div>
 <button type="button" class="btn btn-p" onclick="saveExamRecord()">💾 ثبت آزمون</button>
 <button type="button" class="btn btn-o btn-sm" style="margin-top:6px" onclick="loadExams()">📋 نمایش آزمون‌های ثبت‌شده</button>
 <div id="ex-list" style="margin-top:10px"></div>
@@ -6471,6 +6472,9 @@ async function saveExamRecord(){
     var raw=String((document.getElementById('ex-score')||{}).value||'').trim();
     var level=String((document.getElementById('ex-level')||{}).value||'acceptable');
     var notes=String((document.getElementById('ex-notes')||{}).value||'').trim();
+    var inlineGuidance=String((document.getElementById('ex-guidance')||{}).value||'').trim();
+    var inlineHomework=String((document.getElementById('ex-homework')||{}).value||'').trim();
+    var inlineDuration=String((document.getElementById('ex-guidance-duration')||{}).value||'').trim();
     if(!classId){ if(typeof toast==='function') toast('کلاس را انتخاب کنید'); return; }
     if(!studentId){ if(typeof toast==='function') toast('دانش‌آموز را انتخاب کنید'); return; }
     if(!name){ if(typeof toast==='function') toast('نام آزمون را وارد کنید'); return; }
@@ -6518,8 +6522,12 @@ async function saveExamRecord(){
         if(res&&res.error) console.warn('exam server save', res.error);
       }catch(e){ console.warn(e); }
     }
-    if(typeof toast==='function') toast('آزمون ثبت شد');
-    try{ document.getElementById('ex-notes').value=''; document.getElementById('ex-score').value=''; }catch(e){}
+    var guidanceSaved=true;
+    if(inlineGuidance||inlineHomework){
+      guidanceSaved=await saveStudentGuidance({student_id:String(studentId),class_id:String(classId),source_type:'exam',source_id:String(row.id),subject:subjectLabel,month:date,guidance:inlineGuidance,homework:inlineHomework,duration:inlineDuration});
+    }
+    if(typeof toast==='function') toast(guidanceSaved?'آزمون ثبت شد':'آزمون ثبت شد، اما ذخیره راهکار/تکلیف ناموفق بود');
+    try{ document.getElementById('ex-notes').value=''; document.getElementById('ex-score').value=''; document.getElementById('ex-guidance').value=''; document.getElementById('ex-homework').value=''; document.getElementById('ex-guidance-duration').value=''; }catch(e){}
     try{ persistLocalSchoolCache(); }catch(e){}
     try{await buildClosedMonthQaEvaluations();}catch(monthError){console.warn('به‌روزرسانی میانگین ماهانه پس از ثبت آزمون انجام نشد',monthError);}
     try{await syncQaReportCardAverages([studentId]);}catch(scoreError){console.warn('به‌روزرسانی نمره کارنامه پس از ثبت آزمون انجام نشد',scoreError);}
@@ -6542,9 +6550,23 @@ function loadExams(){
       var sc=(a.score!=null&&a.score!=='')?(' | نمره: '+a.score):'';
       var lv=(typeof badge==='function'&&a.level)?badge(a.level):'';
       var notes=a.notes?('<div class="meta" style="margin-top:4px">'+String(a.notes).replace(/</g,'&lt;')+'</div>'):'';
-      return '<div class="card" style="padding:10px;margin:6px 0"><div class="name">'+name+'</div><div class="meta">📝 '+String(a.subject||'')+' | '+(a.weekday||'')+' '+(a.date||'')+sc+'</div><div style="margin-top:4px">'+lv+'</div>'+notes+'</div>';
+      return '<div class="card" style="padding:10px;margin:6px 0"><div class="name">'+name+'</div><div class="meta">📝 '+String(a.subject||'')+' | '+(a.weekday||'')+' '+(a.date||'')+sc+'</div><div style="margin-top:4px">'+lv+'</div>'+notes+'<button type="button" class="btn btn-s btn-sm no-print" style="margin-top:8px" onclick="shareExamRecord(\''+String(a.id).replace(/'/g,'')+'\')">📤 اشتراک‌گذاری گزارش آزمون در شاد و پیام‌رسان‌ها</button>'+renderGuidanceForSource('exam',a.id)+'</div>';
     }).join('');
   }catch(e){ console.warn(e); }
+}
+
+
+function shareExamRecord(examId){
+ var row=(cache.activities||[]).find(function(x){return x&&x.type==='exam'&&String(x.id)===String(examId);});
+ if(!row){toast('آزمون موردنظر برای اشتراک‌گذاری پیدا نشد');return;}
+ var st=(cache.students||[]).find(function(x){return String(x.id)===String(row.student_id);});
+ var cl=(cache.classes||[]).find(function(x){return String(x.id)===String(row.class_id);});
+ var extras=guidanceRows('exam',examId),name=st?((st.first_name||'')+' '+(st.last_name||'')).trim():'دانش‌آموز';
+ var msg='دبستان شهید فتح‌الله فلاح‌پور\\nگزارش آزمون دانش‌آموز\\nدانش‌آموز: '+name+'\\nکلاس: '+(cl&&cl.label||'')+'\\nآزمون: '+(row.exam_name||row.subject||'')+'\\nدرس: '+(row.lesson||'')+'\\nمباحث: '+(row.chapters||'—')+'\\nتاریخ: '+(row.date||'')+'\\nنمره: '+(row.score==null?'ثبت نشده':row.score+'/۲۰')+'\\nسطح: '+(row.level||'ثبت نشده')+'\\nتوضیحات: '+(row.notes||'—');
+ if(extras.length){msg+='\\n\\nراهکار معلم و تکلیف:';extras.forEach(function(g,i){msg+='\\n'+(i+1)+') راهکار: '+(g.guidance||'—')+'\\nتکلیف: '+(g.homework||'—')+(g.duration?'\\nمدت/تکرار: '+g.duration:'');});}
+ msg+='\\n\\nمعلم: '+(row.recorded_by||(user&&user.full_name)||'معلم مربوطه');
+ if(navigator.share){navigator.share({title:'گزارش آزمون دانش‌آموز',text:msg}).catch(function(e){if(e&&e.name!=='AbortError')copyGuidanceText(msg);});}
+ else copyGuidanceText(msg);
 }
 
 function toggleQaPanel(which){
