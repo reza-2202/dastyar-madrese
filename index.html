@@ -12457,8 +12457,7 @@ window.downloadDocWordFromEditor=function(){
   // مبدل عمومی DOCX برنامه برای گزارش‌های متنی است و تصویرهای این برگه را درج نمی‌کند.
   html=html.replace('<html lang="fa" dir="rtl">','<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" lang="fa" dir="rtl">').replace('<head><meta charset="utf-8">','<head><meta charset="utf-8"><meta name="ProgId" content="Word.Document"><meta name="Generator" content="Microsoft Word-compatible HTML">');
   var blob=new Blob(['\ufeff'+html],{type:'application/msword'});
-  var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=title+'.doc';
-  document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(a.href);},10000);
+  window.downloadFileBlob(blob,title+'.doc');
 };
 window.printDocWordFromEditor=function(){
   var ed=$('doc-word-editor'); if(!ed) return;
@@ -13053,9 +13052,9 @@ window.sfeExportWordAdvanced=async function(){
    }
   });
   var wordDoc=new api.Document({sections:[{properties:{page:{margin:{top:900,right:900,bottom:900,left:900}}},children:children}]});
-  var blob=await api.Packer.toBlob(wordDoc),url=URL.createObjectURL(blob),a=document.createElement('a');
+  var blob=await api.Packer.toBlob(wordDoc);
   var base=(sourceName||'document').replace(/\.[^.]+$/,'').replace(/[^\w\-\u0600-\u06FF]+/g,'_')||'document';
-  a.href=url;a.download=base+'-editable.docx';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},5000);
+  window.downloadFileBlob(blob,base+'-editable.docx');
   say('فایل واقعی DOCX ساخته شد؛ متن داخل Word قابل انتخاب، حذف و ویرایش است.');
  }catch(e){say('ساخت Word واقعی انجام نشد: '+(e&&e.message?e.message:e)+'؛ اتصال اینترنت و بارگذاری کتابخانه Word را بررسی کنید.');}
 };
