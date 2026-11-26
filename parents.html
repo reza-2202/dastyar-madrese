@@ -25,6 +25,27 @@ button{width:100%;margin-top:14px;padding:12px;border:0;border-radius:12px;backg
 .section h3{margin:0 0 8px;font-size:.95rem;color:#1e3a8a}
 .item{font-size:.84rem;padding:6px 0;border-bottom:1px solid #f1f5f9;line-height:1.7}
 .badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#e0f2fe;color:#075985;font-size:.75rem}
+.assessment-center{margin:16px 0 20px;padding:14px;border:2px solid #0f766e;border-radius:18px;background:linear-gradient(160deg,#ecfdf5 0%,#f0fdfa 45%,#fff 100%);box-shadow:0 8px 24px rgba(15,118,110,.10);break-inside:auto}
+.assessment-center-head{padding:13px 14px;margin:-2px -2px 12px;border-radius:13px;background:linear-gradient(110deg,#0f766e,#115e59);color:#fff}
+.assessment-center-head h2{font-size:1.12rem;margin:5px 0;color:#fff}
+.assessment-center-head p{font-size:.78rem;margin:0;color:#d1fae5}
+.assessment-kicker{font-size:.7rem;font-weight:700;color:#ccfbf1}
+.assessment-center .section{border:1px solid #99f6e4;border-radius:11px;padding:10px;margin:10px 0;background:rgba(255,255,255,.92)}
+.assessment-center .section h3{color:#115e59}
+.assessment-center .item{border-color:#ccfbf1}
+@page{size:A4 portrait;margin:10mm}
+@media print{
+  html,body{width:100%!important;min-width:0!important;max-width:none!important;overflow:visible!important;background:#fff!important}
+  body{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  .wrap{width:100%!important;max-width:none!important;margin:0!important;padding:0!important}
+  #view-card{display:block!important;width:100%!important;max-width:none!important;margin:0!important;padding:8mm!important;border:0!important;border-radius:0!important;box-shadow:none!important}
+  #login-card,#btn-out,#btn-print{display:none!important}
+  #v-body{width:100%!important;max-width:none!important;overflow:visible!important}
+  .assessment-center{break-inside:auto;box-shadow:none!important;border:2px solid #0f766e!important}
+  .assessment-center-head,.assessment-center .section{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  .section,.item,svg{break-inside:avoid}
+  button{display:none!important}
+}
 </style>
 </head>
 <body>
@@ -51,6 +72,7 @@ button{width:100%;margin-top:14px;padding:12px;border:0;border-radius:12px;backg
     <p class="meta" id="v-sub"></p>
     <div id="v-body"></div>
     <p class="meta" style="text-align:center;margin-top:12px">صاحب امتیاز و سازنده: <b>رضا فلاحتکار</b><br>نسخه 2026.10.28.54</p>
+    <button type="button" id="btn-print" style="background:#0f766e;margin-top:16px" onclick="window.print()">چاپ پرونده دانش‌آموز</button>
     <button type="button" id="btn-out" style="background:#64748b;margin-top:16px">خروج</button>
   </div>
 </div>
@@ -215,7 +237,7 @@ button{width:100%;margin-top:14px;padding:12px;border:0;border-radius:12px;backg
           (m.followup_at?'<div>تاریخ پیگیری: '+esc(m.followup_at)+'</div>':'')+records+'</div>';
       });
     }
-    var html="";
+    var html="",assessmentHtml="";
     var custom=st.custom_fields||{};if(typeof custom==="string"){try{custom=JSON.parse(custom)}catch(e){custom={}}}
     var customRows=Array.isArray(custom)?custom.filter(function(x){return x&&String(x.title||"").trim();}):Object.keys(custom&&typeof custom==="object"?custom:{}).map(function(k){return {title:k,value:custom[k]};});
     html+=list("سایر مشخصات دانش‌آموز",customRows,function(x){return "<div class=\"item\"><b>"+esc(x.title||"مشخصه")+":</b> "+esc(x.value)+"</div>";});
@@ -230,10 +252,11 @@ button{width:100%;margin-top:14px;padding:12px;border:0;border-radius:12px;backg
     html+=list("آزمون‌های کتبی / مدادکاغذی",dateSort(exams),function(a){return "<div class=\"item\"><b>"+esc(a.exam_name||a.name||a.subject||"آزمون")+"</b> — "+faDigits(esc(a.weekday||""))+" "+faDigits(esc(a.date||""))+" — درس: "+esc(trSubject(a.subject||a.lesson||""))+" — نمره: "+esc(a.score==null||a.score===""?"—":a.score)+" — "+esc(trLevel(a.level||""))+(a.chapters?(" — مباحث: "+esc(a.chapters)):"")+(a.notes||a.desc_text||a.description?(" — "+esc(a.notes||a.desc_text||a.description)):"")+(a.recorded_by?(" — ثبت‌کننده: "+esc(a.recorded_by)):"")+"</div>";});
     html+=referralList("آزمون‌ها",["exam"]);
     html+=list("سوابق پیگیری غیبت",dateSort(followups),function(a){var raw=String(a.notes||"");var token=raw.match(/\[ABSENCE_CYCLE:([^|\]]+)\|([^\]]+)\]/);var range=raw.match(/چرخه پیگیری:\s*([^\n]+)/);var count=raw.match(/تعداد غیبت\/تأخیر در این چرخه:\s*([^\n]+)/);var clean=raw.replace(/^\[ABSENCE_CYCLE:[^\]]+\]\s*/,"").replace(/چرخه پیگیری:[^\n]*\n?/,"").replace(/تعداد غیبت\/تأخیر در این چرخه:[^\n]*\n?/,"").replace(/^توضیحات مدیر:\s*/,"").trim();return "<div class=\"item\"><b>رسیدگی مستقل</b>"+(token?" — "+esc(token[1])+" تا "+esc(token[2]):"")+" — "+faDigits(esc(range?range[1]:(a.date||"")))+(count?" — "+esc(count[1]):"")+(clean?"<div>"+esc(clean)+"</div>":"")+(a.recorded_by?" — ثبت‌کننده: "+esc(a.recorded_by):"")+"</div>";});
-    html+=list("ارزشیابی",dateSort(p.evaluations),function(a){return "<div class=\"item\">"+faDigits(esc(a.month||a.date||""))+" — "+esc(trSubject(a.subject||""))+" — "+esc(trLevel(a.level||a.score||""))+(a.score!=null?(" — نمره: "+esc(a.score)):"")+(a.notes?(" — "+esc(a.notes)):"")+(a.recorded_by?(" — ثبت‌کننده: "+esc(a.recorded_by)):"")+"</div>";});
-    html+=referralList("ارزشیابی درسی",["evaluation"]);
-    html+=list("نمرات",dateSort(p.scores),function(a){return "<div class=\"item\">"+esc(trSubject(a.subject||""))+" — نمره: "+esc(a.score==null?"—":a.score)+" — "+esc(trLevel(a.level||""))+(a.notes?(" — "+esc(a.notes)):"")+"</div>";});
-    html+=referralList("نمرات کارنامه",["scores"]);
+    assessmentHtml+='<div class="assessment-center" id="assessment-center"><div class="assessment-center-head"><span class="assessment-kicker">بخش اصلی پرونده دانش‌آموز</span><h2>ارزشیابی و پیشرفت تحصیلی</h2><p>نمای یکپارچه عملکرد درسی، نمرات و روند پیشرفت</p></div>';
+    assessmentHtml+=list("ارزشیابی",dateSort(p.evaluations),function(a){return "<div class=\"item\">"+faDigits(esc(a.month||a.date||""))+" — "+esc(trSubject(a.subject||""))+" — "+esc(trLevel(a.level||a.score||""))+(a.score!=null?(" — نمره: "+esc(a.score)):"")+(a.notes?(" — "+esc(a.notes)):"")+(a.recorded_by?(" — ثبت‌کننده: "+esc(a.recorded_by)):"")+"</div>";});
+    assessmentHtml+=referralList("ارزشیابی درسی",["evaluation"]);
+    assessmentHtml+=list("نمرات",dateSort(p.scores),function(a){return "<div class=\"item\">"+esc(trSubject(a.subject||""))+" — نمره: "+esc(a.score==null?"—":a.score)+" — "+esc(trLevel(a.level||""))+(a.notes?(" — "+esc(a.notes)):"")+"</div>";});
+    assessmentHtml+=referralList("نمرات کارنامه",["scores"]);
     var progressByDate=Object.create(null),progressSubjects=[],progressSeen=Object.create(null);
     function progressValue(r){
       var raw=r&&r.score;
@@ -276,10 +299,11 @@ button{width:100%;margin-top:14px;padding:12px;border:0;border-radius:12px;backg
       var trendHtml='<div style="margin-top:9px;padding:9px 10px;border:1px solid #dbeafe;border-right:4px solid #2563eb;border-radius:9px;background:#f8fbff;break-inside:avoid"><b style="color:#1e3a8a">تحلیل کوتاه روند تحصیلی</b><div class="meta" style="line-height:1.8">'+trendSummary+'</div>'+trendRows.map(function(r){return '<div class="meta" style="line-height:1.8">• '+esc(r.subject)+': '+r.status+(r.delta===null?'':(' ('+(r.delta>0?'+':'')+faDigits(r.delta.toFixed(1))+' نمره از ۲۰؛ از '+esc(r.first.date)+' تا '+esc(r.last.date)+')'))+'</div>';}).join('')+'<div class="meta" style="font-size:.66rem;margin-top:3px">مبنای تحلیل: اختلاف نخستین و آخرین نمره ثبت‌شده هر درس؛ تغییر کمتر از نیم نمره، تقریباً ثابت در نظر گرفته شده است.</div></div>';
       var paletteLegend=["#2563eb","#0f766e","#d97706","#7c3aed","#db2777","#0891b2","#65a30d","#dc2626"];
       var legend='<div class="meta" style="display:flex;flex-wrap:wrap;gap:5px 12px;margin:6px 0">'+progressSeries.map(function(s,i){return '<span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:'+paletteLegend[i%paletteLegend.length]+'"></i> '+esc(s.subject)+'</span>';}).join('')+'</div>';
-      html+='<div class="section"><h3>روند پیشرفت و افت تحصیلی</h3><div class="meta">نمره و درصد هر درس در روزهای مختلف؛ رنگ هر درس در راهنمای نمودار مشخص است.</div><div class="item"><b>نمودار میله‌ای نمره و درصد به تفکیک درس</b>'+legend+progressChartSvg("bar")+'</div><div class="item"><b>نمودار خطی روند هر درس در روزهای مختلف</b><div class="meta">رنگ و نوع خط هر درس متفاوت است؛ نمره از ۲۰ کنار هر نقطه درج می‌شود.</div>'+legend+progressChartSvg("line")+trendHtml+'</div><div class="meta">آخرین میانگین درس‌های ثبت‌شده: '+faDigits(latestGrade.toFixed(1))+' از ۲۰ | '+faDigits(latestPercent.toFixed(1))+'٪ | تعداد ثبت‌ها: '+faDigits(latestCount)+'</div></div>';
+      assessmentHtml+='<div class="section"><h3>روند پیشرفت و افت تحصیلی</h3><div class="meta">نمره و درصد هر درس در روزهای مختلف؛ رنگ هر درس در راهنمای نمودار مشخص است.</div><div class="item"><b>نمودار میله‌ای نمره و درصد به تفکیک درس</b>'+legend+progressChartSvg("bar")+'</div><div class="item"><b>نمودار خطی روند هر درس در روزهای مختلف</b><div class="meta">رنگ و نوع خط هر درس متفاوت است؛ نمره از ۲۰ کنار هر نقطه درج می‌شود.</div>'+legend+progressChartSvg("line")+trendHtml+'</div><div class="meta">آخرین میانگین درس‌های ثبت‌شده: '+faDigits(latestGrade.toFixed(1))+' از ۲۰ | '+faDigits(latestPercent.toFixed(1))+'٪ | تعداد ثبت‌ها: '+faDigits(latestCount)+'</div></div>';
     }else{
-      html+='<div class="section"><h3>روند پیشرفت تحصیلی</h3><div class="item">برای رسم نمودار، هنوز نمره یا ارزشیابی درسی تاریخ‌دار ثبت نشده است.</div></div>';
+      assessmentHtml+='<div class="section"><h3>روند پیشرفت تحصیلی</h3><div class="item">برای رسم نمودار، هنوز نمره یا ارزشیابی درسی تاریخ‌دار ثبت نشده است.</div></div>';
     }
+    assessmentHtml+='</div>';
     html+=list("شایستگی‌ها",dateSort(p.competencies),function(a){return "<div class=\"item\">"+esc(a.name||a.title||"شایستگی")+" — "+esc(trLevel(a.level||a.result||a.score||""))+(a.notes?(" — "+esc(a.notes)):"")+"</div>";});
     html+=referralList("شایستگی‌ها",["competencies"]);
     function medalSvg(level){var colors={bronze:['#a85d24','#f3c28a'],silver:['#64748b','#e2e8f0'],gold:['#b7791f','#fde68a'],special:['#7c3aed','#ddd6fe']};var c=colors[level]||colors.gold;var svg='<svg xmlns="http://www.w3.org/2000/svg" width="120" height="140" viewBox="0 0 120 140"><path d="M35 8h20l5 42H35zM65 8h20L85 50H65z" fill="'+c[0]+'"/><circle cx="60" cy="82" r="39" fill="'+c[0]+'" stroke="'+c[1]+'" stroke-width="7"/><circle cx="60" cy="82" r="27" fill="'+c[1]+'"/><path d="M60 60l6 14 15 1-11 10 3 15-13-8-13 8 3-15-11-10 15-1z" fill="'+c[0]+'"/></svg>';return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);}
@@ -294,7 +318,7 @@ button{width:100%;margin-top:14px;padding:12px;border:0;border-radius:12px;backg
     html+=referralList("انضباطی",["discipline"]);
     html+=list("سوابق مالی",dateSort(p.finance),function(a){var amount=a.amount==null?"—":faDigits(a.amount);return "<div class=\"item\"><b>"+esc(a.topic||a.title||"مالی")+"</b> — "+faDigits(esc(a.date||""))+" — مبلغ: "+esc(amount)+(a.notes?(" — "+esc(a.notes)):"")+(a.status?(" — وضعیت: "+esc(a.status)):"")+(a.created_by?(" — ثبت‌کننده: "+esc(a.created_by)):"")+"</div>";});
     html+=list("ارتباط و پیگیری با اولیا",dateSort(p.parent_contacts),function(a){var types={call:"تماس",message:"پیام",inperson:"حضوری",other:"سایر"};return "<div class=\"item\"><b>"+esc(types[a.contact_type]||a.contact_type||"ارتباط")+"</b> — "+faDigits(esc(a.date||""))+(a.phone?(" — "+esc(a.phone)):"")+(a.subject?(" — موضوع: "+esc(a.subject)):"")+(a.result?(" — نتیجه: "+esc(a.result)):"")+(a.follow_up_date?(" — پیگیری: "+faDigits(esc(a.follow_up_date))):"")+(a.notes?(" — "+esc(a.notes)):"")+(a.recorded_by?(" — ثبت‌کننده: "+esc(a.recorded_by)):"")+"</div>";});
-    $("v-body").innerHTML=html;
+    $("v-body").innerHTML=assessmentHtml+html;
   }
 $("btn-login").onclick=function(e){ e.preventDefault(); doLogin(); };
   $("password").onkeydown=function(e){ if(e.key==="Enter"){ e.preventDefault(); doLogin(); } };
