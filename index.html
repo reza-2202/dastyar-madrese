@@ -1225,6 +1225,7 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <p style="font-size:.75rem;opacity:.9;margin-top:8px">مدیریت مدرسه شهید فتح‌الله فلاح‌پور</p>
 <p style="font-size:.72rem;opacity:.85">صاحب امتیاز و سازنده: رضا فلاحتکار</p>
 </div>
+<div id="teacher-birthday-reminders" style="display:none"></div>
 <div class="home-tiles" aria-label="نمایش داشبورد">
 <details class="home-tile-group group-dashboard" id="dashboard-stats-toggle" aria-label="داشبورد آمار" ontoggle="toggleDashboardStatsRail(this.open)">
 <summary class="home-tile-group-title"><span class="home-tile-group-mark">📊</span><span>داشبورد</span></summary>
@@ -7350,17 +7351,40 @@ function shareBirthdayGreeting(studentId){
  var msg='🌷 یک روز مانده به تولدت، تولدت را تبریک می‌گوییم!\nدانش‌آموز عزیز '+st.first_name+' '+st.last_name+'، امیدواریم سالی سرشار از سلامتی، شادی، یادگیری و موفقیت پیش رو داشته باشی.\n\nبا مهر؛ مدیریت دبستان شهید فتح‌الله فلاح‌پور و معلم عزیزت';
  if(navigator.share)navigator.share({title:'تبریک تولد دانش‌آموز',text:msg}).catch(function(e){if(e&&e.name!=='AbortError')copyGuidanceText(msg);});else copyGuidanceText(msg);
 }
+function dismissStudentBirthdayReminders(){
+ try{localStorage.setItem('dastyar_birth_reminder_dismissed_'+today(),'1');}catch(e){}
+ var box=document.getElementById('teacher-birthday-reminders');if(box)box.style.display='none';
+}
 function checkUpcomingStudentBirthdays(){
- if(!user||user.role!=='teacher'||!Array.isArray(cache.students)||!cache.students.length)return;
- var p=null;try{p=parseJalali(today());}catch(e){}if(!p)return;
- var lastDay=p.jm<=6?31:(p.jm<=11?30:Math.round((Date.UTC(jalaliToGregorian(p.jy+1,1,1).gy,jalaliToGregorian(p.jy+1,1,1).gm-1,jalaliToGregorian(p.jy+1,1,1).gd)-Date.UTC(jalaliToGregorian(p.jy,12,1).gy,jalaliToGregorian(p.jy,12,1).gm-1,jalaliToGregorian(p.jy,12,1).gd))/86400000));
- var y=p.jy,m=p.jm,d=p.jd+1;if(d>lastDay){d=1;m++;if(m>12){m=1;y++;}}
- var target=String(m).padStart(2,'0')+'/'+String(d).padStart(2,'0'),key='dastyar_birth_reminder_'+today(),seen=[];try{seen=JSON.parse(localStorage.getItem(key)||'[]');}catch(e){}
- var allowed=new Set((typeof myClasses==='function'?myClasses():[]).map(function(c){return String(c.id);}));
- var upcoming=(cache.students||[]).filter(function(st){if(!st||!st.birth_date||!allowed.has(String(st.class_id))||seen.includes(String(st.id)))return false;var b=null;try{b=parseJalali(st.birth_date);}catch(e){}return !!(b&&String(b.jm).padStart(2,'0')+'/'+String(b.jd).padStart(2,'0')===target);});
- if(!upcoming.length)return;upcoming.forEach(function(st){seen.push(String(st.id));});try{localStorage.setItem(key,JSON.stringify(seen));}catch(e){}
- alert('🎂 یادآوری تولد فردا\n\n'+upcoming.map(function(st){return '• '+st.first_name+' '+st.last_name;}).join('\n')+'\n\nبرای هر دانش‌آموز پیام تبریک آماده و قابل اشتراک‌گذاری است.');
- if(upcoming.length===1&&confirm('پیام تبریک '+upcoming[0].first_name+' '+upcoming[0].last_name+' را برای اشتراک‌گذاری آماده کنم؟'))shareBirthdayGreeting(upcoming[0].id);
+ var box=document.getElementById('teacher-birthday-reminders');
+ if(!box)return;
+ if(!user||user.role!=='teacher'||!Array.isArray(cache.students)||!cache.students.length){box.style.display='none';box.innerHTML='';return;}
+ var p=null;try{p=parseJalali(today());}catch(e){}if(!p){box.style.display='none';return;}
+ var dismissed=false;try{dismissed=localStorage.getItem('dastyar_birth_reminder_dismissed_'+today())==='1';}catch(e){}
+ if(dismissed){box.style.display='none';return;}
+ var offsets=[-1,0,1],targets={};
+ offsets.forEach(function(offset){
+   var g=jalaliToGregorian(p.jy,p.jm,p.jd),dt=new Date(g.gy,g.gm-1,g.gd,12,0,0);
+   dt.setDate(dt.getDate()+offset);
+   var j=gregorianToJalali(dt.getFullYear(),dt.getMonth()+1,dt.getDate());
+   targets[String(j.jm).padStart(2,'0')+'/'+String(j.jd).padStart(2,'0')]=offset;
+ });
+ var allowed=new Set((typeof myClasses==='function'?myClasses():[]).map(function(c){return String(c.id).trim();}));
+ var upcoming=(cache.students||[]).filter(function(st){
+   if(!st||!st.birth_date||!allowed.has(String(st.class_id||'').trim()))return false;
+   var birth=null;try{birth=parseJalali(st.birth_date);}catch(e){}
+   if(!birth)return false;
+   var offset=targets[String(birth.jm).padStart(2,'0')+'/'+String(birth.jd).padStart(2,'0')];
+   if(offset===undefined)return false;
+   st.__birthdayReminderOffset=offset;return true;
+ });
+ if(!upcoming.length){box.style.display='none';box.innerHTML='';return;}
+ var rows=upcoming.map(function(st){
+   var offset=Number(st.__birthdayReminderOffset),when=offset===-1?'تولد فردا':(offset===0?'امروز تولد این دانش‌آموز است':'تولد دیروز بوده؛ یادآوری جامانده');
+   return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 0;border-top:1px solid #bfdbfe"><div><b>'+escHtml((st.first_name||'')+' '+(st.last_name||''))+'</b><div style="font-size:.78rem;color:#475569">'+when+'</div></div><button type="button" class="btn btn-p btn-sm" onclick="shareBirthdayGreeting(\''+String(st.id).replace(/'/g,'')+'\')">🎁 آماده‌سازی پیام تبریک</button></div>';
+ }).join('');
+ box.innerHTML='<section style="margin:10px 12px;padding:12px;border:1px solid #93c5fd;border-radius:12px;background:#eff6ff;color:#1e3a8a"><div style="font-weight:800;margin-bottom:4px">🎂 یادآوری تولد دانش‌آموزان</div><div style="font-size:.8rem;color:#475569;margin-bottom:6px">این یادآوری فقط برای دانش‌آموزان کلاس‌های تحت مسئولیت شما نمایش داده می‌شود.</div>'+rows+'<div style="display:flex;justify-content:flex-end;margin-top:8px"><button type="button" class="btn btn-s btn-sm" onclick="dismissStudentBirthdayReminders()">متوجه شدم</button></div></section>';
+ box.style.display='block';
 }
 
 function renderMonthlyStudentAssessment(){
@@ -9544,10 +9568,14 @@ function gregorianToJalali(gy,gm,gd){
 }
 function parseJalali(str){
   if(!str) return null;
-  const p=String(str).trim().replace(/[./-]/g,'/').split('/');
+  var value=String(str).trim()
+    .replace(/[۰-۹]/g,function(d){return String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d));})
+    .replace(/[٠-٩]/g,function(d){return String('٠١٢٣٤٥٦٧٨٩'.indexOf(d));});
+  if(/^\d{8}$/.test(value)) value=value.slice(0,4)+'/'+value.slice(4,6)+'/'+value.slice(6,8);
+  const p=value.replace(/[.-]/g,'/').split('/');
   if(p.length<3) return null;
   const jy=parseInt(p[0],10), jm=parseInt(p[1],10), jd=parseInt(p[2],10);
-  if(!jy||!jm||!jd) return null;
+  if(!jy||!jm||!jd||jm<1||jm>12||jd<1||jd>31) return null;
   return {jy,jm,jd};
 }
 function formatJalali(jy,jm,jd){
