@@ -6330,7 +6330,7 @@ function assessmentSubjectKey(activity){
  if(activity.type==='exam'){
   var lesson=String(activity.lesson||'').trim();
   if(lesson)return lesson;
-  subject=subject.split(/\\s+[—-]\\s+/)[0].trim();
+  subject=subject.split(/\s+[—-]\s+/)[0].trim();
  }
  return subject;
 }
