@@ -1657,6 +1657,7 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <div class="card" id="di-invite-schedule" style="display:none;padding:10px;margin:8px 0;background:#f8fafc;border:1px solid #cbd5e1"><b style="font-size:.9rem">🗓️ زمان پیشنهادی حضور اولیا</b><p style="font-size:.78rem;color:#64748b;margin:4px 0 8px">این فقط پیشنهاد زمان از طرف معلم است؛ صدور و چاپ دعوتنامه همچنان فقط در پنل مدیر انجام می‌شود.</p><div class="fg"><label>تاریخ پیشنهادی حضور</label><input id="di-invite-date" placeholder="مثلاً 1405/08/05"/></div><div class="fg"><label>ساعت پیشنهادی حضور</label><input id="di-invite-time" placeholder="مثلاً 10:30"/></div></div>
 <div class="fg"><label>بازخورد توصیفی آماده (اختیاری)</label><select id="di-feedback-ready" onchange="appendPreparedFeedback('di-feedback-ready','di-details')"><option value="">— انتخاب بازخورد یا عبارت پیشنهادی —</option><optgroup label="یادگیری و تلاش"><option>دانش‌آموز برای انجام فعالیت تلاش کرد و با راهنمایی توانست بخشی از کار را انجام دهد.</option><option>برای پیشرفت درسی، تمرین منظم و پیگیری گام‌به‌گام پیشنهاد می‌شود.</option><option>با توجه و تلاش بیشتر، امکان بهبود عملکرد وجود دارد.</option></optgroup><optgroup label="رفتار و مسئولیت‌پذیری"><option>موضوع با دانش‌آموز گفت‌وگو شد و انتظارهای رفتاری کلاس یادآوری گردید.</option><option>دانش‌آموز پس از تذکر محترمانه، رفتار خود را اصلاح کرد.</option><option>برای رعایت نوبت، گوش دادن به دیگران و همکاری سازنده، به تمرین بیشتر نیاز دارد.</option><option>اهمیت رعایت قوانین کلاس و احترام به دیگران با دانش‌آموز بررسی شد.</option><option>رفتار مسئولانه و همکاری مناسب دانش‌آموز مورد تشویق قرار گرفت.</option></optgroup><optgroup label="ارتباط با خانواده و پیگیری"><option>پیشنهاد می‌شود برای هماهنگی بیشتر میان خانه و مدرسه، موضوع با خانواده در میان گذاشته شود.</option><option>موضوع برای پیگیری آموزشی و حمایتی ثبت شد؛ از قضاوت و برچسب‌زدن به دانش‌آموز پرهیز شود.</option></optgroup></select></div>
 <div class="fg"><label>شرح مورد و توضیحات تکمیلی</label><textarea id="di-details" placeholder="شرح دقیق و بی‌طرفانه اتفاق، زمان، شرایط و اقدام انجام‌شده را بنویسید." rows="4"></textarea></div>
+<div class="card" style="padding:10px;margin:8px 0;background:#eff6ff;border:1px solid #bfdbfe"><b>✍️ راهکار و تکلیف معلم (اختیاری)</b><p class="meta">می‌توانید همراه همین ثبت، راهکار یا تکلیف بنویسید؛ خالی گذاشتن این قسمت مانع ثبت انضباطی نیست.</p><div class="fg"><label>راهکار پیشنهادی</label><textarea id="di-guidance" rows="2" placeholder="راهکار حمایتی یا آموزشی (اختیاری)"></textarea></div><div class="fg"><label>تکلیف اختصاصی دانش‌آموز</label><textarea id="di-homework" rows="2" placeholder="تمرین یا تکلیف (اختیاری)"></textarea></div><div class="fg"><label>مدت یا تکرار (اختیاری)</label><input id="di-guidance-duration" placeholder="مثلاً روزانه ۱۰ دقیقه به مدت یک هفته"/></div></div>
 <button class="btn btn-p" onclick="saveDiscipline()">💾 ثبت آنلاین مورد انضباطی</button>
 </div>
 <div class="card no-print" id="invite-maker">
@@ -5794,6 +5795,9 @@ async function saveDiscipline(){
  const date=(document.getElementById('di-date').value||today()).trim();
  const weekday=document.getElementById('di-weekday').value;
  const details=document.getElementById('di-details').value.trim();
+ const inlineGuidance=(document.getElementById('di-guidance')?.value||'').trim();
+ const inlineHomework=(document.getElementById('di-homework')?.value||'').trim();
+ const inlineDuration=(document.getElementById('di-guidance-duration')?.value||'').trim();
  const category=document.getElementById('di-category').value;
  const feedback=document.getElementById('di-feedback').value;
  const inviteDate=feedback==='دعوت اولیا'?(document.getElementById('di-invite-date')?.value||'').trim():'';
@@ -5808,15 +5812,15 @@ async function saveDiscipline(){
  if(!(result&&result.offline)) await reloadAll();
  if(!(cache.discipline||[]).some(function(r){return String(r.id)===String(row.id);})) cache.discipline=(cache.discipline||[]).concat([row]);
  try{persistLocalSchoolCache();}catch(e){}
- document.getElementById('di-details').value='';document.getElementById('di-feedback').value='';document.getElementById('di-category').value='انضباطی';
+ var guidanceSaved=true;if(inlineGuidance||inlineHomework){guidanceSaved=await saveStudentGuidance({student_id:String(studentId),class_id:String(classId),source_type:'discipline',source_id:String(row.id),subject:category,month:date,guidance:inlineGuidance,homework:inlineHomework,duration:inlineDuration});}
+ document.getElementById('di-details').value='';document.getElementById('di-guidance').value='';document.getElementById('di-homework').value='';document.getElementById('di-guidance-duration').value='';document.getElementById('di-feedback').value='';document.getElementById('di-category').value='انضباطی';
  const inviteDateInput=document.getElementById('di-invite-date');if(inviteDateInput)inviteDateInput.value='';const inviteTimeInput=document.getElementById('di-invite-time');if(inviteTimeInput)inviteTimeInput.value='';toggleDisciplineInviteFields();
  renderDisciplineList();
  // Refresh the currently open dossier immediately so the saved category and feedback appear without reopening the student.
  const dossier=document.getElementById('print-student-dossier');
  if(dossier) openStudentDossier(studentId);
  try{refreshDash();}catch(e){}
- toast(result&&result.offline?'مورد انضباطی در گوشی ذخیره شد و پس از اتصال اینترنت همگام‌سازی می‌شود.':'مورد انضباطی آنلاین ثبت شد و در پرونده دانش‌آموز قرار گرفت');
- await promptGuidanceAfterRecord(studentId,classId,'discipline',row.id,category,date);
+ toast(!guidanceSaved?'مورد انضباطی ثبت شد، اما ذخیره راهکار/تکلیف ناموفق بود.':(result&&result.offline?'مورد انضباطی در گوشی ذخیره شد و پس از اتصال اینترنت همگام‌سازی می‌شود.':'مورد انضباطی آنلاین ثبت شد و در پرونده دانش‌آموز قرار گرفت'));
 }
 function isParentInviteFeedback(value){return String(value||'').replace(/[\u200c\s]/g,'').trim()==='دعوتاولیا';}
 let selectedDisciplineInvites=new Set();
@@ -5870,7 +5874,7 @@ function renderDisciplineList(){
   const proposed=(r.feedback==='دعوت اولیا'&&(r.invite_date||r.invite_time))?'<div class="meta" style="margin-top:5px;color:#1d4ed8">زمان پیشنهادی حضور اولیا: '+escHtml(r.invite_date||'تعیین نشده')+(r.invite_time?' ساعت '+escHtml(r.invite_time):'')+'</div>':'';
   var warnCount=(st&&typeof disciplineWarningCount==='function')?disciplineWarningCount(st.id):0;
   var warnBadge=warnCount>=3?' <span style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:999px;padding:2px 8px;font-size:.75rem;font-weight:800">هشدار انضباطی ('+fa(warnCount)+')</span>':'';
-  return '<div class="card" style="padding:12px">'+inviteSelect+'<div class="name">'+(st&&typeof studentNameWithPhoto==='function'?studentNameWithPhoto(st,32):escHtml(st?(st.first_name||'')+' '+(st.last_name||''):'دانش‌آموز'))+warnBadge+'</div><div class="meta">کلاس: '+escHtml(cl?.label||'')+' | تاریخ: '+escHtml(r.date||'')+' | '+escHtml(r.weekday||'')+'</div><div class="meta">موضوع: '+escHtml(r.category||'انضباطی')+' | بازخورد: <b>'+escHtml(r.feedback||'ثبت نشده')+'</b></div>'+proposed+'<div style="margin-top:8px;white-space:pre-wrap">'+escHtml(r.details||'')+'</div><small>ثبت‌کننده: '+escHtml(r.created_by||'')+' · سابقه انضباطی: '+fa(warnCount)+' مورد</small>'+'<div class="no-print" style="margin-top:8px"><button type="button" class="btn btn-p btn-sm" onclick="startGuidanceForRecord(\'discipline\',\''+guidanceEscape(r.id)+'\')">✍️ راهکار و تکلیف برای رفع مشکل</button></div>'+renderGuidanceForSource('discipline',r.id)+decision+action+'</div>';
+  return '<div class="card" style="padding:12px">'+inviteSelect+'<div class="name">'+(st&&typeof studentNameWithPhoto==='function'?studentNameWithPhoto(st,32):escHtml(st?(st.first_name||'')+' '+(st.last_name||''):'دانش‌آموز'))+warnBadge+'</div><div class="meta">کلاس: '+escHtml(cl?.label||'')+' | تاریخ: '+escHtml(r.date||'')+' | '+escHtml(r.weekday||'')+'</div><div class="meta">موضوع: '+escHtml(r.category||'انضباطی')+' | بازخورد: <b>'+escHtml(r.feedback||'ثبت نشده')+'</b></div>'+proposed+'<div style="margin-top:8px;white-space:pre-wrap">'+escHtml(r.details||'')+'</div><small>ثبت‌کننده: '+escHtml(r.created_by||'')+' · سابقه انضباطی: '+fa(warnCount)+' مورد</small>'+'<div class="no-print" style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn btn-p btn-sm" onclick="startGuidanceForRecord(\'discipline\',\''+guidanceEscape(r.id)+'\')">✍️ راهکار و تکلیف برای رفع مشکل</button><button type="button" class="btn btn-s btn-sm" onclick="shareStudentRecord(\'discipline\',\''+guidanceEscape(r.id)+'\')">📤 اشتراک‌گذاری گزارش انضباطی</button></div>'+renderGuidanceForSource('discipline',r.id)+decision+action+'</div>';
  }).join('');
  // خلاصه هشدار برای مدیر
  try{
@@ -6645,9 +6649,10 @@ function showActForm(editId){
   var prefWd=editing?.weekday||((document.getElementById('ac-filter-wd')&&document.getElementById('ac-filter-wd').value)||weekdayNow());
   var selected=editing?String(editing.student_id):'';
   var selectedStudent=students.find(function(x){return String(x.id)===selected;});
+  var editingGuidance=editing?(guidanceRows('daily_qa',editing.id)[0]||{}):{};
   var studentOptions=students.map(function(x){return '<option value="'+escHtml(x.id)+'"'+(selected===String(x.id)?' selected':'')+'>'+escHtml(x.first_name+' '+x.last_name)+'</option>';}).join('');
   var subjectOptions=subs.map(function(x){return '<option'+((editing&&editing.subject===x)?' selected':'')+'>'+escHtml(x)+'</option>';}).join('');
-  var groupRows=students.map(function(st){var nm=st.first_name+' '+st.last_name;var perf=qaTeacherGroupBadge(st.id,document.getElementById('ac-sub')?.value||subs[0]||'',classId);return '<div class="card" style="padding:9px;margin:6px 0"><label style="display:flex;align-items:center;gap:8px;font-weight:700;flex-wrap:wrap"><input class="ac-group-check" type="checkbox" value="'+escHtml(st.id)+'" onchange="toggleQaGroupStudent(this)"/> <span style="color:'+perf.color+'">'+escHtml(nm)+'</span> <span style="font-size:.72rem;border-radius:20px;padding:3px 8px;background:'+perf.bg+';color:'+perf.color+'">'+escHtml(perf.label)+'</span></label><div class="ac-group-fields" data-student="'+escHtml(st.id)+'" style="display:none;margin-top:8px"><div class="fg"><label>نمره از ۲۰</label><select class="ac-group-score" onchange="qaRefreshGroupFeedback(this)">'+qaScoreOptions('')+'</select></div><div class="fg"><label>ارزشیابی توصیفی (متناسب با نمره)</label><select class="ac-group-level" onchange="qaRefreshGroupFeedbackFromLevel(this)"><option value="excellent">خیلی خوب</option><option value="good">خوب</option><option value="acceptable" selected>قابل قبول</option><option value="needs">نیاز به تلاش</option></select></div><div class="fg"><label>توضیحات توصیفی (کشویی و متناسب با نمره)</label><select class="ac-group-feedback" onchange="qaAppendGroupFeedback(this)" aria-label="انتخاب توضیحات توصیفی متناسب با نمره"><option value="">— انتخاب توضیح توصیفی —</option></select><small class="meta">برای هر دانش‌آموز، با توجه به نمره و سطح توصیفی خودش، گزینه‌های مناسب نمایش داده می‌شود؛ با انتخاب گزینه، متن به توضیحات معلم افزوده می‌شود.</small></div><div class="fg"><label>توضیحات تکمیلی معلم (قابل ویرایش)</label><textarea class="ac-group-notes" rows="2"></textarea></div></div></div>';}).join('');
+  var groupRows=students.map(function(st){var nm=st.first_name+' '+st.last_name;var perf=qaTeacherGroupBadge(st.id,document.getElementById('ac-sub')?.value||subs[0]||'',classId);return '<div class="card" style="padding:9px;margin:6px 0"><label style="display:flex;align-items:center;gap:8px;font-weight:700;flex-wrap:wrap"><input class="ac-group-check" type="checkbox" value="'+escHtml(st.id)+'" onchange="toggleQaGroupStudent(this)"/> <span style="color:'+perf.color+'">'+escHtml(nm)+'</span> <span style="font-size:.72rem;border-radius:20px;padding:3px 8px;background:'+perf.bg+';color:'+perf.color+'">'+escHtml(perf.label)+'</span></label><div class="ac-group-fields" data-student="'+escHtml(st.id)+'" style="display:none;margin-top:8px"><div class="fg"><label>نمره از ۲۰</label><select class="ac-group-score" onchange="qaRefreshGroupFeedback(this)">'+qaScoreOptions('')+'</select></div><div class="fg"><label>ارزشیابی توصیفی (متناسب با نمره)</label><select class="ac-group-level" onchange="qaRefreshGroupFeedbackFromLevel(this)"><option value="excellent">خیلی خوب</option><option value="good">خوب</option><option value="acceptable" selected>قابل قبول</option><option value="needs">نیاز به تلاش</option></select></div><div class="fg"><label>توضیحات توصیفی (کشویی و متناسب با نمره)</label><select class="ac-group-feedback" onchange="qaAppendGroupFeedback(this)" aria-label="انتخاب توضیحات توصیفی متناسب با نمره"><option value="">— انتخاب توضیح توصیفی —</option></select><small class="meta">برای هر دانش‌آموز، با توجه به نمره و سطح توصیفی خودش، گزینه‌های مناسب نمایش داده می‌شود؛ با انتخاب گزینه، متن به توضیحات معلم افزوده می‌شود.</small></div><div class="fg"><label>توضیحات تکمیلی معلم (قابل ویرایش)</label><textarea class="ac-group-notes" rows="2"></textarea></div><div class="fg"><label>راهکار معلم (اختیاری)</label><textarea class="ac-group-guidance" rows="2"></textarea></div><div class="fg"><label>تکلیف دانش‌آموز (اختیاری)</label><textarea class="ac-group-homework" rows="2"></textarea></div><div class="fg"><label>مدت یا تکرار (اختیاری)</label><input class="ac-group-duration"/></div></div></div>';}).join('');
   window.editingActivityId=editing?String(editing.id):'';
   document.getElementById('ac-form').innerHTML=`
   <div class="card"><div class="ct">${editing?'ویرایش پرسش و پاسخ':'ثبت پرسش و پاسخ / فعالیت روزانه'}</div>
@@ -6661,6 +6666,7 @@ function showActForm(editId){
       <div class="fg"><label>سطح عملکرد (متناسب با نمره)</label><select id="ac-lv" onchange="qaRefreshFeedbackOptions('ac-score','ac-lv','ac-feedback-ready')"><option value="excellent" ${(editing?.level||'excellent')==='excellent'?'selected':''}>خیلی خوب</option><option value="good" ${editing?.level==='good'?'selected':''}>خوب</option><option value="acceptable" ${editing?.level==='acceptable'?'selected':''}>قابل قبول</option><option value="needs" ${editing?.level==='needs'?'selected':''}>نیاز به تلاش</option></select></div>
       <div class="fg"><label>متن توصیفی متناسب با نمره (کشویی)</label><select id="ac-feedback-ready" onchange="qaAppendSelectedFeedback(this,document.getElementById('ac-nt'))"><option value="">— ابتدا نمره یا سطح عملکرد را انتخاب کنید —</option></select></div>
       <div class="fg"><label>توضیحات تکمیلی معلم (قابل ویرایش)</label><textarea id="ac-nt" rows="3">${escHtml(editing?.notes||'')}</textarea></div>
+      <div class="card" style="padding:10px;margin:8px 0;background:#eff6ff;border:1px solid #bfdbfe"><b>✍️ راهکار و تکلیف معلم (اختیاری)</b><p class="meta">ثبت پرسش‌وپاسخ بدون تکمیل این موارد هم امکان‌پذیر است.</p><div class="fg"><label>راهکار پیشنهادی</label><textarea id="ac-guidance" rows="2">${escHtml(editingGuidance.guidance||'')}</textarea></div><div class="fg"><label>تکلیف اختصاصی دانش‌آموز</label><textarea id="ac-homework" rows="2">${escHtml(editingGuidance.homework||'')}</textarea></div><div class="fg"><label>مدت یا تکرار (اختیاری)</label><input id="ac-guidance-duration" value="${escHtml(editingGuidance.duration||'')}"/></div></div>
     </div>
     <div id="ac-group-wrap" style="display:none"><div class="meta">درس را یک‌بار انتخاب کنید؛ سپس دانش‌آموزان را علامت بزنید و برای هر نفر نمره و بازخورد جداگانه وارد کنید.</div><div class="fg"><label>روز هفته</label><select id="ac-g-wd">${WEEKDAYS.map(function(d){return '<option'+(d===prefWd?' selected':'')+'>'+d+'</option>';}).join('')}</select></div><div class="fg"><label>تاریخ شمسی</label><input id="ac-g-dt" value="${escHtml(prefDate)}"/></div><div style="max-height:420px;overflow:auto">${groupRows}</div></div>
     <button class="btn btn-p" onclick="saveAct()">💾 ${editing?'ذخیره ویرایش':'ذخیره'}</button>
@@ -6676,23 +6682,31 @@ function showActForm(editId){
 }
 function refreshQaGroupBadges(){var subject=document.getElementById('ac-sub')?.value||'',classId=document.getElementById('ac-class')?.value||'';document.querySelectorAll('.ac-group-check').forEach(function(check){var label=check.closest('label');if(!label)return;var spans=label.querySelectorAll('span');if(spans.length<2)return;var st=(cache.students||[]).find(function(x){return String(x.id)===String(check.value);});if(!st)return;var perf=qaTeacherGroupBadge(st.id,subject,classId);spans[0].style.color=perf.color;spans[1].style.background=perf.bg;spans[1].style.color=perf.color;spans[1].textContent=perf.label;});}
 function toggleQaGroupStudent(check){var wrap=document.querySelector('.ac-group-fields[data-student="'+String(check.value).replace(/"/g,'\\"')+'"]');if(wrap){wrap.style.display=check.checked?'block':'none';if(check.checked){var score=wrap.querySelector('.ac-group-score');if(score)qaRefreshGroupFeedback(score);}}}
+async function saveActivityGuidanceDrafts(drafts){
+ if(!Array.isArray(drafts)||!drafts.length)return true;
+ var allSaved=true;
+ for(var item of drafts){if(!item||!item.row||(!item.guidance&&!item.homework))continue;var old=guidanceRows('daily_qa',item.row.id)[0];var ok=await saveStudentGuidance({id:old&&old.id,student_id:String(item.row.student_id),class_id:String(item.row.class_id),source_type:'daily_qa',source_id:String(item.row.id),subject:item.row.subject||'',month:item.row.date||'',guidance:item.guidance||'',homework:item.homework||'',duration:item.duration||''});if(!ok){allSaved=false;console.warn('راهکار اختیاری پرسش‌وپاسخ ذخیره نشد',item.row.id);}}
+ return allSaved;
+}
 async function saveAct(){
   var editingId=String(window.editingActivityId||'');
   var mode=document.getElementById('ac-mode')?.value||'single';
   var type=document.getElementById('ac-ty').value;
   var classId=document.getElementById('ac-class').value;
   var subject=document.getElementById('ac-sub').value;
-  var rows=[];
+  var rows=[],guidanceDrafts=[],guidanceSaved=true;
   if(mode==='group'&&type==='qa'&&!editingId){
     var checks=Array.from(document.querySelectorAll('.ac-group-check:checked'));
     if(!checks.length){toast('حداقل یک دانش‌آموز را انتخاب کنید');return;}
     var date=document.getElementById('ac-g-dt').value.trim(),weekday=document.getElementById('ac-g-wd').value;
-    for(var c of checks){var wrap=document.querySelector('.ac-group-fields[data-student="'+String(c.value).replace(/"/g,'\\"')+'"]');var raw=wrap?.querySelector('.ac-group-score')?.value||'';var score=raw===''?null:Number(raw);if(score!==null&&(!Number.isFinite(score)||score<0||score>20)){toast('نمره باید بین ۰ تا ۲۰ باشد');return;}rows.push({id:uid(),student_id:c.value,class_id:classId,type:'qa',subject:subject,weekday:weekday,date:date,score:score,level:qaLevelFromScore(score) || wrap?.querySelector('.ac-group-level')?.value||'acceptable',notes:(wrap?.querySelector('.ac-group-notes')?.value||'').trim(),recorded_by:user.full_name});}
+    for(var c of checks){var wrap=document.querySelector('.ac-group-fields[data-student="'+String(c.value).replace(/"/g,'\\"')+'"]');var raw=wrap?.querySelector('.ac-group-score')?.value||'';var score=raw===''?null:Number(raw);if(score!==null&&(!Number.isFinite(score)||score<0||score>20)){toast('نمره باید بین ۰ تا ۲۰ باشد');return;}var qaRow={id:uid(),student_id:c.value,class_id:classId,type:'qa',subject:subject,weekday:weekday,date:date,score:score,level:qaLevelFromScore(score) || wrap?.querySelector('.ac-group-level')?.value||'acceptable',notes:(wrap?.querySelector('.ac-group-notes')?.value||'').trim(),recorded_by:user.full_name};rows.push(qaRow);var g=(wrap?.querySelector('.ac-group-guidance')?.value||'').trim(),h=(wrap?.querySelector('.ac-group-homework')?.value||'').trim(),d=(wrap?.querySelector('.ac-group-duration')?.value||'').trim();if(g||h)guidanceDrafts.push({row:qaRow,guidance:g,homework:h,duration:d});}
   }else{
     var scoreEl=document.getElementById('ac-score'),rawScore=scoreEl?scoreEl.value:'';var scoreValue=rawScore===''?null:Number(rawScore);
     if(type==='qa'&&scoreValue!==null&&(!Number.isFinite(scoreValue)||scoreValue<0||scoreValue>20)){toast('نمره باید بین ۰ تا ۲۰ باشد');return;}
     var row={student_id:document.getElementById('ac-st').value,class_id:classId,type:type,subject:subject,weekday:document.getElementById('ac-wd').value,date:document.getElementById('ac-dt').value,level:(type==='qa'&&qaLevelFromScore(scoreValue))||document.getElementById('ac-lv').value,notes:document.getElementById('ac-nt').value.trim(),recorded_by:user.full_name};
     if(type==='qa')row.score=scoreValue;
+    var singleGuidance=(document.getElementById('ac-guidance')?.value||'').trim(),singleHomework=(document.getElementById('ac-homework')?.value||'').trim(),singleDuration=(document.getElementById('ac-guidance-duration')?.value||'').trim();
+    if(type==='qa'&&(singleGuidance||singleHomework))guidanceDrafts.push({row:row,guidance:singleGuidance,homework:singleHomework,duration:singleDuration});
     if(editingId){var previousActivity=(cache.activities||[]).find(function(a){return String(a.id)===editingId;});var syncQa=type==='qa'||(previousActivity&&previousActivity.type==='qa');if(syncQa)row.teacher_group=null;delete row.recorded_by;
       if(isAppOfflineNow()){
         var offlineEdit=await sb.from('sa_activities').update(row).eq('id',editingId);
@@ -6703,11 +6717,12 @@ async function saveAct(){
         try{persistLocalSchoolCache();}catch(e){}
         try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
         if(syncQa){try{await buildClosedMonthQaEvaluations();}catch(offlineEditQaError){console.warn('به‌روزرسانی آفلاین ارزشیابی پس از ویرایش پرسش‌وپاسخ ناموفق بود',offlineEditQaError);}try{await syncQaReportCardAverages([previousActivity&&previousActivity.student_id,row.student_id]);}catch(offlineEditScoreError){console.warn('به‌روزرسانی آفلاین کارنامه پس از ویرایش پرسش‌وپاسخ ناموفق بود',offlineEditScoreError);}refreshQaEvaluationDashboard();}
+        if(guidanceDrafts.length){guidanceDrafts[0].row.id=editingId;guidanceSaved=await saveActivityGuidanceDrafts(guidanceDrafts);}
         document.getElementById('ac-form').innerHTML='';window.editingActivityId='';
         await loadActivities();try{refreshDash();}catch(e){}
-        toast('ویرایش در گوشی ذخیره شد و پس از اتصال همگام می‌شود');return;
+        toast(guidanceSaved?'ویرایش در گوشی ذخیره شد و پس از اتصال همگام می‌شود':'ویرایش ذخیره شد، اما راهکار/تکلیف ذخیره نشد');return;
       }
-      var res=await sb.from('sa_activities').update(row).eq('id',editingId);if(res.error){toast('خطا در ویرایش: '+res.error.message);return;}await reloadAll();cache.activities=applyQaTombstones(cache.activities);if(syncQa){var editedQa=(cache.activities||[]).find(function(a){return String(a.id)===editingId;});if(editedQa&&editedQa.type==='qa'){try{await syncOneDailyQaEvaluation(editedQa,false,false);}catch(syncErr){console.warn('به‌روزرسانی ارزشیابی مرتبط با پرسش‌وپاسخ ناموفق بود',syncErr);}}await buildClosedMonthQaEvaluations();refreshQaEvaluationDashboard();}document.getElementById('ac-form').innerHTML='';window.editingActivityId='';await loadActivities();if(syncQa){try{await syncQaReportCardAverages([previousActivity&&previousActivity.student_id,row.student_id]);}catch(scoreSyncErr){console.warn('به‌روزرسانی میانگین کارنامه پس از ویرایش پرسش ناموفق بود',scoreSyncErr);}}try{refreshDash();}catch(e){}toast('فقط همین پرسش و پاسخ ویرایش شد');return;}
+      var res=await sb.from('sa_activities').update(row).eq('id',editingId);if(res.error){toast('خطا در ویرایش: '+res.error.message);return;}await reloadAll();cache.activities=applyQaTombstones(cache.activities);if(syncQa){var editedQa=(cache.activities||[]).find(function(a){return String(a.id)===editingId;});if(editedQa&&editedQa.type==='qa'){try{await syncOneDailyQaEvaluation(editedQa,false,false);}catch(syncErr){console.warn('به‌روزرسانی ارزشیابی مرتبط با پرسش‌وپاسخ ناموفق بود',syncErr);}}await buildClosedMonthQaEvaluations();refreshQaEvaluationDashboard();}if(guidanceDrafts.length){guidanceDrafts[0].row.id=editingId;guidanceSaved=await saveActivityGuidanceDrafts(guidanceDrafts);}document.getElementById('ac-form').innerHTML='';window.editingActivityId='';await loadActivities();if(syncQa){try{await syncQaReportCardAverages([previousActivity&&previousActivity.student_id,row.student_id]);}catch(scoreSyncErr){console.warn('به‌روزرسانی میانگین کارنامه پس از ویرایش پرسش ناموفق بود',scoreSyncErr);}}try{refreshDash();}catch(e){}toast(guidanceSaved?'فقط همین پرسش و پاسخ ویرایش شد':'پرسش و پاسخ ویرایش شد، اما ذخیره راهکار/تکلیف ناموفق بود');return;}
     row.id=uid();rows.push(row);
   }
   var result=await sb.from('sa_activities').insert(rows);
@@ -6715,6 +6730,7 @@ async function saveAct(){
   if(result.offline||isAppOfflineNow()){
     rows.forEach(function(row){var ix=(cache.activities||[]).findIndex(function(a){return String(a.id)===String(row.id);});if(ix>=0)cache.activities[ix]=Object.assign({},cache.activities[ix],row);else cache.activities.push(row);});
     cache.activities=applyQaTombstones(cache.activities);
+    guidanceSaved=await saveActivityGuidanceDrafts(guidanceDrafts);
     try{persistLocalSchoolCache();}catch(e){}
     try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
     if(rows.some(function(r){return r&&r.type==='qa';})){
@@ -6724,12 +6740,11 @@ async function saveAct(){
     }
     document.getElementById('ac-form').innerHTML='';window.editingActivityId='';
     await loadActivities();try{refreshDash();}catch(e){}
-    toast(rows.length>1?fa(rows.length)+' پرسش و پاسخ در گوشی ذخیره شد و پس از اتصال همگام می‌شود.':'پرسش و پاسخ در گوشی ذخیره شد و پس از اتصال همگام می‌شود.');
+    toast(!guidanceSaved?'پرسش و پاسخ ثبت شد، اما ذخیره راهکار/تکلیف ناموفق بود.':(rows.length>1?fa(rows.length)+' پرسش و پاسخ در گوشی ذخیره شد و پس از اتصال همگام می‌شود.':'پرسش و پاسخ در گوشی ذخیره شد و پس از اتصال همگام می‌شود.'));
     return;
   }
-  await reloadAll();cache.activities=applyQaTombstones(cache.activities);if(rows.some(function(r){return r&&r.type==='qa';})){for(var qaRow of rows.filter(function(r){return r&&r.type==='qa';})){var savedQa=(cache.activities||[]).find(function(a){return String(a.id)===String(qaRow.id);})||qaRow;try{await syncOneDailyQaEvaluation(savedQa,false,false);}catch(syncErr){console.warn('ثبت ارزشیابی مرتبط با پرسش‌وپاسخ ناموفق بود',syncErr);}}await buildClosedMonthQaEvaluations();refreshQaEvaluationDashboard();}document.getElementById('ac-form').innerHTML='';window.editingActivityId='';await loadActivities();if(rows.some(function(r){return r&&r.type==='qa';})){try{await syncQaReportCardAverages(rows.filter(function(r){return r&&r.type==='qa';}).map(function(r){return r.student_id;}));}catch(scoreSyncErr){console.warn('به‌روزرسانی میانگین کارنامه پس از ثبت پرسش ناموفق بود',scoreSyncErr);}}try{refreshDash();}catch(e){}toast(rows.length>1?fa(rows.length)+' پرسش و پاسخ ثبت شد':'ثبت آنلاین شد');
- if(rows.length===1&&rows[0].type==='qa')await promptGuidanceAfterRecord(rows[0].student_id,rows[0].class_id,'daily_qa',rows[0].id,rows[0].subject,rows[0].date);
- else if(rows.length>1&&rows.every(function(r){return r&&r.type==='qa';}))toast('برای ثبت راهکار هر دانش‌آموز، دکمه «راهکار و تکلیف» را در کارت همان دانش‌آموز انتخاب کنید.');
+  await reloadAll();cache.activities=applyQaTombstones(cache.activities);guidanceSaved=await saveActivityGuidanceDrafts(guidanceDrafts);if(rows.some(function(r){return r&&r.type==='qa';})){for(var qaRow of rows.filter(function(r){return r&&r.type==='qa';})){var savedQa=(cache.activities||[]).find(function(a){return String(a.id)===String(qaRow.id);})||qaRow;try{await syncOneDailyQaEvaluation(savedQa,false,false);}catch(syncErr){console.warn('ثبت ارزشیابی مرتبط با پرسش‌وپاسخ ناموفق بود',syncErr);}}await buildClosedMonthQaEvaluations();refreshQaEvaluationDashboard();}document.getElementById('ac-form').innerHTML='';window.editingActivityId='';await loadActivities();if(rows.some(function(r){return r&&r.type==='qa';})){try{await syncQaReportCardAverages(rows.filter(function(r){return r&&r.type==='qa';}).map(function(r){return r.student_id;}));}catch(scoreSyncErr){console.warn('به‌روزرسانی میانگین کارنامه پس از ثبت پرسش ناموفق بود',scoreSyncErr);}}try{refreshDash();}catch(e){}toast(rows.length>1?fa(rows.length)+' پرسش و پاسخ ثبت شد':'ثبت آنلاین شد');
+ if(guidanceDrafts.length)toast(guidanceSaved?'راهکار و تکلیف اختیاری همراه سابقه پرسش‌وپاسخ ذخیره شد.':'پرسش و پاسخ ثبت شد، اما ذخیره راهکار/تکلیف ناموفق بود.');
 }
 async function deleteQaActivity(id){
   var row=cache.activities.find(function(a){return String(a.id)===String(id)&&a.type==='qa';});if(!row){toast('فقط رکورد پرسش و پاسخ قابل حذف است');return;}
@@ -6765,7 +6780,7 @@ async function loadActivities(skipServerReload){
   var html=renderQaPerformance(performanceRows);
   if(!list.length){box.innerHTML=html+'<div class="empty">برای این فیلتر موردی ثبت نشده</div>';return;}
   html+='<div class="card"><div class="ct">📋 '+(fWd||'')+' '+(fDate||'همه روزها')+' — '+fa(list.length)+' مورد</div></div>';
-  html+=list.map(function(a){var st=cache.students.find(function(x){return String(x.id)===String(a.student_id);});var isQa=a.type==='qa';return '<div class="card" style="padding:12px"><div class="name">'+(st&&typeof studentNameWithPhoto==='function'?studentNameWithPhoto(st,32):escHtml(st?st.first_name+' '+st.last_name:''))+'</div><div class="meta">📅 '+escHtml(a.weekday||'')+' '+escHtml(a.date||'')+' | '+(isQa?'پرسش و پاسخ':'فعالیت کلاسی')+' | '+escHtml(a.subject||'')+(isQa&&a.score!=null?' | نمره: '+escHtml(a.score)+'/۲۰':'')+'</div><div style="margin-top:4px">'+badge(a.level)+'</div>'+(a.notes?'<div class="meta" style="margin-top:4px;white-space:pre-wrap">'+escHtml(a.notes)+'</div>':'')+(isQa?'<div style="display:flex;gap:7px;margin-top:9px;flex-wrap:wrap"><button class="btn btn-p btn-sm" onclick="startGuidanceForRecord(\'daily_qa\',\''+String(a.id).replace(/'/g,'')+'\')">✍️ راهکار و تکلیف</button><button class="btn btn-o btn-sm" onclick="showActForm(\''+String(a.id).replace(/'/g,'')+'\')">✏️ ویرایش</button><button class="btn btn-o btn-sm" onclick="deleteQaActivity(\''+String(a.id).replace(/'/g,'')+'\')">🗑️ حذف</button></div>'+renderGuidanceForSource('daily_qa',a.id):'')+'</div>';}).join('');
+  html+=list.map(function(a){var st=cache.students.find(function(x){return String(x.id)===String(a.student_id);});var isQa=a.type==='qa';return '<div class="card" style="padding:12px"><div class="name">'+(st&&typeof studentNameWithPhoto==='function'?studentNameWithPhoto(st,32):escHtml(st?st.first_name+' '+st.last_name:''))+'</div><div class="meta">📅 '+escHtml(a.weekday||'')+' '+escHtml(a.date||'')+' | '+(isQa?'پرسش و پاسخ':'فعالیت کلاسی')+' | '+escHtml(a.subject||'')+(isQa&&a.score!=null?' | نمره: '+escHtml(a.score)+'/۲۰':'')+'</div><div style="margin-top:4px">'+badge(a.level)+'</div>'+(a.notes?'<div class="meta" style="margin-top:4px;white-space:pre-wrap">'+escHtml(a.notes)+'</div>':'')+(isQa?'<div style="display:flex;gap:7px;margin-top:9px;flex-wrap:wrap"><button class="btn btn-p btn-sm" onclick="startGuidanceForRecord(\'daily_qa\',\''+String(a.id).replace(/'/g,'')+'\')">✍️ راهکار و تکلیف</button><button class="btn btn-s btn-sm" onclick="shareStudentRecord(\'daily_qa\',\''+String(a.id).replace(/'/g,'')+'\')">📤 اشتراک‌گذاری گزارش</button><button class="btn btn-o btn-sm" onclick="showActForm(\''+String(a.id).replace(/'/g,'')+'\')">✏️ ویرایش</button><button class="btn btn-o btn-sm" onclick="deleteQaActivity(\''+String(a.id).replace(/'/g,'')+'\')">🗑️ حذف</button></div>'+renderGuidanceForSource('daily_qa',a.id):'')+'</div>';}).join('');
   box.innerHTML=html;
 }
 try{ if(typeof buildClosedMonthQaEvaluations==='function') buildClosedMonthQaEvaluations(); }catch(e){}
@@ -7318,6 +7333,18 @@ async function saveStudentGuidance(row){
  var res=await sb.from('sa_student_guidance').upsert(row);if(res&&res.error){toast('ذخیره راهکار انجام نشد: '+res.error.message);return false;}
  var at=(cache.student_guidance||[]).findIndex(function(x){return String(x.id)===String(row.id);});if(at>=0)cache.student_guidance[at]=Object.assign({},cache.student_guidance[at],row);else cache.student_guidance=(cache.student_guidance||[]).concat([row]);
  try{persistLocalSchoolCache();}catch(e){}try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}return true;
+}
+function shareStudentRecord(sourceType,sourceId){
+ var row=sourceType==='daily_qa'?(cache.activities||[]).find(function(x){return String(x.id)===String(sourceId)&&x.type==='qa';}):(cache.discipline||[]).find(function(x){return String(x.id)===String(sourceId);});
+ if(!row){toast('سابقه موردنظر برای اشتراک‌گذاری پیدا نشد');return;}
+ var st=(cache.students||[]).find(function(x){return String(x.id)===String(row.student_id);}),cl=(cache.classes||[]).find(function(x){return String(x.id)===String(row.class_id);});
+ var extras=guidanceRows(sourceType,sourceId),name=st?((st.first_name||'')+' '+(st.last_name||'')):'دانش‌آموز';
+ var msg='دبستان شهید فتح‌الله فلاح‌پور\nگزارش '+(sourceType==='daily_qa'?'پرسش و پاسخ':'انضباطی')+' دانش‌آموز\nدانش‌آموز: '+name+'\nکلاس: '+(cl&&cl.label||'')+'\nتاریخ: '+(row.date||'');
+ if(sourceType==='daily_qa'){msg+='\nدرس: '+(row.subject||'')+'\nنمره: '+(row.score==null?'ثبت نشده':row.score+'/۲۰')+'\nسطح: '+(row.level||'ثبت نشده')+'\nتوضیحات: '+(row.notes||'—');}
+ else{msg+='\nموضوع: '+(row.category||'انضباطی')+'\nبازخورد: '+(row.feedback||'ثبت نشده')+'\nوضعیت رسیدگی: '+(row.status==='approved'?'رسیدگی‌شده و تأیید مدیر':'در انتظار رسیدگی مدیر')+'\nشرح: '+(row.details||'—')+(row.decision_text?'\nاقدام مدیر: '+row.decision_text:'');}
+ if(extras.length){msg+='\n\nراهکار معلم و تکلیف:';extras.forEach(function(g,i){msg+='\n'+(i+1)+') راهکار: '+(g.guidance||'—')+'\nتکلیف: '+(g.homework||'—')+(g.duration?'\nمدت/تکرار: '+g.duration:'');});}
+ msg+='\n\nمعلم: '+(row.created_by||(user&&user.full_name)||'معلم مربوطه');
+ if(navigator.share)navigator.share({title:'گزارش دانش‌آموز',text:msg}).catch(function(e){if(e&&e.name!=='AbortError')copyGuidanceText(msg);});else copyGuidanceText(msg);
 }
 function shareStudentGuidance(id){
  var r=(cache.student_guidance||[]).find(function(x){return String(x.id)===String(id);});if(!r){toast('راهکار پیدا نشد');return;}
@@ -15974,12 +16001,13 @@ observer.observe(document.documentElement,{childList:true,subtree:true});
   updateAllButton();
   var welcome=page.querySelector('.wel');
   var isTeacher=!!(window.user&&window.user.role==='teacher');
-  var schedule=byId('teacher-today-schedule'),notices=byId('teacher-notice-inbox');
+  var schedule=byId('teacher-today-schedule'),birthday=byId('teacher-birthday-reminders'),notices=byId('teacher-notice-inbox');
   if(welcome&&welcome.parentNode===page){
    var cursor=welcome;
    /* مدیر: آمار زیر سلام؛ معلم: آمار دقیقاً زیر برنامه روزانه. */
    if(isTeacher){
     if(schedule){insertAfter(page,schedule,cursor);cursor=schedule;}
+    if(birthday){insertAfter(page,birthday,cursor);cursor=birthday;}
     if(statsRail){insertAfter(page,statsRail,cursor);cursor=statsRail;}
     if(notices){insertAfter(page,notices,cursor);cursor=notices;}
     var heading=byId('wn');
