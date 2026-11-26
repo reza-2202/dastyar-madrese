@@ -7181,7 +7181,7 @@ function monthlyStudentAssessmentHtml(student,rows,month,cl,photo,analysis){
   if(unrecorded)feedback='—';
   body+='<tr'+(unrecorded?' class="monthly-assessment-unrecorded"':'')+'><td>'+fa(i+1)+'</td><td>'+escHtml(ev.subject||'—')+'</td><td>'+escHtml(String(count))+'</td><td>'+escHtml(ev.score==null?'—':String(ev.score))+'</td><td>'+escHtml(lvl(ev.level)||'—')+'</td><td>'+escHtml(status)+'</td><td class="monthly-assessment-subject-note">'+escHtml(feedback||'—')+'</td></tr>';
  });
- const colWidths=[8,16,12,12,12,14,26];
+ const colWidths=[5,10,9,10,10,11,45];
  const colgroup='<colgroup>'+colWidths.map(function(w){return '<col style="width:'+w+'%">';}).join('')+'</colgroup>';
  return '<section class="monthly-student-assessment-print" dir="rtl">'+
  '<header class="monthly-assessment-heading">'+(photo?'<img src="'+escHtml(photo)+'" alt="عکس دانش‌آموز" class="monthly-assessment-photo">':'')+
@@ -7236,16 +7236,16 @@ function printMonthlyStudentAssessment(){
  '#print-area .monthly-assessment-title h2{font-size:15pt;margin:0 0 2mm;font-weight:700}'+
  '#print-area .monthly-assessment-title p{font-size:9pt;margin:0}'+
  '#print-area .monthly-assessment-page-inner{display:block!important;width:100%!important;max-width:283mm!important;min-width:0!important;box-sizing:border-box}'+
- '#print-area .monthly-student-assessment-print table{display:table!important;width:100%!important;max-width:100%!important;min-width:100%!important;border-collapse:collapse;table-layout:fixed!important;margin:0!important;box-sizing:border-box}'+
+ '#print-area .monthly-student-assessment-print table{display:table!important;width:100%!important;max-width:100%!important;min-width:100%!important;border-collapse:collapse;table-layout:fixed!important;margin:0!important;box-sizing:border-box;direction:rtl!important}'+
  '#print-area .monthly-assessment-identity{flex:0 0 auto;font-size:10pt}'+
  '#print-area .monthly-assessment-identity th,#print-area .monthly-assessment-identity td{border:1px solid #334155;padding:2.5mm 2mm;text-align:right;vertical-align:middle}'+
  '#print-area .monthly-assessment-identity th{background:#e8eef5;font-weight:700;width:16%}'+
- '#print-area .monthly-assessment-subject-table{flex:0 0 auto;font-size:9pt;overflow:visible}'+
+ '#print-area .monthly-assessment-subject-table{display:table!important;flex:0 0 auto;width:100%!important;min-width:100%!important;max-width:100%!important;font-size:8.5pt;overflow:visible;table-layout:fixed!important}'+
  '#print-area .monthly-assessment-subject-table thead{display:table-header-group}'+
  '#print-area .monthly-assessment-subject-table tr{break-inside:avoid;page-break-inside:avoid;height:auto!important}'+
- '#print-area .monthly-assessment-subject-table th,#print-area .monthly-assessment-subject-table td{border:1px solid #263445;padding:2.5mm 1.5mm;text-align:center;vertical-align:middle;white-space:normal;overflow-wrap:anywhere;word-break:normal;line-height:1.45}'+
+ '#print-area .monthly-assessment-subject-table th,#print-area .monthly-assessment-subject-table td{border:1px solid #263445;padding:1.6mm 1.4mm;text-align:center;vertical-align:middle;white-space:normal;overflow-wrap:normal;word-break:normal;hyphens:none;line-height:1.35}'+
  '#print-area .monthly-assessment-subject-table th{background:#dce8f5;font-weight:700}'+
- '#print-area .monthly-assessment-subject-table .monthly-assessment-subject-note{text-align:right;white-space:normal;overflow:visible;font-size:9pt;line-height:1.5;overflow-wrap:anywhere;min-height:0;height:auto;padding:2mm!important}'+
+ '#print-area .monthly-assessment-subject-table .monthly-assessment-subject-note{text-align:right;white-space:normal;overflow:visible;font-size:8.5pt;line-height:1.4;overflow-wrap:normal;word-break:normal;min-height:0;height:auto;padding:1.8mm!important;vertical-align:top!important}'+
  '#print-area .monthly-assessment-subject-table tr.monthly-assessment-unrecorded td{padding-top:1mm!important;padding-bottom:1mm!important;line-height:1.2!important}'+
  '#print-area .monthly-assessment-empty{padding:5mm!important}'+
  '#print-area .monthly-assessment-signatures{display:flex;justify-content:space-between;gap:8mm;padding-top:2.5mm;border-top:1px solid #334155;font-size:10pt;font-weight:700;flex:0 0 auto}'+
