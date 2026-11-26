@@ -1804,11 +1804,12 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <div class="card no-print" id="monthly-student-assessment-card" style="border:1px solid #bfdbfe;background:#f8fbff;margin-top:12px">
  <div class="ct">📊 گزارش مستقل ارزشیابی ماهانه دانش‌آموز</div>
  <p class="meta" style="line-height:1.8">این گزارش فقط میانگین‌های یکپارچه پرسش‌وپاسخ روزانه و آزمون را نشان می‌دهد و هیچ بخشی از آن وارد کارنامه چاپی نمی‌شود.</p>
- <div class="fg"><label for="ev-monthly-student">انتخاب دانش‌آموز</label><select id="ev-monthly-student" onchange="renderMonthlyStudentAssessment()"><option value="">ابتدا دانش‌آموز را انتخاب کنید</option></select></div>
+ <div class="fg"><label for="ev-monthly-student">انتخاب دانش‌آموز</label><select id="ev-monthly-student" onchange="monthlyAssessmentStudentChanged()"><option value="">ابتدا دانش‌آموز را انتخاب کنید</option></select></div>
  <div id="ev-monthly-student-report" aria-live="polite"><div class="empty">پس از انتخاب دانش‌آموز، گزارش ماه انتخاب‌شده نمایش داده می‌شود.</div></div>
  <div id="ev-monthly-student-actions" class="no-print" style="display:none;gap:7px;flex-wrap:wrap;margin-top:10px">
   <button type="button" class="btn btn-p btn-sm" onclick="printMonthlyStudentAssessment()">🖨️ چاپ گزارش</button>
   <button type="button" class="btn btn-s btn-sm" onclick="exportMonthlyStudentAssessmentWord()">⬇️ دریافت فایل Word</button>
+  <label class="btn btn-o btn-sm" style="display:inline-flex;align-items:center;gap:5px">🖼️ عکس اختیاری دانش‌آموز<input id="ev-monthly-student-photo" type="file" accept="image/*" onchange="handleMonthlyAssessmentPhoto(this)" style="max-width:145px;font-size:11px"></label>
  </div>
 </div>
 </div>
@@ -5363,9 +5364,9 @@ function exportStudentsExcel(){
  const summary=[{عنوان:'تعداد دانش‌آموزان',مقدار:cache.students.length},{عنوان:'تاریخ خروجی',مقدار:today()},{عنوان:'مدرسه',مقدار:'دبستان شهید فتح‌الله فلاح‌پور'},{عنوان:'نام مدیر مدرسه',مقدار:getExportPrincipalName()}];
  const sw=XLSX.utils.json_to_sheet(summary);sw['!cols']=[{wch:26},{wch:38}];sw['!views']=[{RTL:true}];
  const sr=XLSX.utils.decode_range(sw['!ref']||'A1:B1');for(let R=0;R<=sr.e.r;R++)for(let C=0;C<=sr.e.c;C++){const a=XLSX.utils.encode_cell({r:R,c:C});if(sw[a])sw[a].s={alignment:{horizontal:'right',vertical:'center',readingOrder:2,wrapText:true},font:{name:'Tahoma',sz:11,bold:R===0,color:{rgb:R===0?'FFFFFF':'243447'}},fill:{patternType:'solid',fgColor:{rgb:R===0?'174A7E':(R%2===1?'EAF3FF':'FFFFFF')}},border:{bottom:{style:'thin',color:{rgb:'D6E3F0'}}}};}
- XLSX.utils.book_append_sheet(wb,sw,'خلاصه');wb.Workbook=wb.Workbook||{};wb.Workbook.Views=[{RTL:true}];XLSX.writeFile(wb,'فهرست_کامل_دانش‌آموزان.xlsx');
+ XLSX.utils.book_append_sheet(wb,sw,'خلاصه');wb.Workbook=wb.Workbook||{};wb.Workbook.Views=[{RTL:true}];window.downloadExcelBlob(new Blob([XLSX.write(wb,{bookType:'xlsx',type:'array'})],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),'فهرست_کامل_دانش‌آموزان.xlsx');
 }
-function downloadStudentImportTemplate(){if(!studentDataAdmin())return;if(typeof XLSX==='undefined'){toast('کتابخانه Excel بارگذاری نشده');return;}const rows=[{'نام':'','نام خانوادگی':'','کد دانش‌آموزی / کد ملی':'','کلاس':'','نام پدر':'','نام مادر':'','شغل پدر':'','شغل مادر':'','تحصیلات پدر':'','تحصیلات مادر':'','تلفن پدر':'','تلفن مادر':'','تلفن سرپرست':'','تلفن شاد':'','شماره اضطراری ۱':'','شماره اضطراری ۲':'','شماره اضطراری ۳':'','تاریخ تولد':'','جنسیت':'','نشانی':'','ملیت':'','دین':'','ترتیب تولد':'','وضعیت کم‌برخوردار':''}];const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'ورود دانش‌آموزان');XLSX.writeFile(wb,'قالب_ورود_دانش‌آموزان.xlsx');}
+function downloadStudentImportTemplate(){if(!studentDataAdmin())return;if(typeof XLSX==='undefined'){toast('کتابخانه Excel بارگذاری نشده');return;}const rows=[{'نام':'','نام خانوادگی':'','کد دانش‌آموزی / کد ملی':'','کلاس':'','نام پدر':'','نام مادر':'','شغل پدر':'','شغل مادر':'','تحصیلات پدر':'','تحصیلات مادر':'','تلفن پدر':'','تلفن مادر':'','تلفن سرپرست':'','تلفن شاد':'','شماره اضطراری ۱':'','شماره اضطراری ۲':'','شماره اضطراری ۳':'','تاریخ تولد':'','جنسیت':'','نشانی':'','ملیت':'','دین':'','ترتیب تولد':'','وضعیت کم‌برخوردار':''}];const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'ورود دانش‌آموزان');window.downloadExcelBlob(new Blob([XLSX.write(wb,{bookType:'xlsx',type:'array'})],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),'قالب_ورود_دانش‌آموزان.xlsx');}
 function studentRowsFromMatrix(matrix){if(!matrix||matrix.length<2)return [];const headers=matrix[0].map(x=>String(x||'').trim());return matrix.slice(1).filter(r=>r.some(v=>String(v==null?'':v).trim()!=='')).map(r=>{const o={};headers.forEach((h,i)=>{if(h)o[h]=r[i]==null?'':r[i];});return o;});}
 function studentPdfMatrix(items){const groups={};items.forEach(it=>{const y=Math.round(it.transform?.[5]||0);(groups[y]||(groups[y]=[])).push(it);});const ys=Object.keys(groups).map(Number).sort((a,b)=>b-a);return ys.map(y=>{const line=groups[y].sort((a,b)=>(b.transform?.[4]||0)-(a.transform?.[4]||0));const cells=[];let lastX=null;line.forEach(it=>{const x=it.transform?.[4]||0;const txt=String(it.str||'').trim();if(!txt)return;if(lastX!==null&&Math.abs(lastX-x)>30)cells.push('');if(cells.length&&cells[cells.length-1]!=='' )cells[cells.length-1]+=' '+txt;else cells.push(txt);lastX=x;});return cells.filter(Boolean);}).filter(r=>r.length);}
 async function previewStudentImport(){
@@ -7093,28 +7094,47 @@ function monthlyAssessmentFeedbackFromNotes(notes){
  const legacy=text.replace(/^در ماه .*?سطح آن .*?است[.。]\s*/,'').trim();
  return legacy||text;
 }
-function monthlyStudentAssessmentHtml(student,rows,month,cl){
- const yearMatch=rows.length?String(rows[0].date||'').match(/^(14[0-9]{2})/):null;
- const year=yearMatch?yearMatch[1]:'';
- const title='گزارش ارزشیابی دوره‌ای '+month+(year?' '+year:'');
- let body='';
+var monthlyAssessmentPhotoData='';
+var monthlyAssessmentPhotoStudentId='';
+function monthlyAssessmentPhotoForStudent(studentId){return String(studentId)===String(monthlyAssessmentPhotoStudentId)?monthlyAssessmentPhotoData:'';}
+function monthlyAssessmentStudentChanged(){
+ var select=document.getElementById('ev-monthly-student');if(!select)return;
+ if(String(select.value)!==String(monthlyAssessmentPhotoStudentId)){monthlyAssessmentPhotoData='';monthlyAssessmentPhotoStudentId='';var input=document.getElementById('ev-monthly-student-photo');if(input)input.value='';}
+ renderMonthlyStudentAssessment();
+}
+function handleMonthlyAssessmentPhoto(input){
+ var file=input&&input.files&&input.files[0],select=document.getElementById('ev-monthly-student');
+ if(!file){monthlyAssessmentPhotoData='';monthlyAssessmentPhotoStudentId='';renderMonthlyStudentAssessment();return;}
+ if(!/^image\//i.test(file.type||'')){toast('لطفاً یک فایل تصویری انتخاب کنید');input.value='';return;}
+ if(file.size>10*1024*1024){toast('حجم عکس باید کمتر از ۱۰ مگابایت باشد');input.value='';return;}
+ if(!select||!select.value){toast('ابتدا دانش‌آموز را انتخاب کنید');input.value='';return;}
+ var reader=new FileReader();reader.onerror=function(){toast('خواندن عکس ناموفق بود');};
+ reader.onload=function(){var img=new Image();img.onerror=function(){toast('باز کردن عکس ناموفق بود');};img.onload=function(){try{
+  var scale=Math.min(1,480/img.naturalWidth,600/img.naturalHeight),canvas=document.createElement('canvas');
+  canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));
+  canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+  monthlyAssessmentPhotoData=canvas.toDataURL('image/jpeg',0.78);monthlyAssessmentPhotoStudentId=String(select.value);
+  renderMonthlyStudentAssessment();toast('عکس فقط برای چاپ همین گزارش آماده شد');
+ }catch(e){toast('آماده‌سازی عکس ناموفق بود');}};img.src=String(reader.result||'');};
+ reader.readAsDataURL(file);
+}
+function monthlyStudentAssessmentHtml(student,rows,month,cl,photo){
+ const yearMatch=rows.length?String(rows[0].date||'').match(/^(14[0-9]{2})/):null,year=yearMatch?yearMatch[1]:'';
+ const title='گزارش ارزشیابی دوره‌ای '+month+(year?' '+year:'');let body='';
  rows.forEach(function(ev,i){
-  const count=monthlyAssessmentCountFromNotes(ev.notes);
-  const feedback=monthlyAssessmentFeedbackFromNotes(ev.notes);
+  const count=monthlyAssessmentCountFromNotes(ev.notes),feedback=monthlyAssessmentFeedbackFromNotes(ev.notes);
   const marker=String(ev.recorded_by||''),note=String(ev.notes||'');
   const status=marker.indexOf('[قطعی]')>=0||note.indexOf('میانگین قطعی')>=0?'قطعی':(marker.indexOf('[درحال‌به‌روزرسانی]')>=0||note.indexOf('میانگین موقت')>=0?'در حال به‌روزرسانی':'ثبت‌شده');
   body+='<tr><td>'+fa(i+1)+'</td><td>'+escHtml(ev.subject||'—')+'</td><td>'+escHtml(String(count))+'</td><td>'+escHtml(ev.score==null?'—':String(ev.score))+'</td><td>'+escHtml(lvl(ev.level)||'—')+'</td><td>'+status+'</td><td>'+escHtml(feedback||'—')+'</td></tr>';
  });
- return '<section dir="rtl" style="direction:rtl;text-align:right;font-family:Tahoma,Arial,sans-serif;color:#172033;padding:12px">'+
-  '<h2 style="text-align:center;margin:0 0 8px;font-size:18px">'+escHtml(title)+'</h2>'+
-  '<p style="text-align:center;margin:0 0 14px;font-size:12px">دبستان شهید فتح‌الله فلاح‌پور</p>'+
-  '<table style="width:100%;border-collapse:collapse;margin-bottom:12px;font-size:12px"><tbody>'+
-  '<tr><th style="border:1px solid #64748b;padding:7px;background:#eaf2fb;text-align:right">نام دانش‌آموز</th><td style="border:1px solid #64748b;padding:7px">'+escHtml(student.first_name+' '+student.last_name)+'</td>'+
-  '<th style="border:1px solid #64748b;padding:7px;background:#eaf2fb;text-align:right">کلاس</th><td style="border:1px solid #64748b;padding:7px">'+escHtml(cl?cl.label:'—')+'</td></tr></tbody></table>'+
-  '<table dir="rtl" style="direction:rtl;width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed"><thead><tr>'+
-  ['ردیف','درس','تعداد ثبت‌ها','میانگین از ۲۰','سطح','وضعیت','توضیح کوتاه'].map(function(x){return '<th style="border:1px solid #475569;background:#dbeafe;padding:7px;text-align:center">'+x+'</th>';}).join('')+
-  '</tr></thead><tbody>'+(body||'<tr><td colspan="7" style="border:1px solid #64748b;padding:12px;text-align:center">برای این دانش‌آموز در ماه انتخاب‌شده میانگین یکپارچه‌ای ثبت نشده است.</td></tr>')+
-  '</tbody></table><p style="font-size:10px;margin-top:12px">این گزارش مستقل از کارنامه تحصیلی است. میانگین‌ها بر اساس سوابق ثبت‌شده پرسش‌وپاسخ روزانه و آزمون محاسبه شده‌اند.</p></section>';
+ return '<section class="monthly-student-assessment-print" dir="rtl" style="direction:rtl;text-align:right;font-family:Tahoma,Arial,sans-serif;color:#172033;padding:0;break-inside:avoid;page-break-inside:avoid">'+
+ '<div style="display:flex;align-items:center;gap:10px;margin:0 0 7px">'+(photo?'<img src="'+photo+'" alt="عکس دانش‌آموز" style="width:24mm;height:30mm;object-fit:cover;border:1px solid #94a3b8;border-radius:3px;flex-shrink:0">':'')+
+ '<div style="flex:1;min-width:0"><h2 style="text-align:center;margin:0 0 5px;font-size:16px">'+escHtml(title)+'</h2><p style="text-align:center;margin:0;font-size:10px">دبستان شهید فتح‌الله فلاح‌پور</p></div></div>'+
+ '<table style="width:100%;border-collapse:collapse;margin-bottom:7px;font-size:10px"><tbody><tr><th style="width:18%;border:1px solid #64748b;padding:4px;background:#eaf2fb;text-align:right">نام دانش‌آموز</th><td style="width:37%;border:1px solid #64748b;padding:4px">'+escHtml(student.first_name+' '+student.last_name)+'</td><th style="width:15%;border:1px solid #64748b;padding:4px;background:#eaf2fb;text-align:right">کلاس</th><td style="width:30%;border:1px solid #64748b;padding:4px">'+escHtml(cl?cl.label:'—')+'</td></tr></tbody></table>'+
+ '<table dir="rtl" style="direction:rtl;width:100%;border-collapse:collapse;font-size:8px;table-layout:fixed;overflow-wrap:anywhere"><colgroup><col style="width:5%"><col style="width:13%"><col style="width:9%"><col style="width:13%"><col style="width:9%"><col style="width:9%"><col style="width:42%"></colgroup><thead><tr>'+
+ ['ردیف','درس','تعداد ثبت‌ها','میانگین از ۲۰','سطح','وضعیت','خلاصه توضیحات'].map(function(x){return '<th style="border:1px solid #475569;background:#dbeafe;padding:3px 2px;text-align:center;vertical-align:middle;line-height:1.25">'+x+'</th>';}).join('')+
+ '</tr></thead><tbody>'+(body||'<tr><td colspan="7" style="border:1px solid #64748b;padding:8px;text-align:center">برای این دانش‌آموز در ماه انتخاب‌شده میانگین یکپارچه‌ای ثبت نشده است.</td></tr>')+'</tbody></table>'+
+ '<p style="font-size:8px;margin:6px 0 0;line-height:1.3">این گزارش مستقل از کارنامه تحصیلی است. میانگین‌ها بر اساس سوابق ثبت‌شده پرسش‌وپاسخ روزانه و آزمون محاسبه شده‌اند.</p></section>';
 }
 function renderMonthlyStudentAssessment(){
  const select=document.getElementById('ev-monthly-student'),box=document.getElementById('ev-monthly-student-report'),actions=document.getElementById('ev-monthly-student-actions');
@@ -7128,7 +7148,7 @@ function renderMonthlyStudentAssessment(){
  const student=students.find(function(st){return String(st.id)===String(sid);});
  if(!student){if(actions)actions.style.display='none';return;}
  const rows=monthlyAssessmentRowsForStudent(sid),cl=(cache.classes||[]).find(function(c){return String(c.id)===String(classId);}),month=(document.getElementById('ev-month')||{}).value||'';
- box.innerHTML=monthlyStudentAssessmentHtml(student,rows,month,cl);
+ box.innerHTML=monthlyStudentAssessmentHtml(student,rows,month,cl,monthlyAssessmentPhotoForStudent(student.id));
  if(actions)actions.style.display='flex';
 }
 function getSelectedMonthlyStudentAssessment(){
@@ -7139,28 +7159,20 @@ function getSelectedMonthlyStudentAssessment(){
  const rows=monthlyAssessmentRowsForStudent(sid),classId=(document.getElementById('ev-class')||{}).value||'';
  const cl=(cache.classes||[]).find(function(c){return String(c.id)===String(classId);});
  const month=(document.getElementById('ev-month')||{}).value||'';
- return {student:student,rows:rows,cl:cl,month:month,html:monthlyStudentAssessmentHtml(student,rows,month,cl)};
+ return {student:student,rows:rows,cl:cl,month:month,html:monthlyStudentAssessmentHtml(student,rows,month,cl,monthlyAssessmentPhotoForStudent(student.id))};
 }
 function printMonthlyStudentAssessment(){
  const data=getSelectedMonthlyStudentAssessment();if(!data)return;
  const area=document.getElementById('print-area');if(!area)return;
- area.innerHTML='<div style="direction:rtl;text-align:right;font-family:Tahoma,Arial,sans-serif">'+data.html+'</div>';
+ area.innerHTML='<style>@page{size:A4 portrait;margin:6mm}@media print{#print-area .monthly-student-assessment-print{width:100%;max-width:198mm;margin:0 auto;font-size:8px}#print-area .monthly-student-assessment-print table{width:100%;table-layout:fixed;border-collapse:collapse}#print-area .monthly-student-assessment-print th,#print-area .monthly-student-assessment-print td{padding:2px!important;font-size:8px!important;line-height:1.2!important;overflow-wrap:anywhere;word-break:normal}#print-area .monthly-student-assessment-print tr{break-inside:avoid;page-break-inside:avoid}}</style><div style="direction:rtl;text-align:right;font-family:Tahoma,Arial,sans-serif">'+data.html+'</div>';
  setTimeout(function(){window.print();},200);
 }
 function exportMonthlyStudentAssessmentWord(){
  const data=getSelectedMonthlyStudentAssessment();if(!data)return;
- const html='<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><title>گزارش ارزشیابی ماهانه</title>'+
- '<style>@page{size:A4 portrait;margin:15mm}body{direction:rtl;text-align:right;font-family:Tahoma,Arial,sans-serif;color:#172033}table{direction:rtl;border-collapse:collapse;width:100%}th,td{border:1px solid #475569;padding:7px;text-align:right;vertical-align:middle}th{background:#dbeafe;text-align:center}h2{text-align:center}</style>'+
- '</head><body>'+data.html+'</body></html>';
- const blob=new Blob(['\ufeff',html],{type:'application/msword;charset=utf-8'});
- const url=URL.createObjectURL(blob),a=document.createElement('a');
  const safeName=(data.student.first_name+'-'+data.student.last_name).replace(/[\\/:*?"<>|]/g,'-');
- a.href=url;a.download='ارزشیابی-'+safeName+'-'+data.month+'.doc';
- document.body.appendChild(a);a.click();document.body.removeChild(a);
- setTimeout(function(){URL.revokeObjectURL(url);},1500);
- toast('فایل Word گزارش ارزشیابی آماده شد');
+ if(typeof window.downloadWordHtml!=='function'){toast('ابزار ساخت فایل Word در دسترس نیست');return;}
+ window.downloadWordHtml('ارزشیابی-'+safeName+'-'+data.month,data.html,false);
 }
-
 function printEvals(){
   const classId=document.getElementById('ev-class').value;
   const month=document.getElementById('ev-month').value;
@@ -10616,9 +10628,31 @@ window.addEventListener('afterprint',function(){const area=document.getElementBy
     Object.keys(files).forEach(function(name){var nb=enc.encode(name),data=enc.encode(files[name]),cr=crc(data);var lh=new Uint8Array([0x50,0x4b,3,4,...u16(20),...u16(0),...u16(0),...u16(0),...u16(0),...u32(cr),...u32(data.length),...u32(data.length),...u16(nb.length),...u16(0)]);local.push(lh,nb,data);var ch=new Uint8Array([0x50,0x4b,1,2,...u16(20),...u16(20),...u16(0),...u16(0),...u16(0),...u16(0),...u32(cr),...u32(data.length),...u32(data.length),...u16(nb.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(offset)]);central.push(ch,nb);offset+=lh.length+nb.length+data.length;});
     var centralSize=central.reduce((n,x)=>n+x.length,0),count=Object.keys(files).length;var end=new Uint8Array([0x50,0x4b,5,6,...u16(0),...u16(0),...u16(count),...u16(count),...u32(centralSize),...u32(offset),...u16(0)]);return new Blob([...local,...central,end],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
   }
+var downloadFileSequence=0;
+  window.downloadFileBlob=function(blob,fileName){
+    if(!(blob instanceof Blob))throw new Error('محتوای فایل برای دانلود معتبر نیست');
+    if(window.navigator&&typeof window.navigator.msSaveOrOpenBlob==='function'){
+      window.navigator.msSaveOrOpenBlob(blob,String(fileName||'گزارش'));return true;
+    }
+    var link=document.createElement('a'),url=URL.createObjectURL(blob);
+    var raw=String(fileName||'گزارش'),dot=raw.lastIndexOf('.');
+    var ext=dot>0?raw.slice(dot):'',stem=dot>0?raw.slice(0,dot):raw;
+    var stamp=new Date().toISOString().replace(/\D/g,'').slice(0,14);
+    link.href=url;link.download=stem+'_'+stamp+'_'+(++downloadFileSequence)+ext;
+    link.style.cssText='position:fixed;left:0;top:0;width:1px;height:1px;opacity:.01;z-index:-1;pointer-events:none';
+    link.setAttribute('aria-hidden','true');document.body.appendChild(link);
+    try{link.click();}catch(e){try{URL.revokeObjectURL(url);}catch(ignore){}if(link.parentNode)link.parentNode.removeChild(link);throw e;}
+    setTimeout(function(){if(link.parentNode)link.parentNode.removeChild(link);},1500);
+    setTimeout(function(){try{URL.revokeObjectURL(url);}catch(ignore){}},120000);
+    return true;
+  };
   window.downloadWordHtml=function(title,html,landscape){
-    try{var blob=makeDocxFiles(title,html,landscape),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=(String(title||'گزارش').replace(/[\\/:*?"<>|]/g,'-'))+'.docx';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},10000);if(typeof toast==='function')toast('فایل Word استاندارد آماده شد');}
-    catch(e){if(typeof toast==='function')toast('ساخت فایل Word ناموفق بود: '+e.message);}
+    try{
+      var blob=makeDocxFiles(title,html,landscape);
+      var safeName=(String(title||'گزارش').replace(/[\\/:*?"<>|]/g,'-'))+'.docx';
+      window.downloadFileBlob(blob,safeName);
+      if(typeof toast==='function')toast('فایل Word استاندارد آماده دانلود شد');
+    }catch(e){if(typeof toast==='function')toast('ساخت فایل Word ناموفق بود: '+e.message);}
   };
   function pruneEmptyPrintTables(root){
     if(!root)return;
@@ -12423,8 +12457,7 @@ window.downloadDocWordFromEditor=function(){
   // مبدل عمومی DOCX برنامه برای گزارش‌های متنی است و تصویرهای این برگه را درج نمی‌کند.
   html=html.replace('<html lang="fa" dir="rtl">','<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" lang="fa" dir="rtl">').replace('<head><meta charset="utf-8">','<head><meta charset="utf-8"><meta name="ProgId" content="Word.Document"><meta name="Generator" content="Microsoft Word-compatible HTML">');
   var blob=new Blob(['\ufeff'+html],{type:'application/msword'});
-  var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=title+'.doc';
-  document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(a.href);},10000);
+  window.downloadFileBlob(blob,title+'.doc');
 };
 window.printDocWordFromEditor=function(){
   var ed=$('doc-word-editor'); if(!ed) return;
@@ -13019,9 +13052,9 @@ window.sfeExportWordAdvanced=async function(){
    }
   });
   var wordDoc=new api.Document({sections:[{properties:{page:{margin:{top:900,right:900,bottom:900,left:900}}},children:children}]});
-  var blob=await api.Packer.toBlob(wordDoc),url=URL.createObjectURL(blob),a=document.createElement('a');
+  var blob=await api.Packer.toBlob(wordDoc);
   var base=(sourceName||'document').replace(/\.[^.]+$/,'').replace(/[^\w\-\u0600-\u06FF]+/g,'_')||'document';
-  a.href=url;a.download=base+'-editable.docx';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},5000);
+  window.downloadFileBlob(blob,base+'-editable.docx');
   say('فایل واقعی DOCX ساخته شد؛ متن داخل Word قابل انتخاب، حذف و ویرایش است.');
  }catch(e){say('ساخت Word واقعی انجام نشد: '+(e&&e.message?e.message:e)+'؛ اتصال اینترنت و بارگذاری کتابخانه Word را بررسی کنید.');}
 };
@@ -14512,33 +14545,7 @@ function addSheet(wb,rows,name,widths){
  ws['!cols']=widths.map(function(w){return {wch:w};});
  styleSheet(ws);XLSX.utils.book_append_sheet(wb,ws,name);return ws;
 }
-window.downloadExcelBlob=function(blob,fileName){
- /* هر دانلود لینک مستقل داشته باشد؛ لینک قبلی یا وضعیت دانلود قبلی دوباره استفاده نشود. */
- var link=document.createElement('a');
- var url=URL.createObjectURL(blob);
- link.href=url;
- link.download=String(fileName||'گزارش.xlsx');
- link.style.position='fixed';
- link.style.left='-10000px';
- link.style.top='0';
- link.style.width='1px';
- link.style.height='1px';
- link.style.opacity='0';
- link.style.pointerEvents='none';
- link.setAttribute('aria-hidden','true');
- document.body.appendChild(link);
- try{
-  /* کلیک در همان رویداد لمس دکمه انجام می‌شود تا مجوز دانلود مرورگر حفظ شود. */
-  link.click();
- }catch(e){
-  try{URL.revokeObjectURL(url);}catch(ignore){}
-  if(link.parentNode)link.parentNode.removeChild(link);
-  throw e;
- }
- /* پاک‌سازی لینک و نشانی پس از آغاز دانلود؛ دانلودهای بعدی مستقل می‌مانند. */
- setTimeout(function(){if(link.parentNode)link.parentNode.removeChild(link);},1000);
- setTimeout(function(){try{URL.revokeObjectURL(url);}catch(e){}},120000);
-}
+window.downloadExcelBlob=function(blob,fileName){ return window.downloadFileBlob(blob,fileName); };
 window.exportAttendanceExcel=function(){
  try{
   if(typeof XLSX==='undefined'){toast('کتابخانه Excel در دسترس نیست؛ اتصال اینترنت را بررسی کنید');return;}
@@ -14621,10 +14628,7 @@ window.exportAbsenteesNeedsAttentionExcel=function(){
   if(window.navigator&&typeof window.navigator.msSaveOrOpenBlob==='function'){
    window.navigator.msSaveOrOpenBlob(excelBlob,fileName);
   }else{
-   var excelUrl=URL.createObjectURL(excelBlob),excelLink=document.createElement('a');
-   excelLink.href=excelUrl;excelLink.download=fileName;excelLink.style.display='none';
-   document.body.appendChild(excelLink);excelLink.click();excelLink.remove();
-   setTimeout(function(){URL.revokeObjectURL(excelUrl);},30000);
+   window.downloadExcelBlob(excelBlob,fileName);
   }
   toast('فایل اکسل غایبین نیازمند رسیدگی برای دانلود آماده شد');
  }catch(e){console.error(e);toast('ساخت اکسل غایبین ناموفق بود: '+(e&&e.message||e));}
