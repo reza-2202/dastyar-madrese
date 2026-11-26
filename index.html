@@ -7134,6 +7134,24 @@ function monthlyAssessmentBuildNarrative(studentId,rows,month){
   });
   paragraphs.push('در سوابق تاریخ‌دار پرسش‌وپاسخ و آزمون، '+activities.length+' ثبت مرتبط با این ماه پیدا شد.'+(trend.length?' '+trend.join('؛ ')+'.':' برای این بخش، تعداد ثبت‌ها و نمره‌های موجود مبنای تحلیل بوده‌اند.'));
  }else paragraphs.push('در سوابق تاریخ‌دار پرسش‌وپاسخ و آزمون، ثبت قابل انتساب دیگری برای این ماه پیدا نشد.');
+ var manualEvaluations=(cache.evaluations||[]).filter(function(e){
+  var marker=String(e.recorded_by||'');
+  return String(e.student_id)===String(studentId)&&monthlyAssessmentDateInSelectedMonth(e,monthNumber,year)&&marker.indexOf('| میانگین ماهانه یکپارچه')<0&&marker.indexOf('| خلاصه خودکار پرسش‌وپاسخ و آزمون')<0;
+ });
+ if(manualEvaluations.length){
+  var manualScores=manualEvaluations.map(monthlyAssessmentScore).filter(function(x){return x!=null;});
+  paragraphs.push('علاوه بر میانگین‌های خودکار، '+manualEvaluations.length+' ارزشیابی ثبت‌شده دیگر در این ماه وجود دارد'+(manualScores.length?' و میانگین نمره‌های عددی آن‌ها '+(Math.round(manualScores.reduce(function(a,b){return a+b;},0)/manualScores.length*10)/10)+' از ۲۰ است.':'؛ در این ثبت‌ها نمره عددی قابل محاسبه وجود ندارد.'));
+ }else paragraphs.push('ارزشیابی دستیِ تاریخ‌دار دیگری برای این ماه در سوابق پیدا نشد.');
+ var historical=(cache.evaluations||[]).filter(function(e){
+  var marker=String(e.recorded_by||''),d=null;
+  if(String(e.student_id)!==String(studentId)||!(marker.indexOf('| میانگین ماهانه یکپارچه')>=0||marker.indexOf('| خلاصه خودکار پرسش‌وپاسخ و آزمون')>=0))return false;
+  try{d=parseJalali(e.date)}catch(err){}
+  return !!(d&&monthlyAssessmentScore(e)!=null);
+ }).sort(function(a,b){return String(a.date||'').localeCompare(String(b.date||''));});
+ if(historical.length>=2){
+  var firstHistory=historical[0],lastHistory=historical[historical.length-1],change=monthlyAssessmentScore(lastHistory)-monthlyAssessmentScore(firstHistory);
+  paragraphs.push('در مقایسه نمودار/سوابق ماهانه موجود، میانگین ثبت‌شده از '+(firstHistory.month||'ماه نخست')+' تا '+(lastHistory.month||'آخرین ماه')+' از '+monthlyAssessmentScore(firstHistory)+' به '+monthlyAssessmentScore(lastHistory)+' از ۲۰ رسیده است؛ '+(change>=1?'روند کلی افزایشی':change<=-1?'روند کلی کاهشی':'تغییر کلی چشمگیری نداشته')+' است. این مقایسه فقط بر اساس ماه‌هایی است که داده معتبر دارند.');
+ }else paragraphs.push('برای مقایسه نمودار روند بین چند ماه، هنوز دست‌کم دو ماه دارای میانگین معتبر در سوابق وجود ندارد.');
  if(competencyRows.length){
   var compScores=competencyRows.map(monthlyAssessmentScore).filter(function(x){return x!=null;});
   paragraphs.push('در بخش شایستگی‌ها '+competencyRows.length+' مورد ثبت شده است'+(compScores.length?' و میانگین نمره موارد دارای نمره '+(Math.round(compScores.reduce(function(a,b){return a+b;},0)/compScores.length*10)/10)+' از ۲۰ است.':'. در این موارد وضعیت ثبت شده، اما نمره عددی قابل محاسبه در دسترس نیست.'));
@@ -7201,10 +7219,14 @@ function printMonthlyStudentAssessment(){
  const data=getSelectedMonthlyStudentAssessment();if(!data)return;
  const area=document.getElementById('print-area');if(!area)return;
  area.innerHTML='<style>@page{size:A4 portrait;margin:4mm}@media print{#print-area .monthly-assessment-fit-wrap{width:100%;overflow:visible;break-inside:avoid;page-break-inside:avoid}#print-area .monthly-student-assessment-print{width:100%;max-width:200mm;margin:0 auto;font-size:8px;transform-origin:top center;break-inside:avoid;page-break-inside:avoid}#print-area .monthly-student-assessment-print table{width:100%;table-layout:fixed;border-collapse:collapse}#print-area .monthly-student-assessment-print th,#print-area .monthly-student-assessment-print td{padding:2px!important;font-size:8px!important;line-height:1.2!important;overflow-wrap:anywhere;word-break:normal}#print-area .monthly-student-assessment-print tr{break-inside:avoid;page-break-inside:avoid}}</style><div class="monthly-assessment-fit-wrap" id="monthly-assessment-fit-wrap" style="direction:rtl;text-align:right;font-family:Tahoma,Arial,sans-serif"><div id="monthly-assessment-fit-content">'+data.html+'</div></div>';
- setTimeout(function(){
+ setTimeout(async function(){
   try{
    var wrap=document.getElementById('monthly-assessment-fit-wrap'),section=wrap&&wrap.querySelector('.monthly-student-assessment-print');
    if(section&&wrap){
+    await Promise.all(Array.from(section.querySelectorAll('img')).map(function(img){
+     if(img.complete)return Promise.resolve();
+     return new Promise(function(resolve){var done=false,finish=function(){if(done)return;done=true;resolve();};img.addEventListener('load',finish,{once:true});img.addEventListener('error',finish,{once:true});setTimeout(finish,2500);});
+    }));
     var naturalHeight=section.scrollHeight||section.getBoundingClientRect().height||1;
     var scale=Math.min(1,1060/naturalHeight);
     section.style.width=(100/scale)+'%';
