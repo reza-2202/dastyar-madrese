@@ -6319,12 +6319,18 @@ function getReportScoreRow(studentId,subject){
 }
 function isMonthlyAssessmentEvaluation(e){var marker=String(e&&e.recorded_by||'');return marker.indexOf('| خلاصه خودکار پرسش‌وپاسخ')>=0||marker.indexOf('| میانگین ماهانه یکپارچه')>=0;}
 function assessmentSubjectKey(activity){
- var subject=String(activity&&activity.subject||'').trim();
- if(activity&&activity.type==='exam'){
+ if(!activity)return '';
+ // از نرمال‌سازی مشترک خود برنامه استفاده کن تا نام درس آزمون و پرسش‌وپاسخ یکی شود؛
+ // این مسیر هم جداکننده «—» و هم «-» و نام درس‌های همان کلاس را پوشش می‌دهد.
+ if(typeof normalizedSubject==='function'){
+  var normalized=String(normalizedSubject(activity)||'').trim();
+  if(normalized)return normalized;
+ }
+ var subject=String(activity.subject||'').trim();
+ if(activity.type==='exam'){
   var lesson=String(activity.lesson||'').trim();
   if(lesson)return lesson;
-  var split=subject.indexOf(' — ');
-  if(split>0)subject=subject.slice(0,split).trim();
+  subject=subject.split(/\\s+[—-]\\s+/)[0].trim();
  }
  return subject;
 }
