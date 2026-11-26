@@ -2732,6 +2732,7 @@ async function reloadAll(){
     applyCacheDedupe();
     if(!(cache.students||[]).length && navigator.onLine) await ensureStudentsFromServer();
   }
+  try{checkUpcomingStudentBirthdays();}catch(birthdayError){console.warn('یادآوری تولد اجرا نشد',birthdayError);}
 }
 
 function setRole(r){
@@ -7346,41 +7347,63 @@ async function saveMonthlyStudentGuidance(){
  var ok=await saveStudentGuidance({id:old.id||uid(),student_id:String(student.id),class_id:String(classId),source_type:'monthly_assessment',source_id:key,month:month,subject:'جمع‌بندی ارزشیابی ماهانه',guidance:(document.getElementById('monthly-guidance-text')||{}).value||'',homework:(document.getElementById('monthly-homework-text')||{}).value||'',duration:(document.getElementById('monthly-guidance-duration')||{}).value||'',created_by:old.created_by||''});
  if(ok){renderMonthlyStudentAssessment();toast('راهکار ماهانه ثبت شد و آماده اشتراک‌گذاری است');}
 }
-function shareBirthdayGreeting(studentId){
- var st=(cache.students||[]).find(function(x){return String(x.id)===String(studentId);});if(!st)return;
- var msg='🌷 یک روز مانده به تولدت، تولدت را تبریک می‌گوییم!\nدانش‌آموز عزیز '+st.first_name+' '+st.last_name+'، امیدواریم سالی سرشار از سلامتی، شادی، یادگیری و موفقیت پیش رو داشته باشی.\n\nبا مهر؛ مدیریت دبستان شهید فتح‌الله فلاح‌پور و معلم عزیزت';
- if(navigator.share)navigator.share({title:'تبریک تولد دانش‌آموز',text:msg}).catch(function(e){if(e&&e.name!=='AbortError')copyGuidanceText(msg);});else copyGuidanceText(msg);
+async function shareBirthdayGreeting(studentId){
+ var st=(cache.students||[]).find(function(x){return String(x.id)===String(studentId);});
+ if(!st)return;
+ if(user&&user.role==='teacher'){
+  var allowed=new Set((typeof myClasses==='function'?myClasses():[]).map(function(c){return String(c.id).trim();}));
+  if(!allowed.has(String(st.class_id||'').trim())){toast('این دانش‌آموز در کلاس‌های شما نیست');return;}
+ }
+ var fullName=[st.first_name,st.last_name].filter(Boolean).join(' ').trim()||'دانش‌آموز عزیز';
+ var msg='🌷 تولدت مبارک!\nدانش‌آموز عزیز '+fullName+'، امیدواریم سالی سرشار از سلامتی، شادی، یادگیری و موفقیت پیش رو داشته باشی.\n\nبا مهر؛ مدیریت دبستان شهید فتح‌الله فلاح‌پور و معلم عزیزت';
+ if(typeof navigator.share==='function'){
+  try{await navigator.share({title:'تبریک تولد '+fullName,text:msg});return;}
+  catch(e){if(e&&e.name==='AbortError')return;console.warn('Birthday native share failed',e);}
+ }
+ if(typeof copyGuidanceText==='function')copyGuidanceText(msg);
+ else if(navigator.clipboard&&navigator.clipboard.writeText){
+  navigator.clipboard.writeText(msg).then(function(){toast('پیام تبریک کپی شد؛ آن را در شاد جای‌گذاری کنید');}).catch(function(){prompt('متن تبریک را کپی کنید:',msg);});
+ }else prompt('متن تبریک را کپی کنید:',msg);
+}
+function birthdayReminderDismissKey(studentId){
+ return 'dastyar_birth_reminder_dismissed_'+today()+'_'+encodeURIComponent(String(studentId));
 }
 function dismissStudentBirthdayReminders(){
- try{localStorage.setItem('dastyar_birth_reminder_dismissed_'+today(),'1');}catch(e){}
+ var ids=Array.isArray(window.__dastyarBirthdayReminderStudentIds)?window.__dastyarBirthdayReminderStudentIds:[];
+ try{ids.forEach(function(id){localStorage.setItem(birthdayReminderDismissKey(id),'1');});}catch(e){}
  var box=document.getElementById('teacher-birthday-reminders');if(box)box.style.display='none';
 }
 function checkUpcomingStudentBirthdays(){
  var box=document.getElementById('teacher-birthday-reminders');
  if(!box)return;
- if(!user||user.role!=='teacher'||!Array.isArray(cache.students)||!cache.students.length){box.style.display='none';box.innerHTML='';return;}
- var p=null;try{p=parseJalali(today());}catch(e){}if(!p){box.style.display='none';return;}
- var dismissed=false;try{dismissed=localStorage.getItem('dastyar_birth_reminder_dismissed_'+today())==='1';}catch(e){}
- if(dismissed){box.style.display='none';return;}
+ if(!user||user.role!=='teacher'||!Array.isArray(cache.students)||!cache.students.length){box.style.display='none';box.innerHTML='';window.__dastyarBirthdayReminderStudentIds=[];return;}
+ var p=null;try{p=parseJalali(today());}catch(e){}
+ if(!p){box.style.display='none';return;}
  var offsets=[-1,0,1],targets={};
  offsets.forEach(function(offset){
-   var g=jalaliToGregorian(p.jy,p.jm,p.jd),dt=new Date(g.gy,g.gm-1,g.gd,12,0,0);
-   dt.setDate(dt.getDate()+offset);
-   var j=gregorianToJalali(dt.getFullYear(),dt.getMonth()+1,dt.getDate());
-   targets[String(j.jm).padStart(2,'0')+'/'+String(j.jd).padStart(2,'0')]=offset;
+  var g=jalaliToGregorian(p.jy,p.jm,p.jd);
+  var dt=new Date(Date.UTC(g.gy,g.gm-1,g.gd,12,0,0));
+  dt.setUTCDate(dt.getUTCDate()+offset);
+  var j=gregorianToJalali(dt.getUTCFullYear(),dt.getUTCMonth()+1,dt.getUTCDate());
+  targets[String(j.jm).padStart(2,'0')+'/'+String(j.jd).padStart(2,'0')]=offset;
  });
  var allowed=new Set((typeof myClasses==='function'?myClasses():[]).map(function(c){return String(c.id).trim();}));
  var upcoming=(cache.students||[]).map(function(st){
-   if(!st||!st.birth_date||!allowed.has(String(st.class_id||'').trim()))return null;
-   var birth=null;try{birth=parseJalali(st.birth_date);}catch(e){}
-   if(!birth)return null;
-   var offset=targets[String(birth.jm).padStart(2,'0')+'/'+String(birth.jd).padStart(2,'0')];
-   return offset===undefined?null:{student:st,offset:offset};
+  if(!st||!st.birth_date||!allowed.has(String(st.class_id||'').trim()))return null;
+  var birth=null;try{birth=parseJalali(st.birth_date);}catch(e){}
+  if(!birth||birth.jm<1||birth.jm>12||birth.jd<1||birth.jd>31)return null;
+  var offset=targets[String(birth.jm).padStart(2,'0')+'/'+String(birth.jd).padStart(2,'0')];
+  if(offset===undefined)return null;
+  try{if(localStorage.getItem(birthdayReminderDismissKey(st.id))==='1')return null;}catch(e){}
+  return {student:st,offset:offset};
  }).filter(Boolean);
+ window.__dastyarBirthdayReminderStudentIds=upcoming.map(function(item){return String(item.student.id);});
  if(!upcoming.length){box.style.display='none';box.innerHTML='';return;}
  var rows=upcoming.map(function(item){
-   var st=item.student,offset=Number(item.offset),when=offset===1?'تولد فردا':(offset===0?'امروز تولد این دانش‌آموز است':'تولد دیروز بوده؛ یادآوری جامانده');
-   return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 0;border-top:1px solid #bfdbfe"><div><b>'+escHtml((st.first_name||'')+' '+(st.last_name||''))+'</b><div style="font-size:.78rem;color:#475569">'+when+'</div></div><button type="button" class="btn btn-p btn-sm" onclick="shareBirthdayGreeting(\''+String(st.id).replace(/'/g,'')+'\')">🎁 آماده‌سازی پیام تبریک</button></div>';
+  var st=item.student,offset=Number(item.offset);
+  var when=offset===1?'تولد فردا است':(offset===0?'امروز تولد این دانش‌آموز است':'تولد دیروز بوده؛ یادآوری جامانده');
+  var sid=String(st.id).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 0;border-top:1px solid #bfdbfe"><div><b>'+escHtml((st.first_name||'')+' '+(st.last_name||''))+'</b><div style="font-size:.78rem;color:#475569">'+when+'</div></div><button type="button" class="btn btn-p btn-sm" data-student-id="'+sid+'" onclick="shareBirthdayGreeting(this.getAttribute(\'data-student-id\'))">🎁 آماده‌سازی و اشتراک‌گذاری پیام</button></div>';
  }).join('');
  box.innerHTML='<section style="margin:10px 12px;padding:12px;border:1px solid #93c5fd;border-radius:12px;background:#eff6ff;color:#1e3a8a"><div style="font-weight:800;margin-bottom:4px">🎂 یادآوری تولد دانش‌آموزان</div><div style="font-size:.8rem;color:#475569;margin-bottom:6px">این یادآوری فقط برای دانش‌آموزان کلاس‌های تحت مسئولیت شما نمایش داده می‌شود.</div>'+rows+'<div style="display:flex;justify-content:flex-end;margin-top:8px"><button type="button" class="btn btn-s btn-sm" onclick="dismissStudentBirthdayReminders()">متوجه شدم</button></div></section>';
  box.style.display='block';
