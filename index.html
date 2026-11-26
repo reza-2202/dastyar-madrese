@@ -7467,7 +7467,14 @@ function checkUpcomingStudentBirthdays(){
   var sid=String(st.id).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 0;border-top:1px solid #bfdbfe"><div><b>'+escHtml((st.first_name||'')+' '+(st.last_name||''))+'</b><div style="font-size:.78rem;color:#475569">'+when+'</div></div><button type="button" class="btn btn-p btn-sm" data-student-id="'+sid+'" onclick="shareBirthdayGreeting(this.getAttribute(\'data-student-id\'))">🎁 آماده‌سازی و اشتراک‌گذاری پیام</button></div>';
  }).join('');
- box.innerHTML='<section style="margin:10px 12px;padding:12px;border:1px solid #93c5fd;border-radius:12px;background:#eff6ff;color:#1e3a8a"><div style="font-weight:800;margin-bottom:4px">🎂 یادآوری تولد دانش‌آموزان</div><div style="font-size:.8rem;color:#475569;margin-bottom:6px">این یادآوری فقط برای دانش‌آموزان کلاس‌های تحت مسئولیت شما نمایش داده می‌شود.</div>'+rows+'<div style="display:flex;justify-content:flex-end;margin-top:8px"><button type="button" class="btn btn-s btn-sm" onclick="dismissStudentBirthdayReminders()">متوجه شدم</button></div></section>';
+ if(!document.getElementById('dastyar-birthday-glow-style')){
+  var birthdayStyle=document.createElement('style');
+  birthdayStyle.id='dastyar-birthday-glow-style';
+  birthdayStyle.textContent='#teacher-birthday-reminders .dastyar-birthday-glow{border:2px solid #f472b6!important;border-radius:16px;background:linear-gradient(120deg,#fff1f2 0%,#fdf2f8 28%,#fef9c3 62%,#ecfeff 100%);color:#831843;box-shadow:0 3px 12px rgba(236,72,153,.16);animation:dastyarBirthdayGlow 3.2s ease-in-out infinite}#teacher-birthday-reminders .dastyar-birthday-title{font-size:1rem;color:#9d174d;text-shadow:0 1px 0 #fff;font-weight:900}#teacher-birthday-reminders .dastyar-birthday-subtitle{color:#7c2d5b!important}#teacher-birthday-reminders .dastyar-birthday-row{border-top:1px solid rgba(219,39,119,.22)!important}#teacher-birthday-reminders .dastyar-birthday-row b{color:#831843}@keyframes dastyarBirthdayGlow{0%,100%{box-shadow:0 3px 12px rgba(236,72,153,.16);border-color:#f472b6}50%{box-shadow:0 4px 19px rgba(236,72,153,.34),0 0 8px rgba(250,204,21,.22);border-color:#e879f9}}@media(prefers-reduced-motion:reduce){#teacher-birthday-reminders .dastyar-birthday-glow{animation:none}}';
+  document.head.appendChild(birthdayStyle);
+ }
+box.innerHTML='<section class="dastyar-birthday-glow" style="margin:10px 12px;padding:13px"><div class="dastyar-birthday-title" style="margin-bottom:5px">🎉🎂✨ یادآوری تولد دانش‌آموزان 🎈</div><div class="dastyar-birthday-subtitle" style="font-size:.8rem;margin-bottom:7px">🌈 این یادآوری فقط برای دانش‌آموزان کلاس‌های تحت مسئولیت شما نمایش داده می‌شود.</div>'+rows+'<div style="display:flex;justify-content:flex-end;margin-top:9px"><button type="button" class="btn btn-s btn-sm" onclick="dismissStudentBirthdayReminders()">💖 متوجه شدم</button></div></section>';
+box.querySelectorAll('section > div[style*="border-top"]').forEach(function(row){row.classList.add('dastyar-birthday-row');});
  box.style.display='block';
 }
 
