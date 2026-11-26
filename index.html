@@ -7075,19 +7075,23 @@ async function loadEvals(skipServerReload){
 function monthlyAssessmentRowsForStudent(studentId){
  const month=(document.getElementById('ev-month')||{}).value||'';
  return (cache.evaluations||[]).filter(function(ev){
-  return String(ev.student_id)===String(studentId)&&String(ev.month||'')===String(month)&&String(ev.recorded_by||'').indexOf('| میانگین ماهانه یکپارچه')>=0;
+  var marker=String(ev.recorded_by||'');
+  return String(ev.student_id)===String(studentId)&&String(ev.month||'')===String(month)&&(marker.indexOf('| میانگین ماهانه یکپارچه')>=0||marker.indexOf('| خلاصه خودکار پرسش‌وپاسخ و آزمون')>=0);
  }).sort(function(a,b){return String(a.subject||'').localeCompare(String(b.subject||''),'fa');});
 }
 function monthlyAssessmentCountFromNotes(notes){
  const text=String(notes||'');
- const m=text.match(/تعداد ثبت پرسش(?:‌|\s)*و(?:‌|\s)*پاسخ و آزمون\s*:\s*([۰-۹0-9]+)/);
+ let m=text.match(/تعداد ثبت پرسش(?:‌|\\s)*و(?:‌|\\s)*پاسخ و آزمون\\s*:\\s*([۰-۹0-9]+)/);
+ if(!m)m=text.match(/تعداد\\s*([۰-۹0-9]+)\\s*ارزیابی/);
  if(!m)return '—';
  return m[1].replace(/[۰-۹]/g,function(c){return String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c));});
 }
 function monthlyAssessmentFeedbackFromNotes(notes){
  const text=String(notes||'');
- const m=text.match(/از\s*۲۰[.。]\s*(.*)$/);
- return m&&m[1]?m[1].trim():text.replace(/^ارزیابی دوره‌ای ماه[^؛]*؛\s*/,'').trim();
+ const modern=text.match(/از\\s*۲۰[.。]\\s*(.*)$/);
+ if(modern&&modern[1])return modern[1].trim();
+ const legacy=text.replace(/^در ماه .*?سطح آن .*?است[.。]\\s*/,'').trim();
+ return legacy||text;
 }
 function monthlyStudentAssessmentHtml(student,rows,month,cl){
  const yearMatch=rows.length?String(rows[0].date||'').match(/^(14[0-9]{2})/):null;
@@ -7097,7 +7101,8 @@ function monthlyStudentAssessmentHtml(student,rows,month,cl){
  rows.forEach(function(ev,i){
   const count=monthlyAssessmentCountFromNotes(ev.notes);
   const feedback=monthlyAssessmentFeedbackFromNotes(ev.notes);
-  const status=String(ev.notes||'').indexOf('میانگین قطعی')>=0?'قطعی':'موقت';
+  const marker=String(ev.recorded_by||''),note=String(ev.notes||'');
+  const status=marker.indexOf('[قطعی]')>=0||note.indexOf('میانگین قطعی')>=0?'قطعی':(marker.indexOf('[درحال‌به‌روزرسانی]')>=0||note.indexOf('میانگین موقت')>=0?'در حال به‌روزرسانی':'ثبت‌شده');
   body+='<tr><td>'+fa(i+1)+'</td><td>'+escHtml(ev.subject||'—')+'</td><td>'+escHtml(String(count))+'</td><td>'+escHtml(ev.score==null?'—':String(ev.score))+'</td><td>'+escHtml(lvl(ev.level)||'—')+'</td><td>'+status+'</td><td>'+escHtml(feedback||'—')+'</td></tr>';
  });
  return '<section dir="rtl" style="direction:rtl;text-align:right;font-family:Tahoma,Arial,sans-serif;color:#172033;padding:12px">'+
