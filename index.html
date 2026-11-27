@@ -1292,9 +1292,14 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 </div>
 
 <div id="teacher-today-schedule" class="card" style="display:none;border:1px solid #93c5fd;background:#f0f9ff">
- <div class="ct">📚 برنامه امروز کلاس شما</div>
- <div id="teacher-today-schedule-content" style="font-size:.84rem;line-height:1.9"></div>
- <button class="btn btn-o btn-sm" style="margin-top:8px" onclick="go('weekly')">مشاهده و تنظیم برنامه هفتگی</button>
+ <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+  <div class="ct" style="margin:0">📚 برنامه امروز کلاس شما</div>
+  <button type="button" class="btn btn-o btn-sm" aria-label="باز و بسته کردن برنامه و تکالیف امروز" aria-expanded="false" style="min-width:38px;width:38px;height:34px;padding:0;font-size:1.25rem;line-height:1" onclick="var c=document.getElementById('teacher-today-schedule');var b=document.getElementById('teacher-today-schedule-body');var o=b.style.display==='none';b.style.display=o?'block':'none';this.textContent=o?'−':'+';this.setAttribute('aria-expanded',String(o));this.setAttribute('aria-label',o?'بستن برنامه و تکالیف امروز':'باز کردن برنامه و تکالیف امروز')">+</button>
+ </div>
+ <div id="teacher-today-schedule-body" style="display:none;margin-top:10px">
+  <div id="teacher-today-schedule-content" style="font-size:.84rem;line-height:1.9"></div>
+  <button class="btn btn-o btn-sm" style="margin-top:8px" onclick="go('weekly')">مشاهده و تنظیم برنامه هفتگی</button>
+ </div>
 </div>
 <div id="teacher-birthday-reminders" style="display:none"></div>
 <div class="card" id="teacher-notice-inbox" style="display:none;border:1px solid #fbbf24;background:#fffbeb">
