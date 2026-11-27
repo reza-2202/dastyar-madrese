@@ -1352,8 +1352,14 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <button class="home-tile" onclick="go('report')"><span class="tile-icon">📋</span><span class="tile-label">کارنامه</span></button>
 <button class="home-tile" onclick="go('charts')"><span class="tile-icon">📊</span><span class="tile-label">نمودار پیشرفت</span></button>
 <button class="home-tile" onclick="go('weekly')"><span class="tile-icon" style="background:#dbeafe">🗓️</span><span class="tile-label">برنامه هفتگی</span></button>
-<button class="home-tile" id="teacher-homework-center-tile" onclick="go('homework')"><span class="tile-icon" style="background:#dcfce7">📚✅</span><span class="tile-label">مرکز تکالیف و بازخورد</span></button>
+
 <button class="home-tile" id="teacher-class-report-tile" onclick="go('teacherreport')"><span class="tile-icon" style="background:#e0f2fe">📋📈</span><span class="tile-label">گزارش کلاس من</span></button>
+</div>
+</details>
+<details class="home-tile-group group-homework" aria-label="مرکز تکالیف و بازخورد">
+<summary class="home-tile-group-title"><span class="home-tile-group-mark">📚✅</span><span>مرکز تکالیف و بازخورد</span></summary>
+<div class="home-tiles-grid">
+<button class="home-tile" id="teacher-homework-center-tile" onclick="go('homework')"><span class="tile-icon" style="background:#dcfce7">📚✅</span><span class="tile-label">ورود به مرکز تکالیف و بازخورد</span></button>
 </div>
 </details>
 <details class="home-tile-group group-management" aria-label="مدیریت و امور اجرایی">
@@ -15203,7 +15209,7 @@ window.printAbsenteesNeedsAttention=function(){
 #page-dashboard .home-tile-group .home-tile .tile-label:before{display:none!important;content:none!important}
 #page-dashboard .group-students .home-tile-group-mark,#page-dashboard .group-students .tile-icon{background:#eaf2ff!important;color:#2456a6}
 #page-dashboard .group-attendance .home-tile-group-mark,#page-dashboard .group-attendance .tile-icon{background:#fff1ed!important;color:#b45336}
-#page-dashboard .group-learning .home-tile-group-mark,#page-dashboard .group-learning .tile-icon{background:#eaf8f1!important;color:#18794e}
+#page-dashboard .group-learning .home-tile-group-mark,#page-dashboard .group-learning .tile-icon{background:#eaf8f1!important;color:#18794e} #page-dashboard .group-homework .home-tile-group-mark,#page-dashboard .group-homework .tile-icon{background:#eaf8f1!important;color:#18794e}
 #page-dashboard .group-management .home-tile-group-mark,#page-dashboard .group-management .tile-icon{background:#f2edff!important;color:#6544a5}
 #page-dashboard .group-communication .home-tile-group-mark,#page-dashboard .group-communication .tile-icon{background:#e8f7f8!important;color:#16747a}
 #page-dashboard .home-tile-group .home-tile:focus-visible{outline:3px solid #93c5fd;outline-offset:2px}
@@ -16095,6 +16101,7 @@ observer.observe(document.documentElement,{childList:true,subtree:true});
    home.querySelector('.group-students'),
    home.querySelector('.group-attendance'),
    home.querySelector('.group-learning'),
+   home.querySelector('.group-homework'),
    achievement,
    home.querySelector('.group-management'),
    home.querySelector('.group-communication'),
