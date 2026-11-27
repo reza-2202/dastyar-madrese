@@ -8764,7 +8764,7 @@ async function deleteSchoolDocumentCore(id,path,isAdmin){
 
 async function loadSchoolMessages(){
  const box=document.getElementById('chat-list');if(!box||!sb||!user)return;box.innerHTML='در حال دریافت پیام‌ها...';
- const {data,error}=await sb.from('sa_messages').select('*').order('created_at',{ascending:true}).limit(200);
+ const {data,error}=await sb.from('sa_messages').select('*').eq('kind','chat').order('created_at',{ascending:true}).limit(200);
  if(error){box.textContent='خطا در دریافت پیام‌ها: '+error.message;return;}
  if(!data||!data.length){box.textContent='هنوز پیامی ثبت نشده است.';return;}
  box.innerHTML=data.map(m=>{const canDelete=user.role==='admin'||m.sender_username===user.username;return '<div class="card" style="margin:8px 0"><b>'+escHtml(m.sender_name||m.sender_username||'کاربر')+'</b><small> — '+escHtml(m.created_at?new Date(m.created_at).toLocaleString('fa-IR'):'')+'</small><p style="white-space:pre-wrap">'+escHtml(m.message_text||'')+'</p>'+(m.audio_url?'<audio controls src="'+escHtml(m.audio_url)+'" style="width:100%"></audio>':'')+(canDelete?'<button class="btn btn-o btn-sm" style="margin-top:8px;color:#b91c1c" onclick="deleteSchoolMessage(\''+String(m.id).replace(/'/g,'')+'\')">🗑️ حذف پیام</button>':'')+'</div>';}).join('');box.scrollTop=box.scrollHeight;
