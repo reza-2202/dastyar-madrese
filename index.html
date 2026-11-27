@@ -8500,16 +8500,31 @@ async function flushDastyarDashboardRealtimeChanges(){
       }
     }catch(e){console.warn('document realtime refresh',e);}
   }
-  if(user&&user.role==='admin'&&(dirty.sa_activities||dirty.sa_evaluations||dirty.sa_discipline)){
-    var elapsed=Date.now()-(__dastyarAdminQaAutoRefreshAt||0);
-    if(__dastyarAdminQaAutoRefreshBusy||elapsed<2500){
-      Object.keys(dirty).forEach(function(k){if(dirty[k])__dastyarDashboardRealtimeDirtyTables[k]=true;});
-      var wait=__dastyarAdminQaAutoRefreshBusy?700:Math.max(250,2500-elapsed+100);
-      __dastyarDocumentsRealtimeRefreshTimer=setTimeout(flushDastyarDashboardRealtimeChanges,wait);
+  var adminDirtyTables=Object.keys(dirty).filter(function(k){return k!=='sa_documents'&&dirty[k];});
+  if(user&&user.role==='admin'&&adminDirtyTables.length){
+    // در زمان جابه‌جایی صفحه یا اسکرول، داده را از دست نده؛ فقط نمایش را کمی عقب بینداز.
+    if(window.__dastyarFastNavigation||(window.__dastyarLastScrollAt&&Date.now()-window.__dastyarLastScrollAt<650)){
+      adminDirtyTables.forEach(function(k){__dastyarDashboardRealtimeDirtyTables[k]=true;});
+      __dastyarDocumentsRealtimeRefreshTimer=setTimeout(flushDastyarDashboardRealtimeChanges,450);
       return;
     }
-    try{await refreshAdminQaAfterTeacherSync();}
-    catch(e){console.warn('dashboard realtime counters refresh',e);}
+    try{
+      // یک بار دریافت یکپارچه برای همه تغییرات هم‌زمان؛ هم INSERT و هم UPDATE و DELETE.
+      await reloadAll();
+      if(typeof refreshDash==='function')refreshDash();
+      var page=document.querySelector('.page.on');
+      var pageId=page?String(page.id||'').replace(/^page-/,''):'';
+      if(pageId==='students'||pageId==='studentdata'){if(typeof renderStudents==='function')renderStudents();}
+      else if(pageId==='attendance'&&typeof loadAttendance==='function')await loadAttendance(true);
+      else if(pageId==='discipline'&&typeof loadDiscipline==='function')await loadDiscipline(true);
+      else if(pageId==='activity'&&typeof loadActivities==='function')await loadActivities(true);
+      else if(pageId==='evaluation'&&typeof loadEvals==='function')await loadEvals(true);
+      else if(pageId==='finance'){if(typeof fillFinanceStudents==='function')fillFinanceStudents();if(typeof renderFinance==='function')renderFinance();}
+      else if(pageId==='studentfile'&&typeof searchStudentFile==='function')searchStudentFile();
+      else if(pageId==='chat'&&typeof loadSchoolMessages==='function')await loadSchoolMessages();
+      else if(pageId==='charts'){if(typeof loadChartStudents==='function')loadChartStudents();if(typeof renderChartView==='function')renderChartView();}
+      try{if(typeof refreshSharedInboxPanels==='function')refreshSharedInboxPanels();}catch(e){}
+    }catch(e){console.warn('به‌روزرسانی زنده اطلاعات مدیر ناموفق بود؛ تغییرات در نوبت بعد دوباره دریافت می‌شود.',e);}
   }
 }
 // اتصال Realtime مستقل و تنبل بارگذاری می‌شود؛ کلاینت REST/آفلاین فعلی برنامه تغییر نمی‌کند.
@@ -8539,8 +8554,9 @@ function ensureSchoolDocumentRealtimeSync(){
       __dastyarDocumentsRealtimeChannel=null;
     }
     var channel=__dastyarRealtimeSdkClient.channel('dastyar-school-dashboard-live-counters');
+    // فقط مدیر رویدادهای داده‌ای معلمان را دریافت می‌کند؛ بدون polling دائمی.
     var watchedTables=user.role==='admin'
-      ?['sa_documents','sa_activities','sa_evaluations','sa_discipline']
+      ?['sa_documents','sa_activities','sa_evaluations','sa_discipline','sa_attendance','sa_scores','sa_competencies','sa_finance','sa_student_guidance','sa_students','sa_classes','sa_achievements','sa_messages','sa_homework_tasks','sa_homework_feedback']
       :['sa_documents'];
     watchedTables.forEach(function(table){
       channel=channel.on('postgres_changes',{event:'*',schema:'public',table:table},function(){
