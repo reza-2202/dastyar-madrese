@@ -2064,8 +2064,8 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 </div>
 <div class="card no-print">
  <div class="fg"><label>کلاس</label><select id="hw-class" onchange="window.dastyarRenderHomeworkTasks()"></select></div>
- <div class="fg"><label>نمایش تکالیف</label><select id="hw-filter" onchange="window.dastyarRenderHomeworkTasks()"><option value="due">سررسید امروز و تکالیف عقب‌افتاده</option><option value="all">همه تکالیف</option></select></div>
- <div class="fg"><label>تا تاریخ</label><input id="hw-date" type="date" onchange="window.dastyarRenderHomeworkTasks()"/></div>
+ <div class="fg"><label>نمایش تکالیف</label><select id="hw-filter" onchange="window.dastyarRenderHomeworkTasks()"><option value="due">تکالیف سررسیدشده تا تاریخ انتخابی</option><option value="all">همه تکالیف</option></select></div>
+ <div class="fg"><label>تا تاریخ (پیش‌فرض: پایان فردا)</label><input id="hw-date" type="date" onchange="window.dastyarRenderHomeworkTasks()"/></div>
  <button type="button" class="btn btn-p" onclick="window.dastyarLoadHomeworkCenter(true)">🔄 دریافت تکالیف</button>
  <div id="hw-summary" class="meta" style="margin-top:9px"></div>
 </div>
@@ -16220,6 +16220,7 @@ function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'
 function digits(v){return String(v==null?'':v).replace(/[0-9]/g,function(d){return '۰۱۲۳۴۵۶۷۸۹'[Number(d)];});}
 function notify(v){try{if(typeof toast==='function')toast(v);else console.log(v);}catch(e){console.log(v);}}
 function todayIso(){var d=new Date(Date.now()-new Date().getTimezoneOffset()*60000);return d.toISOString().slice(0,10);}
+function tomorrowIso(){var d=new Date(Date.now()-new Date().getTimezoneOffset()*60000);d.setDate(d.getDate()+1);return d.toISOString().slice(0,10);}
 function faDate(v){if(!v)return '—';try{return new Date(String(v).slice(0,10)+'T12:00:00').toLocaleDateString('fa-IR-u-ca-persian');}catch(e){return String(v);}}
 function statusLabel(v){return v==='done'?'انجام داده':v==='partial'?'ناقص انجام داده':v==='not_done'?'انجام نداده':'ثبت نشده';}
 function sourceLabel(v){var m={daily_qa:'پرسش و پاسخ روزانه',exam:'آزمون',discipline:'ثبت انضباطی',monthly_assessment:'ارزشیابی ماهانه'};return m[v]||'ثبت آموزشی';}
@@ -16301,7 +16302,7 @@ async function loadCenter(force){
  if(old&&Array.from(sel.options).some(function(o){return o.value===old;}))sel.value=old;
  else if(u.role==='teacher'&&cls.length)sel.value=String(cls[0].id);
  else if(u.role!=='teacher')sel.value='all';
- if(!document.getElementById('hw-date').value)document.getElementById('hw-date').value=todayIso();
+ if(!document.getElementById('hw-date').value)document.getElementById('hw-date').value=tomorrowIso();
  if(force||!state.loadedAt||Date.now()-state.loadedAt>30000){
   state.loading=true;var root=document.getElementById('hw-list');if(root)root.innerHTML='<div class="empty">در حال دریافت تکالیف و بازخوردها…</div>';
   try{await queryHomework();}
