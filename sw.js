@@ -1,4 +1,4 @@
-const CACHE = 'dastyar-shell-v88-20261127-immediate-scroll-render';
+const CACHE = 'dastyar-shell-v89-20261127-scroll-paint-tap';
 const BASE = '/dastyar-madrese/';
 const SHELL = [
   BASE,
