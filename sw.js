@@ -1,4 +1,4 @@
-const CACHE = 'dastyar-shell-v95-20261127-persian-homework-dates';
+const CACHE = 'dastyar-shell-v96-20261127-today-schedule-toggle';
 const BASE = '/dastyar-madrese/';
 const SHELL = [
   BASE,
