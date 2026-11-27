@@ -325,8 +325,10 @@ button{width:100%;margin-top:14px;padding:12px;border:0;border-radius:12px;backg
       assessmentHtml+=list("تکالیف و بازخورد معلم",homeworkRows,function(t){
         var history=homeworkFeedbackRows.filter(function(f){return String(f.task_id)===String(t.id);}).sort(function(a,b){return String(b.created_at||"").localeCompare(String(a.created_at||""));});
         var statusText={done:"انجام داده",partial:"ناقص انجام داده",not_done:"انجام نداده"};
+        var taskState=t.completed_at?"تمام‌شده":(t.active===false?"بایگانی‌شده":"در جریان");
+        var taskStateMeta=t.completed_at?(" — تاریخ اتمام: "+esc(homeworkFaDate(String(t.completed_at).slice(0,10)))+(t.completed_by?(" — ثبت‌کننده: "+esc(t.completed_by)):"")):"";
         var historyHtml=history.map(function(f){return "<div style=\"margin-top:7px;padding:8px;background:#f8fafc;border-radius:8px\"><b>وضعیت:</b> "+esc(statusText[f.status]||f.status||"ثبت نشده")+(f.created_at?" — "+esc(homeworkFaDate(String(f.created_at).slice(0,10))):"")+(f.comment?"<div><b>بازخورد معلم:</b> "+esc(f.comment)+"</div>":"")+(f.next_step?"<div><b>اصلاحیه یا پیگیری:</b> "+esc(f.next_step)+"</div>":"")+(f.teacher_name?"<small>معلم: "+esc(f.teacher_name)+"</small>":"")+"</div>";}).join("");
-        return "<div class=\"item\"><b>"+esc(trSubject(t.subject||"تکلیف"))+"</b> — تاریخ تحویل: "+esc(homeworkFaDate(t.due_date||""))+"<div style=\"white-space:pre-wrap;margin-top:4px\"><b>تکلیف:</b> "+esc(t.homework||"—")+"</div>"+(t.guidance?"<div style=\"white-space:pre-wrap\"><b>راهکار:</b> "+esc(t.guidance)+"</div>":"")+(t.duration?"<div>مدت/تکرار: "+esc(t.duration)+"</div>":"")+historyHtml+"</div>";
+        return "<div class=\"item\"><b>"+esc(trSubject(t.subject||"تکلیف"))+"</b> — تاریخ تحویل: "+esc(homeworkFaDate(t.due_date||""))+" — <b>وضعیت تکلیف: "+esc(taskState)+"</b>"+taskStateMeta+"<div style=\"white-space:pre-wrap;margin-top:4px\"><b>تکلیف:</b> "+esc(t.homework||"—")+"</div>"+(t.guidance?"<div style=\"white-space:pre-wrap\"><b>راهکار:</b> "+esc(t.guidance)+"</div>":"")+(t.duration?"<div>مدت/تکرار: "+esc(t.duration)+"</div>":"")+historyHtml+"</div>";
       });
     }
     $("v-body").innerHTML=assessmentHtml+html;

@@ -1,4 +1,4 @@
-const CACHE = 'dastyar-shell-v85-20261127-teacher-notices-speed';
+const CACHE = 'dastyar-shell-v86-20261127-homework-archive';
 const BASE = '/dastyar-madrese/';
 const SHELL = [
   BASE,
