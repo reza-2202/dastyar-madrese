@@ -1,4 +1,4 @@
-const CACHE = 'dastyar-shell-v101-20261127-homework-date-class-fix';const BASE = '/dastyar-madrese/';
+const CACHE = 'dastyar-shell-v102-20261127-admin-homework-class-fix';const BASE = '/dastyar-madrese/';
 const SHELL = [
   BASE,
   BASE + 'index.html',
