@@ -1,4 +1,4 @@
-const CACHE = 'dastyar-shell-v99-20261127-homework-main-toggle';const BASE = '/dastyar-madrese/';
+const CACHE = 'dastyar-shell-v100-20261127-homework-two-independent-panels';const BASE = '/dastyar-madrese/';
 const SHELL = [
   BASE,
   BASE + 'index.html',
