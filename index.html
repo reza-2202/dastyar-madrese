@@ -16534,12 +16534,13 @@ window.renderTeacherNotices=async function(){
  }
  if(!c.rows.length)return;
  if(inbox)inbox.style.display='block';
+ box.querySelectorAll('[data-urgent-server-card]').forEach(function(x){x.remove()});
  var html=c.rows.map(function(m){
   var seen=list(m.read_by).map(String).indexOf(String(u.username))>=0;
   var audio=m.audio_url?'<div style="margin:6px 0"><audio controls src="'+esc(m.audio_url)+'" style="max-width:100%"></audio></div>':'';
   var share=m.share_enabled===true?'<button type="button" class="btn btn-p btn-sm" data-urgent-share="'+esc(m.id)+'" style="margin:6px 4px 0 0">↗ اشتراک‌گذاری در پیام‌رسان‌ها / شاد</button>':'';
   var ack=seen?'<small style="color:#047857">✓ مشاهده‌شده</small>':'<button type="button" class="btn btn-o btn-sm" data-urgent-ack="'+esc(m.id)+'" style="margin:6px 4px 0 0">متوجه شدم</button>';
-  return '<article style="background:#fff;border:1px solid #c4b5fd;border-radius:10px;padding:10px;margin:8px 0"><div style="font-weight:700;color:#5b21b6">📢 پیام ضروری مدیریت</div><div class="meta">'+new Date(m.created_at||Date.now()).toLocaleString('fa-IR')+'</div><p style="white-space:pre-wrap;margin:6px 0">'+esc(m.message_text||'پیام صوتی مدیر')+'</p>'+audio+ack+share+'</article>';
+  return '<article data-urgent-server-card="1" style="background:#fff;border:1px solid #c4b5fd;border-radius:10px;padding:10px;margin:8px 0"><div style="font-weight:700;color:#5b21b6">📢 پیام ضروری مدیریت</div><div class="meta">'+new Date(m.created_at||Date.now()).toLocaleString('fa-IR')+'</div><p style="white-space:pre-wrap;margin:6px 0">'+esc(m.message_text||'پیام صوتی مدیر')+'</p>'+audio+ack+share+'</article>';
  }).join('');
  box.insertAdjacentHTML('beforeend',html);
  box.querySelectorAll('[data-urgent-share]').forEach(function(b){b.addEventListener('click',function(){window.shareAdminUrgentNotice(b.getAttribute('data-urgent-share'))})});
