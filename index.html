@@ -2063,9 +2063,9 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
  <p class="meta" style="line-height:1.9">تکالیف ثبت‌شده از پرسش‌وپاسخ، آزمون، ارزشیابی و انضباط را یکجا ببینید و نتیجه انجام آن‌ها را برای هر دانش‌آموز ثبت کنید. ثبت بازخورد، سابقه قبلی را پاک نمی‌کند.</p>
 </div>
 <div class="card no-print">
- <div class="fg"><label>کلاس</label><select id="hw-class"></select></div>
- <div class="fg"><label>نمایش تکالیف</label><select id="hw-filter"><option value="due">سررسید امروز و تکالیف عقب‌افتاده</option><option value="all">همه تکالیف</option></select></div>
- <div class="fg"><label>تا تاریخ</label><input id="hw-date" type="date"/></div>
+ <div class="fg"><label>کلاس</label><select id="hw-class" onchange="window.dastyarRenderHomeworkTasks()"></select></div>
+ <div class="fg"><label>نمایش تکالیف</label><select id="hw-filter" onchange="window.dastyarRenderHomeworkTasks()"><option value="due">سررسید امروز و تکالیف عقب‌افتاده</option><option value="all">همه تکالیف</option></select></div>
+ <div class="fg"><label>تا تاریخ</label><input id="hw-date" type="date" onchange="window.dastyarRenderHomeworkTasks()"/></div>
  <button type="button" class="btn btn-p" onclick="window.dastyarLoadHomeworkCenter(true)">🔄 دریافت تکالیف</button>
  <div id="hw-summary" class="meta" style="margin-top:9px"></div>
 </div>
@@ -16345,6 +16345,7 @@ window.dastyarShareHomeworkFeedback=async function(taskId){
  await shareTextToApps(shareText(task,f),'بازخورد تکلیف '+studentName(task.student_id));
 };
 window.dastyarLoadHomeworkCenter=function(force){return loadCenter(!!force);};
+window.dastyarRenderHomeworkTasks=renderTasks;
 var originalGo=window.go;
 if(typeof originalGo==='function'){
  window.go=function(p){var r=originalGo.apply(this,arguments);if(p==='homework'){setTimeout(function(){var h=document.getElementById('ht');if(h)h.textContent='مرکز تکالیف و بازخورد';loadCenter(false);},120);}return r;};
