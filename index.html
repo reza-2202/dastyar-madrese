@@ -3313,7 +3313,7 @@ function go(p){
   if(p==='parentcontact'){try{if(typeof initParentContactPage==='function')initParentContactPage();}catch(e){}}
   if(p==='monthlyreport'){try{if(typeof initMonthlyReportPage==='function')initMonthlyReportPage();}catch(e){}}
   window.__dastyarFastNavigation=true;
-  if(p==='dashboard'){if(user&&user.role==='admin'){try{ensureSchoolDocumentRealtimeSync();}catch(e){}}try{if(typeof refreshSyncStatusPanel==='function')refreshSyncStatusPanel();}catch(e){}refreshDash();if(user&&user.role==='teacher'){renderTeacherNotices();renderTeacherTodaySchedule();if(typeof loadTeacherBirthdayReminders==='function')loadTeacherBirthdayReminders();setTimeout(function(){try{var ni=document.getElementById('teacher-notice-inbox');if(ni&&ni.style.display!=='none')ni.scrollIntoView({behavior:'auto',block:'start'});}catch(e){}},100);}else{var ts=document.getElementById('teacher-today-schedule');if(ts)ts.style.display='none';}}
+  if(p==='dashboard'){if(user&&user.role==='admin'){try{ensureSchoolDocumentRealtimeSync();}catch(e){}try{if(typeof refreshDashboardDocumentCache==='function'){if(!__dastyarDashboardDocsRefreshPromise)__dastyarDashboardDocsRefreshAt=0;refreshDashboardDocumentCache();}}catch(e){}}try{if(typeof refreshSyncStatusPanel==='function')refreshSyncStatusPanel();}catch(e){}refreshDash();if(user&&user.role==='teacher'){renderTeacherNotices();renderTeacherTodaySchedule();if(typeof loadTeacherBirthdayReminders==='function')loadTeacherBirthdayReminders();setTimeout(function(){try{var ni=document.getElementById('teacher-notice-inbox');if(ni&&ni.style.display!=='none')ni.scrollIntoView({behavior:'auto',block:'start'});}catch(e){}},100);}else{var ts=document.getElementById('teacher-today-schedule');if(ts)ts.style.display='none';}}
   if(p==='teacheraccounts'){if(!user||user.role!=='admin'){go('dashboard');toast('این بخش فقط برای مدیر است');return;}renderTeacherAdminList();}
   if(p==='teacherperformance'){if(!user||user.role!=='admin'){go('dashboard');toast('این بخش فقط برای مدیر است');return;}fillTeacherPerformanceSelects();renderTeacherPerformance();}
   if(p==='studentdata'){if(!user||user.role!=='admin'){go('dashboard');toast('این بخش فقط برای مدیر است');return;}try{initExportPrincipalName();}catch(e){}document.getElementById('student-import-preview').innerHTML='';document.getElementById('student-import-status').textContent='';document.getElementById('student-import-commit').classList.add('hidden');if(!navigator.onLine||window.isOffline){restoreOfflineSnapshot().then(()=>{renderStudents();refreshDash();}).catch(()=>{});}else{Promise.race([reloadAll(),new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),2500))]).catch(async()=>{globalStatus(true);await restoreOfflineSnapshot();renderStudents();refreshDash();});}}
@@ -3369,6 +3369,10 @@ async function refreshDastyarActiveSection(force){
   for(var i=0;i<tables.length;i++){var x=res[i+1],name=map[tables[i]];if(!x||x.error||!Array.isArray(x.data)||!name)continue;var rows=x.data;if(tables[i]==='sa_attendance'){var clid=String((document.getElementById('at-class')||{}).value||''),date=String((document.getElementById('at-date')||{}).value||today());rows=(cache.attendance||[]).filter(function(a){return String(a.class_id)!==clid||String(a.date)!==date;}).concat(rows);}if(JSON.stringify(cache[name]||[])!==JSON.stringify(rows)){cache[name]=rows;changed=true;}}
   if(pageId==='dashboard'&&typeof refreshDashboardEvaluationDisciplineCache==='function'){
    try{await refreshDashboardEvaluationDisciplineCache();}catch(e){console.warn('به‌روزرسانی شمارنده‌های ارزشیابی و انضباط داشبورد ناموفق بود.',e);}
+  }
+  // شمارنده فایل‌ها نیز در چرخه همگام‌سازی ۳۰ ثانیه‌ای داشبورد تازه می‌شود؛ Realtime همچنان مسیر فوری است.
+  if(pageId==='dashboard'&&user&&user.role==='admin'&&typeof refreshDashboardDocumentCache==='function'){
+   try{await refreshDashboardDocumentCache();}catch(e){console.warn('به‌روزرسانی شمارنده فایل‌های داشبورد ناموفق بود.',e);}
   }
   if(!changed)return;try{persistLocalSchoolCache();}catch(e){}try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
   var active=document.querySelector('.page.on');if(!active||active.id.replace(/^page-/,'')!==pageId)return;
@@ -8288,6 +8292,11 @@ async function markSchoolDocumentServerDeleted(id){
  if(!update||update.error||update.offline)throw new Error((update&&update.error&&update.error.message)||'ثبت نشانگر حذف فایل در سرور ناموفق بود.');
  const verify=await sb.from('sa_documents').select('id,file_name').eq('id',rowId).limit(1);
  if(!verify||verify.error||!Array.isArray(verify.data)||!verify.data.length||String(verify.data[0].file_name||'').indexOf(prefix)!==0)throw new Error((verify&&verify.error&&verify.error.message)||'حذف فایل از دید همه پنل‌ها در سرور تأیید نشد.');
+ // پس از تأیید حذف در سرور، شمارنده همین پنل را بی‌درنگ اصلاح کن؛ رویداد Realtime برای سایر مدیرها ارسال می‌شود.
+ try{setDocumentDeletedTombstone(rowId);}catch(e){}
+ cache.documents=(cache.documents||[]).filter(function(d){return String(d.id)!==rowId;});
+ try{persistLocalSchoolCache();}catch(e){}
+ try{if(typeof refreshDash==='function')refreshDash();}catch(e){}
  return true;
 }
 async function syncPendingSchoolDocumentDeletes(){

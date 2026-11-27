@@ -1,4 +1,4 @@
-const CACHE = 'dastyar-shell-v107-20261127-dashboard-live-sync-mp4';const BASE = '/dastyar-madrese/';
+const CACHE = 'dastyar-shell-v108-20261127-document-counter-fallback';const BASE = '/dastyar-madrese/';
 const SHELL = [
   BASE,
   BASE + 'index.html',
