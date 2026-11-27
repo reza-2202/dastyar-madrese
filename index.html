@@ -8522,7 +8522,13 @@ async function flushDastyarDashboardRealtimeChanges(){
       else if(pageId==='finance'){if(typeof fillFinanceStudents==='function')fillFinanceStudents();if(typeof renderFinance==='function')renderFinance();}
       else if(pageId==='studentfile'&&typeof searchStudentFile==='function')searchStudentFile();
       else if(pageId==='chat'&&typeof loadSchoolMessages==='function')await loadSchoolMessages();
+      else if(pageId==='homework'&&typeof window.dastyarLoadHomeworkCenter==='function')await window.dastyarLoadHomeworkCenter(true);
       else if(pageId==='charts'){if(typeof loadChartStudents==='function')loadChartStudents();if(typeof renderChartView==='function')renderChartView();}
+      if(dirty.sa_achievements&&typeof window.refreshStudentAchievements==='function')await window.refreshStudentAchievements();
+      if((dirty.sa_homework_tasks||dirty.sa_homework_feedback)&&pageId!=='homework'&&typeof window.dastyarLoadHomeworkCenter==='function'){
+        // مرکز تکالیف فقط وقتی باز است تازه‌سازی شود؛ کش آن نیز برای بار بعدی منقضی می‌شود.
+        window.__dastyarHomeworkPackageAt=0;
+      }
       try{if(typeof refreshSharedInboxPanels==='function')refreshSharedInboxPanels();}catch(e){}
     }catch(e){console.warn('به‌روزرسانی زنده اطلاعات مدیر ناموفق بود؛ تغییرات در نوبت بعد دوباره دریافت می‌شود.',e);}
   }
