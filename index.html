@@ -3313,7 +3313,7 @@ function go(p){
   if(p==='parentcontact'){try{if(typeof initParentContactPage==='function')initParentContactPage();}catch(e){}}
   if(p==='monthlyreport'){try{if(typeof initMonthlyReportPage==='function')initMonthlyReportPage();}catch(e){}}
   window.__dastyarFastNavigation=true;
-  if(p==='dashboard'){if(user&&user.role==='admin'){try{ensureSchoolDocumentRealtimeSync();}catch(e){}try{if(typeof refreshDashboardDocumentCache==='function'){if(!__dastyarDashboardDocsRefreshPromise)__dastyarDashboardDocsRefreshAt=0;refreshDashboardDocumentCache();}}catch(e){}}try{if(typeof refreshSyncStatusPanel==='function')refreshSyncStatusPanel();}catch(e){}refreshDash();if(user&&user.role==='teacher'){renderTeacherNotices();renderTeacherTodaySchedule();if(typeof loadTeacherBirthdayReminders==='function')loadTeacherBirthdayReminders();setTimeout(function(){try{var ni=document.getElementById('teacher-notice-inbox');if(ni&&ni.style.display!=='none')ni.scrollIntoView({behavior:'auto',block:'start'});}catch(e){}},100);}else{var ts=document.getElementById('teacher-today-schedule');if(ts)ts.style.display='none';}}
+  if(p==='dashboard'){if(user){try{ensureSchoolDocumentRealtimeSync();}catch(e){}try{if(typeof refreshDashboardDocumentCache==='function'){if(!__dastyarDashboardDocsRefreshPromise)__dastyarDashboardDocsRefreshAt=0;refreshDashboardDocumentCache();}}catch(e){}}try{if(typeof refreshSyncStatusPanel==='function')refreshSyncStatusPanel();}catch(e){}refreshDash();if(user&&user.role==='teacher'){renderTeacherNotices();renderTeacherTodaySchedule();if(typeof loadTeacherBirthdayReminders==='function')loadTeacherBirthdayReminders();setTimeout(function(){try{var ni=document.getElementById('teacher-notice-inbox');if(ni&&ni.style.display!=='none')ni.scrollIntoView({behavior:'auto',block:'start'});}catch(e){}},100);}else{var ts=document.getElementById('teacher-today-schedule');if(ts)ts.style.display='none';}}
   if(p==='teacheraccounts'){if(!user||user.role!=='admin'){go('dashboard');toast('این بخش فقط برای مدیر است');return;}renderTeacherAdminList();}
   if(p==='teacherperformance'){if(!user||user.role!=='admin'){go('dashboard');toast('این بخش فقط برای مدیر است');return;}fillTeacherPerformanceSelects();renderTeacherPerformance();}
   if(p==='studentdata'){if(!user||user.role!=='admin'){go('dashboard');toast('این بخش فقط برای مدیر است');return;}try{initExportPrincipalName();}catch(e){}document.getElementById('student-import-preview').innerHTML='';document.getElementById('student-import-status').textContent='';document.getElementById('student-import-commit').classList.add('hidden');if(!navigator.onLine||window.isOffline){restoreOfflineSnapshot().then(()=>{renderStudents();refreshDash();}).catch(()=>{});}else{Promise.race([reloadAll(),new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),2500))]).catch(async()=>{globalStatus(true);await restoreOfflineSnapshot();renderStudents();refreshDash();});}}
@@ -8541,18 +8541,13 @@ async function flushDastyarDashboardRealtimeChanges(){
   var activePage=document.querySelector('.page.on');
   if(dirty.sa_documents){
     try{
+      // هر رویداد ثبت/ویرایش/حذف فایل، مستقل از نقش و صفحه فعال، cache مشترک را تازه می‌کند.
+      // محدودیت ۱۰ ثانیه‌ای برای رویداد Realtime کنار گذاشته می‌شود تا شمارنده عقب نماند.
+      if(__dastyarDashboardDocsRefreshPromise)await __dastyarDashboardDocsRefreshPromise;
+      __dastyarDashboardDocsRefreshAt=0;
+      await refreshDashboardDocumentCache();
       if(activePage&&activePage.id==='page-documents'&&typeof loadSchoolDocuments==='function'){
         await loadSchoolDocuments();
-      }else if(user&&user.role==='admin'){
-        // فایل معلم را حتی وقتی مدیر در صفحه دیگری است در cache مشترک ثبت کن؛
-        // شمارنده داشبورد هنگام بازگشت به‌روز خواهد بود.
-        if(__dastyarDashboardDocsRefreshPromise)await __dastyarDashboardDocsRefreshPromise;
-        __dastyarDashboardDocsRefreshAt=0;
-        await refreshDashboardDocumentCache();
-      }else if(activePage&&activePage.id==='page-dashboard'){
-        if(__dastyarDashboardDocsRefreshPromise)await __dastyarDashboardDocsRefreshPromise;
-        __dastyarDashboardDocsRefreshAt=0;
-        await refreshDashboardDocumentCache();
       }
     }catch(e){console.warn('document realtime refresh',e);}
   }
