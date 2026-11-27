@@ -1312,6 +1312,7 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
  <div class="fg"><label>متن پیام</label><textarea id="adm-urg-text" rows="3" placeholder="پیام ضروری..." style="width:100%;padding:10px;border-radius:10px;border:1px solid #ddd6fe;font-family:inherit"></textarea></div>
  <div class="fg" style="margin-top:8px"><label>کلاس‌ها (چندتایی)</label><select id="adm-urg-classes" multiple size="5" style="width:100%;padding:8px;border-radius:10px;border:1px solid #ddd6fe"></select>
  <div class="meta">اگر چیزی انتخاب نشود، برای همه کلاس‌ها ارسال می‌شود</div></div>
+ <label style="display:flex;align-items:center;gap:8px;margin:10px 0;padding:9px;background:#fff;border:1px solid #ddd6fe;border-radius:9px"><input type="checkbox" id="adm-urg-share" style="width:18px;height:18px"> اجازه اشتراک‌گذاری این پیام در پیام‌رسان‌ها (از جمله شاد) برای معلم فعال باشد</label>
  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;align-items:center">
   <button type="button" class="btn btn-o btn-sm" id="adm-urg-rec-btn" onclick="toggleAdminUrgentRecord()">🎙 ضبط صدا</button>
   <audio id="adm-urg-audio" controls style="display:none;max-width:220px"></audio>
@@ -1352,6 +1353,7 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <button class="home-tile" onclick="go('report')"><span class="tile-icon">📋</span><span class="tile-label">کارنامه</span></button>
 <button class="home-tile" onclick="go('charts')"><span class="tile-icon">📊</span><span class="tile-label">نمودار پیشرفت</span></button>
 <button class="home-tile" onclick="go('weekly')"><span class="tile-icon" style="background:#dbeafe">🗓️</span><span class="tile-label">برنامه هفتگی</span></button>
+<button class="home-tile" id="teacher-homework-learning-tile" onclick="go('homework')"><span class="tile-icon" style="background:#dcfce7">📚✅</span><span class="tile-label">مرکز تکالیف و بازخورد</span></button>
 
 <button class="home-tile" id="teacher-class-report-tile" onclick="go('teacherreport')"><span class="tile-icon" style="background:#e0f2fe">📋📈</span><span class="tile-label">گزارش کلاس من</span></button>
 </div>
