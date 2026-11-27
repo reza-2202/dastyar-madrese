@@ -1,4 +1,4 @@
-const CACHE = 'dastyar-shell-v92-20261127-class-homework-fix';
+const CACHE = 'dastyar-shell-v93-20261127-class-homework-hotfix';
 const BASE = '/dastyar-madrese/';
 const SHELL = [
   BASE,
