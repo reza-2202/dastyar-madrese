@@ -16277,7 +16277,7 @@ html,body,#app,#app *{scroll-behavior:auto!important}
 'use strict';
 if(window.__dastyarHomeworkFeedbackCenterV1)return;
 window.__dastyarHomeworkFeedbackCenterV1=true;
-var state={tasks:[],feedback:[],classes:[],loadedAt:0,loading:false};
+var state={tasks:[],feedback:[],classes:[],loadedAt:0,loading:false,showArchived:false};
 function currentUser(){try{return window.user||user||null;}catch(e){return window.user||null;}}
 function db(){try{return window.sb||sb||null;}catch(e){return window.sb||null;}}
 function appCache(){try{return window.cache||cache||{};}catch(e){return window.cache||{};}}
@@ -16334,14 +16334,15 @@ function renderTasks(){
  var classId=(document.getElementById('hw-class')||{}).value||'',filter=(document.getElementById('hw-filter')||{}).value||'due',dateInput=(document.getElementById('hw-date')||{}).value||'',date=jalaliInputToIso(dateInput)||todayIso();
  var scoped=state.tasks.filter(function(t){return t&&allowedClass(t.class_id)&&(!classId||classId==='all'||String(t.class_id)===String(classId));});
  var archivedCount=scoped.filter(function(t){return t.active===false&&!!t.completed_at;}).length;
- var rows=scoped.filter(function(t){return t.active!==false;});
- if(filter==='due')rows=rows.filter(function(t){return String(t.due_date||'')<=String(date);});
+ var rows=scoped.filter(function(t){return state.showArchived?t.active===false:t.active!==false;});
+ if(filter==='due'&&!state.showArchived)rows=rows.filter(function(t){return String(t.due_date||'')<=String(date);});
  rows.sort(function(a,b){return String(a.due_date||'').localeCompare(String(b.due_date||''))||String(a.assigned_at||'').localeCompare(String(b.assigned_at||''));});
  var counts={done:0,partial:0,not_done:0,none:0};
  rows.forEach(function(t){var f=latestFeedback(t.id);if(f&&counts[f.status]!=null)counts[f.status]++;else counts.none++;});
  if(summary)summary.textContent='فعال: '+digits(rows.length)+' | انجام‌شده: '+digits(counts.done)+' | ناقص: '+digits(counts.partial)+' | انجام‌نشده: '+digits(counts.not_done)+' | بدون بازخورد: '+digits(counts.none)+' | بایگانی در پرونده: '+digits(archivedCount);
- if(!rows.length){root.innerHTML='<div class="empty">برای این فیلتر تکلیف سررسیدشده‌ای وجود ندارد.</div>';return;}
- root.innerHTML=rows.map(function(t){
+ var archiveToggle='<button type="button" class="btn btn-o btn-sm" id="hw-archive-toggle" style="margin:0 0 8px">'+(state.showArchived?'نمایش تکالیف فعال':'📦 نمایش بایگانی ('+digits(archivedCount)+')')+'</button>';
+ if(!rows.length){root.innerHTML=archiveToggle+'<div class="empty">'+(state.showArchived?'در بایگانی تکلیفی وجود ندارد.':'برای این فیلتر تکلیف فعالی وجود ندارد.')+'</div>';var emptyToggle=root.querySelector('#hw-archive-toggle');if(emptyToggle)emptyToggle.onclick=function(){state.showArchived=!state.showArchived;renderTasks()};return;}
+ root.innerHTML=archiveToggle+rows.map(function(t){
   var id=String(t.id),f=latestFeedback(t.id),st=(appCache().students||[]).find(function(s){return String(s.id)===String(t.student_id);});
   return '<section class="card" style="border-right:4px solid #16a34a;margin:10px 0;padding:13px">'+
    '<div class="name">'+esc(studentName(t.student_id))+'</div>'+
@@ -16361,6 +16362,7 @@ function renderTasks(){
     (t.active!==false&&String(id).indexOf('local-')!==0?'<button type="button" class="btn btn-o btn-sm" style="margin:6px 5px 0 0;border-color:#16a34a;color:#166534" onclick="window.dastyarCompleteHomeworkTask(\''+esc(id)+'\')">✓ تمام شد</button>':'')+
    '</div>'+renderHistory(t)+'</section>';
  }).join('');
+ var archiveButton=root.querySelector('#hw-archive-toggle');if(archiveButton)archiveButton.onclick=function(){state.showArchived=!state.showArchived;renderTasks()};
 }
 async function loadCenter(force){
  if(state.loading)return;
@@ -17275,22 +17277,53 @@ async function editTask(taskId){
  Object.assign(t,Array.isArray(r.data)&&r.data[0]?r.data[0]:patch);render();notify('تکلیف و سوابق پرونده‌ها ویرایش شد.');
 }
 async function archiveTask(taskId){
- var client=dbNow(),u=userNow(),t=state.tasks.find(function(x){return String(x.id)===String(taskId)});if(!client||!u||!t)return;
+ var client=dbNow(),u=userNow(),t=state.tasks.find(function(x){return String(x.id)===String(taskId)}),box=document.getElementById('classwide-homework-panel'),button=box&&box.querySelector('[data-ch-archive="'+String(taskId)+'"]');
+ if(!client||!u||!t){notify('تکلیف یا اتصال پایگاه‌داده پیدا نشد؛ فهرست را تازه‌سازی کنید.');return;}
  if(u.role==='teacher'&&!classwideAllowedClasses().some(function(c){return String(c.id)===String(t.class_id)})){notify('این عملیات فقط برای معلم همان کلاس مجاز است.');return;}
- var restore=t.active===false;if(!restore&&!window.confirm('این تکلیف از فهرست فعال خارج شود؟ سابقه و بازخوردها در پرونده‌ها باقی می‌مانند.'))return;
- var now=new Date().toISOString(),patch=restore?{active:true,updated_at:now}:{active:false,updated_at:now},r=await client.from('sa_class_homework').update(patch).eq('id',t.id).select('*');if(r.error){notify('تغییر وضعیت ناموفق بود: '+r.error.message);return;}
- var linked=await client.from('sa_homework_tasks').update(restore?{active:true,completed_at:null,completed_by:null,completed_role:null,updated_at:now}:{active:false,completed_at:now,completed_by:u.full_name||u.username||'معلم',completed_role:u.role||'teacher',updated_at:now}).eq('source_type','classwide').eq('source_id',String(t.id));if(linked.error){notify('وضعیت تغییر کرد، اما همگام‌سازی پرونده‌ها کامل نشد: '+linked.error.message);await load(true);return;}
- Object.assign(t,Array.isArray(r.data)&&r.data[0]?r.data[0]:patch);render();notify(restore?'تکلیف به فهرست فعال بازگشت.':'تکلیف بایگانی شد؛ سوابق حفظ شدند.');
+ if(!navigator.onLine||window.isOffline){notify('برای بایگانی یا بازگردانی اتصال اینترنت لازم است.');return;}
+ var restore=t.active===false,now=new Date().toISOString(),patch=restore?{active:true,updated_at:now}:{active:false,updated_at:now};
+ if(button){button.disabled=true;button.textContent='در حال ذخیره…';}
+ try{
+  var r=await client.from('sa_class_homework').update(patch).eq('id',t.id).select('*');
+  if(r.error)throw r.error;
+  var saved=Array.isArray(r.data)?r.data[0]:null;
+  if(!saved)throw new Error('سرور هیچ ردیفی را به‌روزرسانی نکرد؛ شناسه یا دسترسی تکلیف را بررسی کنید.');
+  Object.assign(t,saved);render();
+  var linked=await client.from('sa_homework_tasks').update(restore?{active:true,completed_at:null,completed_by:null,completed_role:null,updated_at:now}:{active:false,completed_at:now,completed_by:u.full_name||u.username||'معلم',completed_role:u.role||'teacher',updated_at:now}).eq('source_type','classwide').eq('source_id',String(t.id));
+  if(linked.error){notify('تکلیف بایگانی شد، اما همگام‌سازی پرونده‌ها کامل نشد: '+linked.error.message);await load(true);return;}
+  notify(restore?'تکلیف به فهرست فعال بازگشت.':'تکلیف بایگانی شد؛ سابقه و بازخوردها حفظ شدند.');
+ }catch(e){notify('تغییر وضعیت تکلیف ناموفق بود: '+(e&&e.message||e));await load(true);}
+ finally{var fresh=document.getElementById('classwide-homework-panel'),b=fresh&&fresh.querySelector('[data-ch-archive="'+String(taskId)+'"]');if(b)b.disabled=false;}
 }
 async function saveFeedback(taskId,studentId){
- var box=document.getElementById('classwide-homework-panel'),client=dbNow(),u=userNow(),task=state.tasks.find(function(t){return String(t.id)===String(taskId)});if(!box||!client||!u||!task)return;
+ var box=document.getElementById('classwide-homework-panel'),client=dbNow(),u=userNow(),task=state.tasks.find(function(t){return String(t.id)===String(taskId)});if(!box||!client||!u||!task){notify('تکلیف، دانش‌آموز یا اتصال پایگاه‌داده پیدا نشد؛ سوابق را تازه‌سازی کنید.');return;}
  if(u.role==='teacher'&&!classwideAllowedClasses().some(function(c){return String(c.id)===String(task.class_id)})){notify('ثبت بازخورد فقط برای کلاس خودتان مجاز است.');return}
- var key=String(taskId)+'_'+String(studentId),status=(box.querySelector('[data-ch-status="'+key+'"]')||{}).value||'',comment=(box.querySelector('[data-ch-comment="'+key+'"]')||{}).value||'';
- if(['done','partial','not_done'].indexOf(status)<0){notify('وضعیت انجام دانش‌آموز را انتخاب کنید.');return}
  if(!navigator.onLine||window.isOffline){notify('برای ثبت بازخورد به اینترنت نیاز است.');return}
+ var key=String(taskId)+'_'+String(studentId),status=(box.querySelector('[data-ch-status="'+key+'"]')||{}).value||'',comment=(box.querySelector('[data-ch-comment="'+key+'"]')||{}).value||'',button=box.querySelector('[data-ch-save="'+String(taskId)+'"][data-student="'+String(studentId)+'"]');
+ if(['done','partial','not_done'].indexOf(status)<0){notify('وضعیت انجام دانش‌آموز را انتخاب کنید.');return}
  var row={task_id:String(taskId),class_id:String(task.class_id),student_id:String(studentId),status:status,comment:comment.trim(),teacher_username:u.username||'',teacher_name:u.full_name||u.username||'معلم'};
- try{var result=await client.from('sa_class_homework_feedback').insert(row).select('*');if(result.error)throw result.error;var saved=Array.isArray(result.data)?result.data[0]:null;if(saved)state.feedback.unshift(saved);else await load(true);var dossierSyncError=null;try{var gid='classwide-'+String(task.id)+'-'+String(studentId);var dossier=await client.from('sa_homework_tasks').select('id').eq('guidance_id',gid).maybeSingle();if(dossier.error)throw dossier.error;var dossierId=dossier.data&&dossier.data.id;if(!dossierId){var made=await client.from('sa_homework_tasks').insert({guidance_id:gid,student_id:String(studentId),class_id:String(task.class_id),source_type:'classwide',source_id:String(task.id),subject:task.title||'تکلیف کلاس',homework:(task.items||[]).join('\n'),guidance:'',duration:'',assigned_by:task.assigned_by||'',assigned_role:u.role||'teacher',assigned_at:task.assigned_at,due_date:task.due_date,active:task.active!==false}).select('id').single();if(made.error)throw made.error;dossierId=made.data.id;}var mirror=await client.from('sa_homework_feedback').insert({task_id:dossierId,student_id:String(studentId),class_id:String(task.class_id),status:status,comment:comment.trim(),next_step:'',teacher_username:u.username||'',teacher_name:u.full_name||u.username||'معلم'});if(mirror.error)throw mirror.error;}catch(syncError){dossierSyncError=syncError;console.warn('Classwide homework dossier sync pending',syncError);}render();notify(dossierSyncError?'بازخورد در تکالیف ثبت شد، اما همگام‌سازی پرونده اولیا کامل نشد؛ لطفاً اتصال سرور را بررسی و دوباره تازه‌سازی کنید.':'بازخورد ثبت و در پرونده الکترونیک دانش‌آموز بایگانی شد.')}
- catch(e){notify('ثبت بازخورد ناموفق بود: '+(e.message||e))}
+ if(button){button.disabled=true;button.textContent='در حال ثبت…';}
+ try{
+  var result=await client.from('sa_class_homework_feedback').insert(row).select('*').single();
+  if(result.error)throw result.error;
+  if(!result.data||!result.data.id)throw new Error('ثبت انجام شد اما پاسخ ذخیره‌شده از سرور دریافت نشد؛ فهرست را تازه‌سازی کنید.');
+  state.feedback.unshift(result.data);
+  var dossierSyncError=null;
+  try{
+   var gid='classwide-'+String(task.id)+'-'+String(studentId),dossier=await client.from('sa_homework_tasks').select('id').eq('guidance_id',gid).maybeSingle();
+   if(dossier.error)throw dossier.error;
+   var dossierId=dossier.data&&dossier.data.id;
+   if(!dossierId){
+    var made=await client.from('sa_homework_tasks').insert({guidance_id:gid,student_id:String(studentId),class_id:String(task.class_id),source_type:'classwide',source_id:String(task.id),subject:task.title||'تکلیف کلاس',homework:(task.items||[]).join('\n'),guidance:'',duration:'',assigned_by:task.assigned_by||'',assigned_role:u.role||'teacher',assigned_at:task.assigned_at,due_date:task.due_date,active:task.active!==false}).select('id').single();
+    if(made.error)throw made.error;dossierId=made.data.id;
+   }
+   var mirror=await client.from('sa_homework_feedback').insert({task_id:dossierId,student_id:String(studentId),class_id:String(task.class_id),status:status,comment:comment.trim(),next_step:'',teacher_username:u.username||'',teacher_name:u.full_name||u.username||'معلم'});
+   if(mirror.error)throw mirror.error;
+  }catch(syncError){dossierSyncError=syncError;console.warn('Classwide homework dossier sync pending',syncError);}
+  render();
+  notify(dossierSyncError?'بازخورد در تکالیف گروهی ثبت شد؛ اما انتقال آن به پرونده اولیا کامل نشد: '+(dossierSyncError.message||dossierSyncError):'بازخورد دانش‌آموز ثبت و در پرونده الکترونیک او بایگانی شد.');
+ }catch(e){notify('ثبت بازخورد ناموفق بود: '+(e&&e.message||e));}
+ finally{var fresh=document.getElementById('classwide-homework-panel'),b=fresh&&fresh.querySelector('[data-ch-save="'+String(taskId)+'"][data-student="'+String(studentId)+'"]');if(b)b.disabled=false;}
 }
 window.dastyarLoadClasswideHomework=function(force){return load(!!force)};
 var prev=window.go;if(typeof prev==='function'&&!prev.__classwideHomeworkWrapped){var wrap=function(p){var r=prev.apply(this,arguments);if(p==='homework')setTimeout(function(){mount();refreshClasswideClassSelect();load(false)},160);return r};wrap.__classwideHomeworkWrapped=true;window.go=wrap}
