@@ -1,4 +1,4 @@
-const CACHE = 'dastyar-shell-v97-20261127-homework-sections';const BASE = '/dastyar-madrese/';
+const CACHE = 'dastyar-shell-v98-20261127-homework-accordion-fix';const BASE = '/dastyar-madrese/';
 const SHELL = [
   BASE,
   BASE + 'index.html',
