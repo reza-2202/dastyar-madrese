@@ -16333,7 +16333,7 @@ function renderTasks(){
  var root=document.getElementById('hw-list'),summary=document.getElementById('hw-summary');if(!root)return;
  var classId=(document.getElementById('hw-class')||{}).value||'',filter=(document.getElementById('hw-filter')||{}).value||'due',dateInput=(document.getElementById('hw-date')||{}).value||'',date=jalaliInputToIso(dateInput)||todayIso();
  var scoped=state.tasks.filter(function(t){return t&&allowedClass(t.class_id)&&(!classId||classId==='all'||String(t.class_id)===String(classId));});
- var archivedCount=scoped.filter(function(t){return t.active===false&&!!t.completed_at;}).length;
+ var archivedCount=scoped.filter(function(t){return t.active===false;}).length;
  var rows=scoped.filter(function(t){return state.showArchived?t.active===false:t.active!==false;});
  if(filter==='due'&&!state.showArchived)rows=rows.filter(function(t){return String(t.due_date||'')<=String(date);});
  rows.sort(function(a,b){return String(a.due_date||'').localeCompare(String(b.due_date||''))||String(a.assigned_at||'').localeCompare(String(b.assigned_at||''));});
