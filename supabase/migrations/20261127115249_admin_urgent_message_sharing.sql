@@ -1,0 +1,10 @@
+alter table public.sa_messages add column if not exists kind text not null default 'chat';
+alter table public.sa_messages add column if not exists recipient_usernames jsonb not null default '[]'::jsonb;
+alter table public.sa_messages add column if not exists class_ids jsonb not null default '[]'::jsonb;
+alter table public.sa_messages add column if not exists class_labels jsonb not null default '[]'::jsonb;
+alter table public.sa_messages add column if not exists share_enabled boolean not null default false;
+alter table public.sa_messages add column if not exists read_by jsonb not null default '[]'::jsonb;
+alter table public.sa_messages add column if not exists from_user text;
+alter table public.sa_messages add column if not exists to_user text;
+alter table public.sa_messages add column if not exists body text;
+create index if not exists sa_messages_kind_created_at_idx on public.sa_messages (kind, created_at desc);
