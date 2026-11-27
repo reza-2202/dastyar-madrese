@@ -918,47 +918,7 @@ function printStudentList(kind='full'){
 #app .bnav .ni{transition:background-color .12s ease,color .12s ease!important;transform:none!important;touch-action:manipulation}
 #app .page{animation:none!important}
 @media(prefers-reduced-motion:reduce){#page-dashboard *,#app .bnav *{animation:none!important;transition:none!important}}
-</style></head><body>'+markup+'<script id="dastyar-precision-tap-and-scroll-20261127">
-(function(){
-  if(window.__dastyarPrecisionTapGuard)return;
-  window.__dastyarPrecisionTapGuard=true;
-  var start=null,blocked=false;
-  function actionTarget(node){
-    if(!node||node.nodeType!==1)return null;
-    return node.closest('button,a,summary,[role="button"],[onclick],.ni,.home-tile');
-  }
-  document.addEventListener('pointerdown',function(e){
-    if(e.pointerType!=='touch')return;
-    start={target:actionTarget(e.target),x:e.clientX,y:e.clientY,id:e.pointerId};
-    blocked=false;
-  },{capture:true,passive:true});
-  document.addEventListener('pointerup',function(e){
-    if(!start||e.pointerType!=='touch'||e.pointerId!==start.id)return;
-    var dx=e.clientX-start.x,dy=e.clientY-start.y;
-    var endTarget=actionTarget(e.target);
-    if(Math.hypot(dx,dy)>10||(start.target&&endTarget&&start.target!==endTarget))blocked=true;
-    else if(start.target&&!endTarget)blocked=true;
-  },{capture:true,passive:true});
-  document.addEventListener('pointercancel',function(){start=null;blocked=false;},{capture:true,passive:true});
-  document.addEventListener('click',function(e){
-    if(!blocked||!e.isTrusted||e.detail===0)return;
-    e.preventDefault();e.stopImmediatePropagation();blocked=false;start=null;
-  },true);
-  document.addEventListener('click',function(){blocked=false;start=null;},false);
-})();
-</script>
-<style id="dastyar-scroll-paint-light-20261127">
-/* حذف افکت‌های پرهزینه‌ی حین اسکرول، بدون تغییر رنگ‌بندی یا اندازه اجزا */
-#app .bnav{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
-#app .bnav .ni,#page-dashboard .home-tile,#page-dashboard .home-tile-group,
-#page-dashboard .home-tile-group>summary,#page-dashboard .sg>.sc{
-  transition-property:color,background-color,border-color!important;
-  transition-duration:60ms!important;
-  transform:none!important;
-}
-#page-dashboard .home-tile:after{transition:none!important}
-</style>
-</body></html>');
+</style></head><body>'+markup+'</body></html>');
   w.document.close();
   w.focus();
   setTimeout(()=>{try{w.print();}catch(e){toast('چاپ در این مرورگر اجرا نشد');}},500);
@@ -16500,6 +16460,46 @@ if(typeof oldGenerate==='function')window.generateParentPortalLink=async functio
  window.addEventListener('scroll',function(){window.__dastyarLastScrollAt=Date.now();},{passive:true,capture:true});
 })();
 </script>
+<script id="dastyar-precision-tap-and-scroll-20261127">
+(function(){
+  if(window.__dastyarPrecisionTapGuard)return;
+  window.__dastyarPrecisionTapGuard=true;
+  var start=null,blocked=false;
+  function actionTarget(node){
+    if(!node||node.nodeType!==1)return null;
+    return node.closest('button,a,summary,[role="button"],[onclick],.ni,.home-tile');
+  }
+  document.addEventListener('pointerdown',function(e){
+    if(e.pointerType!=='touch')return;
+    start={target:actionTarget(e.target),x:e.clientX,y:e.clientY,id:e.pointerId};
+    blocked=false;
+  },{capture:true,passive:true});
+  document.addEventListener('pointerup',function(e){
+    if(!start||e.pointerType!=='touch'||e.pointerId!==start.id)return;
+    var dx=e.clientX-start.x,dy=e.clientY-start.y;
+    var endTarget=actionTarget(e.target);
+    if(Math.hypot(dx,dy)>10||(start.target&&endTarget&&start.target!==endTarget))blocked=true;
+    else if(start.target&&!endTarget)blocked=true;
+  },{capture:true,passive:true});
+  document.addEventListener('pointercancel',function(){start=null;blocked=false;},{capture:true,passive:true});
+  document.addEventListener('click',function(e){
+    if(!blocked||!e.isTrusted||e.detail===0)return;
+    e.preventDefault();e.stopImmediatePropagation();blocked=false;start=null;
+  },true);
+  document.addEventListener('click',function(){blocked=false;start=null;},false);
+})();
+</script>
+<style id="dastyar-scroll-paint-light-20261127">
+/* حذف افکت‌های پرهزینه‌ی حین اسکرول، بدون تغییر رنگ‌بندی یا اندازه اجزا */
+#app .bnav{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+#app .bnav .ni,#page-dashboard .home-tile,#page-dashboard .home-tile-group,
+#page-dashboard .home-tile-group>summary,#page-dashboard .sg>.sc{
+  transition-property:color,background-color,border-color!important;
+  transition-duration:60ms!important;
+  transform:none!important;
+}
+#page-dashboard .home-tile:after{transition:none!important}
+</style>
 </body>
 </html>
 
