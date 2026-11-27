@@ -129,7 +129,7 @@
     function table(name){
       var filters=[], api={_cols:'*',_maybeSingle:false};
       api.select=function(cols){api._cols=cols||'*';return api;};api.eq=function(col,val){filters.push({type:'eq',col:col,val:val});return api;};api.limit=function(n){filters.push({type:'limit',val:n});return api;};api.range=function(from,to){from=Math.max(0,Number(from)||0);to=Math.max(from,Number(to)||from);filters.push({type:'range',from:from,to:to});return api;};api.order=function(col,opts){filters.push({type:'order',col:col,asc:!(opts&&opts.ascending===false)});return api;};api.maybeSingle=function(){api._maybeSingle=true;return api;};
-      function makeUrl(method){var q=buildQuery(filters);if(method==='GET'&&api._cols)q+=(q?'&':'?')+'select='+encodeURIComponent(api._cols);return base+'/'+name+q;}
+      function makeUrl(method){var q=buildQuery(filters);if((method==='GET'||api._mutationSelect)&&api._cols)q+=(q?'&':'?')+'select='+encodeURIComponent(api._cols);return base+'/'+name+q;}
       function queueWrite(method,payload,headers){payload=clone(payload);if(method==='POST'&&payload!=null){if(Array.isArray(payload))payload.forEach(function(row){if(row&&typeof row==='object'&&(row.id==null||row.id===''))row.id=uid();});else if(typeof payload==='object'&&(payload.id==null||payload.id===''))payload.id=uid();}var item={table:name,method:method,payload:clone(payload),filters:clone(filters),url:makeUrl(method),headers:Object.assign({},baseHeaders,headers||{}),createdAt:Date.now()};return putQueue(item).then(function(){global.DastyarOffline.lastQueuedAt=Date.now();updateOfflineBadge();try{ if(typeof persistLocalSchoolCache==='function') persistLocalSchoolCache(); }catch(e){} notify('ذخیره شد؛ '+name+' پس از اتصال اینترنت همگام‌سازی می‌شود.');if(global.navigator.onLine){setTimeout(function(){syncQueue();},0);}return {data:clone(payload),error:null,status:202,offline:true};}).catch(function(e){return {data:null,error:{message:'ذخیره آفلاین انجام نشد: '+e.message},status:0};});}
       async function run(method,payload,extraHeaders,allowQueue){var url=makeUrl(method),headers=Object.assign({},baseHeaders,extraHeaders||{}),isWrite=method!=='GET';
         if(method==='POST'&&payload!=null){payload=clone(payload);if(Array.isArray(payload))payload.forEach(function(row){if(row&&typeof row==='object'&&(row.id==null||row.id===''))row.id=uid();});else if(typeof payload==='object'&&(payload.id==null||payload.id===''))payload.id=uid();}
@@ -145,10 +145,21 @@
         finally{if(timer)clearTimeout(timer);updateOfflineBadge();}
       }
       api.then=function(resolve,reject){run('GET').then(resolve,reject);};
-      api.insert=function(rows){return {then:function(resolve,reject){run('POST',rows,{},true).then(resolve,reject);}};};
-      api.upsert=function(rows){return {then:function(resolve,reject){run('POST',rows,{'Prefer':'resolution=merge-duplicates,return=representation'},true).then(resolve,reject);}};};
-      api.update=function(obj){return {eq:function(col,val){filters.push({type:'eq',col:col,val:val});return {then:function(resolve,reject){run('PATCH',obj,{},true).then(resolve,reject);}};},then:function(resolve,reject){run('PATCH',obj,{},true).then(resolve,reject);}};};
-      api.delete=function(){return {eq:function(col,val){filters.push({type:'eq',col:col,val:val});return {then:function(resolve,reject){run('DELETE',undefined,{},true).then(resolve,reject);}};},in:function(col,values){filters.push({type:'in',col:col,val:Array.isArray(values)?values.slice():[]});return {then:function(resolve,reject){run('DELETE',undefined,{},true).then(resolve,reject);}};}};};
+      function mutationBuilder(method,payload,extraHeaders){
+        var builder={
+          eq:function(col,val){filters.push({type:'eq',col:col,val:val});return builder;},
+          in:function(col,values){filters.push({type:'in',col:col,val:Array.isArray(values)?values.slice():[]});return builder;},
+          select:function(cols){api._cols=cols||'*';api._mutationSelect=true;return builder;},
+          single:function(){api._maybeSingle=true;return builder;},
+          maybeSingle:function(){api._maybeSingle=true;return builder;},
+          then:function(resolve,reject){run(method,payload,extraHeaders||{},true).then(resolve,reject);}
+        };
+        return builder;
+      }
+      api.insert=function(rows){return mutationBuilder('POST',rows,{});};
+      api.upsert=function(rows){return mutationBuilder('POST',rows,{'Prefer':'resolution=merge-duplicates,return=representation'});};
+      api.update=function(obj){return mutationBuilder('PATCH',obj,{});};
+      api.delete=function(){return mutationBuilder('DELETE',undefined,{});};
       // حذف مستقیم و قطعی از سرور؛ این مسیر نباید به صف آفلاین یا پاسخ کش‌شده واگذار شود.
       api.deleteRemote=async function(col,val){
         if(!col||val===undefined||val===null)return {data:null,error:{message:'شناسه حذف مشخص نیست'},status:0};
