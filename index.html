@@ -16425,12 +16425,11 @@ if(typeof oldGenerate==='function')window.generateParentPortalLink=async functio
 
 
 <style id="dastyar-dashboard-scroll-render-optimization-20261127">
-/* رندر تدریجی گروه‌های خارج از دید؛ ارتفاع رزرو می‌شود تا اسکرول نپرد. */
+/* گروه‌های آیکون از ابتدا در جریان عادی صفحه رندر شوند؛ از ظاهرشدن دیرهنگام هنگام اسکرول جلوگیری می‌شود. */
 #page-dashboard .home-tile-group{
-  content-visibility:auto!important;
-  contain-intrinsic-size:auto 380px;
+  content-visibility:visible!important;
+  contain-intrinsic-size:none!important;
 }
-#page-dashboard .home-tile-group .home-tiles-grid{animation:none!important}
 /* جلوگیری از ساخت لایه GPU جداگانه برای تک‌تک کارت‌های آماری */
 #page-dashboard .sg>.sc{will-change:auto!important;backface-visibility:visible!important}
 </style>
@@ -17034,3 +17033,21 @@ window.renderTeacherNotices=async function(){
 
 })();
 </script>
+
+<style id="dastyar-dashboard-immediate-scroll-20261127">
+/* اسکرول و باز/بسته شدن گروه‌ها بدون انیمیشن و تغییر لایه‌های اضافی انجام شود. */
+#page-dashboard .home-tile-group,
+#page-dashboard .home-tile-group>summary,
+#page-dashboard .home-tile-group .home-tiles-grid,
+#page-dashboard .home-tile-group .home-tile,
+#page-dashboard .sg>.sc,
+#app .page{
+  animation:none!important;
+  transition:none!important;
+}
+#page-dashboard .home-tile-group .home-tile:active,
+#page-dashboard .sg>.sc:active{
+  transform:none!important;
+  filter:none!important;
+}
+</style>
