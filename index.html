@@ -1419,7 +1419,7 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
  </div>
  <div id="shared-teacher-controls" style="display:none">
   <div class="fg"><label>عنوان یا توضیح فایل (اختیاری)</label><input id="shared-inbox-title" placeholder="مثلاً آزمون ریاضی کلاس سوم" /></div>
-  <div class="fg"><label>انتخاب فایل از گوشی یا رایانه</label><input id="shared-inbox-file" type="file" multiple accept=".pdf,.doc,.docx,image/jpeg,image/png,image/webp" /></div>
+  <div class="fg"><label>انتخاب فایل از گوشی یا رایانه</label><input id="shared-inbox-file" type="file" multiple accept=".pdf,.doc,.docx,.mp4,image/jpeg,image/png,image/webp,video/mp4" /></div>
   <div id="shared-pending-info" class="meta" style="margin:8px 0;color:#1d4ed8">فایل اشتراک‌گذاری‌شده‌ای در انتظار نیست.</div>
   <button type="button" class="btn btn-p" id="shared-inbox-send-btn" onclick="sifSendSharedFiles()">ارسال امن فایل به مدیر</button>
   <button type="button" class="btn btn-o btn-sm" style="margin-top:7px" onclick="sifRefreshPending()">بررسی فایل‌های اشتراک‌گذاری‌شده</button>
@@ -3313,7 +3313,7 @@ function go(p){
   if(p==='parentcontact'){try{if(typeof initParentContactPage==='function')initParentContactPage();}catch(e){}}
   if(p==='monthlyreport'){try{if(typeof initMonthlyReportPage==='function')initMonthlyReportPage();}catch(e){}}
   window.__dastyarFastNavigation=true;
-  if(p==='dashboard'){try{if(typeof refreshSyncStatusPanel==='function')refreshSyncStatusPanel();}catch(e){}refreshDash();if(user&&user.role==='teacher'){renderTeacherNotices();renderTeacherTodaySchedule();if(typeof loadTeacherBirthdayReminders==='function')loadTeacherBirthdayReminders();setTimeout(function(){try{var ni=document.getElementById('teacher-notice-inbox');if(ni&&ni.style.display!=='none')ni.scrollIntoView({behavior:'auto',block:'start'});}catch(e){}},100);}else{var ts=document.getElementById('teacher-today-schedule');if(ts)ts.style.display='none';}}
+  if(p==='dashboard'){if(user&&user.role==='admin'){try{ensureSchoolDocumentRealtimeSync();}catch(e){}}try{if(typeof refreshSyncStatusPanel==='function')refreshSyncStatusPanel();}catch(e){}refreshDash();if(user&&user.role==='teacher'){renderTeacherNotices();renderTeacherTodaySchedule();if(typeof loadTeacherBirthdayReminders==='function')loadTeacherBirthdayReminders();setTimeout(function(){try{var ni=document.getElementById('teacher-notice-inbox');if(ni&&ni.style.display!=='none')ni.scrollIntoView({behavior:'auto',block:'start'});}catch(e){}},100);}else{var ts=document.getElementById('teacher-today-schedule');if(ts)ts.style.display='none';}}
   if(p==='teacheraccounts'){if(!user||user.role!=='admin'){go('dashboard');toast('این بخش فقط برای مدیر است');return;}renderTeacherAdminList();}
   if(p==='teacherperformance'){if(!user||user.role!=='admin'){go('dashboard');toast('این بخش فقط برای مدیر است');return;}fillTeacherPerformanceSelects();renderTeacherPerformance();}
   if(p==='studentdata'){if(!user||user.role!=='admin'){go('dashboard');toast('این بخش فقط برای مدیر است');return;}try{initExportPrincipalName();}catch(e){}document.getElementById('student-import-preview').innerHTML='';document.getElementById('student-import-status').textContent='';document.getElementById('student-import-commit').classList.add('hidden');if(!navigator.onLine||window.isOffline){restoreOfflineSnapshot().then(()=>{renderStudents();refreshDash();}).catch(()=>{});}else{Promise.race([reloadAll(),new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),2500))]).catch(async()=>{globalStatus(true);await restoreOfflineSnapshot();renderStudents();refreshDash();});}}
@@ -3367,6 +3367,9 @@ async function refreshDastyarActiveSection(force){
   var changed=JSON.stringify(old)!==JSON.stringify(next);if(changed)cache.students=next;
   var map={sa_attendance:'attendance',sa_scores:'scores',sa_competencies:'competencies',sa_activities:'activities',sa_evaluations:'evaluations',sa_discipline:'discipline',sa_finance:'finance'};
   for(var i=0;i<tables.length;i++){var x=res[i+1],name=map[tables[i]];if(!x||x.error||!Array.isArray(x.data)||!name)continue;var rows=x.data;if(tables[i]==='sa_attendance'){var clid=String((document.getElementById('at-class')||{}).value||''),date=String((document.getElementById('at-date')||{}).value||today());rows=(cache.attendance||[]).filter(function(a){return String(a.class_id)!==clid||String(a.date)!==date;}).concat(rows);}if(JSON.stringify(cache[name]||[])!==JSON.stringify(rows)){cache[name]=rows;changed=true;}}
+  if(pageId==='dashboard'&&typeof refreshDashboardEvaluationDisciplineCache==='function'){
+   try{await refreshDashboardEvaluationDisciplineCache();}catch(e){console.warn('به‌روزرسانی شمارنده‌های ارزشیابی و انضباط داشبورد ناموفق بود.',e);}
+  }
   if(!changed)return;try{persistLocalSchoolCache();}catch(e){}try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
   var active=document.querySelector('.page.on');if(!active||active.id.replace(/^page-/,'')!==pageId)return;
   try{if(pageId==='dashboard')refreshDash();else if(pageId==='students'||pageId==='studentdata')renderStudents();else if(pageId==='studentfile')searchStudentFile();else if(pageId==='attendance')loadAttendance(true);else if(pageId==='discipline'){fillDisciplineStudents();renderDisciplineList();}else if(pageId==='activity')loadActivities(true);else if(pageId==='evaluation')loadEvals(true);else if(pageId==='finance'){fillFinanceStudents();renderFinance();}else if(pageId==='absentees')loadAbsenteesReport(true);else if(pageId==='report')renderReportStudentsList();else if(pageId==='charts'){loadChartStudents();renderChartView();}else if(pageId==='teacherreport'&&typeof initTeacherReportPage==='function')initTeacherReportPage();else if(pageId==='monthlyreport'&&typeof initMonthlyReportPage==='function')initMonthlyReportPage();}catch(e){console.warn('به‌روزرسانی زنده صفحه ناموفق بود',e);}
@@ -8202,9 +8205,9 @@ function safeSchoolStorageFileName(name,mime,id){
 function schoolDocumentMimeType(file){
  const name=String(file&&file.name||'').toLowerCase();
  const ext=(name.match(/\.([a-z0-9]{1,10})$/)||[])[1]||'';
- const byExt={pdf:'application/pdf',doc:'application/msword',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',webp:'image/webp'};
+ const byExt={pdf:'application/pdf',doc:'application/msword',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',webp:'image/webp',mp4:'video/mp4'};
  const current=String(file&&file.type||'').toLowerCase().split(';')[0].trim();
- const allowed=['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','image/jpeg','image/png','image/webp'];
+ const allowed=['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','image/jpeg','image/png','image/webp','video/mp4'];
  if(allowed.includes(current))return current;
  return byExt[ext]||current||'application/octet-stream';
 }
@@ -8531,6 +8534,12 @@ async function flushDastyarDashboardRealtimeChanges(){
     try{
       if(activePage&&activePage.id==='page-documents'&&typeof loadSchoolDocuments==='function'){
         await loadSchoolDocuments();
+      }else if(user&&user.role==='admin'){
+        // فایل معلم را حتی وقتی مدیر در صفحه دیگری است در cache مشترک ثبت کن؛
+        // شمارنده داشبورد هنگام بازگشت به‌روز خواهد بود.
+        if(__dastyarDashboardDocsRefreshPromise)await __dastyarDashboardDocsRefreshPromise;
+        __dastyarDashboardDocsRefreshAt=0;
+        await refreshDashboardDocumentCache();
       }else if(activePage&&activePage.id==='page-dashboard'){
         if(__dastyarDashboardDocsRefreshPromise)await __dastyarDashboardDocsRefreshPromise;
         __dastyarDashboardDocsRefreshAt=0;
@@ -8547,9 +8556,15 @@ async function flushDastyarDashboardRealtimeChanges(){
       return;
     }
     try{
-      // یک بار دریافت یکپارچه برای همه تغییرات هم‌زمان؛ هم INSERT و هم UPDATE و DELETE.
-      await reloadAll();
-      if(typeof refreshDash==='function')refreshDash();
+      // تغییرات روزانه معلم فقط سه جدول مرتبط را تازه می‌کند؛ از بارگذاری همه جداول مدرسه جلوگیری می‌شود.
+      var qaOnlyTables=adminDirtyTables.every(function(k){return ['sa_activities','sa_evaluations','sa_discipline'].indexOf(k)>=0;});
+      if(qaOnlyTables&&typeof refreshAdminQaAfterTeacherSync==='function'){
+        await refreshAdminQaAfterTeacherSync();
+      }else{
+        // برای سایر بخش‌ها رفتار همگام‌سازی قبلی حفظ می‌شود.
+        await reloadAll();
+        if(typeof refreshDash==='function')refreshDash();
+      }
       var page=document.querySelector('.page.on');
       var pageId=page?String(page.id||'').replace(/^page-/,''):'';
       if(pageId==='students'||pageId==='studentdata'){if(typeof renderStudents==='function')renderStudents();}
