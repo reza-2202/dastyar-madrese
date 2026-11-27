@@ -3312,6 +3312,8 @@ function go(p){
 
 var __dastyarLiveSyncTimer=null,__dastyarLiveSyncBusy=false,__dastyarLiveSyncAt=0;
 async function refreshDastyarActiveSection(force){
+ // هنگام اسکرول، به‌روزرسانی زنده را اجرا نکن تا DOM وسط حرکت صفحه بازچینی نشود.
+ if(window.__dastyarLastScrollAt && Date.now()-window.__dastyarLastScrollAt<850)return;
  if(__dastyarLiveSyncBusy||!user||!sb||!navigator.onLine||window.isOffline||document.visibilityState!=='visible')return;
  if(!force&&Date.now()-__dastyarLiveSyncAt<5500)return;
  var page=document.querySelector('.page.on');if(!page)return;var pageId=String(page.id||'').replace(/^page-/,'');var tables=[];
@@ -16421,6 +16423,24 @@ if(typeof oldGenerate==='function')window.generateParentPortalLink=async functio
 </script>
 
 
+
+<style id="dastyar-dashboard-scroll-render-optimization-20261127">
+/* رندر تدریجی گروه‌های خارج از دید؛ ارتفاع رزرو می‌شود تا اسکرول نپرد. */
+#page-dashboard .home-tile-group{
+  content-visibility:auto!important;
+  contain-intrinsic-size:auto 380px;
+}
+#page-dashboard .home-tile-group .home-tiles-grid{animation:none!important}
+/* جلوگیری از ساخت لایه GPU جداگانه برای تک‌تک کارت‌های آماری */
+#page-dashboard .sg>.sc{will-change:auto!important;backface-visibility:visible!important}
+</style>
+<script id="dastyar-scroll-idle-guard-20261127">
+(function(){
+ if(window.__dastyarScrollIdleGuardInstalled)return;
+ window.__dastyarScrollIdleGuardInstalled=true;
+ window.addEventListener('scroll',function(){window.__dastyarLastScrollAt=Date.now();},{passive:true,capture:true});
+})();
+</script>
 </body>
 </html>
 

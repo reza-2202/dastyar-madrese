@@ -1,4 +1,4 @@
-const CACHE = 'dastyar-shell-v86-20261127-homework-archive';
+const CACHE = 'dastyar-shell-v87-20261127-dashboard-scroll-opt';
 const BASE = '/dastyar-madrese/';
 const SHELL = [
   BASE,
