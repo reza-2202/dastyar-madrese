@@ -17171,7 +17171,7 @@ function mount(){
  select.innerHTML=classes.map(function(c){return '<option value="'+esc(c.id)+'">'+esc(c.label||c.id)+'</option>'}).join('');
  if(classes.length)select.value=String(classes[0].id);
  box.querySelector('#ch-due').value=fa(iso(1));
- box.querySelector('#ch-items').addEventListener('input',function(){var a=this.value.split(/\r?\n/).map(function(x){return x.trim()}).filter(Boolean);box.querySelector('#ch-preview').textContent=a.map(function(x,i){return (i+1)+'. '+x}).join('\\n')});
+ box.querySelector('#ch-items').addEventListener('input',function(){var a=this.value.split(/\r?\n/).map(function(x){return x.trim()}).filter(Boolean);box.querySelector('#ch-preview').textContent=a.map(function(x,i){return (i+1)+'. '+x}).join('\n')});
  select.addEventListener('change',function(){load(true)});
  box.querySelector('#ch-refresh').addEventListener('click',function(){load(true)});
  box.querySelector('#ch-save').addEventListener('click',saveTask);
