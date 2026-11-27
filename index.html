@@ -16869,20 +16869,21 @@ window.sendAdminUrgentMessage=async function(){
  });
  if(!teachers.length){if(typeof toast==='function')toast('برای کلاس‌های انتخاب‌شده معلمی پیدا نشد');return}
  var share=!!(document.getElementById('adm-urg-share')&&document.getElementById('adm-urg-share').checked);
- var id=makeId(),audioUrl='';
+ var id=makeId(),audioUrl='',audioPath='',saved=false;
  var btn=document.querySelector('#admin-urgent-messages button[onclick="sendAdminUrgentMessage()"]');
  try{
   if(btn){btn.disabled=true;btn.textContent='در حال ارسال...'}
   if(audioData){
    var blob=await fetch(audioData).then(function(x){return x.blob()});
-   var path='urgent-messages/'+id+'.webm';
-   var up=await s.storage.from('teacher-documents').upload(path,blob,{contentType:blob.type||'audio/webm',cacheControl:'3600',upsert:false});
+   audioPath='urgent-messages/'+id+'.webm';
+   var up=await s.storage.from('teacher-documents').upload(audioPath,blob,{contentType:blob.type||'audio/webm',cacheControl:'3600',upsert:false});
    if(up.error)throw up.error;
    audioUrl=s.storage.from('teacher-documents').getPublicUrl(up.data.path).data.publicUrl;
   }
   var row={id:id,sender_name:u.full_name||u.username,sender_username:u.username,sender_role:'admin',message_text:text,audio_url:audioUrl,kind:'admin_urgent',recipient_usernames:teachers,class_ids:targets.map(function(c){return String(c.id)}),class_labels:targets.map(function(c){return String(c.label||c.id)}),share_enabled:share,read_by:[]};
   var result=await s.from('sa_messages').insert(row);
   if(result.error)throw result.error;
+  saved=true;
   document.getElementById('adm-urg-text').value='';
   document.getElementById('adm-urg-share').checked=false;
   window.__admUrgAudioData='';
@@ -16891,7 +16892,7 @@ window.sendAdminUrgentMessage=async function(){
   noticeCache().at=0;
   await window.renderAdminUrgentList();
   if(typeof toast==='function')toast('پیام روی سرور برای '+teachers.length+' معلم ثبت شد'+(share?'؛ اشتراک‌گذاری فعال است':'؛ فقط در پنل معلم نمایش داده می‌شود'));
- }catch(e){console.error('ارسال پیام ضروری',e);if(typeof toast==='function')toast('ارسال پیام انجام نشد: '+(e&&e.message||e))}
+ }catch(e){if(!saved&&audioPath){try{await s.storage.from('teacher-documents').remove([audioPath])}catch(cleanErr){}}console.error('ارسال پیام ضروری',e);if(typeof toast==='function')toast('ارسال پیام انجام نشد: '+(e&&e.message||e))}
  finally{if(btn){btn.disabled=false;btn.textContent='ارسال پیام'}}
 };
 window.renderAdminUrgentList=async function(){
