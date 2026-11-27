@@ -2073,7 +2073,7 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <div class="card no-print">
  <div class="fg"><label>کلاس</label><select id="hw-class" onchange="window.dastyarRenderHomeworkTasks()"></select></div>
  <div class="fg"><label>نمایش تکالیف</label><select id="hw-filter" onchange="window.dastyarRenderHomeworkTasks()"><option value="due">تکالیف سررسیدشده تا تاریخ انتخابی</option><option value="all">همه تکالیف</option></select></div>
- <div class="fg"><label>تا تاریخ (پیش‌فرض: پایان فردا)</label><input id="hw-date" type="date" onchange="window.dastyarRenderHomeworkTasks()"/></div>
+ <div class="fg"><label>تا تاریخ (پیش‌فرض: پایان فردا)</label><input id="hw-date" type="text" inputmode="numeric" placeholder="۱۴۰۵/۰۹/۰۶" autocomplete="off" onchange="window.dastyarRenderHomeworkTasks()"/></div>
  <button type="button" class="btn btn-p" onclick="window.dastyarLoadHomeworkCenter(true)">🔄 دریافت تکالیف</button>
  <div id="hw-summary" class="meta" style="margin-top:9px"></div>
 </div>
@@ -16259,7 +16259,9 @@ function digits(v){return String(v==null?'':v).replace(/[0-9]/g,function(d){retu
 function notify(v){try{if(typeof toast==='function')toast(v);else console.log(v);}catch(e){console.log(v);}}
 function todayIso(){var d=new Date(Date.now()-new Date().getTimezoneOffset()*60000);return d.toISOString().slice(0,10);}
 function tomorrowIso(){var d=new Date(Date.now()-new Date().getTimezoneOffset()*60000);d.setDate(d.getDate()+1);return d.toISOString().slice(0,10);}
-function faDate(v){if(!v)return '—';try{return new Date(String(v).slice(0,10)+'T12:00:00').toLocaleDateString('fa-IR-u-ca-persian');}catch(e){return String(v);}}
+function faDate(v){if(!v)return '—';try{return digits(new Date(String(v).slice(0,10)+'T12:00:00').toLocaleDateString('fa-IR-u-ca-persian',{year:'numeric',month:'2-digit',day:'2-digit'}));}catch(e){return digits(v);}}
+function isoToJalaliInput(v){if(!v)return '';try{return digits(new Intl.DateTimeFormat('fa-IR-u-ca-persian',{year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(String(v).slice(0,10)+'T12:00:00')).replace(/-/g,'/'));}catch(e){return '';}}
+function jalaliInputToIso(v){try{var j=typeof parseJalali==='function'?parseJalali(v):null;if(!j||typeof jalaliToGregorian!=='function')return '';var g=jalaliToGregorian(j.jy,j.jm,j.jd);if(typeof gregorianToJalali==='function'){var back=gregorianToJalali(g.gy,g.gm,g.gd);if(back.jy!==j.jy||back.jm!==j.jm||back.jd!==j.jd)return '';}return String(g.gy)+'-'+String(g.gm).padStart(2,'0')+'-'+String(g.gd).padStart(2,'0');}catch(e){return '';}}
 function statusLabel(v){return v==='done'?'انجام داده':v==='partial'?'ناقص انجام داده':v==='not_done'?'انجام نداده':'ثبت نشده';}
 function sourceLabel(v){var m={daily_qa:'پرسش و پاسخ روزانه',exam:'آزمون',discipline:'ثبت انضباطی',monthly_assessment:'ارزشیابی ماهانه'};return m[v]||'ثبت آموزشی';}
 function classesForUser(){
@@ -16302,7 +16304,7 @@ function renderHistory(task){
 }
 function renderTasks(){
  var root=document.getElementById('hw-list'),summary=document.getElementById('hw-summary');if(!root)return;
- var classId=(document.getElementById('hw-class')||{}).value||'',filter=(document.getElementById('hw-filter')||{}).value||'due',date=(document.getElementById('hw-date')||{}).value||todayIso();
+ var classId=(document.getElementById('hw-class')||{}).value||'',filter=(document.getElementById('hw-filter')||{}).value||'due',dateInput=(document.getElementById('hw-date')||{}).value||'',date=jalaliInputToIso(dateInput)||todayIso();
  var scoped=state.tasks.filter(function(t){return t&&allowedClass(t.class_id)&&(!classId||classId==='all'||String(t.class_id)===String(classId));});
  var archivedCount=scoped.filter(function(t){return t.active===false&&!!t.completed_at;}).length;
  var rows=scoped.filter(function(t){return t.active!==false;});
@@ -16317,7 +16319,7 @@ function renderTasks(){
   return '<section class="card" style="border-right:4px solid #16a34a;margin:10px 0;padding:13px">'+
    '<div class="name">'+esc(studentName(t.student_id))+'</div>'+
    '<div class="meta">کلاس: '+esc(className(t.class_id))+' | درس/موضوع: '+esc(t.subject||'—')+'</div>'+
-   '<div class="meta">منبع: '+esc(sourceLabel(t.source_type))+' | تاریخ تحویل: '+esc(faDate(t.due_date))+'</div>'+
+   '<div class="meta">منبع: '+esc(sourceLabel(t.source_type))+' | تاریخ ثبت: '+esc(faDate(t.assigned_at||t.created_at))+' | تاریخ تحویل: '+esc(faDate(t.due_date))+'</div>'+
    '<div style="margin-top:9px;white-space:pre-wrap"><b>تکلیف:</b> '+esc(t.homework||'')+'</div>'+
    (t.guidance?'<div style="margin-top:6px;white-space:pre-wrap;color:#475569"><b>راهکار:</b> '+esc(t.guidance)+'</div>':'')+
    (t.duration?'<div class="meta">مدت/تکرار: '+esc(t.duration)+'</div>':'')+
@@ -16343,7 +16345,7 @@ async function loadCenter(force){
  if(old&&Array.from(sel.options).some(function(o){return o.value===old;}))sel.value=old;
  else if(u.role==='teacher'&&cls.length)sel.value=String(cls[0].id);
  else if(u.role!=='teacher')sel.value='all';
- if(!document.getElementById('hw-date').value)document.getElementById('hw-date').value=tomorrowIso();
+ if(!document.getElementById('hw-date').value)document.getElementById('hw-date').value=isoToJalaliInput(tomorrowIso());
  if(force||!state.loadedAt||Date.now()-state.loadedAt>30000){
   state.loading=true;var root=document.getElementById('hw-list');if(root)root.innerHTML='<div class="empty">در حال دریافت تکالیف و بازخوردها…</div>';
   try{await queryHomework();}
@@ -16353,7 +16355,7 @@ async function loadCenter(force){
  renderTasks();
 }
 function shareText(task,f){
- var msg='دبستان شهید فتح‌الله فلاح‌پور\nگزارش انجام تکلیف دانش‌آموز\nدانش‌آموز: '+studentName(task.student_id)+'\nکلاس: '+className(task.class_id)+'\nدرس/موضوع: '+(task.subject||'—')+'\nتکلیف: '+(task.homework||'—')+'\nتاریخ تحویل: '+faDate(task.due_date)+'\nوضعیت: '+statusLabel(f.status)+'\nبازخورد معلم: '+(f.comment||'—')+(f.next_step?'\nاصلاحیه یا پیگیری: '+f.next_step:'')+'\n\nمعلم: '+(f.teacher_name||'معلم کلاس');
+ var msg='دبستان شهید فتح‌الله فلاح‌پور\nگزارش انجام تکلیف دانش‌آموز\nدانش‌آموز: '+studentName(task.student_id)+'\nکلاس: '+className(task.class_id)+'\nدرس/موضوع: '+(task.subject||'—')+'\nتکلیف: '+(task.homework||'—')+'\nتاریخ ثبت: '+faDate(task.assigned_at||task.created_at)+'\nتاریخ تحویل: '+faDate(task.due_date)+'\nوضعیت: '+statusLabel(f.status)+'\nبازخورد معلم: '+(f.comment||'—')+(f.next_step?'\nاصلاحیه یا پیگیری: '+f.next_step:'')+'\n\nمعلم: '+(f.teacher_name||'معلم کلاس');
  return msg;
 }
 async function shareTextToApps(text,title){
@@ -17143,7 +17145,8 @@ function dbNow(){return window.sb||null}
 function allClasses(){try{var u=userNow(),c=window.cache||cache||{},cs=c.classes||[];if(u&&u.role==='teacher'&&typeof window.myClasses==='function')return window.myClasses();if(u&&u.role==='teacher')return cs.filter(function(c){return (u.class_ids||[]).map(String).indexOf(String(c.id))>=0});return cs}catch(e){return []}}
 function studentsFor(id){var c=window.cache||cache||{};return (c.students||[]).filter(function(s){return String(s.class_id)===String(id)}).sort(function(a,b){return ((a.first_name||'')+' '+(a.last_name||'')).localeCompare((b.first_name||'')+' '+(b.last_name||''),'fa')})}
 function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
-function fa(v){if(!v)return '—';try{return new Date(String(v).slice(0,10)+'T12:00:00').toLocaleDateString('fa-IR-u-ca-persian',{year:'numeric',month:'long',day:'numeric'})}catch(e){return String(v)}}
+function fa(v){if(!v)return '—';try{return digits(new Date(String(v).slice(0,10)+'T12:00:00').toLocaleDateString('fa-IR-u-ca-persian',{year:'numeric',month:'long',day:'numeric'}))}catch(e){return digits(v)}}
+function toIso(v){try{var j=typeof parseJalali==='function'?parseJalali(v):null;if(!j||typeof jalaliToGregorian!=='function')return '';var g=jalaliToGregorian(j.jy,j.jm,j.jd);if(typeof gregorianToJalali==='function'){var b=gregorianToJalali(g.gy,g.gm,g.gd);if(b.jy!==j.jy||b.jm!==j.jm||b.jd!==j.jd)return '';}return String(g.gy)+'-'+String(g.gm).padStart(2,'0')+'-'+String(g.gd).padStart(2,'0')}catch(e){return ''}}
 function day(v){if(!v)return '';try{return new Date(String(v).slice(0,10)+'T12:00:00').toLocaleDateString('fa-IR-u-ca-persian',{weekday:'long'})}catch(e){return ''}}
 function iso(d){var x=new Date();if(d)x.setDate(x.getDate()+d);return new Date(x.getTime()-x.getTimezoneOffset()*60000).toISOString().slice(0,10)}
 function name(s){return ((s.first_name||'')+' '+(s.last_name||'')).trim()}
@@ -17155,12 +17158,12 @@ async function share(t){var text=shareText(t);if(navigator.share){try{await navi
 function mount(){
  var page=document.getElementById('page-homework'),list=document.getElementById('hw-list');if(!page||!list||document.getElementById('classwide-homework-panel'))return;
  var box=document.createElement('section');box.id='classwide-homework-panel';box.className='card';box.style.cssText='border:1px solid #93c5fd;background:#f8fbff;margin:12px 0';
- box.innerHTML='<div class="ct">📝 تکالیف و برنامه کار امروز کلاس</div><p class="meta" style="line-height:1.9">یک پیام واحد برای همه دانش‌آموزان کلاس ثبت کنید؛ وضعیت انجام هر دانش‌آموز جداگانه ثبت و در سوابق باقی می‌ماند. این بخش مستقل از تکالیف اختصاصی دانش‌آموزان است.</p><div class="fg"><label>کلاس</label><select id="ch-class"></select></div><button type="button" class="btn btn-o btn-sm" id="ch-refresh" style="margin:0 0 10px">🔄 تازه‌سازی سوابق کلاس</button><div class="fg"><label>عنوان پیام (اختیاری)</label><input id="ch-title" value="تکالیف امروز کلاس" maxlength="120"/></div><div class="fg"><label>تکالیف و کارهای موردنیاز (هر مورد را در یک خط بنویسید؛ شماره‌گذاری خودکار است)</label><textarea id="ch-items" rows="5" placeholder="مثلاً:&#10;روخوانی درس پنجم&#10;حل تمرین‌های صفحه ۳۲&#10;آماده‌کردن وسایل آزمایش"></textarea><div id="ch-preview" class="meta" style="white-space:pre-wrap;margin-top:6px"></div></div><div class="fg"><label>روز انجام / مهلت</label><input id="ch-due" type="date"/></div><button type="button" class="btn btn-p" id="ch-save">💾 ثبت تکالیف برای کل کلاس</button><div id="ch-status" class="meta" style="margin-top:8px"></div><div class="divider" style="margin:14px 0;border-top:1px solid #dbeafe"></div><div class="ct">📚 تکالیف گروهی ثبت‌شده و بازخورد دانش‌آموزان</div><div id="ch-list"><div class="empty">برای دریافت سوابق کلاس را انتخاب کنید.</div></div>';
+ box.innerHTML='<div class="ct">📝 تکالیف و برنامه کار امروز کلاس</div><p class="meta" style="line-height:1.9">یک پیام واحد برای همه دانش‌آموزان کلاس ثبت کنید؛ وضعیت انجام هر دانش‌آموز جداگانه ثبت و در سوابق باقی می‌ماند. این بخش مستقل از تکالیف اختصاصی دانش‌آموزان است.</p><div class="fg"><label>کلاس</label><select id="ch-class"></select></div><button type="button" class="btn btn-o btn-sm" id="ch-refresh" style="margin:0 0 10px">🔄 تازه‌سازی سوابق کلاس</button><div class="fg"><label>عنوان پیام (اختیاری)</label><input id="ch-title" value="تکالیف امروز کلاس" maxlength="120"/></div><div class="fg"><label>تکالیف و کارهای موردنیاز (هر مورد را در یک خط بنویسید؛ شماره‌گذاری خودکار است)</label><textarea id="ch-items" rows="5" placeholder="مثلاً:&#10;روخوانی درس پنجم&#10;حل تمرین‌های صفحه ۳۲&#10;آماده‌کردن وسایل آزمایش"></textarea><div id="ch-preview" class="meta" style="white-space:pre-wrap;margin-top:6px"></div></div><div class="fg"><label>روز انجام / مهلت</label><input id="ch-due" type="text" inputmode="numeric" placeholder="۱۴۰۵/۰۹/۰۶" autocomplete="off"/></div><button type="button" class="btn btn-p" id="ch-save">💾 ثبت تکالیف برای کل کلاس</button><div id="ch-status" class="meta" style="margin-top:8px"></div><div class="divider" style="margin:14px 0;border-top:1px solid #dbeafe"></div><div class="ct">📚 تکالیف گروهی ثبت‌شده و بازخورد دانش‌آموزان</div><div id="ch-list"><div class="empty">برای دریافت سوابق کلاس را انتخاب کنید.</div></div>';
  page.insertBefore(box,list);
  var select=box.querySelector('#ch-class'),u=userNow(),classes=allClasses();
  select.innerHTML=classes.map(function(c){return '<option value="'+esc(c.id)+'">'+esc(c.label||c.id)+'</option>'}).join('');
  if(classes.length)select.value=String(classes[0].id);
- box.querySelector('#ch-due').value=iso(1);
+ box.querySelector('#ch-due').value=fa(iso(1));
  box.querySelector('#ch-items').addEventListener('input',function(){var a=this.value.split(/\r?\n/).map(function(x){return x.trim()}).filter(Boolean);box.querySelector('#ch-preview').textContent=a.map(function(x,i){return (i+1)+'. '+x}).join('\n')});
  select.addEventListener('change',function(){load(true)});
  box.querySelector('#ch-refresh').addEventListener('click',function(){load(true)});
@@ -17186,8 +17189,8 @@ async function load(force){
 }
 async function saveTask(){
  var box=document.getElementById('classwide-homework-panel'),client=dbNow(),u=userNow();if(!box||!client||!u)return;
- var classId=box.querySelector('#ch-class').value,cls=allClasses().find(function(c){return String(c.id)===String(classId)}),items=box.querySelector('#ch-items').value.split(/\r?\n/).map(function(x){return x.trim()}).filter(Boolean),due=box.querySelector('#ch-due').value;
- if(!classId||!items.length||!due){notify('کلاس، دست‌کم یک تکلیف و تاریخ انجام را مشخص کنید.');return}
+ var classId=box.querySelector('#ch-class').value,cls=allClasses().find(function(c){return String(c.id)===String(classId)}),items=box.querySelector('#ch-items').value.split(/\r?\n/).map(function(x){return x.trim()}).filter(Boolean),due=toIso(box.querySelector('#ch-due').value);
+ if(!classId||!items.length||!due){notify('کلاس، دست‌کم یک تکلیف و تاریخ شمسی معتبر برای انجام را مشخص کنید؛ نمونه: ۱۴۰۵/۰۹/۰۶');return}
  if(u.role==='teacher'&&!allClasses().some(function(c){return String(c.id)===String(classId)})){notify('ثبت تکلیف فقط برای کلاس خودتان مجاز است.');return}
  var btn=box.querySelector('#ch-save');btn.disabled=true;btn.textContent='در حال ثبت…';
  try{
