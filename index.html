@@ -3315,7 +3315,7 @@ async function refreshDastyarActiveSection(force){
  if(__dastyarLiveSyncBusy||!user||!sb||!navigator.onLine||window.isOffline||document.visibilityState!=='visible')return;
  if(!force&&Date.now()-__dastyarLiveSyncAt<5500)return;
  var page=document.querySelector('.page.on');if(!page)return;var pageId=String(page.id||'').replace(/^page-/,'');var tables=[];
- if(pageId==='dashboard')tables=['sa_discipline','sa_activities','sa_evaluations'];else if(pageId==='attendance'||pageId==='absentees')tables=['sa_attendance'];else if(pageId==='discipline')tables=['sa_discipline'];else if(pageId==='activity')tables=['sa_activities'];else if(pageId==='evaluation')tables=['sa_evaluations','sa_activities'];else if(pageId==='finance')tables=['sa_finance'];else if(pageId==='report'||pageId==='charts')tables=['sa_scores','sa_competencies','sa_evaluations','sa_activities'];else if(pageId==='studentfile'||pageId==='teacherreport'||pageId==='monthlyreport')tables=['sa_attendance','sa_scores','sa_competencies','sa_activities','sa_evaluations','sa_discipline','sa_finance'];else if(pageId!=='students'&&pageId!=='studentdata')return;
+ if(pageId==='dashboard')tables=['sa_activities'];else if(pageId==='attendance'||pageId==='absentees')tables=['sa_attendance'];else if(pageId==='discipline')tables=['sa_discipline'];else if(pageId==='activity')tables=['sa_activities'];else if(pageId==='evaluation')tables=['sa_evaluations','sa_activities'];else if(pageId==='finance')tables=['sa_finance'];else if(pageId==='report'||pageId==='charts')tables=['sa_scores','sa_competencies','sa_evaluations','sa_activities'];else if(pageId==='studentfile'||pageId==='teacherreport'||pageId==='monthlyreport')tables=['sa_attendance','sa_scores','sa_competencies','sa_activities','sa_evaluations','sa_discipline','sa_finance'];else if(pageId!=='students'&&pageId!=='studentdata')return;
  __dastyarLiveSyncBusy=true;__dastyarLiveSyncAt=Date.now();
  try{
   if(window.DastyarOffline&&typeof DastyarOffline.pending==='function'){var q=await DastyarOffline.pending();if(Array.isArray(q)&&q.length)return;}
@@ -3332,7 +3332,7 @@ async function refreshDastyarActiveSection(force){
   try{if(pageId==='dashboard')refreshDash();else if(pageId==='students'||pageId==='studentdata')renderStudents();else if(pageId==='studentfile')searchStudentFile();else if(pageId==='attendance')loadAttendance(true);else if(pageId==='discipline'){fillDisciplineStudents();renderDisciplineList();}else if(pageId==='activity')loadActivities(true);else if(pageId==='evaluation')loadEvals(true);else if(pageId==='finance'){fillFinanceStudents();renderFinance();}else if(pageId==='absentees')loadAbsenteesReport(true);else if(pageId==='report')renderReportStudentsList();else if(pageId==='charts'){loadChartStudents();renderChartView();}else if(pageId==='teacherreport'&&typeof initTeacherReportPage==='function')initTeacherReportPage();else if(pageId==='monthlyreport'&&typeof initMonthlyReportPage==='function')initMonthlyReportPage();}catch(e){console.warn('به‌روزرسانی زنده صفحه ناموفق بود',e);}
  }catch(e){console.warn('همگام‌سازی زنده با سرور ناموفق بود',e);}finally{__dastyarLiveSyncBusy=false;}
 }
-function startDastyarLiveSync(){if(__dastyarLiveSyncTimer)return;__dastyarLiveSyncTimer=setInterval(refreshDastyarActiveSection,12000);document.addEventListener('visibilitychange',function(){if(!document.hidden)refreshDastyarActiveSection();});window.addEventListener('focus',refreshDastyarActiveSection);}
+function startDastyarLiveSync(){if(__dastyarLiveSyncTimer)return;__dastyarLiveSyncTimer=setInterval(refreshDastyarActiveSection,30000);document.addEventListener('visibilitychange',function(){if(!document.hidden)refreshDastyarActiveSection();});window.addEventListener('focus',refreshDastyarActiveSection);}
 function fillSelects(){
   const opts=myClasses().map(c=>'<option value="'+c.id+'">'+c.label+(c.teacher_name?' — '+c.teacher_name:'')+'</option>').join('');
   ['at-class','ac-class','ac-export-class','ev-class','rp-class','sf-class','ch-class','di-class','fin-class'].forEach(id=>{
@@ -4264,7 +4264,7 @@ async function refreshTodayAttendanceFromServer(){
     }catch(e){console.warn('dashboard attendance live refresh',e);}
     finally{busy=false;}
   }
-  setInterval(tick,10000);
+  setInterval(tick,30000);
   document.addEventListener('visibilitychange',function(){if(!document.hidden)tick();});
 })();
 
@@ -10753,7 +10753,7 @@ window.addEventListener('afterprint',function(){const area=document.getElementBy
    const inbox=document.getElementById('teacher-notice-inbox');
    let u=null; try{ u=window.user||user; }catch(e){ try{u=user;}catch(_){u=null;} }
    if(!box||!u||u.role!=='teacher'){ if(box) box.innerHTML=''; if(inbox) inbox.style.display='none'; return; }
-   const perf=rows().filter(r=>r.sent&&r.teacher_username===u.username).map(r=>({
+   const perf=rows().filter(r=>r.sent&&r.teacher_username===u.username&&!(Array.isArray(r.dismissed_by)&&r.dismissed_by.map(String).includes(String(u.username)))).map(r=>({
      id:r.id, kind:'perf', title:r.title||r.category, category:r.category, date:r.date||'',
      body:r.notice||'', read:(Array.isArray(r.read_by)?r.read_by.includes(String(u.username)):(!!r.read&&String(r.teacher_username)===String(u.username))), at:r.created_at?Date.parse(r.created_at):0
    }));
@@ -10798,37 +10798,25 @@ window.addEventListener('afterprint',function(){const area=document.getElementBy
    try{
      let u=null; try{ u=window.user||user; }catch(e){}
      if(!u||u.role!=='teacher')return;
+     if(!window.confirm('آیا می‌خواهید این پیام مدیریت از پنل معلم شما حذف شود؟'))return;
      const key='dastyar_teacher_notices_v1';
      const all=JSON.parse(localStorage.getItem(key)||'{}')||{};
      const list=all[u.username]||[];
-     list.forEach(function(n){ if(String(n.id)===String(id)) n.read=true; });
-     all[u.username]=list;
+     all[u.username]=list.filter(function(n){return String(n.id)!==String(id);});
      localStorage.setItem(key, JSON.stringify(all));
-     // ثبت مشاهده برای پیام‌های ضروری مدیر
-     try{
-       var urg=JSON.parse(localStorage.getItem('dastyar_admin_urgent_v1')||'[]')||[];
-       var uname=String(u.username||'');
-       urg.forEach(function(m){
-         if(String(m.id)!==String(id)) return;
-         if(!Array.isArray(m.read_by)) m.read_by=[];
-         if(m.read_by.indexOf(uname)<0) m.read_by.push(uname);
-       });
-       localStorage.setItem('dastyar_admin_urgent_v1', JSON.stringify(urg));
-     }catch(e2){}
      renderTeacherNotices();
-     if(typeof toast==='function') toast('مشاهده ثبت شد');
-   }catch(e){}
+     if(typeof toast==='function') toast('پیام از پنل شما حذف شد.');
+   }catch(e){if(typeof toast==='function')toast('حذف پیام انجام نشد.');}
  };
  window.ackTeacherNotice=function(id){
    if(!user||user.role!=='teacher')return;
    const a=rows();const r=a.find(x=>String(x.id)===String(id)&&String(x.teacher_username)===String(user.username)&&x.sent);
    if(!r)return;
-   r.read_by=Array.isArray(r.read_by)?r.read_by.map(String):[];
-   if(!r.read_by.includes(String(user.username)))r.read_by.push(String(user.username));
-   r.read_at_by=(r.read_at_by&&typeof r.read_at_by==='object')?r.read_at_by:{};
-   r.read_at_by[String(user.username)]=new Date().toISOString();
-   // فیلد قدیمی read را برای جلوگیری از اثرگذاری روی گیرندگان دیگر تغییر نمی‌دهیم.
-   put(a);renderTeacherNotices();toast('مشاهده ابلاغیه برای حساب شما ثبت شد');
+   if(!confirm('آیا می‌خواهید این پیام مدیریت از پنل معلم شما حذف شود؟'))return;
+   r.dismissed_by=Array.isArray(r.dismissed_by)?r.dismissed_by.map(String):[];
+   if(!r.dismissed_by.includes(String(user.username)))r.dismissed_by.push(String(user.username));
+   put(a);renderTeacherNotices();
+   toast('پیام از پنل شما حذف شد.');
  };
 })();
 </script>
@@ -13143,7 +13131,7 @@ function isSchoolEditorAllowed(){return isSchoolEditorManager()||isSchoolEditorT
 function syncSchoolEditorAccess(){var b=document.getElementById('open-school-file-editor-btn'),allowed=isSchoolEditorAllowed(),teacherOnly=isSchoolEditorTeacher();if(b)b.style.display=allowed?'block':'none';['sfe-school-name','sfe-header-title','sfe-header-teacher','sfe-header-subject','sfe-header-date','sfe-school-year'].forEach(function(id){var el=document.getElementById(id);if(el)el.disabled=teacherOnly;});var duration=document.getElementById('sfe-header-duration');if(duration)duration.disabled=!allowed;if(!allowed&&root.style.display==='block'){root.style.display='none';document.body.style.overflow='';}}
 window.openSchoolFileEditor=function(){syncSchoolEditorAccess();if(!isSchoolEditorAllowed()){say('برای استفاده از این ابزار باید با حساب معلم یا مدیر وارد شوید.');return;}root.style.display='block';document.body.style.overflow='hidden';};
 window.closeSchoolFileEditor=function(){root.style.display='none';document.body.style.overflow='';};
-window.addEventListener('DOMContentLoaded',syncSchoolEditorAccess);setInterval(syncSchoolEditorAccess,1200);
+window.addEventListener('DOMContentLoaded',syncSchoolEditorAccess);setInterval(syncSchoolEditorAccess,10000);
 window.sfeSetTool=function(t){saveCurrent();tool=t;drag=null;if(t!=='crop')cropBox=null;renderCurrent();say(t==='crop'?'مستطیل برش را بکشید؛ سپس با دستگیره‌ها تنظیمش کنید.':t==='erase'?'پاک‌کردن فعال است؛ اندازه پاک‌کن را از نوار تنظیم کنید و بکشید.':t==='text'?'متن را بنویسید، محل را لمس کنید، ثبت کنید، جابه‌جا کنید و در پایان فیکس کنید.':'ابزار انتخاب شد.');var es=document.getElementById('sfe-erase-size'),ev=document.getElementById('sfe-erase-size-val');if(es&&ev&&!es._bound){es._bound=1;es.addEventListener('input',function(){ev.textContent=String(es.value);});ev.textContent=String(es.value||28);}};
 window.sfeClearCrop=function(){cropBox=null;drag=null;renderCurrent();say('محدودهٔ برش لغو شد.');};
 function dataURL(){return canvas.toDataURL('image/png');}
@@ -15789,7 +15777,7 @@ async function refreshAchievementViews(){
 window.addEventListener('online',function(){setTimeout(async function(){await syncPending();await refreshAchievementViews()},900)});
 window.addEventListener('focus',function(){refreshAchievementViews()});
 document.addEventListener('visibilitychange',function(){if(!document.hidden)refreshAchievementViews()});
-window.setInterval(function(){if(user&&navigator.onLine)syncPending();refreshAchievementViews()},12000);
+window.setInterval(function(){if(user&&navigator.onLine)syncPending();refreshAchievementViews()},30000);
 document.addEventListener('DOMContentLoaded',function(){installPage();rows=read();window.__dastyarAchievementsRows=rows;});
 setTimeout(function(){installPage();rows=read();window.__dastyarAchievementsRows=rows},1200);
 })();
@@ -16161,8 +16149,8 @@ observer.observe(document.documentElement,{childList:true,subtree:true});
    if(isTeacher){
     if(schedule){insertAfter(page,schedule,cursor);cursor=schedule;}
     if(birthday){insertAfter(page,birthday,cursor);cursor=birthday;}
-    if(statsRail){insertAfter(page,statsRail,cursor);cursor=statsRail;}
     if(notices){insertAfter(page,notices,cursor);cursor=notices;}
+    if(statsRail){insertAfter(page,statsRail,cursor);cursor=statsRail;}
     var heading=byId('wn');
     if(heading)heading.textContent='سلام معلم، '+String(window.user.full_name||window.user.username||'همکار گرامی');
    }else{
@@ -16843,7 +16831,7 @@ function db(){return window.sb||(typeof sb!=='undefined'?sb:null)}
 function usr(){return window.user||(typeof user!=='undefined'?user:null)}
 function list(v){return Array.isArray(v)?v:[]}
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
-function noticeCache(){return window.__urgentServerCache||(window.__urgentServerCache={username:'',at:0,rows:[]})}
+function noticeCache(){return window.__urgentServerCache||(window.__urgentServerCache={username:'',at:0,rows:[],pending:null})}
 function makeId(){return 'urg_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8)}
 window.sendAdminUrgentMessage=async function(){
  var u=usr(),s=db();
@@ -16944,38 +16932,59 @@ window.shareAdminUrgentNotice=async function(id){
  }catch(e){if(e&&e.name!=='AbortError'&&typeof toast==='function')toast('اشتراک‌گذاری انجام نشد: '+(e.message||e))}
 };
 window.ackAdminUrgentServerMessage=async function(id){
- var u=usr(),s=db(),m=list(noticeCache().rows).find(function(x){return String(x.id)===String(id)});
- if(!u||u.role!=='teacher'||!s||!m)return;
- var read=list(m.read_by).map(String);if(read.indexOf(String(u.username))<0)read.push(String(u.username));
- var result=await s.from('sa_messages').update({read_by:read}).eq('id',String(id)).eq('kind','admin_urgent');
- if(result.error){if(typeof toast==='function')toast('ثبت مشاهده انجام نشد: '+result.error.message);return}
- m.read_by=read;noticeCache().at=0;await window.renderTeacherNotices();
- if(typeof toast==='function')toast('مشاهده پیام ثبت شد');
+ var u=usr(),c=noticeCache();
+ if(!u||u.role!=='teacher')return;
+ if(!window.confirm('آیا می‌خواهید این پیام مدیریت از پنل معلم شما حذف شود؟'))return;
+ try{
+  var key='dastyar_admin_urgent_dismissed_v1';
+  var all=JSON.parse(localStorage.getItem(key)||'{}')||{};
+  var username=String(u.username||'');
+  var ids=list(all[username]).map(String);
+  if(ids.indexOf(String(id))<0)ids.push(String(id));
+  all[username]=ids;
+  localStorage.setItem(key,JSON.stringify(all));
+  c.rows=list(c.rows).filter(function(x){return String(x.id)!==String(id)});
+  c.at=Date.now();
+  await window.renderTeacherNotices();
+  if(typeof toast==='function')toast('پیام از پنل شما حذف شد؛ برای سایر معلمان باقی می‌ماند.');
+ }catch(e){if(typeof toast==='function')toast('حذف پیام در این دستگاه انجام نشد.');}
 };
 var previousRender=window.renderTeacherNotices;
 window.renderTeacherNotices=async function(){
  if(typeof previousRender==='function')previousRender.apply(this,arguments);
  var u=usr(),s=db(),box=document.getElementById('teacher-notice-list'),inbox=document.getElementById('teacher-notice-inbox');
  if(!u||u.role!=='teacher'||!s||!box)return;
- var c=noticeCache(),now=Date.now();
- if(c.username!==String(u.username)||now-c.at>30000){
-  var res=await s.from('sa_messages').select('id,message_text,audio_url,recipient_usernames,class_labels,share_enabled,read_by,created_at').eq('kind','admin_urgent').order('created_at',{ascending:false}).limit(100);
-  if(res.error){console.warn('دریافت پیام ضروری سرور:',res.error.message);return}
-  c.username=String(u.username);c.at=now;c.rows=list(res.data).filter(function(m){return list(m.recipient_usernames).map(String).indexOf(String(u.username))>=0});
+ var c=noticeCache(),now=Date.now(),username=String(u.username);
+ if(c.username!==username||now-c.at>30000){
+  if(c.pending){try{await c.pending}catch(e){}}
+  if(c.username!==username||Date.now()-c.at>30000){
+   c.pending=(async function(){
+    var res=await s.from('sa_messages').select('id,message_text,audio_url,recipient_usernames,class_labels,share_enabled,read_by,created_at').eq('kind','admin_urgent').order('created_at',{ascending:false}).limit(100);
+    if(res.error)throw res.error;
+    var allDismissed={};try{allDismissed=JSON.parse(localStorage.getItem('dastyar_admin_urgent_dismissed_v1')||'{}')||{}}catch(e){}
+    var dismissed=list(allDismissed[username]).map(String);
+    c.username=username;c.at=Date.now();
+    c.rows=list(res.data).filter(function(m){
+     return list(m.recipient_usernames).map(String).indexOf(username)>=0&&dismissed.indexOf(String(m.id))<0;
+    });
+   })();
+   try{await c.pending}catch(e){console.warn('دریافت پیام ضروری سرور:',e.message||e);return}
+   finally{c.pending=null}
+  }
  }
+ box.querySelectorAll('[data-urgent-server-card]').forEach(function(x){x.remove()});
  if(!c.rows.length)return;
  if(inbox)inbox.style.display='block';
- box.querySelectorAll('[data-urgent-server-card]').forEach(function(x){x.remove()});
  var html=c.rows.map(function(m){
-  var seen=list(m.read_by).map(String).indexOf(String(u.username))>=0;
   var audio=m.audio_url?'<div style="margin:6px 0"><audio controls src="'+esc(m.audio_url)+'" style="max-width:100%"></audio></div>':'';
   var share=m.share_enabled===true?'<button type="button" class="btn btn-p btn-sm" data-urgent-share="'+esc(m.id)+'" style="margin:6px 4px 0 0">↗ اشتراک‌گذاری در پیام‌رسان‌ها / شاد</button>':'';
-  var ack=seen?'<small style="color:#047857">✓ مشاهده‌شده</small>':'<button type="button" class="btn btn-o btn-sm" data-urgent-ack="'+esc(m.id)+'" style="margin:6px 4px 0 0">متوجه شدم</button>';
+  var ack='<button type="button" class="btn btn-o btn-sm" data-urgent-ack="'+esc(m.id)+'" style="margin:6px 4px 0 0">متوجه شدم</button>';
   return '<article data-urgent-server-card="1" style="background:#fff;border:1px solid #c4b5fd;border-radius:10px;padding:10px;margin:8px 0"><div style="font-weight:700;color:#5b21b6">📢 پیام ضروری مدیریت</div><div class="meta">'+new Date(m.created_at||Date.now()).toLocaleString('fa-IR')+'</div><p style="white-space:pre-wrap;margin:6px 0">'+esc(m.message_text||'پیام صوتی مدیر')+'</p>'+audio+ack+share+'</article>';
  }).join('');
  box.insertAdjacentHTML('beforeend',html);
  box.querySelectorAll('[data-urgent-share]').forEach(function(b){b.addEventListener('click',function(){window.shareAdminUrgentNotice(b.getAttribute('data-urgent-share'))})});
  box.querySelectorAll('[data-urgent-ack]').forEach(function(b){b.addEventListener('click',function(){window.ackAdminUrgentServerMessage(b.getAttribute('data-urgent-ack'))})});
 };
+
 })();
 </script>
