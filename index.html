@@ -4848,7 +4848,7 @@ async function importSecondBStudents(){
   status.textContent='در حال ثبت: '+(i+1)+' از '+SECOND_B_STUDENTS.length;
  }
  await reloadAll();renderStudents();refreshDash();
- status.textContent='پایان ثبت دوم ب — دانش‌آموز جدید: '+added+' | اطلاعات به‌روزشده: '+updated+' | خطا: '+failed+(errors.length?'\\n'+errors.join('\\n'):'');
+ status.textContent='پایان ثبت دوم ب — دانش‌آموز جدید: '+added+' | اطلاعات به‌روزشده: '+updated+' | خطا: '+failed+(errors.length?'\\n'+errors.join('\n'):'');
  toast(failed?'ثبت دوم ب با '+failed+' خطا تمام شد':'ثبت اطلاعات دوم ب تمام شد');
 }
 
@@ -17171,7 +17171,7 @@ function mount(){
  select.innerHTML=classes.map(function(c){return '<option value="'+esc(c.id)+'">'+esc(c.label||c.id)+'</option>'}).join('');
  if(classes.length)select.value=String(classes[0].id);
  box.querySelector('#ch-due').value=fa(iso(1));
- box.querySelector('#ch-items').addEventListener('input',function(){var a=this.value.split(/\\r?\\n/).map(function(x){return x.trim()}).filter(Boolean);box.querySelector('#ch-preview').textContent=a.map(function(x,i){return (i+1)+'. '+x}).join('\\n')});
+ box.querySelector('#ch-items').addEventListener('input',function(){var a=this.value.split(/\r?\n/).map(function(x){return x.trim()}).filter(Boolean);box.querySelector('#ch-preview').textContent=a.map(function(x,i){return (i+1)+'. '+x}).join('\\n')});
  select.addEventListener('change',function(){load(true)});
  box.querySelector('#ch-refresh').addEventListener('click',function(){load(true)});
  box.querySelector('#ch-save').addEventListener('click',saveTask);
