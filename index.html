@@ -918,7 +918,47 @@ function printStudentList(kind='full'){
 #app .bnav .ni{transition:background-color .12s ease,color .12s ease!important;transform:none!important;touch-action:manipulation}
 #app .page{animation:none!important}
 @media(prefers-reduced-motion:reduce){#page-dashboard *,#app .bnav *{animation:none!important;transition:none!important}}
-</style></head><body>'+markup+'</body></html>');
+</style></head><body>'+markup+'<script id="dastyar-precision-tap-and-scroll-20261127">
+(function(){
+  if(window.__dastyarPrecisionTapGuard)return;
+  window.__dastyarPrecisionTapGuard=true;
+  var start=null,blocked=false;
+  function actionTarget(node){
+    if(!node||node.nodeType!==1)return null;
+    return node.closest('button,a,summary,[role="button"],[onclick],.ni,.home-tile');
+  }
+  document.addEventListener('pointerdown',function(e){
+    if(e.pointerType!=='touch')return;
+    start={target:actionTarget(e.target),x:e.clientX,y:e.clientY,id:e.pointerId};
+    blocked=false;
+  },{capture:true,passive:true});
+  document.addEventListener('pointerup',function(e){
+    if(!start||e.pointerType!=='touch'||e.pointerId!==start.id)return;
+    var dx=e.clientX-start.x,dy=e.clientY-start.y;
+    var endTarget=actionTarget(e.target);
+    if(Math.hypot(dx,dy)>10||(start.target&&endTarget&&start.target!==endTarget))blocked=true;
+    else if(start.target&&!endTarget)blocked=true;
+  },{capture:true,passive:true});
+  document.addEventListener('pointercancel',function(){start=null;blocked=false;},{capture:true,passive:true});
+  document.addEventListener('click',function(e){
+    if(!blocked||!e.isTrusted||e.detail===0)return;
+    e.preventDefault();e.stopImmediatePropagation();blocked=false;start=null;
+  },true);
+  document.addEventListener('click',function(){blocked=false;start=null;},false);
+})();
+</script>
+<style id="dastyar-scroll-paint-light-20261127">
+/* حذف افکت‌های پرهزینه‌ی حین اسکرول، بدون تغییر رنگ‌بندی یا اندازه اجزا */
+#app .bnav{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+#app .bnav .ni,#page-dashboard .home-tile,#page-dashboard .home-tile-group,
+#page-dashboard .home-tile-group>summary,#page-dashboard .sg>.sc{
+  transition-property:color,background-color,border-color!important;
+  transition-duration:60ms!important;
+  transform:none!important;
+}
+#page-dashboard .home-tile:after{transition:none!important}
+</style>
+</body></html>');
   w.document.close();
   w.focus();
   setTimeout(()=>{try{w.print();}catch(e){toast('چاپ در این مرورگر اجرا نشد');}},500);
@@ -983,7 +1023,7 @@ body{font-family:"Vazirmatn",Tahoma,Arial,sans-serif;background:#f4f7fb;color:#1
 @media(max-width:899px){
  body{padding-bottom:78px}
  .hdr{background:linear-gradient(115deg,#1e293b,#2563eb);box-shadow:0 3px 14px rgba(15,23,42,.12)}
- .bnav{background:rgba(255,255,255,.97);backdrop-filter:blur(12px);box-shadow:0 -5px 20px rgba(15,23,42,.07)}
+ .bnav{background:rgba(255,255,255,.99);backdrop-filter:none!important;-webkit-backdrop-filter:none!important;box-shadow:0 -3px 10px rgba(15,23,42,.045)}
  .ni{font-size:.62rem;min-width:42px}
 }
 /* Cards and data panels */
@@ -4067,14 +4107,34 @@ async function refreshAdminQaAfterTeacherSync(){
 // دریافت تغییرات این جدول‌ها توسط refreshDastyarActiveSection و فقط برای بخش فعال انجام می‌شود؛
 // از polling موازی مدیر جلوگیری می‌کنیم تا درخواست‌های تکراری و پردازش هم‌زمان ایجاد نشود.
 
+/* کارهای شبکه‌ای و پردازش آرشیو داشبورد پس از نمایش اولیه و در زمان بیکاری مرورگر اجرا شوند. */
+var __dastyarDashboardIdleRefreshPending=false;
+function scheduleDastyarDashboardBackgroundRefresh(){
+  if(__dastyarDashboardIdleRefreshPending)return;
+  __dastyarDashboardIdleRefreshPending=true;
+  var run=function(){
+    var dashboard=document.getElementById('page-dashboard');
+    if(document.hidden||!user||!dashboard||!dashboard.classList.contains('on')){
+      __dastyarDashboardIdleRefreshPending=false;return;
+    }
+    if(window.__dastyarLastScrollAt&&Date.now()-window.__dastyarLastScrollAt<900){
+      setTimeout(run,450);return;
+    }
+    __dastyarDashboardIdleRefreshPending=false;
+    try{refreshDashboardEvaluationDisciplineCache();}catch(e){}
+    try{if(typeof refreshDashboardDocumentCache==='function')refreshDashboardDocumentCache();}catch(e){}
+  };
+  if(typeof window.requestIdleCallback==='function')window.requestIdleCallback(run,{timeout:2200});
+  else setTimeout(run,500);
+}
+
 function refreshDash(){
   // این تابع فقط رابط داشبورد را به‌روزرسانی می‌کند؛ هنگام باز بودن صفحه‌های دیگر،
   // محاسبه شمارنده‌ها و درخواست‌های مخصوص داشبورد را به نوبت ورود به داشبورد موکول کن.
   var dashboardPage=document.getElementById('page-dashboard');
   if(dashboardPage&&!dashboardPage.classList.contains('on'))return;
   try{checkUpcomingStudentBirthdays();}catch(birthdayError){console.warn('یادآوری تولد اجرا نشد',birthdayError);}
-  try{refreshDashboardEvaluationDisciplineCache();}catch(e){}
-  try{ if(typeof refreshDashboardDocumentCache==='function') refreshDashboardDocumentCache(); }catch(e){}
+  scheduleDastyarDashboardBackgroundRefresh();
   try{ if(typeof renderSmartReminders==='function') renderSmartReminders(); }catch(e){}
   if(navigator.onLine && sb && (!(cache.students||[]).length) && typeof ensureStudentsFromServer==='function'){
     ensureStudentsFromServer().then(function(n){ if(n>0){ try{ refreshDash(); }catch(e){} } });
