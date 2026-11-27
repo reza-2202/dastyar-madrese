@@ -17162,7 +17162,8 @@ function mount(){
  if(classes.length)select.value=String(classes[0].id);
  box.querySelector('#ch-due').value=iso(1);
  box.querySelector('#ch-items').addEventListener('input',function(){var a=this.value.split(/\r?\n/).map(function(x){return x.trim()}).filter(Boolean);box.querySelector('#ch-preview').textContent=a.map(function(x,i){return (i+1)+'. '+x}).join('\n')});
- select.addEventListener('change',function(){load(true)});\n box.querySelector('#ch-refresh').addEventListener('click',function(){load(true)});
+ select.addEventListener('change',function(){load(true)});
+ box.querySelector('#ch-refresh').addEventListener('click',function(){load(true)});
  box.querySelector('#ch-save').addEventListener('click',saveTask);
  load(true);
 }
@@ -17191,7 +17192,7 @@ async function saveTask(){
  var btn=box.querySelector('#ch-save');btn.disabled=true;btn.textContent='در حال ثبت…';
  try{
   var now=new Date().toISOString(),row={class_id:String(classId),class_name:cls&&cls.label||'',title:(box.querySelector('#ch-title').value||'تکالیف امروز کلاس').trim(),items:items,assigned_by:u.full_name||u.username||'معلم',assigned_username:u.username||'',assigned_at:now,due_date:due,active:true,updated_at:now};
-  var result=await client.from('sa_class_homework').insert(row).select('*');
+  var result=await client.from('sa_class_homework').insert(row);
   if(result.error)throw result.error;
   var saved=Array.isArray(result.data)?result.data[0]:null;if(!saved)throw new Error('ثبت انجام شد اما رکورد بازگشتی دریافت نشد.');
   state.tasks.unshift(saved);state.classId=String(classId);state.loadedAt=Date.now();
