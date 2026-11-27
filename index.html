@@ -16413,7 +16413,7 @@ function db(){return window.sb||(typeof sb!=='undefined'?sb:null)}
 function usr(){return window.user||(typeof user!=='undefined'?user:null)}
 function list(v){return Array.isArray(v)?v:[]}
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
-function cache(){return window.__urgentServerCache||(window.__urgentServerCache={username:'',at:0,rows:[]})}
+function noticeCache(){return window.__urgentServerCache||(window.__urgentServerCache={username:'',at:0,rows:[]})}
 function makeId(){return 'urg_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8)}
 window.sendAdminUrgentMessage=async function(){
  var u=usr(),s=db();
@@ -16424,13 +16424,13 @@ window.sendAdminUrgentMessage=async function(){
  if(!text&&!audioData){if(typeof toast==='function')toast('متن یا صدای پیام را آماده کنید');return}
  var sel=document.getElementById('adm-urg-classes'),selected=[];
  if(sel)Array.prototype.forEach.call(sel.selectedOptions||[],function(o){selected.push(String(o.value))});
- var classes=(window.cache&&cacheData())||[];
- function cacheData(){try{return cacheApp.classes||[]}catch(e){return []}}
+ var app=window.cache||(typeof cache!=='undefined'?cache:null);
+ var classes=app&&app.classes||[];
  var targets=selected.length?classes.filter(function(c){return selected.indexOf(String(c.id))>=0}):classes.slice();
  if(!targets.length){if(typeof toast==='function')toast('کلاسی برای ارسال وجود ندارد');return}
  var teachers=[];
  targets.forEach(function(c){
-  (cacheApp.users||[]).filter(function(t){return t&&t.role==='teacher'}).forEach(function(t){
+  (app&&app.users||[]).filter(function(t){return t&&t.role==='teacher'}).forEach(function(t){
    var ids=list(t.class_ids).map(String);
    if(ids.indexOf(String(c.id))>=0||String(c.teacher_user||'')===String(t.username)||String(c.teacher_name||'')===String(t.full_name||'')){
     if(teachers.indexOf(String(t.username))<0)teachers.push(String(t.username));
@@ -16458,7 +16458,7 @@ window.sendAdminUrgentMessage=async function(){
   window.__admUrgAudioData='';
   var audio=document.getElementById('adm-urg-audio');if(audio){audio.removeAttribute('src');audio.style.display='none'}
   var record=document.getElementById('adm-urg-rec-btn');if(record)record.textContent='🎙 ضبط صدا';
-  cache().at=0;
+  noticeCache().at=0;
   await window.renderAdminUrgentList();
   if(typeof toast==='function')toast('پیام روی سرور برای '+teachers.length+' معلم ثبت شد'+(share?'؛ اشتراک‌گذاری فعال است':'؛ فقط در پنل معلم نمایش داده می‌شود'));
  }catch(e){console.error('ارسال پیام ضروری',e);if(typeof toast==='function')toast('ارسال پیام انجام نشد: '+(e&&e.message||e))}
@@ -16489,11 +16489,11 @@ window.deleteAdminUrgentMessage=async function(id){
   var url=old.data&&old.data.audio_url||'',mark='/storage/v1/object/public/teacher-documents/',pos=url.indexOf(mark);
   if(pos>=0){var path=decodeURIComponent(url.slice(pos+mark.length).split('?')[0]);await s.storage.from('teacher-documents').remove([path])}
  }catch(e){}
- cache().at=0;await window.renderAdminUrgentList();
+ noticeCache().at=0;await window.renderAdminUrgentList();
  if(typeof toast==='function')toast('پیام از سرور و پنل معلمان حذف شد');
 };
 window.shareAdminUrgentNotice=async function(id){
- var m=list(cache().rows).find(function(x){return String(x.id)===String(id)});
+ var m=list(noticeCache().rows).find(function(x){return String(x.id)===String(id)});
  if(!m||m.share_enabled!==true){if(typeof toast==='function')toast('مدیر اشتراک‌گذاری این پیام را فعال نکرده است');return}
  var text=String(m.message_text||'پیام صوتی مدیریت مدرسه'),audio=m.audio_url||'';
  try{
@@ -16513,12 +16513,12 @@ window.shareAdminUrgentNotice=async function(id){
  }catch(e){if(e&&e.name!=='AbortError'&&typeof toast==='function')toast('اشتراک‌گذاری انجام نشد: '+(e.message||e))}
 };
 window.ackAdminUrgentServerMessage=async function(id){
- var u=usr(),s=db(),m=list(cache().rows).find(function(x){return String(x.id)===String(id)});
+ var u=usr(),s=db(),m=list(noticeCache().rows).find(function(x){return String(x.id)===String(id)});
  if(!u||u.role!=='teacher'||!s||!m)return;
  var read=list(m.read_by).map(String);if(read.indexOf(String(u.username))<0)read.push(String(u.username));
  var result=await s.from('sa_messages').update({read_by:read}).eq('id',String(id)).eq('kind','admin_urgent');
  if(result.error){if(typeof toast==='function')toast('ثبت مشاهده انجام نشد: '+result.error.message);return}
- m.read_by=read;cache().at=0;await window.renderTeacherNotices();
+ m.read_by=read;noticeCache().at=0;await window.renderTeacherNotices();
  if(typeof toast==='function')toast('مشاهده پیام ثبت شد');
 };
 var previousRender=window.renderTeacherNotices;
@@ -16526,7 +16526,7 @@ window.renderTeacherNotices=async function(){
  if(typeof previousRender==='function')previousRender.apply(this,arguments);
  var u=usr(),s=db(),box=document.getElementById('teacher-notice-list'),inbox=document.getElementById('teacher-notice-inbox');
  if(!u||u.role!=='teacher'||!s||!box)return;
- var c=cache(),now=Date.now();
+ var c=noticeCache(),now=Date.now();
  if(c.username!==String(u.username)||now-c.at>30000){
   var res=await s.from('sa_messages').select('id,message_text,audio_url,recipient_usernames,class_labels,share_enabled,read_by,created_at').eq('kind','admin_urgent').order('created_at',{ascending:false}).limit(100);
   if(res.error){console.warn('دریافت پیام ضروری سرور:',res.error.message);return}
