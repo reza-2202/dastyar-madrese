@@ -8525,7 +8525,7 @@ async function flushDastyarDashboardRealtimeChanges(){
       else if(pageId==='homework'&&typeof window.dastyarLoadHomeworkCenter==='function')await window.dastyarLoadHomeworkCenter(true);
       else if(pageId==='charts'){if(typeof loadChartStudents==='function')loadChartStudents();if(typeof renderChartView==='function')renderChartView();}
       if(dirty.sa_achievements&&typeof window.refreshStudentAchievements==='function')await window.refreshStudentAchievements();
-      if((dirty.sa_homework_tasks||dirty.sa_homework_feedback)&&pageId!=='homework'&&typeof window.dastyarLoadHomeworkCenter==='function')await window.dastyarLoadHomeworkCenter(true);
+      if((dirty.sa_homework_tasks||dirty.sa_homework_feedback||dirty.sa_class_homework||dirty.sa_class_homework_feedback)&&pageId!=='homework'&&typeof window.dastyarLoadHomeworkCenter==='function')await window.dastyarLoadHomeworkCenter(true);
       try{if(typeof refreshSharedInboxPanels==='function')refreshSharedInboxPanels();}catch(e){}
     }catch(e){console.warn('به‌روزرسانی زنده اطلاعات مدیر ناموفق بود؛ تغییرات در نوبت بعد دوباره دریافت می‌شود.',e);}
   }
@@ -8559,7 +8559,7 @@ function ensureSchoolDocumentRealtimeSync(){
     var channel=__dastyarRealtimeSdkClient.channel('dastyar-school-dashboard-live-counters');
     // فقط مدیر رویدادهای داده‌ای معلمان را دریافت می‌کند؛ بدون polling دائمی.
     var watchedTables=user.role==='admin'
-      ?['sa_documents','sa_activities','sa_evaluations','sa_discipline','sa_attendance','sa_scores','sa_competencies','sa_finance','sa_student_guidance','sa_students','sa_classes','sa_achievements','sa_messages','sa_homework_tasks','sa_homework_feedback']
+      ?['sa_documents','sa_activities','sa_evaluations','sa_discipline','sa_attendance','sa_scores','sa_competencies','sa_finance','sa_student_guidance','sa_students','sa_classes','sa_achievements','sa_messages','sa_homework_tasks','sa_homework_feedback','sa_class_homework','sa_class_homework_feedback']
       :['sa_documents'];
     watchedTables.forEach(function(table){
       channel=channel.on('postgres_changes',{event:'*',schema:'public',table:table},function(){
@@ -17130,3 +17130,107 @@ window.renderTeacherNotices=async function(){
   filter:none!important;
 }
 </style>
+
+
+<script id="dastyar-classwide-homework-20261127">
+(function(){
+'use strict';
+if(window.__dastyarClasswideHomeworkInstalled)return;
+window.__dastyarClasswideHomeworkInstalled=true;
+var state={tasks:[],feedback:[],loading:false,classId:''};
+function userNow(){return window.user||null}
+function dbNow(){return window.sb||null}
+function allClasses(){try{var u=userNow(),cs=(window.cache&&window.cache.classes)||[];if(u&&u.role==='teacher'&&typeof window.myClasses==='function')return window.myClasses();if(u&&u.role==='teacher')return cs.filter(function(c){return (u.class_ids||[]).map(String).indexOf(String(c.id))>=0});return cs}catch(e){return []}}
+function studentsFor(id){return ((window.cache&&window.cache.students)||[]).filter(function(s){return String(s.class_id)===String(id)}).sort(function(a,b){return ((a.first_name||'')+' '+(a.last_name||'')).localeCompare((b.first_name||'')+' '+(b.last_name||''),'fa')})}
+function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+function fa(v){if(!v)return '—';try{return new Date(String(v).slice(0,10)+'T12:00:00').toLocaleDateString('fa-IR-u-ca-persian',{year:'numeric',month:'long',day:'numeric'})}catch(e){return String(v)}}
+function day(v){if(!v)return '';try{return new Date(String(v).slice(0,10)+'T12:00:00').toLocaleDateString('fa-IR-u-ca-persian',{weekday:'long'})}catch(e){return ''}}
+function iso(d){var x=new Date();if(d)x.setDate(x.getDate()+d);return new Date(x.getTime()-x.getTimezoneOffset()*60000).toISOString().slice(0,10)}
+function name(s){return ((s.first_name||'')+' '+(s.last_name||'')).trim()}
+function labelStatus(s){return s==='done'?'انجام داده':s==='partial'?'ناقص انجام داده':s==='not_done'?'انجام نداده':'ثبت نشده'}
+function latest(taskId,studentId){return state.feedback.filter(function(f){return String(f.task_id)===String(taskId)&&String(f.student_id)===String(studentId)}).sort(function(a,b){return String(b.created_at||'').localeCompare(String(a.created_at||''))})[0]||null}
+function notify(t){if(typeof window.toast==='function')window.toast(t);else alert(t)}
+function shareText(t){var c=allClasses().find(function(x){return String(x.id)===String(t.class_id)}),items=Array.isArray(t.items)?t.items:[];return '🏫 دبستان شهید فتح‌الله فلاح‌پور\n📚 تکالیف و برنامه کار کلاس '+(c&&c.label||t.class_name||'')+'\n📅 تاریخ ثبت: '+fa(t.assigned_at)+' ('+day(t.assigned_at)+')\n⏰ روز انجام / مهلت: '+fa(t.due_date)+' ('+day(t.due_date)+')\n\n'+items.map(function(x,i){return (i+1)+'. '+x}).join('\n')+'\n\nمعلم: '+(t.assigned_by||'معلم کلاس')}
+async function share(t){var text=shareText(t);if(navigator.share){try{await navigator.share({title:'تکالیف امروز کلاس',text:text});return}catch(e){if(e&&e.name==='AbortError')return}}try{await navigator.clipboard.writeText(text);notify('متن تکالیف کپی شد؛ اکنون می‌توانید آن را در شاد یا پیام‌رسان دلخواه ارسال کنید.')}catch(e){window.prompt('متن تکالیف را کپی کنید:',text)}}
+function mount(){
+ var page=document.getElementById('page-homework'),list=document.getElementById('hw-list');if(!page||!list||document.getElementById('classwide-homework-panel'))return;
+ var box=document.createElement('section');box.id='classwide-homework-panel';box.className='card';box.style.cssText='border:1px solid #93c5fd;background:#f8fbff;margin:12px 0';
+ box.innerHTML='<div class="ct">📝 تکالیف و برنامه کار امروز کلاس</div><p class="meta" style="line-height:1.9">یک پیام واحد برای همه دانش‌آموزان کلاس ثبت کنید؛ وضعیت انجام هر دانش‌آموز جداگانه ثبت و در سوابق باقی می‌ماند. این بخش مستقل از تکالیف اختصاصی دانش‌آموزان است.</p><div class="fg"><label>کلاس</label><select id="ch-class"></select></div><div class="fg"><label>عنوان پیام (اختیاری)</label><input id="ch-title" value="تکالیف امروز کلاس" maxlength="120"/></div><div class="fg"><label>تکالیف و کارهای موردنیاز (هر مورد را در یک خط بنویسید؛ شماره‌گذاری خودکار است)</label><textarea id="ch-items" rows="5" placeholder="مثلاً:&#10;روخوانی درس پنجم&#10;حل تمرین‌های صفحه ۳۲&#10;آماده‌کردن وسایل آزمایش"></textarea><div id="ch-preview" class="meta" style="white-space:pre-wrap;margin-top:6px"></div></div><div class="fg"><label>روز انجام / مهلت</label><input id="ch-due" type="date"/></div><button type="button" class="btn btn-p" id="ch-save">💾 ثبت تکالیف برای کل کلاس</button><div id="ch-status" class="meta" style="margin-top:8px"></div><div class="divider" style="margin:14px 0;border-top:1px solid #dbeafe"></div><div class="ct">📚 تکالیف گروهی ثبت‌شده و بازخورد دانش‌آموزان</div><div id="ch-list"><div class="empty">برای دریافت سوابق کلاس را انتخاب کنید.</div></div>';
+ page.insertBefore(box,list);
+ var select=box.querySelector('#ch-class'),u=userNow(),classes=allClasses();
+ select.innerHTML=classes.map(function(c){return '<option value="'+esc(c.id)+'">'+esc(c.label||c.id)+'</option>'}).join('');
+ if(classes.length)select.value=String(classes[0].id);
+ box.querySelector('#ch-due').value=iso(1);
+ box.querySelector('#ch-items').addEventListener('input',function(){var a=this.value.split(/\r?\n/).map(function(x){return x.trim()}).filter(Boolean);box.querySelector('#ch-preview').textContent=a.map(function(x,i){return (i+1)+'. '+x}).join('\n')});
+ select.addEventListener('change',function(){load(true)});
+ box.querySelector('#ch-save').addEventListener('click',saveTask);
+ load(true);
+}
+async function load(force){
+ var box=document.getElementById('classwide-homework-panel');if(!box||state.loading)return;
+ var classId=box.querySelector('#ch-class').value;if(!classId)return;
+ if(!force&&state.classId===String(classId)&&state.loadedAt&&Date.now()-state.loadedAt<20000){render();return}
+ var client=dbNow(),root=box.querySelector('#ch-list');if(!client||!navigator.onLine||window.isOffline){root.innerHTML='<div class="empty">برای دریافت و ثبت سوابق تکالیف گروهی، اتصال اینترنت لازم است.</div>';return}
+ state.loading=true;root.innerHTML='<div class="empty">در حال دریافت سوابق کلاس…</div>';
+ try{
+  var results=await Promise.all([
+   client.from('sa_class_homework').select('*').eq('class_id',String(classId)).order('assigned_at',{ascending:false}).limit(100),
+   client.from('sa_class_homework_feedback').select('*').eq('class_id',String(classId)).order('created_at',{ascending:false}).limit(3000)
+  ]);
+  if(results[0].error)throw results[0].error;if(results[1].error)throw results[1].error;
+  state.tasks=Array.isArray(results[0].data)?results[0].data:[];state.feedback=Array.isArray(results[1].data)?results[1].data:[];
+  state.classId=String(classId);state.loadedAt=Date.now();render();
+ }catch(e){root.innerHTML='<div class="card" style="background:#fff7ed;color:#9a3412">دریافت سوابق ناموفق بود: '+esc(e.message||e)+'</div>'}
+ finally{state.loading=false}
+}
+async function saveTask(){
+ var box=document.getElementById('classwide-homework-panel'),client=dbNow(),u=userNow();if(!box||!client||!u)return;
+ var classId=box.querySelector('#ch-class').value,cls=allClasses().find(function(c){return String(c.id)===String(classId)}),items=box.querySelector('#ch-items').value.split(/\r?\n/).map(function(x){return x.trim()}).filter(Boolean),due=box.querySelector('#ch-due').value;
+ if(!classId||!items.length||!due){notify('کلاس، دست‌کم یک تکلیف و تاریخ انجام را مشخص کنید.');return}
+ if(u.role==='teacher'&&!allClasses().some(function(c){return String(c.id)===String(classId)})){notify('ثبت تکلیف فقط برای کلاس خودتان مجاز است.');return}
+ var btn=box.querySelector('#ch-save');btn.disabled=true;btn.textContent='در حال ثبت…';
+ try{
+  var now=new Date().toISOString(),row={class_id:String(classId),class_name:cls&&cls.label||'',title:(box.querySelector('#ch-title').value||'تکالیف امروز کلاس').trim(),items:items,assigned_by:u.full_name||u.username||'معلم',assigned_username:u.username||'',assigned_at:now,due_date:due,active:true,updated_at:now};
+  var result=await client.from('sa_class_homework').insert(row).select('*');
+  if(result.error)throw result.error;
+  var saved=Array.isArray(result.data)?result.data[0]:null;if(!saved)throw new Error('ثبت انجام شد اما رکورد بازگشتی دریافت نشد.');
+  state.tasks.unshift(saved);state.classId=String(classId);state.loadedAt=Date.now();
+  box.querySelector('#ch-items').value='';box.querySelector('#ch-preview').textContent='';
+  box.querySelector('#ch-status').textContent='تکالیف برای '+(cls&&cls.label||'کلاس')+' ثبت شد؛ اکنون می‌توانید آن را به اشتراک بگذارید.';
+  render();await share(saved);
+  notify('تکالیف گروهی با موفقیت در سرور ثبت شد.');
+ }catch(e){notify('ثبت تکالیف ناموفق بود: '+(e.message||e))}
+ finally{btn.disabled=false;btn.textContent='💾 ثبت تکالیف برای کل کلاس'}
+}
+function render(){
+ var root=document.getElementById('ch-list');if(!root)return;
+ var clsId=state.classId,students=studentsFor(clsId);
+ if(!state.tasks.length){root.innerHTML='<div class="empty">هنوز تکلیف گروهی برای این کلاس ثبت نشده است.</div>';return}
+ root.innerHTML=state.tasks.map(function(t){
+  var done=[],partial=[],notdone=[],pending=[];
+  students.forEach(function(s){var f=latest(t.id,s.id);if(!f)pending.push(s);else if(f.status==='done')done.push(s);else if(f.status==='partial')partial.push(s);else notdone.push(s)});
+  var rows=students.map(function(s){
+   var f=latest(t.id,s.id),id=String(t.id)+'_'+String(s.id);
+   return '<div style="padding:9px 0;border-top:1px solid #e2e8f0"><b>'+esc(name(s))+'</b><div class="fg" style="margin:5px 0"><select data-ch-status="'+esc(id)+'"><option value="">ثبت وضعیت</option><option value="done" '+(f&&f.status==='done'?'selected':'')+'>انجام داده</option><option value="partial" '+(f&&f.status==='partial'?'selected':'')+'>ناقص انجام داده</option><option value="not_done" '+(f&&f.status==='not_done'?'selected':'')+'>انجام نداده</option></select></div><textarea data-ch-comment="'+esc(id)+'" rows="1" placeholder="توضیح کوتاه معلم (اختیاری)">'+esc(f&&f.comment||'')+'</textarea><button class="btn btn-o btn-sm" type="button" data-ch-save="'+esc(t.id)+'" data-student="'+esc(s.id)+'" style="margin-top:5px">ثبت بازخورد</button>'+(f?'<small class="meta" style="display:block;margin-top:4px">آخرین ثبت: '+esc(fa(f.created_at))+' — '+esc(f.teacher_name||'معلم')+'</small>':'')+'</div>'
+  }).join('');
+  return '<article class="card" style="border:1px solid #bfdbfe;margin:10px 0;padding:12px"><div class="ct">'+esc(t.title||'تکالیف امروز کلاس')+'</div><div class="meta">تاریخ ثبت: '+esc(fa(t.assigned_at))+' ('+esc(day(t.assigned_at))+') | روز انجام: '+esc(fa(t.due_date))+' ('+esc(day(t.due_date))+')</div><div style="white-space:pre-wrap;line-height:2;margin:8px 0">'+(Array.isArray(t.items)?t.items:[]).map(function(x,i){return '<b>'+(i+1)+'.</b> '+esc(x)}).join('<br>')+'</div><div class="meta">ثبت‌کننده: '+esc(t.assigned_by||'معلم')+'</div><div style="background:#f0fdf4;border-radius:10px;padding:9px;margin:9px 0;line-height:1.9"><b>خلاصه بازخورد کلاس</b><div>✅ انجام داده: '+done.length+' نفر | 🟡 ناقص: '+partial.length+' نفر | ❌ انجام نداده: '+notdone.length+' نفر | ⏳ بدون ثبت: '+pending.length+' نفر</div><div class="meta">انجام داده: '+(done.map(name).join('، ')||'—')+'<br>ناقص: '+(partial.map(name).join('، ')||'—')+'<br>انجام نداده: '+(notdone.map(name).join('، ')||'—')+'<br>بدون ثبت: '+(pending.map(name).join('، ')||'—')+'</div></div><button class="btn btn-s btn-sm" type="button" data-ch-share="'+esc(t.id)+'">📤 اشتراک‌گذاری تکالیف در شاد و پیام‌رسان‌ها</button><details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">ثبت وضعیت دانش‌آموزان ('+students.length+' نفر)</summary>'+rows+'</details></article>';
+ }).join('');
+ root.querySelectorAll('[data-ch-share]').forEach(function(b){b.addEventListener('click',function(){var t=state.tasks.find(function(x){return String(x.id)===b.dataset.chShare});if(t)share(t)})});
+ root.querySelectorAll('[data-ch-save]').forEach(function(b){b.addEventListener('click',function(){saveFeedback(b.dataset.chSave,b.dataset.student)})});
+}
+async function saveFeedback(taskId,studentId){
+ var box=document.getElementById('classwide-homework-panel'),client=dbNow(),u=userNow(),task=state.tasks.find(function(t){return String(t.id)===String(taskId)});if(!box||!client||!u||!task)return;
+ if(u.role==='teacher'&&!allClasses().some(function(c){return String(c.id)===String(task.class_id)})){notify('ثبت بازخورد فقط برای کلاس خودتان مجاز است.');return}
+ var key=String(taskId)+'_'+String(studentId),status=(box.querySelector('[data-ch-status="'+key+'"]')||{}).value||'',comment=(box.querySelector('[data-ch-comment="'+key+'"]')||{}).value||'';
+ if(['done','partial','not_done'].indexOf(status)<0){notify('وضعیت انجام دانش‌آموز را انتخاب کنید.');return}
+ if(!navigator.onLine||window.isOffline){notify('برای ثبت بازخورد به اینترنت نیاز است.');return}
+ var row={task_id:String(taskId),class_id:String(task.class_id),student_id:String(studentId),status:status,comment:comment.trim(),teacher_username:u.username||'',teacher_name:u.full_name||u.username||'معلم'};
+ try{var result=await client.from('sa_class_homework_feedback').insert(row);if(result.error)throw result.error;var saved=Array.isArray(result.data)?result.data[0]:null;if(saved)state.feedback.unshift(saved);else await load(true);render();notify('بازخورد دانش‌آموز ثبت شد.')}
+ catch(e){notify('ثبت بازخورد ناموفق بود: '+(e.message||e))}
+}
+window.dastyarLoadClasswideHomework=function(force){return load(!!force)};
+var prev=window.go;if(typeof prev==='function'&&!prev.__classwideHomeworkWrapped){var wrap=function(p){var r=prev.apply(this,arguments);if(p==='homework')setTimeout(function(){mount();load(false)},160);return r};wrap.__classwideHomeworkWrapped=true;window.go=wrap}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
+})();
+</script>
+
