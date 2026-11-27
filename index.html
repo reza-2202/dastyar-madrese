@@ -1352,6 +1352,7 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <button class="home-tile" onclick="go('report')"><span class="tile-icon">📋</span><span class="tile-label">کارنامه</span></button>
 <button class="home-tile" onclick="go('charts')"><span class="tile-icon">📊</span><span class="tile-label">نمودار پیشرفت</span></button>
 <button class="home-tile" onclick="go('weekly')"><span class="tile-icon" style="background:#dbeafe">🗓️</span><span class="tile-label">برنامه هفتگی</span></button>
+<button class="home-tile" id="teacher-homework-center-tile" onclick="go('homework')"><span class="tile-icon" style="background:#dcfce7">📚✅</span><span class="tile-label">مرکز تکالیف و بازخورد</span></button>
 <button class="home-tile" id="teacher-class-report-tile" onclick="go('teacherreport')"><span class="tile-icon" style="background:#e0f2fe">📋📈</span><span class="tile-label">گزارش کلاس من</span></button>
 </div>
 </details>
@@ -2055,6 +2056,20 @@ body.app-ready #dastyar-update-check { display:inline-block !important; }
 <div class="card" id="teacher-report-output">
 <div class="empty">نوع گزارش و کلاس را انتخاب کنید.</div>
 </div>
+</div>
+<div class="page" id="page-homework">
+<div class="card" style="border:1px solid #bbf7d0;background:#f0fdf4">
+ <div class="ct">📚 مرکز هوشمند تکالیف و بازخورد</div>
+ <p class="meta" style="line-height:1.9">تکالیف ثبت‌شده از پرسش‌وپاسخ، آزمون، ارزشیابی و انضباط را یکجا ببینید و نتیجه انجام آن‌ها را برای هر دانش‌آموز ثبت کنید. ثبت بازخورد، سابقه قبلی را پاک نمی‌کند.</p>
+</div>
+<div class="card no-print">
+ <div class="fg"><label>کلاس</label><select id="hw-class"></select></div>
+ <div class="fg"><label>نمایش تکالیف</label><select id="hw-filter"><option value="due">سررسید امروز و تکالیف عقب‌افتاده</option><option value="all">همه تکالیف</option></select></div>
+ <div class="fg"><label>تا تاریخ</label><input id="hw-date" type="date"/></div>
+ <button type="button" class="btn btn-p" onclick="window.dastyarLoadHomeworkCenter(true)">🔄 دریافت تکالیف</button>
+ <div id="hw-summary" class="meta" style="margin-top:9px"></div>
+</div>
+<div id="hw-list"><div class="empty">برای دریافت تکالیف، کلاس را انتخاب کنید.</div></div>
 </div>
 <div class="page" id="page-about">
 <div class="card" style="text-align:center">
@@ -14168,6 +14183,8 @@ window.generateParentPortalLink=async function(classId,studentId){
       scores:(cache.scores||[]).filter(x=>String(x.student_id)===String(st.id)),
       competencies:(cache.competencies||[]).filter(x=>String(x.student_id)===String(st.id)),
       discipline:(cache.discipline||[]).filter(x=>String(x.student_id)===String(st.id)),
+      homework_tasks:(window.__dastyarHomeworkPackageTasks||[]).filter(x=>String(x.student_id)===String(st.id)),
+      homework_feedback:(window.__dastyarHomeworkPackageFeedback||[]).filter(x=>String(x.student_id)===String(st.id)),
       parent_contacts:(cache.parent_contacts||[]).filter(x=>String(x.student_id)===String(st.id)),
       achievements:(window.__dastyarAchievementsRows||[]).filter(x=>String(x.student_id)===String(st.id)&&(x.status==='approved'||x.status==='rejected')),finance:(cache.finance||[]).filter(x=>String(x.student_id)===String(st.id))
     };
@@ -14269,6 +14286,8 @@ window.refreshParentPortalPackageAfterFollowup=async function(classId){
     scores:(cache.scores||[]).filter(x=>String(x.student_id)===String(st.id)),
     competencies:(cache.competencies||[]).filter(x=>String(x.student_id)===String(st.id)),
     discipline:(cache.discipline||[]).filter(x=>String(x.student_id)===String(st.id)),
+    homework_tasks:(window.__dastyarHomeworkPackageTasks||[]).filter(x=>String(x.student_id)===String(st.id)),
+    homework_feedback:(window.__dastyarHomeworkPackageFeedback||[]).filter(x=>String(x.student_id)===String(st.id)),
     parent_contacts:(cache.parent_contacts||[]).filter(x=>String(x.student_id)===String(st.id)),
     achievements:(window.__dastyarAchievementsRows||[]).filter(x=>String(x.student_id)===String(st.id)&&(x.status==='approved'||x.status==='rejected')),
     finance:(cache.finance||[]).filter(x=>String(x.student_id)===String(st.id))
@@ -16188,6 +16207,193 @@ html,body,#app,#app *{scroll-behavior:auto!important}
 <!-- Removed global touch-move click suppression: native click handling keeps dashboard cards responsive. -->
 
 
+<script id="dastyar-homework-feedback-center-v1">
+(function(){
+'use strict';
+if(window.__dastyarHomeworkFeedbackCenterV1)return;
+window.__dastyarHomeworkFeedbackCenterV1=true;
+var state={tasks:[],feedback:[],classes:[],loadedAt:0,loading:false};
+function currentUser(){try{return window.user||user||null;}catch(e){return window.user||null;}}
+function db(){try{return window.sb||sb||null;}catch(e){return window.sb||null;}}
+function appCache(){try{return window.cache||cache||{};}catch(e){return window.cache||{};}}
+function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function digits(v){return String(v==null?'':v).replace(/[0-9]/g,function(d){return '۰۱۲۳۴۵۶۷۸۹'[Number(d)];});}
+function notify(v){try{if(typeof toast==='function')toast(v);else console.log(v);}catch(e){console.log(v);}}
+function todayIso(){var d=new Date(Date.now()-new Date().getTimezoneOffset()*60000);return d.toISOString().slice(0,10);}
+function faDate(v){if(!v)return '—';try{return new Date(String(v).slice(0,10)+'T12:00:00').toLocaleDateString('fa-IR-u-ca-persian');}catch(e){return String(v);}}
+function statusLabel(v){return v==='done'?'انجام داده':v==='partial'?'ناقص انجام داده':v==='not_done'?'انجام نداده':'ثبت نشده';}
+function sourceLabel(v){var m={daily_qa:'پرسش و پاسخ روزانه',exam:'آزمون',discipline:'ثبت انضباطی',monthly_assessment:'ارزشیابی ماهانه'};return m[v]||'ثبت آموزشی';}
+function classesForUser(){
+ var u=currentUser(),c=appCache(),all=Array.isArray(c.classes)?c.classes:[];
+ if(!u)return [];
+ if(u.role==='teacher'){
+  try{return typeof myClasses==='function'?myClasses():all.filter(function(x){return (u.class_ids||[]).map(String).indexOf(String(x.id))>=0;});}catch(e){return [];}
+ }
+ return all;
+}
+function allowedClass(id){var u=currentUser();if(!u)return false;if(u.role!=='teacher')return true;return classesForUser().some(function(c){return String(c.id)===String(id);});}
+function fallbackTasks(studentId){
+ var c=appCache(),rows=Array.isArray(c.student_guidance)?c.student_guidance:[];
+ return rows.filter(function(g){return g&&String(g.homework||'').trim()&&(!studentId||String(g.student_id)===String(studentId));}).map(function(g){
+  var assigned=g.created_at?new Date(g.created_at):new Date(),due=new Date(assigned.getTime()+86400000);
+  return {id:'local-'+String(g.id),guidance_id:String(g.id),student_id:g.student_id,class_id:g.class_id,source_type:g.source_type,source_id:g.source_id,subject:g.subject,homework:g.homework,guidance:g.guidance,duration:g.duration,assigned_by:g.created_by,assigned_at:g.created_at,due_date:due.toISOString().slice(0,10),active:true};
+ });
+}
+async function queryHomework(classId){
+ var client=db();if(!client||!navigator.onLine||window.isOffline)throw new Error('برای دریافت آخرین تکالیف و ثبت بازخورد، اتصال اینترنت لازم است.');
+ var tasksQuery=client.from('sa_homework_tasks').select('*').order('due_date',{ascending:true}).limit(3000);
+ var feedbackQuery=client.from('sa_homework_feedback').select('*').order('created_at',{ascending:false}).limit(5000);
+ var results=await Promise.all([tasksQuery,feedbackQuery]);
+ if(results[0]&&results[0].error)throw results[0].error;
+ if(results[1]&&results[1].error)throw results[1].error;
+ state.tasks=Array.isArray(results[0].data)?results[0].data:[];
+ state.feedback=Array.isArray(results[1].data)?results[1].data:[];
+ state.loadedAt=Date.now();
+ window.__dastyarHomeworkTasks=state.tasks;
+ window.__dastyarHomeworkFeedback=state.feedback;
+}
+function studentName(id){var s=(appCache().students||[]).find(function(x){return String(x.id)===String(id);});return s?((s.first_name||'')+' '+(s.last_name||'')).trim():'دانش‌آموز';}
+function className(id){var c=(appCache().classes||[]).find(function(x){return String(x.id)===String(id);});return c&&c.label||'';}
+function latestFeedback(taskId){return state.feedback.filter(function(f){return String(f.task_id)===String(taskId);}).sort(function(a,b){return String(b.created_at||'').localeCompare(String(a.created_at||''));})[0]||null;}
+function feedbackHistory(taskId){return state.feedback.filter(function(f){return String(f.task_id)===String(taskId);}).sort(function(a,b){return String(b.created_at||'').localeCompare(String(a.created_at||''));});}
+function renderHistory(task){
+ var rows=feedbackHistory(task.id);
+ if(!rows.length)return '<div class="meta" style="margin-top:8px">هنوز بازخوردی برای این تکلیف ثبت نشده است.</div>';
+ return '<div style="margin-top:9px;padding:9px;border-radius:10px;background:#f8fafc;border:1px solid #e2e8f0"><b>سوابق بازخورد معلم</b>'+rows.map(function(f){return '<div style="padding:7px 0;border-bottom:1px solid #e2e8f0"><b>'+esc(statusLabel(f.status))+'</b> <small class="meta">— '+esc(faDate(f.created_at))+' — '+esc(f.teacher_name||'معلم')+'</small>'+(f.comment?'<div style="white-space:pre-wrap;margin-top:4px">'+esc(f.comment)+'</div>':'')+(f.next_step?'<div style="white-space:pre-wrap;margin-top:4px;color:#1d4ed8"><b>اصلاحیه / پیگیری:</b> '+esc(f.next_step)+'</div>':'')+'</div>';}).join('')+'</div>';
+}
+function renderTasks(){
+ var root=document.getElementById('hw-list'),summary=document.getElementById('hw-summary');if(!root)return;
+ var classId=(document.getElementById('hw-class')||{}).value||'',filter=(document.getElementById('hw-filter')||{}).value||'due',date=(document.getElementById('hw-date')||{}).value||todayIso();
+ var rows=state.tasks.filter(function(t){return t&&t.active!==false&&allowedClass(t.class_id)&&(!classId||classId==='all'||String(t.class_id)===String(classId));});
+ if(filter==='due')rows=rows.filter(function(t){return String(t.due_date||'')<=String(date);});
+ rows.sort(function(a,b){return String(a.due_date||'').localeCompare(String(b.due_date||''))||String(a.assigned_at||'').localeCompare(String(b.assigned_at||''));});
+ var counts={done:0,partial:0,not_done:0,none:0};
+ rows.forEach(function(t){var f=latestFeedback(t.id);if(f&&counts[f.status]!=null)counts[f.status]++;else counts.none++;});
+ if(summary)summary.textContent='تعداد: '+digits(rows.length)+' | انجام‌شده: '+digits(counts.done)+' | ناقص: '+digits(counts.partial)+' | انجام‌نشده: '+digits(counts.not_done)+' | بدون بازخورد: '+digits(counts.none);
+ if(!rows.length){root.innerHTML='<div class="empty">برای این فیلتر تکلیف سررسیدشده‌ای وجود ندارد.</div>';return;}
+ root.innerHTML=rows.map(function(t){
+  var id=String(t.id),f=latestFeedback(t.id),st=(appCache().students||[]).find(function(s){return String(s.id)===String(t.student_id);});
+  return '<section class="card" style="border-right:4px solid #16a34a;margin:10px 0;padding:13px">'+
+   '<div class="name">'+esc(studentName(t.student_id))+'</div>'+
+   '<div class="meta">کلاس: '+esc(className(t.class_id))+' | درس/موضوع: '+esc(t.subject||'—')+'</div>'+
+   '<div class="meta">منبع: '+esc(sourceLabel(t.source_type))+' | تاریخ تحویل: '+esc(faDate(t.due_date))+'</div>'+
+   '<div style="margin-top:9px;white-space:pre-wrap"><b>تکلیف:</b> '+esc(t.homework||'')+'</div>'+
+   (t.guidance?'<div style="margin-top:6px;white-space:pre-wrap;color:#475569"><b>راهکار:</b> '+esc(t.guidance)+'</div>':'')+
+   (t.duration?'<div class="meta">مدت/تکرار: '+esc(t.duration)+'</div>':'')+
+   '<div class="meta" style="margin-top:5px">ثبت‌کننده: '+esc(t.assigned_by||'معلم')+'</div>'+
+   '<div class="card no-print" style="padding:10px;margin-top:10px;background:#f8fbff;border:1px solid #bfdbfe">'+
+    '<div class="ct">ثبت بازخورد انجام تکلیف</div>'+
+    '<div class="fg"><label>وضعیت انجام</label><select id="hw-status-'+esc(id)+'"><option value="">انتخاب وضعیت</option><option value="done" '+(f&&f.status==='done'?'selected':'')+'>انجام داده</option><option value="partial" '+(f&&f.status==='partial'?'selected':'')+'>ناقص انجام داده</option><option value="not_done" '+(f&&f.status==='not_done'?'selected':'')+'>انجام نداده</option></select></div>'+
+    '<div class="fg"><label>توضیحات و نظر معلم</label><textarea id="hw-comment-'+esc(id)+'" rows="2" placeholder="مثلاً تمرین‌ها کامل و درست انجام شده‌اند...">'+esc(f&&f.comment||'')+'</textarea></div>'+
+    '<div class="fg"><label>اصلاحیه یا تکلیف پیگیری (اختیاری)</label><textarea id="hw-next-'+esc(id)+'" rows="2" placeholder="اگر لازم است، مشخص کنید دانش‌آموز چه چیزی را اصلاح یا تمرین کند...">'+esc(f&&f.next_step||'')+'</textarea></div>'+
+    '<button type="button" class="btn btn-p btn-sm" onclick="window.dastyarSaveHomeworkFeedback(\''+esc(id)+'\')">💾 ثبت بازخورد</button>'+
+    (f?'<button type="button" class="btn btn-s btn-sm" style="margin-right:5px" onclick="window.dastyarShareHomeworkFeedback(\''+esc(id)+'\')">📤 اشتراک‌گذاری در شاد و پیام‌رسان‌ها</button>':'')+
+   '</div>'+renderHistory(t)+'</section>';
+ }).join('');
+}
+async function loadCenter(force){
+ if(state.loading)return;
+ var u=currentUser();if(!u){notify('ابتدا وارد برنامه شوید');return;}
+ var cls=classesForUser(),sel=document.getElementById('hw-class');if(!sel)return;
+ state.classes=cls;
+ var old=sel.value;
+ sel.innerHTML=(u.role==='teacher'?'':'<option value="all">همه کلاس‌ها</option>')+cls.map(function(c){return '<option value="'+esc(c.id)+'">'+esc(c.label||c.id)+'</option>';}).join('');
+ if(old&&Array.from(sel.options).some(function(o){return o.value===old;}))sel.value=old;
+ else if(u.role==='teacher'&&cls.length)sel.value=String(cls[0].id);
+ else if(u.role!=='teacher')sel.value='all';
+ if(!document.getElementById('hw-date').value)document.getElementById('hw-date').value=todayIso();
+ if(force||!state.loadedAt||Date.now()-state.loadedAt>30000){
+  state.loading=true;var root=document.getElementById('hw-list');if(root)root.innerHTML='<div class="empty">در حال دریافت تکالیف و بازخوردها…</div>';
+  try{await queryHomework();}
+  catch(e){console.warn('Homework center load failed',e);if(root)root.innerHTML='<div class="card" style="background:#fff7ed;color:#9a3412">دریافت اطلاعات ناموفق بود: '+esc(e&&e.message||e)+'</div>';state.loading=false;return;}
+  state.loading=false;
+ }
+ renderTasks();
+}
+function shareText(task,f){
+ var msg='دبستان شهید فتح‌الله فلاح‌پور\nگزارش انجام تکلیف دانش‌آموز\nدانش‌آموز: '+studentName(task.student_id)+'\nکلاس: '+className(task.class_id)+'\nدرس/موضوع: '+(task.subject||'—')+'\nتکلیف: '+(task.homework||'—')+'\nتاریخ تحویل: '+faDate(task.due_date)+'\nوضعیت: '+statusLabel(f.status)+'\nبازخورد معلم: '+(f.comment||'—')+(f.next_step?'\nاصلاحیه یا پیگیری: '+f.next_step:'')+'\n\nمعلم: '+(f.teacher_name||'معلم کلاس');
+ return msg;
+}
+async function shareTextToApps(text,title){
+ if(navigator.share){try{await navigator.share({title:title||'بازخورد تکلیف دانش‌آموز',text:text});return;}catch(e){if(e&&e.name==='AbortError')return;console.warn('Native share unavailable',e);}}
+ try{if(navigator.clipboard&&navigator.clipboard.writeText){await navigator.clipboard.writeText(text);notify('متن بازخورد کپی شد؛ می‌توانید شاد یا پیام‌رسان دلخواه را انتخاب و ارسال کنید.');return;}}catch(e){}
+ try{window.prompt('متن آماده اشتراک‌گذاری را کپی کنید:',text);}catch(e){notify('امکان اشتراک‌گذاری در این مرورگر فراهم نشد.');}
+}
+window.dastyarSaveHomeworkFeedback=async function(taskId){
+ var task=state.tasks.find(function(t){return String(t.id)===String(taskId);}),u=currentUser(),client=db();
+ if(!task||!u||!client){notify('تکلیف یا اتصال پایگاه‌داده پیدا نشد');return;}
+ if(u.role==='teacher'&&!allowedClass(task.class_id)){notify('ثبت بازخورد فقط برای کلاس خودتان مجاز است');return;}
+ if(!navigator.onLine||window.isOffline){notify('برای ثبت بازخورد به اینترنت نیاز است؛ متن را نگه دارید و پس از اتصال دوباره ثبت کنید.');return;}
+ var status=(document.getElementById('hw-status-'+taskId)||{}).value||'',comment=(document.getElementById('hw-comment-'+taskId)||{}).value||'',next=(document.getElementById('hw-next-'+taskId)||{}).value||'';
+ if(['done','partial','not_done'].indexOf(status)<0){notify('وضعیت انجام تکلیف را انتخاب کنید');return;}
+ var row={id:(typeof uid==='function'?uid():String(Date.now())),task_id:task.id,student_id:String(task.student_id),class_id:String(task.class_id),status:status,comment:String(comment).trim(),next_step:String(next).trim(),teacher_username:u.username||'',teacher_name:u.full_name||'',created_at:new Date().toISOString()};
+ var result=await client.from('sa_homework_feedback').insert(row);
+ if(result&&result.error){notify('ثبت بازخورد ناموفق بود: '+result.error.message);return;}
+ state.feedback.unshift(row);window.__dastyarHomeworkFeedback=state.feedback;
+ notify('بازخورد برای '+studentName(task.student_id)+' ثبت شد.');
+ renderTasks();
+ if(navigator.onLine&&!window.isOffline&&typeof window.refreshParentPortalPackageAfterFollowup==='function'){
+  Promise.resolve().then(async function(){
+   await loadPackageRows(task.class_id,true);
+   return window.refreshParentPortalPackageAfterFollowup(task.class_id);
+  }).catch(function(e){console.warn('Parent homework package refresh skipped',e);});
+ }
+};
+window.dastyarShareHomeworkFeedback=async function(taskId){
+ var task=state.tasks.find(function(t){return String(t.id)===String(taskId);}),f=task&&latestFeedback(task.id);
+ if(!task||!f){notify('ابتدا بازخورد این تکلیف را ثبت کنید');return;}
+ await shareTextToApps(shareText(task,f),'بازخورد تکلیف '+studentName(task.student_id));
+};
+window.dastyarLoadHomeworkCenter=function(force){return loadCenter(!!force);};
+var originalGo=window.go;
+if(typeof originalGo==='function'){
+ window.go=function(p){var r=originalGo.apply(this,arguments);if(p==='homework'){setTimeout(function(){var h=document.getElementById('ht');if(h)h.textContent='مرکز تکالیف و بازخورد';loadCenter(false);},120);}return r;};
+}
+var originalDossier=window.openStudentDossier;
+async function injectDossierHomework(studentId){
+ var root=document.getElementById('print-student-dossier');if(!root)return;
+ var old=document.getElementById('dossier-homework-history');if(old)old.remove();
+ var tasks=[],feedback=[];
+ try{
+  var client=db();
+  if(client&&navigator.onLine&&!window.isOffline){
+   var results=await Promise.all([
+    client.from('sa_homework_tasks').select('*').eq('student_id',String(studentId)).order('assigned_at',{ascending:false}).limit(500),
+    client.from('sa_homework_feedback').select('*').eq('student_id',String(studentId)).order('created_at',{ascending:false}).limit(1000)
+   ]);
+   if(results[0]&&!results[0].error&&Array.isArray(results[0].data))tasks=results[0].data;
+   if(results[1]&&!results[1].error&&Array.isArray(results[1].data))feedback=results[1].data;
+  }else tasks=fallbackTasks(studentId);
+ }catch(e){console.warn('Dossier homework history load failed',e);tasks=fallbackTasks(studentId);}
+ var html='<section id="dossier-homework-history" class="card dossier-section" style="border:1px solid #86efac;background:#f0fdf4"><div class="ct">📚 تکالیف و بازخورد معلم ('+digits(tasks.length)+')</div>';
+ if(!tasks.length)html+='<div class="empty">تکلیف ثبت‌شده‌ای وجود ندارد.</div>';
+ tasks.sort(function(a,b){return String(b.assigned_at||'').localeCompare(String(a.assigned_at||''));}).forEach(function(t){
+  var hist=feedback.filter(function(f){return String(f.task_id)===String(t.id);}).sort(function(a,b){return String(b.created_at||'').localeCompare(String(a.created_at||''));});
+  html+='<div style="padding:8px 0;border-bottom:1px solid #bbf7d0;break-inside:avoid"><b>'+esc(t.subject||'تکلیف')+'</b><div class="meta">تاریخ تحویل: '+esc(faDate(t.due_date))+' | منبع: '+esc(sourceLabel(t.source_type))+'</div><div style="white-space:pre-wrap;margin-top:4px"><b>تکلیف:</b> '+esc(t.homework||'')+'</div>'+(t.guidance?'<div style="white-space:pre-wrap"><b>راهکار:</b> '+esc(t.guidance)+'</div>':'')+hist.map(function(f){return '<div style="margin-top:6px;padding:7px;background:#fff;border-radius:8px"><b>وضعیت:</b> '+esc(statusLabel(f.status))+' — '+esc(faDate(f.created_at))+(f.comment?'<div style="white-space:pre-wrap"><b>بازخورد:</b> '+esc(f.comment)+'</div>':'')+(f.next_step?'<div style="white-space:pre-wrap"><b>اصلاحیه:</b> '+esc(f.next_step)+'</div>':'')+'</div>';}).join('')+'</div>';
+ });
+ html+='</section>';root.insertAdjacentHTML('beforeend',html);
+}
+if(typeof originalDossier==='function'){
+ window.openStudentDossier=function(id){var r=originalDossier.apply(this,arguments);Promise.resolve().then(function(){return injectDossierHomework(id);});return r;};
+}
+async function loadPackageRows(classId,force){
+ var now=Date.now();
+ if(!force&&window.__dastyarHomeworkPackageClass===String(classId)&&now-(window.__dastyarHomeworkPackageAt||0)<30000)return;
+ var client=db();if(!client||!navigator.onLine||window.isOffline){window.__dastyarHomeworkPackageTasks=[];window.__dastyarHomeworkPackageFeedback=[];return;}
+ var results=await Promise.all([
+  client.from('sa_homework_tasks').select('*').eq('class_id',String(classId)).order('assigned_at',{ascending:false}).limit(3000),
+  client.from('sa_homework_feedback').select('*').eq('class_id',String(classId)).order('created_at',{ascending:false}).limit(5000)
+ ]);
+ if(results[0]&&results[0].error)throw results[0].error;
+ if(results[1]&&results[1].error)throw results[1].error;
+ window.__dastyarHomeworkPackageTasks=Array.isArray(results[0].data)?results[0].data:[];
+ window.__dastyarHomeworkPackageFeedback=Array.isArray(results[1].data)?results[1].data:[];
+ window.__dastyarHomeworkPackageClass=String(classId);window.__dastyarHomeworkPackageAt=now;
+}
+var oldGenerate=window.generateParentPortalLink;
+if(typeof oldGenerate==='function')window.generateParentPortalLink=async function(classId){try{await loadPackageRows(classId,true);}catch(e){console.warn('Parent package homework load failed',e);window.__dastyarHomeworkPackageTasks=[];window.__dastyarHomeworkPackageFeedback=[];}return oldGenerate.apply(this,arguments);};
+})();
+</script>
 </body>
 </html>
 
