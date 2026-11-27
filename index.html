@@ -8590,31 +8590,19 @@ async function flushDastyarDashboardRealtimeChanges(){
 // اتصال Realtime مستقل و تنبل بارگذاری می‌شود؛ کلاینت REST/آفلاین فعلی برنامه تغییر نمی‌کند.
 function ensureSchoolDocumentRealtimeSync(){
   if(!window.sb||!user||!navigator.onLine||window.isOffline)return;
+  startDashboardDocumentCounterFallback();
   if(__dastyarDocumentsRealtimeChannel&&__dastyarDocumentsRealtimeClient===sb&&__dastyarRealtimeRole===user.role)return;
   if(__dastyarRealtimeClientPromise)return;
   __dastyarRealtimeClientPromise=(async function(){
-    var createRealtimeClient=null;
-    try{
-      var realtimeModule=await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2/+esm');
-      createRealtimeClient=realtimeModule&&realtimeModule.createClient;
-    }catch(primaryError){
-      var fallbackModule=await import('https://esm.sh/@supabase/supabase-js@2.119.2');
-      createRealtimeClient=fallbackModule&&fallbackModule.createClient;
-    }
-    if(typeof createRealtimeClient!=='function')throw new Error('کتابخانه اتصال زنده Supabase بارگذاری نشد');
-    if(!__dastyarRealtimeSdkClient){
-      __dastyarRealtimeSdkClient=createRealtimeClient(SB_URL,SB_KEY,{
-        auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},
-        global:{headers:{'x-client-info':'dastyar-madrese-realtime'}},
-        realtime:{params:{eventsPerSecond:5}}
-      });
-    }
-    if(__dastyarDocumentsRealtimeChannel){
-      try{await __dastyarRealtimeSdkClient.removeChannel(__dastyarDocumentsRealtimeChannel);}catch(e){}
+    // از همان کلاینت اصلی برنامه استفاده می‌کنیم؛ کلاینت دوم و بارگذاری پویا
+    // کتابخانه حذف شده تا اتصال Realtime با تنظیمات/نسخه متفاوت ساخته نشود.
+    if(__dastyarDocumentsRealtimeChannel&&__dastyarDocumentsRealtimeClient){
+      try{await __dastyarDocumentsRealtimeClient.removeChannel(__dastyarDocumentsRealtimeChannel);}catch(e){}
       __dastyarDocumentsRealtimeChannel=null;
     }
-    var channel=__dastyarRealtimeSdkClient.channel('dastyar-school-dashboard-live-counters');
-    // فقط مدیر رویدادهای داده‌ای معلمان را دریافت می‌کند؛ بدون polling دائمی.
+    if(typeof sb.channel!=='function')throw new Error('اتصال زنده در کلاینت اصلی سرور در دسترس نیست');
+    var channel=sb.channel('dastyar-school-dashboard-live-counters');
+    // مدیر همه تغییرات لازم داشبورد را می‌گیرد؛ معلم فقط تغییرات فایل‌های مشترک را.
     var watchedTables=user.role==='admin'
       ?['sa_documents','sa_activities','sa_evaluations','sa_discipline','sa_attendance','sa_scores','sa_competencies','sa_finance','sa_student_guidance','sa_students','sa_classes','sa_achievements','sa_messages','sa_homework_tasks','sa_homework_feedback','sa_class_homework','sa_class_homework_feedback']
       :['sa_documents'];
@@ -8640,7 +8628,7 @@ function ensureSchoolDocumentRealtimeSync(){
           __dastyarRealtimeRetryTimer=setTimeout(function(){
             __dastyarRealtimeRetryTimer=null;
             ensureSchoolDocumentRealtimeSync();
-          },6000);
+          },5000);
         }
       }
     });
@@ -8650,9 +8638,22 @@ function ensureSchoolDocumentRealtimeSync(){
       __dastyarRealtimeRetryTimer=setTimeout(function(){
         __dastyarRealtimeRetryTimer=null;
         ensureSchoolDocumentRealtimeSync();
-      },10000);
+      },8000);
     }
   }).finally(function(){__dastyarRealtimeClientPromise=null;});
+}
+var __dastyarDocumentCounterFallbackTimer=null;
+function startDashboardDocumentCounterFallback(){
+  if(__dastyarDocumentCounterFallbackTimer)return;
+  // مسیر پشتیبان فقط وقتی داشبورد واقعاً باز و قابل مشاهده است اجرا می‌شود.
+  // Realtime مسیر فوری می‌ماند؛ این بررسی سبک هر ۱۵ ثانیه قطعی/رویداد ازدست‌رفته را جبران می‌کند.
+  __dastyarDocumentCounterFallbackTimer=setInterval(function(){
+    if(!window.user||!window.sb||!navigator.onLine||window.isOffline||document.visibilityState!=='visible')return;
+    var page=document.querySelector('.page.on');
+    if(!page||page.id!=='page-dashboard'||__dastyarDashboardDocsRefreshPromise)return;
+    __dastyarDashboardDocsRefreshAt=0;
+    refreshDashboardDocumentCache();
+  },15000);
 }
 async function loadSchoolDocuments(){
   try{ensureSchoolDocumentRealtimeSync();}catch(e){}
