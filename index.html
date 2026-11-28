@@ -3988,14 +3988,19 @@ async function refreshDashboardDocumentCache(){
       classes.forEach(function(c){[c.teacher_name,c.teacher_user].filter(Boolean).forEach(function(x){identities.add(String(x).trim());});});
       rows=rows.filter(function(d){return allowed.has(String(d.class_id||''))||identities.has(String(d.teacher_username||'').trim())||identities.has(String(d.teacher_name||'').trim());});
     }
-    cache.documents=rows;
-    try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
-    return rows.length;
-  })().then(function(n){
-    // پس از دریافت وضعیت مشترک فایل‌ها، اعلان معلم را نیز از همان داده سرور تازه‌سازی کن.
-    try{if(window.user&&user.role==='teacher'&&typeof renderTeacherNotices==='function')renderTeacherNotices();}catch(e){}
-    try{refreshDash();}catch(e){}
-    return n;
+    var changed=JSON.stringify(cache.documents||[])!==JSON.stringify(rows);
+    if(changed){
+      cache.documents=rows;
+      try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
+    }
+    return {count:rows.length,changed:changed};
+  })().then(function(result){
+    // فقط در صورت تغییر واقعی داده، DOM و اعلان‌ها را دوباره بساز.
+    if(result&&result.changed){
+      try{if(window.user&&user.role==='teacher'&&typeof renderTeacherNotices==='function')renderTeacherNotices();}catch(e){}
+      try{refreshDash();}catch(e){}
+    }
+    return result&&typeof result.count==='number'?result.count:0;
   }).catch(function(e){
     console.warn('dashboard document refresh',e);
     return 0;
@@ -4034,6 +4039,9 @@ async function refreshDashboardEvaluationDisciplineCache(){
         });
       });
     }catch(queueError){console.warn('dashboard evaluation/discipline pending overlay',queueError);}
+    var changed=JSON.stringify(cache.evaluations||[])!==JSON.stringify(evaluations)||
+      JSON.stringify(cache.discipline||[])!==JSON.stringify(discipline);
+    if(!changed)return false;
     cache.evaluations=evaluations;
     cache.discipline=discipline;
     try{persistLocalSchoolCache();}catch(e){}
@@ -16567,6 +16575,10 @@ if(typeof oldGenerate==='function')window.generateParentPortalLink=async functio
   transform:none!important;
 }
 #page-dashboard .home-tile:after{transition:none!important}
+</style>
+<style id="dastyar-instant-dashboard-accordion-20261128">
+#page-dashboard .home-tile-group .home-tiles-grid{animation:none!important}
+#page-dashboard .home-tile-group{transition:none!important}
 </style>
 </body>
 </html>
