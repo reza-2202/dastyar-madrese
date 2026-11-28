@@ -4367,7 +4367,7 @@ function ensureStudentPhotosFromServer(force){
  studentPhotoRefreshPromise=refreshStudentPhotosFromServer(false).catch(function(e){console.warn('دریافت عکس دانش‌آموزان از سرور ناموفق بود:',e);return false;}).then(function(result){return result;}).finally(function(){studentPhotoRefreshPromise=null;});
  return studentPhotoRefreshPromise;
 }
-function studentAvatarHtml(s,size){size=size||36;var ph=(s&&s.photo)?String(s.photo):'';if(ph)return '<img src="'+ph.replace(/"/g,'')+'" alt="" loading="lazy" style="width:'+size+'px;height:'+size+'px;border-radius:50%;object-fit:cover;border:1px solid #cbd5e1;flex-shrink:0;vertical-align:middle"/>';return '<span style="width:'+size+'px;height:'+size+'px;border-radius:50%;background:#e2e8f0;display:inline-flex;align-items:center;justify-content:center;font-size:'+Math.max(12,Math.round(size*.45))+'px;flex-shrink:0">👤</span>';}
+function studentAvatarHtml(s,size){size=size||36;var ph=(s&&s.photo)?String(s.photo):'';if(ph)return '<img src="'+ph.replace(/"/g,'')+'" alt="" loading="lazy" decoding="async" style="width:'+size+'px;height:'+size+'px;border-radius:50%;object-fit:cover;border:1px solid #cbd5e1;flex-shrink:0;vertical-align:middle"/>';return '<span style="width:'+size+'px;height:'+size+'px;border-radius:50%;background:#e2e8f0;display:inline-flex;align-items:center;justify-content:center;font-size:'+Math.max(12,Math.round(size*.45))+'px;flex-shrink:0">👤</span>';}
 function studentNameWithPhoto(s,size){var name=(((s&&s.first_name)||'')+' '+((s&&s.last_name)||'')).trim()||'—';var esc=(typeof escHtml==='function')?escHtml:function(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};return '<span style="display:inline-flex;align-items:center;gap:8px">'+studentAvatarHtml(s,size||36)+'<span>'+esc(name)+'</span></span>';}
 function cropStudentPhoto(file){return new Promise(function(resolve,reject){
  var reader=new FileReader();reader.onerror=function(){reject(new Error('خواندن عکس ناموفق بود'));};
@@ -4473,7 +4473,7 @@ function renderStudents(){
     const labels={first_name:'نام',last_name:'نام خانوادگی',code:'کد دانش‌آموزی',father_name:'نام پدر',mother_name:'نام مادر',father_job:'شغل پدر',mother_job:'شغل مادر',father_education:'تحصیلات پدر',mother_education:'تحصیلات مادر',birth_order:'ترتیب تولد',religion:'دین',nationality:'ملیت',low_income:'وضعیت کم‌برخوردار',father_phone:'تلفن پدر',mother_phone:'تلفن مادر',guardian_phone:'تلفن سرپرست',shad_phone:'شماره تلفن شاد',emergency_phone_1:'شماره اضطراری و تماس ۱',emergency_phone_2:'شماره اضطراری و تماس ۲',emergency_phone_3:'شماره اضطراری و تماس ۳',gender:'جنسیت',birth_date:'تاریخ تولد',address:'نشانی'};
     const skip=new Set(['id','class_id','created_at','updated_at','school_id','teacher_id','user_id','first_name','last_name','code','father_name','shad_phone','emergency_phone_1','emergency_phone_2','emergency_phone_3','nationality','birth_date','photo','photo_url','photo_data','image','avatar']);
     const extras=Object.keys(s).filter(function(k){if(skip.has(k)||s[k]==null||s[k]==='')return false;var lk=k.toLowerCase();if(['password','token','secret','photo','image','avatar'].some(function(x){return lk.indexOf(x)>=0;}))return false;var val=s[k];if(typeof val==='string'&&(val.indexOf('data:image')===0||val.length>180))return false;return true;}).map(function(k){return '<div class="fg"><label>'+safe(labels[k]||k.replace(/_/g,' '))+'</label><div class="student-detail-value">'+safe(typeof s[k]==='boolean'?(s[k]?'بله':'خیر'):s[k])+'</div></div>';}).join('');
-    return '<details class="student-details student-card" data-student-id="'+safe(s.id)+'"><summary><span style="display:flex;align-items:center;gap:8px">'+(s.photo?('<img src="'+String(s.photo).replace(/"/g,'')+'" alt="" onerror="this.onerror=null;ensureStudentPhotosFromServer(true)" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid #93c5fd"/>'):'<span style="width:40px;height:40px;border-radius:50%;background:#e2e8f0;display:inline-flex;align-items:center;justify-content:center">👤</span>')+'<span><span class="name">'+full+'</span><span class="meta" style="display:block">'+safe(cl?cl.label:'کلاس ثبت نشده')+' | آموزگار: '+safe(assignedTeacher)+' | کد: '+safe(s.code||'ثبت نشده')+'</span></span></span></summary><div class="student-head" style="padding:10px"><div class="meta">کلاس: '+safe(cl?cl.label:'کلاس ثبت نشده')+' | آموزگار مسئول: '+safe(assignedTeacher)+'</div><div class="no-print" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0">'+(s.photo?('<img src="'+String(s.photo).replace(/"/g,'')+'" onerror="this.onerror=null;ensureStudentPhotosFromServer(true)" style="width:64px;height:64px;border-radius:12px;object-fit:cover;border:1px solid #cbd5e1"/>'):'')+'<label class="btn btn-o btn-sm" style="cursor:pointer">📷 بارگذاری/تغییر عکس<input type="file" accept="image/*" style="display:none" onchange="setStudentPhoto(\''+safe(s.id)+'\',this)"/></label>'+(s.photo?('<button type="button" class="btn btn-o btn-sm" style="color:#dc2626" onclick="removeStudentPhoto(\''+safe(s.id)+'\')">حذف عکس</button>'):'')+'</div><button class="btn btn-o btn-sm no-print" style="color:#1d4ed8;border-color:#93c5fd" onclick="showEditStudent(\''+safe(s.id)+'\')">✏️ ویرایش</button><button class="btn btn-o btn-sm no-print" style="color:#dc2626;border-color:#fecaca" onclick="deleteStudent(\''+safe(s.id)+'\',\''+full+'\')">حذف دانش‌آموز</button></div><div class="student-contacts student-all-details"><div class="fg"><label>نام</label><div class="student-detail-value">'+safe(s.first_name)+'</div></div><div class="fg"><label>نام خانوادگی</label><div class="student-detail-value">'+safe(s.last_name)+'</div></div><div class="fg"><label>کلاس</label><div class="student-detail-value">'+safe(cl?cl.label:'ثبت نشده')+'</div></div><div class="fg"><label>کد دانش‌آموزی</label><div class="student-detail-value">'+safe(s.code)+'</div></div><div class="fg"><label>نام پدر</label><div class="student-detail-value">'+safe(s.father_name)+'</div></div>'+extras+'<div class="fg"><label>ملیت / تابعیت</label><select class="contact-input" id="nat-'+safe(s.id)+'"><option value="" '+(!s.nationality?'selected':'')+'>انتخاب کنید</option><option value="ایران" '+(s.nationality==='ایران'?'selected':'')+'>ایران</option><option value="افغانستان" '+(s.nationality==='افغانستان'?'selected':'')+'>افغانستان</option><option value="سایر" '+(s.nationality==='سایر'?'selected':'')+'>سایر</option></select></div><div class="fg"><label>تاریخ تولد شمسی</label><input class="contact-input" id="birth-'+safe(s.id)+'" inputmode="numeric" value="'+safe(s.birth_date||'')+'" placeholder="مثلاً ۱۳۹۴/۰۲/۲۲"/></div><div class="fg"><label>شماره تلفن شاد</label><input class="contact-input" id="shad-'+safe(s.id)+'" inputmode="tel" value="'+safe(s.shad_phone||'')+'" placeholder="ثبت نشده — شماره شاد"/></div><div class="fg"><label>شماره اضطراری و تماس ۱</label><input class="contact-input" id="em1-'+safe(s.id)+'" inputmode="tel" value="'+safe(s.emergency_phone_1||'')+'" placeholder="ثبت نشده — شماره اول"/></div><div class="fg"><label>شماره اضطراری و تماس ۲</label><input class="contact-input" id="em2-'+safe(s.id)+'" inputmode="tel" value="'+safe(s.emergency_phone_2||'')+'" placeholder="ثبت نشده — اختیاری"/></div><div class="fg"><label>شماره اضطراری و تماس ۳</label><input class="contact-input" id="em3-'+safe(s.id)+'" inputmode="tel" value="'+safe(s.emergency_phone_3||'')+'" placeholder="ثبت نشده — اختیاری"/></div><button class="btn btn-p btn-sm no-print" onclick="saveStudentContacts(\''+safe(s.id)+'\')">💾 ذخیره مشخصات و شماره‌ها</button></div></details>';
+    return '<details class="student-details student-card" data-student-id="'+safe(s.id)+'"><summary><span style="display:flex;align-items:center;gap:8px">'+(s.photo?('<img src="'+String(s.photo).replace(/"/g,'')+'" alt="" decoding="async" onerror="this.onerror=null;ensureStudentPhotosFromServer(true)" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid #93c5fd"/>'):'<span style="width:40px;height:40px;border-radius:50%;background:#e2e8f0;display:inline-flex;align-items:center;justify-content:center">👤</span>')+'<span><span class="name">'+full+'</span><span class="meta" style="display:block">'+safe(cl?cl.label:'کلاس ثبت نشده')+' | آموزگار: '+safe(assignedTeacher)+' | کد: '+safe(s.code||'ثبت نشده')+'</span></span></span></summary><div class="student-head" style="padding:10px"><div class="meta">کلاس: '+safe(cl?cl.label:'کلاس ثبت نشده')+' | آموزگار مسئول: '+safe(assignedTeacher)+'</div><div class="no-print" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0">'+(s.photo?('<img src="'+String(s.photo).replace(/"/g,'')+'" onerror="this.onerror=null;ensureStudentPhotosFromServer(true)" style="width:64px;height:64px;border-radius:12px;object-fit:cover;border:1px solid #cbd5e1"/>'):'')+'<label class="btn btn-o btn-sm" style="cursor:pointer">📷 بارگذاری/تغییر عکس<input type="file" accept="image/*" style="display:none" onchange="setStudentPhoto(\''+safe(s.id)+'\',this)"/></label>'+(s.photo?('<button type="button" class="btn btn-o btn-sm" style="color:#dc2626" onclick="removeStudentPhoto(\''+safe(s.id)+'\')">حذف عکس</button>'):'')+'</div><button class="btn btn-o btn-sm no-print" style="color:#1d4ed8;border-color:#93c5fd" onclick="showEditStudent(\''+safe(s.id)+'\')">✏️ ویرایش</button><button class="btn btn-o btn-sm no-print" style="color:#dc2626;border-color:#fecaca" onclick="deleteStudent(\''+safe(s.id)+'\',\''+full+'\')">حذف دانش‌آموز</button></div><div class="student-contacts student-all-details"><div class="fg"><label>نام</label><div class="student-detail-value">'+safe(s.first_name)+'</div></div><div class="fg"><label>نام خانوادگی</label><div class="student-detail-value">'+safe(s.last_name)+'</div></div><div class="fg"><label>کلاس</label><div class="student-detail-value">'+safe(cl?cl.label:'ثبت نشده')+'</div></div><div class="fg"><label>کد دانش‌آموزی</label><div class="student-detail-value">'+safe(s.code)+'</div></div><div class="fg"><label>نام پدر</label><div class="student-detail-value">'+safe(s.father_name)+'</div></div>'+extras+'<div class="fg"><label>ملیت / تابعیت</label><select class="contact-input" id="nat-'+safe(s.id)+'"><option value="" '+(!s.nationality?'selected':'')+'>انتخاب کنید</option><option value="ایران" '+(s.nationality==='ایران'?'selected':'')+'>ایران</option><option value="افغانستان" '+(s.nationality==='افغانستان'?'selected':'')+'>افغانستان</option><option value="سایر" '+(s.nationality==='سایر'?'selected':'')+'>سایر</option></select></div><div class="fg"><label>تاریخ تولد شمسی</label><input class="contact-input" id="birth-'+safe(s.id)+'" inputmode="numeric" value="'+safe(s.birth_date||'')+'" placeholder="مثلاً ۱۳۹۴/۰۲/۲۲"/></div><div class="fg"><label>شماره تلفن شاد</label><input class="contact-input" id="shad-'+safe(s.id)+'" inputmode="tel" value="'+safe(s.shad_phone||'')+'" placeholder="ثبت نشده — شماره شاد"/></div><div class="fg"><label>شماره اضطراری و تماس ۱</label><input class="contact-input" id="em1-'+safe(s.id)+'" inputmode="tel" value="'+safe(s.emergency_phone_1||'')+'" placeholder="ثبت نشده — شماره اول"/></div><div class="fg"><label>شماره اضطراری و تماس ۲</label><input class="contact-input" id="em2-'+safe(s.id)+'" inputmode="tel" value="'+safe(s.emergency_phone_2||'')+'" placeholder="ثبت نشده — اختیاری"/></div><div class="fg"><label>شماره اضطراری و تماس ۳</label><input class="contact-input" id="em3-'+safe(s.id)+'" inputmode="tel" value="'+safe(s.emergency_phone_3||'')+'" placeholder="ثبت نشده — اختیاری"/></div><button class="btn btn-p btn-sm no-print" onclick="saveStudentContacts(\''+safe(s.id)+'\')">💾 ذخیره مشخصات و شماره‌ها</button></div></details>';
   }).join('');
   box.querySelectorAll('details.student-details[data-student-id]').forEach(function(el){if(openStudentIds.has(String(el.getAttribute('data-student-id'))))el.open=true;});
   fillPublicInviteClasses();
@@ -5700,7 +5700,7 @@ function openStudentDossier(id){
  const progressCharts=buildStudentProgressTimeline(s.id);
 
  const box=document.getElementById('sf-dossier');
- box.innerHTML='<div id="print-student-dossier"><section class="card"><div class="ct" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'+(s.photo?('<img class="student-dossier-photo" src="'+String(s.photo).replace(/"/g,'')+'" alt="" style="width:64px;height:64px;border-radius:10px;object-fit:cover;border:1px solid #94a3b8;flex-shrink:0"/>'):'')+'<span>📁 پرونده دانش‌آموز: '+escHtml((s.first_name||'')+' '+(s.last_name||''))+'</span></div><div class="meta">کلاس: '+escHtml(cl?.label||'')+' | کد: '+escHtml(s.code||'—')+' | نام پدر: '+escHtml(s.father_name||'—')+'</div><div class="meta">تلفن شاد: '+escHtml(s.shad_phone||'—')+' | تماس اضطراری ۱: '+escHtml(s.emergency_phone_1||'—')+' | ۲: '+escHtml(s.emergency_phone_2||'—')+' | ۳: '+escHtml(s.emergency_phone_3||'—')+'</div><button class="btn btn-p btn-sm no-print" style="margin-top:10px" onclick="printStudentDossier()">🖨️ چاپ پرونده دانش‌آموز</button> <button class="btn btn-o btn-sm no-print" style="margin-top:10px" onclick="exportStudentDossierWord()">📄 خروجی Word پرونده</button></section>'+section('حضور و غیاب',att,attHtml)+section('موارد انضباطی',dis,disHtml)+section('ارزشیابی‌های درسی',evs,evHtml)+section('سوابق پیگیری غیبت مدیر',absenceFollowups,followupHtml)+section('پرسش و فعالیت‌های روزانه',acts,actHtml)+section('آزمون‌ها',exams,examHtml)+section('تماس با اولیا',contacts,contactHtml)+section('سوابق مالی',fins,finHtml)+progressCharts+section('نمرات کارنامه',scores,scoreHtml)+section('شایستگی‌ها',comps,compHtml)+'</div>';
+ box.innerHTML='<div id="print-student-dossier"><section class="card"><div class="ct" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'+(s.photo?('<img class="student-dossier-photo" decoding="async" src="'+String(s.photo).replace(/"/g,'')+'" alt="" style="width:64px;height:64px;border-radius:10px;object-fit:cover;border:1px solid #94a3b8;flex-shrink:0"/>'):'')+'<span>📁 پرونده دانش‌آموز: '+escHtml((s.first_name||'')+' '+(s.last_name||''))+'</span></div><div class="meta">کلاس: '+escHtml(cl?.label||'')+' | کد: '+escHtml(s.code||'—')+' | نام پدر: '+escHtml(s.father_name||'—')+'</div><div class="meta">تلفن شاد: '+escHtml(s.shad_phone||'—')+' | تماس اضطراری ۱: '+escHtml(s.emergency_phone_1||'—')+' | ۲: '+escHtml(s.emergency_phone_2||'—')+' | ۳: '+escHtml(s.emergency_phone_3||'—')+'</div><button class="btn btn-p btn-sm no-print" style="margin-top:10px" onclick="printStudentDossier()">🖨️ چاپ پرونده دانش‌آموز</button> <button class="btn btn-o btn-sm no-print" style="margin-top:10px" onclick="exportStudentDossierWord()">📄 خروجی Word پرونده</button></section>'+section('حضور و غیاب',att,attHtml)+section('موارد انضباطی',dis,disHtml)+section('ارزشیابی‌های درسی',evs,evHtml)+section('سوابق پیگیری غیبت مدیر',absenceFollowups,followupHtml)+section('پرسش و فعالیت‌های روزانه',acts,actHtml)+section('آزمون‌ها',exams,examHtml)+section('تماس با اولیا',contacts,contactHtml)+section('سوابق مالی',fins,finHtml)+progressCharts+section('نمرات کارنامه',scores,scoreHtml)+section('شایستگی‌ها',comps,compHtml)+'</div>';
  try{ injectParentDossierLink(s.id); }catch(e){}
  try{ injectCustomFieldsUI(s.id); }catch(e){}
 }
@@ -7426,7 +7426,7 @@ function monthlyStudentAssessmentHtml(student,rows,month,cl,photo,analysis){
  const colWidths=[5,8,4,4,4,4,71];
  const colgroup='<colgroup>'+colWidths.map(function(w){return '<col style="width:'+w+'%">';}).join('')+'</colgroup>';
  return '<section class="monthly-student-assessment-print" dir="rtl">'+
- '<header class="monthly-assessment-heading">'+(photo?'<img src="'+escHtml(photo)+'" alt="عکس دانش‌آموز" class="monthly-assessment-photo">':'')+
+ '<header class="monthly-assessment-heading">'+(photo?'<img src="'+escHtml(photo)+'" alt="عکس دانش‌آموز" class="monthly-assessment-photo" decoding="async">':'')+
  '<div class="monthly-assessment-title"><h2>گزارش ارزشیابی دوره‌ای '+escHtml(month+(year?' '+year:''))+'</h2><p>دبستان شهید فتح‌الله فلاح‌پور</p></div></header>'+
  '<table class="monthly-assessment-identity"><tbody><tr><th>نام دانش‌آموز</th><td>'+escHtml(student.first_name+' '+student.last_name)+'</td><th>کلاس</th><td>'+escHtml(cl?cl.label:'—')+'</td></tr></tbody></table>'+
  summary+
@@ -7874,7 +7874,7 @@ function buildReport(sid){
   const compBlockPrint=crPrint?('<div class="st">شایستگی‌های عمومی</div><table class="rt"><thead><tr><th colspan="2">شایستگی</th><th>سطح</th></tr></thead><tbody>'+crPrint+'</tbody></table>'):'';
   const subjectBlock='<div class="st">دروس</div><table class="rt"><thead><tr><th>درس</th><th>نمره</th><th>ارزشیابی توصیفی</th></tr></thead><tbody>'+sr+'</tbody></table>';
   const compBlock='<div class="st">شایستگی‌های عمومی</div><table class="rt"><thead><tr><th colspan="2">شایستگی</th><th>سطح توصیفی</th></tr></thead><tbody>'+cr+'</tbody></table>';
-  return '<div class="rc">'+(s.photo?('<img class="rc-photo" src="'+String(s.photo).replace(/"/g,'')+'" alt=""/>'):'')+'<div class="rh"><h2>کارنامه تحصیلی</h2><p>دبستان شهید فتح‌الله فلاح‌پور — ۱۴۰۵–۱۴۰۶</p></div><div class="ri ri-3row"><div><b>نام:</b> '+s.first_name+' '+s.last_name+'</div><div><b>کد:</b> '+(s.code||'')+'</div><div><b>کلاس:</b> '+(cl?cl.label:'')+'</div><div><b>پدر:</b> '+(s.father_name||'')+'</div><div><b>معلم:</b> '+tn+'</div><div><b>تاریخ:</b> '+today()+'</div></div><div class="rc-body">'+subjectBlock+examBlock+compBlockPrint+'</div><div class="rc-att">حضور '+fa(p)+' | موجه '+fa(e)+' | غیرموجه '+fa(u)+' | تأخیر '+fa(l)+'</div><div class="rs"><div><b>معلم:</b> '+tn+'</div><div><b>مدیر:</b> '+PRINCIPAL+'</div></div></div>';
+  return '<div class="rc">'+(s.photo?('<img class="rc-photo" decoding="async" src="'+String(s.photo).replace(/"/g,'')+'" alt=""/>'):'')+'<div class="rh"><h2>کارنامه تحصیلی</h2><p>دبستان شهید فتح‌الله فلاح‌پور — ۱۴۰۵–۱۴۰۶</p></div><div class="ri ri-3row"><div><b>نام:</b> '+s.first_name+' '+s.last_name+'</div><div><b>کد:</b> '+(s.code||'')+'</div><div><b>کلاس:</b> '+(cl?cl.label:'')+'</div><div><b>پدر:</b> '+(s.father_name||'')+'</div><div><b>معلم:</b> '+tn+'</div><div><b>تاریخ:</b> '+today()+'</div></div><div class="rc-body">'+subjectBlock+examBlock+compBlockPrint+'</div><div class="rc-att">حضور '+fa(p)+' | موجه '+fa(e)+' | غیرموجه '+fa(u)+' | تأخیر '+fa(l)+'</div><div class="rs"><div><b>معلم:</b> '+tn+'</div><div><b>مدیر:</b> '+PRINCIPAL+'</div></div></div>';
 }
 function printOne(id){printSet.clear();printSet.add(id);printReports();}
 function printReports(){
@@ -9424,158 +9424,136 @@ function applySmartRemindersPanelMode(){
   }catch(e){}
 }
 function renderSmartReminders(){
-
   try{
     applySmartRemindersPanelMode();
     var box=document.getElementById('smart-reminders-list');
-    if(!box) return;
-    if(!user){ box.innerHTML='<div class="empty">وارد شوید</div>'; return; }
+    if(!box)return;
+    if(!user){box.innerHTML='<div class="empty">وارد شوید</div>';return;}
 
     var isAdmin=!!(user.role==='admin'||user.role==='manager');
     var isTeacher=user.role==='teacher';
     var todayStr=(typeof today==='function')?today():'';
     var classes=(cache.classes||[]).slice();
     if(isTeacher){
-      var ids=(user.class_ids||[]).map(String);
-      classes=classes.filter(function(c){return ids.indexOf(String(c.id))>=0;});
+      var allowedClassIds=(user.class_ids||[]).map(String);
+      classes=classes.filter(function(c){return allowedClassIds.indexOf(String(c.id))>=0;});
     }
-    var classIds={}; classes.forEach(function(c){classIds[String(c.id)]=c;});
-    var students=(cache.students||[]).filter(function(s){return !!classIds[String(s.class_id)];});
-    var items=[];
+    var classIds={};
+    classes.forEach(function(c){classIds[String(c.id)]=c;});
 
-    classes.forEach(function(cl){
-      var has=(cache.attendance||[]).some(function(a){return String(a.class_id)===String(cl.id)&&String(a.date)===String(todayStr);});
-      if(!has){
-        items.push({id:'att_'+String(cl.id)+'_'+String(todayStr), type:'attendance', text:'کلاس «'+(cl.label||cl.id)+'» امروز حضور و غیاب ثبت نکرده است.', go:'attendance'});
-      }
+    // شاخص‌های یک‌بارمحاسبه‌شده، جایگزین جست‌وجوهای تکراری در آرایه‌های بزرگ
+    var allStudents=cache.students||[];
+    var studentById=Object.create(null);
+    allStudents.forEach(function(st){
+      if(!st)return;
+      var key=String(st.id);
+      if(!Object.prototype.hasOwnProperty.call(studentById,key))studentById[key]=st;
     });
-
-    var absMap={};
+    var students=allStudents.filter(function(st){return !!classIds[String(st.class_id)];});
+    var attendanceTodayByClass=Object.create(null);
+    var absMap=Object.create(null);
     (cache.attendance||[]).forEach(function(a){
-      if(!classIds[String(a.class_id)]) return;
-      var st=String(a.status||'');
-      if(st==='absent'||st==='unexcused'||st==='late'||st==='excused'){
-        var k=String(a.student_id);
-        if(!absMap[k]) absMap[k]={count:0};
-        absMap[k].count++;
-      }
-    });
-    students.forEach(function(s){
-      var m=absMap[String(s.id)];
-      if(m&&m.count>=3){
-        var cl=classIds[String(s.class_id)];
-        items.push({id:'abs_'+String(s.id), type:'absent', text:(s.first_name||'')+' '+(s.last_name||'')+' ('+(cl?cl.label:'')+') — '+m.count+' مورد غیبت/تأخیر/موجه', go:'absentees'});
+      if(!a)return;
+      var cid=String(a.class_id);
+      if(String(a.date)===String(todayStr))attendanceTodayByClass[cid]=true;
+      if(!classIds[cid])return;
+      var status=String(a.status||'');
+      if(status==='absent'||status==='unexcused'||status==='late'||status==='excused'){
+        var sid=String(a.student_id);
+        if(!absMap[sid])absMap[sid]={count:0};
+        absMap[sid].count++;
       }
     });
 
-    var scored={};
-    (cache.scores||[]).forEach(function(sc){ if(sc&&sc.student_id!=null) scored[String(sc.student_id)]=1; });
+    var items=[];
+    classes.forEach(function(cl){
+      if(!attendanceTodayByClass[String(cl.id)]){
+        items.push({id:'att_'+String(cl.id)+'_'+String(todayStr),type:'attendance',text:'کلاس «'+(cl.label||cl.id)+'» امروز حضور و غیاب ثبت نکرده است.',go:'attendance'});
+      }
+    });
+    students.forEach(function(st){
+      var absence=absMap[String(st.id)];
+      if(absence&&absence.count>=3){
+        var cl=classIds[String(st.class_id)];
+        items.push({id:'abs_'+String(st.id),type:'absent',text:(st.first_name||'')+' '+(st.last_name||'')+' ('+(cl?cl.label:'')+') — '+absence.count+' مورد غیبت/تأخیر/موجه',go:'absentees'});
+      }
+    });
+
+    var scored=Object.create(null);
+    (cache.scores||[]).forEach(function(sc){if(sc&&sc.student_id!=null)scored[String(sc.student_id)]=1;});
     var incomplete=0;
-    students.forEach(function(s){ if(!scored[String(s.id)]) incomplete++; });
+    students.forEach(function(st){if(!scored[String(st.id)])incomplete++;});
     if(incomplete>0){
-      items.push({id:'rep_incomplete_'+ (isTeacher?String((user.class_ids||[]).join('_')):'all'), type:'report', text:incomplete+' دانش‌آموز هنوز هیچ نمره‌ای در کارنامه ندارند.', go:'report'});
+      items.push({id:'rep_incomplete_'+(isTeacher?String((user.class_ids||[]).join('_')):'all'),type:'report',text:incomplete+' دانش‌آموز هنوز هیچ نمره‌ای در کارنامه ندارند.',go:'report'});
     }
 
-    var diMap={};
+    var disciplineCounts=Object.create(null);
     (cache.discipline||[]).forEach(function(d){
-      var sid=String(d.student_id||'');
-      if(!sid) return;
-      var st=(cache.students||[]).find(function(x){return String(x.id)===sid;});
-      if(!st||!classIds[String(st.class_id)]) return;
-      diMap[sid]=(diMap[sid]||0)+1;
+      var sid=String(d&&d.student_id||'');
+      if(!sid)return;
+      var st=studentById[sid];
+      if(!st||!classIds[String(st.class_id)])return;
+      disciplineCounts[sid]=(disciplineCounts[sid]||0)+1;
     });
-    Object.keys(diMap).forEach(function(sid){
-      if(diMap[sid]>=3){
-        var st=(cache.students||[]).find(function(x){return String(x.id)===sid;});
-        if(!st) return;
-        var cl=classIds[String(st.class_id)];
-        items.push({id:'di_'+sid, type:'discipline', text:(st.first_name||'')+' '+(st.last_name||'')+' ('+(cl?cl.label:'')+') — هشدار انضباطی ('+diMap[sid]+' مورد)', go:'discipline'});
-      }
+    Object.keys(disciplineCounts).forEach(function(sid){
+      if(disciplineCounts[sid]<3)return;
+      var st=studentById[sid];
+      if(!st)return;
+      var cl=classIds[String(st.class_id)];
+      items.push({id:'di_'+sid,type:'discipline',text:(st.first_name||'')+' '+(st.last_name||'')+' ('+(cl?cl.label:'')+') — هشدار انضباطی ('+disciplineCounts[sid]+' مورد)',go:'discipline'});
     });
 
     (cache.parent_contacts||[]).forEach(function(c){
-      if(!c) return;
-      if(isTeacher&&!(user.class_ids||[]).map(String).includes(String(c.class_id))) return;
+      if(!c)return;
+      if(isTeacher&&(user.class_ids||[]).map(String).indexOf(String(c.class_id))<0)return;
       if(c.result==='follow'||c.result==='noanswer'){
-        items.push({id:'pc_'+String(c.id|| (c.student_id+'_'+c.date)), type:'contact', text:'پیگیری اولیا: '+(c.student_name||'دانش‌آموز')+' — '+(c.date||'')+(c.follow_up_date?(' | موعد: '+c.follow_up_date):''), go:'parentcontact'});
+        items.push({id:'pc_'+String(c.id||(c.student_id+'_'+c.date)),type:'contact',text:'پیگیری اولیا: '+(c.student_name||'دانش‌آموز')+' — '+(c.date||'')+(c.follow_up_date?(' | موعد: '+c.follow_up_date):''),go:'parentcontact'});
       }
     });
 
     var state=loadSmartReminderState();
-    var openItems=[], closedItems=[], resolvedItems=[];
+    var openItems=[],closedItems=[],resolvedItems=[];
     items.forEach(function(it){
       var st=state[String(it.id)];
       var status=st&&st.status?st.status:'open';
-      it.status=status;
-      it.meta=st||null;
-      if(status==='resolved') resolvedItems.push(it);
-      else if(status==='closed') closedItems.push(it);
+      it.status=status;it.meta=st||null;
+      if(status==='resolved')resolvedItems.push(it);
+      else if(status==='closed')closedItems.push(it);
       else openItems.push(it);
     });
-    try{
-      var badge=document.getElementById('smart-reminders-badge');
-      if(badge){
-        if(openItems.length){ badge.style.display='inline-block'; badge.textContent=String(openItems.length); }
-        else { badge.style.display='none'; badge.textContent='0'; }
-      }
-    }catch(e){}
-    if(!getSmartRemindersExpanded()){
-      box.innerHTML='';
-      return;
+    var badge=document.getElementById('smart-reminders-badge');
+    if(badge){
+      if(openItems.length){badge.style.display='inline-block';badge.textContent=String(openItems.length);}
+      else{badge.style.display='none';badge.textContent='0';}
     }
+    if(!getSmartRemindersExpanded()){box.innerHTML='';return;}
 
     function rowHtml(it){
-      var status=it.status||'open';
-      var bg, color, border;
-      if(status==='resolved'){ bg='#ecfdf5'; color='#166534'; border='#86efac'; }
-      else if(status==='closed'){ bg='#f8fafc'; color='#64748b'; border='#cbd5e1'; }
-      else {
-        bg=it.type==='attendance'?'#fff7ed':(it.type==='absent'||it.type==='discipline')?'#fef2f2':'#eff6ff';
-        color=it.type==='attendance'?'#9a3412':(it.type==='absent'||it.type==='discipline')?'#991b1b':'#1e40af';
-        border='#e2e8f0';
-      }
+      var status=it.status||'open',bg,color,border;
+      if(status==='resolved'){bg='#ecfdf5';color='#166534';border='#86efac';}
+      else if(status==='closed'){bg='#f8fafc';color='#64748b';border='#cbd5e1';}
+      else{bg=it.type==='attendance'?'#fff7ed':(it.type==='absent'||it.type==='discipline')?'#fef2f2':'#eff6ff';color=it.type==='attendance'?'#9a3412':(it.type==='absent'||it.type==='discipline')?'#991b1b':'#1e40af';border='#e2e8f0';}
       var actions='';
       if(isAdmin){
-        if(status==='open'){
-          actions+='<button type="button" class="btn btn-o btn-sm" style="margin:4px 4px 0 0" onclick="event.stopPropagation();closeSmartReminder(\''+String(it.id).replace(/'/g,'')+'\')">بستن هشدار</button>';
-        }else{
-          actions+='<button type="button" class="btn btn-p btn-sm" style="margin:4px 4px 0 0" onclick="event.stopPropagation();reopenSmartReminder(\''+String(it.id).replace(/'/g,'')+'\')">باز کردن دوباره</button>';
-        }
+        if(status==='open')actions+='<button type="button" class="btn btn-o btn-sm" style="margin:4px 4px 0 0" onclick="event.stopPropagation();closeSmartReminder(\''+String(it.id).replace(/'/g,'')+'\')">بستن هشدار</button>';
+        else actions+='<button type="button" class="btn btn-p btn-sm" style="margin:4px 4px 0 0" onclick="event.stopPropagation();reopenSmartReminder(\''+String(it.id).replace(/'/g,'')+'\')">باز کردن دوباره</button>';
       }
-      if(isTeacher && status==='open'){
-        actions+='<button type="button" class="btn btn-p btn-sm" style="margin:4px 4px 0 0;background:#16a34a;border-color:#16a34a" onclick="event.stopPropagation();resolveSmartReminder(\''+String(it.id).replace(/'/g,'')+'\')">رفع شد</button>';
-      }
+      if(isTeacher&&status==='open')actions+='<button type="button" class="btn btn-p btn-sm" style="margin:4px 4px 0 0;background:#16a34a;border-color:#16a34a" onclick="event.stopPropagation();resolveSmartReminder(\''+String(it.id).replace(/'/g,'')+'\')">رفع شد</button>';
       var statusLabel=status==='resolved'?'✅ رفع‌شده توسط معلم':(status==='closed'?' بسته‌شده توسط مدیر':'🔴 فعال');
-      return '<div style="padding:8px 10px;margin:6px 0;border-radius:10px;background:'+bg+';border:1px solid '+border+';font-size:.82rem;line-height:1.7;color:'+color+'">'+
-        '<div style="cursor:pointer" onclick="try{go(\''+it.go+'\')}catch(e){}">• '+String(it.text).replace(/</g,'&lt;')+'</div>'+
-        '<div class="meta" style="margin-top:4px">'+statusLabel+(it.meta&&it.meta.by?(' — '+it.meta.by):'')+'</div>'+
-        '<div class="no-print">'+actions+'</div></div>';
+      return '<div style="padding:8px 10px;margin:6px 0;border-radius:10px;background:'+bg+';border:1px solid '+border+';font-size:.82rem;line-height:1.7;color:'+color+'"><div style="cursor:pointer" onclick="try{go(\''+it.go+'\')}catch(e){}">• '+String(it.text).replace(/</g,'&lt;')+'</div><div class="meta" style="margin-top:4px">'+statusLabel+(it.meta&&it.meta.by?(' — '+it.meta.by):'')+'</div><div class="no-print">'+actions+'</div></div>';
     }
-
     var html='';
-    if(openItems.length){
-      html+='<div style="font-weight:700;margin:6px 0;color:#9a3412">هشدارهای فعال ('+openItems.length+')</div>';
-      html+=openItems.slice(0,15).map(rowHtml).join('');
-    }else{
-      html+='<div style="padding:10px;border-radius:10px;background:#ecfdf5;color:#166534;font-size:.85rem;margin-bottom:8px">هشدار فعالی نیست.</div>';
-    }
-    if(isTeacher && resolvedItems.length){
-      html+='<div style="font-weight:700;margin:12px 0 6px;color:#166534">رفع‌شده‌ها ('+resolvedItems.length+')</div>';
-      html+=resolvedItems.slice(0,10).map(rowHtml).join('');
-    }
-    if(isAdmin && (closedItems.length||resolvedItems.length)){
-      html+='<div style="font-weight:700;margin:12px 0 6px;color:#64748b">بسته / رفع‌شده ('+(closedItems.length+resolvedItems.length)+')</div>';
-      html+=closedItems.concat(resolvedItems).slice(0,15).map(rowHtml).join('');
-    }
-    // معلم فقط هشدارهای مربوط به کلاس خودش را می‌بیند (از قبل فیلتر شده)
+    if(openItems.length){html+='<div style="font-weight:700;margin:6px 0;color:#9a3412">هشدارهای فعال ('+openItems.length+')</div>';html+=openItems.slice(0,15).map(rowHtml).join('');}
+    else html+='<div style="padding:10px;border-radius:10px;background:#ecfdf5;color:#166534;font-size:.85rem;margin-bottom:8px">هشدار فعالی نیست.</div>';
+    if(isTeacher&&resolvedItems.length){html+='<div style="font-weight:700;margin:12px 0 6px;color:#166534">رفع‌شده‌ها ('+resolvedItems.length+')</div>';html+=resolvedItems.slice(0,10).map(rowHtml).join('');}
+    if(isAdmin&&(closedItems.length||resolvedItems.length)){html+='<div style="font-weight:700;margin:12px 0 6px;color:#64748b">بسته / رفع‌شده ('+(closedItems.length+resolvedItems.length)+')</div>';html+=closedItems.concat(resolvedItems).slice(0,15).map(rowHtml).join('');}
     box.innerHTML=html;
   }catch(e){
     console.warn(e);
     var box=document.getElementById('smart-reminders-list');
-    if(box) box.innerHTML='<div class="empty">خطا در تهیه یادآورها</div>';
+    if(box)box.innerHTML='<div class="empty">خطا در تهیه یادآورها</div>';
   }
 }
-
 
 
 function teacherMyClasses(){
@@ -10565,7 +10543,7 @@ async function printPublicInvitations(){
  const cardArray=students.map((st,i)=>{
   const cl=cache.classes.find(c=>c.id===st.class_id);
   const studentName=(st.first_name||'')+' '+(st.last_name||'');
-  const photoHtml=(showStudentPhoto&&st.photo)?('<div class="pubiv-photo-wrap"><img class="pubiv-photo" src="'+String(st.photo).replace(/"/g,'')+'" alt=""/></div>'):'';
+  const photoHtml=(showStudentPhoto&&st.photo)?('<div class="pubiv-photo-wrap"><img class="pubiv-photo" decoding="async" src="'+String(st.photo).replace(/"/g,'')+'" alt=""/></div>'):'';
   const hour=(document.getElementById('pubiv-hour')&&document.getElementById('pubiv-hour').value)||'';
   const place=(document.getElementById('pubiv-place')&&document.getElementById('pubiv-place').value)||'محل مدرسه';
   const topic=(document.getElementById('pubiv-topic')&&document.getElementById('pubiv-topic').value)||'';
