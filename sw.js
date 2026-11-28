@@ -1,4 +1,4 @@
-const CACHE = 'dastyar-shell-v116-20261128-uiobserver6';const BASE = '/dastyar-madrese/';
+const CACHE = 'dastyar-shell-v117-20261128-iconfeedback1';const BASE = '/dastyar-madrese/';
 const SHELL = [
   BASE,
   BASE + 'index.html',
