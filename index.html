@@ -8616,8 +8616,10 @@ async function flushDastyarDashboardRealtimeChanges(){
     var page=document.querySelector('.page.on'),pageId=page?String(page.id||'').replace(/^page-/,''):'';
     if(isManager){
       var qaOnlyTables=dirtyTables.every(function(k){return ['sa_activities','sa_evaluations','sa_discipline'].indexOf(k)>=0;});
+      var homeworkOnlyTables=dirtyTables.every(function(k){return ['sa_homework_tasks','sa_homework_feedback','sa_class_homework','sa_class_homework_feedback'].indexOf(k)>=0;});
+      var achievementsOnlyTables=dirtyTables.every(function(k){return k==='sa_achievements';});
       if(qaOnlyTables&&typeof refreshAdminQaAfterTeacherSync==='function'){var qaSynced=await refreshAdminQaAfterTeacherSync(true);if(qaSynced===false)throw new Error('به‌روزرسانی داده‌های پرسش‌وپاسخ، ارزشیابی یا انضباط تأیید نشد.');}
-      else{await reloadAll();if(typeof refreshDash==='function')refreshDash();}
+      else if(!homeworkOnlyTables&&!achievementsOnlyTables){await reloadAll();if(typeof refreshDash==='function')refreshDash();}
       page=document.querySelector('.page.on');pageId=page?String(page.id||'').replace(/^page-/,''):'';
       if(pageId==='students'||pageId==='studentdata'){if(typeof renderStudents==='function')renderStudents();}
       else if(pageId==='attendance'&&typeof loadAttendance==='function')await loadAttendance(true);
@@ -8635,8 +8637,10 @@ async function flushDastyarDashboardRealtimeChanges(){
       if((dirty.sa_homework_tasks||dirty.sa_homework_feedback||dirty.sa_class_homework||dirty.sa_class_homework_feedback)&&pageId!=='homework'&&typeof window.dastyarLoadHomeworkCenter==='function')await window.dastyarLoadHomeworkCenter(true);
       try{if(typeof refreshSharedInboxPanels==='function')refreshSharedInboxPanels();}catch(e){}
     }else{
-      // معلم فقط داده‌های مجاز خودش را برای بخش بازشده تازه می‌کند؛ reloadAll اجرا نمی‌شود.
-      if(typeof refreshDastyarActiveSection==='function')await refreshDastyarActiveSection(true);
+      // معلم فقط داده‌های مجاز و مرتبط با بخش بازشده را تازه می‌کند؛ reloadAll اجرا نمی‌شود.
+      var dashboardDataTables=['sa_activities','sa_evaluations','sa_discipline','sa_attendance','sa_students','sa_scores','sa_competencies','sa_finance','sa_student_guidance'];
+      var shouldRefreshTeacherSection=pageId!=='dashboard'||dirtyTables.some(function(k){return dashboardDataTables.indexOf(k)>=0;});
+      if(shouldRefreshTeacherSection&&typeof refreshDastyarActiveSection==='function')await refreshDastyarActiveSection(true);
       if(pageId==='dashboard'){
         if(dirty.sa_attendance&&typeof refreshTodayAttendanceFromServer==='function')await refreshTodayAttendanceFromServer();
         if(dirty.sa_messages&&typeof renderTeacherNotices==='function')renderTeacherNotices();
