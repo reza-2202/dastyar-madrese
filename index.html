@@ -4478,11 +4478,17 @@ function renderStudents(){
   if(cf) list=list.filter(s=>s.class_id===cf);
   list=sortStudentsByLastName(list);
   const box=document.getElementById('slist');
+  const classById=new Map((cache.classes||[]).map(function(c){return [c.id,c];}));
+  const teacherByClass=new Map();
+  (cache.users||[]).forEach(function(t){
+    if(!t||t.role!=='teacher')return;
+    (t.class_ids||[]).forEach(function(classId){if(!teacherByClass.has(classId))teacherByClass.set(classId,t.full_name||'');});
+  });
   const openStudentIds=new Set(Array.from(box.querySelectorAll('details.student-details[open]')).map(el=>String(el.getAttribute('data-student-id')||'')));
   if(!list.length){box.innerHTML='<div class="empty">دانش‌آموزی نیست</div>';return;}
   box.innerHTML='<div class="card student-print-title"><h2>لیست دانش‌آموزان دبستان شهید فتح‌الله فلاح‌پور</h2></div>'+list.map(s=>{
-    const cl=cache.classes.find(c=>c.id===s.class_id);
-    const assignedTeacher=cl?.teacher_name || (cache.users.find(t=>t.role==='teacher'&&(t.class_ids||[]).includes(s.class_id))?.full_name) || 'معلم برای این کلاس تعیین نشده';
+    const cl=classById.get(s.class_id);
+    const assignedTeacher=cl?.teacher_name || teacherByClass.get(s.class_id) || 'معلم برای این کلاس تعیین نشده';
     const safe=(v)=>String(v==null||v===''?'ثبت نشده':v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;');
     const full=safe((s.first_name||'')+' '+(s.last_name||''));
     const labels={first_name:'نام',last_name:'نام خانوادگی',code:'کد دانش‌آموزی',father_name:'نام پدر',mother_name:'نام مادر',father_job:'شغل پدر',mother_job:'شغل مادر',father_education:'تحصیلات پدر',mother_education:'تحصیلات مادر',birth_order:'ترتیب تولد',religion:'دین',nationality:'ملیت',low_income:'وضعیت کم‌برخوردار',father_phone:'تلفن پدر',mother_phone:'تلفن مادر',guardian_phone:'تلفن سرپرست',shad_phone:'شماره تلفن شاد',emergency_phone_1:'شماره اضطراری و تماس ۱',emergency_phone_2:'شماره اضطراری و تماس ۲',emergency_phone_3:'شماره اضطراری و تماس ۳',gender:'جنسیت',birth_date:'تاریخ تولد',address:'نشانی'};
@@ -10459,9 +10465,10 @@ function renderTeacherTodaySchedule(){
   var day=weekdayNow(),date=today(),classes=myClasses();
   if(!classes.length){content.innerHTML='برای حساب شما کلاسی تعریف نشده است.';return;}
   if(SCHOOL_DAYS.indexOf(day)<0){content.innerHTML='<b>'+escHtml(day)+'، '+escHtml(date)+'</b><br>امروز در برنامه هفتگی مدرسه زنگی ثبت نشده است.';return;}
-  var all=localRead(weeklyKey()),html='';
+  var all=localRead(weeklyKey()),html='',weeklyByClass=Object.create(null);
+  (all||[]).forEach(function(r){var key=String(r.class_id);if(!weeklyByClass[key])weeklyByClass[key]=[];weeklyByClass[key].push(r);});
   classes.forEach(function(cl){
-    var records=all.filter(function(r){return String(r.class_id)===String(cl.id);});
+    var records=weeklyByClass[String(cl.id)]||[];
     var mine=records.filter(function(r){return String(r.owner||'')===String(currentOwner());});
     var rec=(mine.length?mine:records).slice().sort(function(a,b){return String(b.updated_at||'').localeCompare(String(a.updated_at||''))||Number(b.created_at||0)-Number(a.created_at||0);})[0];
     html+='<div style="margin:5px 0 10px"><b>'+escHtml(cl.label||'کلاس')+'</b> — '+escHtml(day)+'، '+escHtml(date)+'</div>';
