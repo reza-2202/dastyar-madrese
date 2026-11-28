@@ -4357,14 +4357,14 @@ function updateVisibleStudentPhotoNodes(){
    if(img){if(img.getAttribute('src')!==src)img.setAttribute('src',src);}
    else{
     var placeholder=summary.querySelector('[data-student-photo-placeholder]');
-    if(placeholder){var avatar=document.createElement('img');avatar.setAttribute('data-student-photo','1');avatar.setAttribute('loading','lazy');avatar.setAttribute('decoding','async');avatar.alt='';avatar.src=src;avatar.style.cssText='width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid #93c5fd';placeholder.replaceWith(avatar);}
+    if(placeholder){var avatar=document.createElement('img');avatar.setAttribute('data-student-photo','1');avatar.setAttribute('loading','lazy');avatar.setAttribute('decoding','async');avatar.alt='';avatar.src=src;avatar.onerror=function(){this.onerror=null;if(typeof window.ensureStudentPhotosFromServer==='function')window.ensureStudentPhotosFromServer(true);};avatar.style.cssText='width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid #93c5fd';placeholder.replaceWith(avatar);}
    }
   }
   var head=card.querySelector('.student-head .no-print');
   if(head){
    var detail=head.querySelector('img[data-student-photo]');
    if(detail){if(detail.getAttribute('src')!==src)detail.setAttribute('src',src);}
-   else{detail=document.createElement('img');detail.setAttribute('data-student-photo','1');detail.setAttribute('loading','lazy');detail.setAttribute('decoding','async');detail.alt='';detail.src=src;detail.style.cssText='width:64px;height:64px;border-radius:12px;object-fit:cover;border:1px solid #cbd5e1';head.insertBefore(detail,head.firstChild);}
+   else{detail=document.createElement('img');detail.setAttribute('data-student-photo','1');detail.setAttribute('loading','lazy');detail.setAttribute('decoding','async');detail.alt='';detail.src=src;detail.onerror=function(){this.onerror=null;if(typeof window.ensureStudentPhotosFromServer==='function')window.ensureStudentPhotosFromServer(true);};detail.style.cssText='width:64px;height:64px;border-radius:12px;object-fit:cover;border:1px solid #cbd5e1';head.insertBefore(detail,head.firstChild);var removePhoto=document.createElement('button');removePhoto.type='button';removePhoto.className='btn btn-o btn-sm';removePhoto.style.color='#dc2626';removePhoto.textContent='حذف عکس';removePhoto.addEventListener('click',function(){if(typeof window.removeStudentPhoto==='function')window.removeStudentPhoto(id);});head.appendChild(removePhoto);}
   }
  });
 }
