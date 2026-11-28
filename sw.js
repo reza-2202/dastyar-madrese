@@ -1,4 +1,4 @@
-const CACHE = 'dastyar-shell-v111-20261128-performance';const BASE = '/dastyar-madrese/';
+const CACHE = 'dastyar-shell-v112-20261128-performance2';const BASE = '/dastyar-madrese/';
 const SHELL = [
   BASE,
   BASE + 'index.html',
