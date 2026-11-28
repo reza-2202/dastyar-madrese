@@ -17490,7 +17490,8 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 (function(){
   if(window.__dastyarSubtleIconFeedbackInit)return;
   window.__dastyarSubtleIconFeedbackInit=true;
-  var selected=null;
+  var selected=document.querySelector('#app .ni.on');
+  if(selected)selected.classList.add('dastyar-visual-selected');
   document.addEventListener('click',function(ev){
     var item=ev.target&&ev.target.closest&&ev.target.closest('#app .home-tile, #app .ni, #app .home-tile-group-title');
     if(!item)return;
