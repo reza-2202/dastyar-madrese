@@ -4042,7 +4042,7 @@ var __dastyarDashboardRecordsRefreshAt=0;
 var __dastyarDashboardRecordsRefreshPromise=null;
 async function refreshDashboardEvaluationDisciplineCache(force){
   if(!user||!sb||!navigator.onLine||window.isOffline)return false;
-  if(__dastyarDashboardRecordsRefreshPromise)return __dastyarDashboardRecordsRefreshPromise;
+  if(__dastyarDashboardRecordsRefreshPromise){if(!force)return __dastyarDashboardRecordsRefreshPromise;await __dastyarDashboardRecordsRefreshPromise;return refreshDashboardEvaluationDisciplineCache(true);}
   if(!force&&Date.now()-__dastyarDashboardRecordsRefreshAt<12000)return false;
   __dastyarDashboardRecordsRefreshAt=Date.now();
   __dastyarDashboardRecordsRefreshPromise=(async function(){
@@ -8596,6 +8596,11 @@ async function flushDastyarDashboardRealtimeChanges(){
   var dirtyTables=Object.keys(dirty).filter(function(k){return k!=='sa_documents'&&dirty[k];});
   var isManager=!!(user&&(user.role==='admin'||user.role==='manager'));
   if(!dirtyTables.length)return;
+  var qaRealtimeOnly=dirtyTables.every(function(k){return ['sa_activities','sa_evaluations','sa_discipline'].indexOf(k)>=0;});
+  if((isManager&&qaRealtimeOnly&&__dastyarAdminQaAutoRefreshBusy)||(!isManager&&__dastyarLiveSyncBusy)){
+    dirtyTables.forEach(function(k){__dastyarDashboardRealtimeDirtyTables[k]=true;});
+    __dastyarDocumentsRealtimeRefreshTimer=setTimeout(flushDastyarDashboardRealtimeChanges,450);return;
+  }
   if(window.__dastyarFastNavigation||(window.__dastyarLastScrollAt&&Date.now()-window.__dastyarLastScrollAt<650)){
     dirtyTables.forEach(function(k){__dastyarDashboardRealtimeDirtyTables[k]=true;});
     __dastyarDocumentsRealtimeRefreshTimer=setTimeout(flushDastyarDashboardRealtimeChanges,450);return;
