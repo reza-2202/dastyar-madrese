@@ -8570,6 +8570,7 @@ async function uploadSchoolDocument(){
 var __dastyarDocumentsRealtimeChannel=null;
 var __dastyarDocumentsRealtimeClient=null;
 var __dastyarDocumentsRealtimeRefreshTimer=null;
+var __dastyarRealtimeFlushBusy=false;
 var __dastyarDashboardRealtimeDirtyTables={};
 var __dastyarRealtimeSdkClient=null;
 var __dastyarRealtimeClientPromise=null;
@@ -8582,6 +8583,12 @@ function queueDastyarDashboardRealtimeRefresh(table){
   __dastyarDocumentsRealtimeRefreshTimer=setTimeout(flushDastyarDashboardRealtimeChanges,350);
 }
 async function flushDastyarDashboardRealtimeChanges(){
+  if(__dastyarRealtimeFlushBusy){
+    if(!__dastyarDocumentsRealtimeRefreshTimer)__dastyarDocumentsRealtimeRefreshTimer=setTimeout(flushDastyarDashboardRealtimeChanges,350);
+    return;
+  }
+  __dastyarRealtimeFlushBusy=true;
+  try{
   __dastyarDocumentsRealtimeRefreshTimer=null;
   if(!window.user||!window.sb||!navigator.onLine||window.isOffline){__dastyarDashboardRealtimeDirtyTables={};return;}
   var dirty=__dastyarDashboardRealtimeDirtyTables;__dastyarDashboardRealtimeDirtyTables={};
@@ -8643,6 +8650,10 @@ async function flushDastyarDashboardRealtimeChanges(){
       if(dirty.sa_achievements&&typeof window.refreshStudentAchievements==='function')await window.refreshStudentAchievements();
     }
   }catch(e){console.warn('به‌روزرسانی زنده اطلاعات پنل ناموفق بود؛ رویدادهای تازه دریافت‌شده حفظ می‌شوند.',e);}
+  }finally{
+    __dastyarRealtimeFlushBusy=false;
+    if(Object.keys(__dastyarDashboardRealtimeDirtyTables).length&&!__dastyarDocumentsRealtimeRefreshTimer)__dastyarDocumentsRealtimeRefreshTimer=setTimeout(flushDastyarDashboardRealtimeChanges,350);
+  }
 }
 // اتصال Realtime مستقل و تنبل بارگذاری می‌شود؛ کلاینت REST/آفلاین فعلی برنامه تغییر نمی‌کند.
 function ensureSchoolDocumentRealtimeSync(){
