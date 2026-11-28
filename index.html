@@ -3965,6 +3965,36 @@ function renderQaClassList(){
 
 var __dastyarDashboardDocsRefreshAt=0;
 var __dastyarDashboardDocsRefreshPromise=null;
+// مقایسه‌ی سبک ردیف‌های اسناد: از stringify کردن آرایه‌ی کامل (که ممکن است
+// داده‌ی آرشیو حجیم داشته باشد) در هر رویداد Realtime خودداری می‌کنیم.
+function dastyarDocumentRowsEqual(previousRows,nextRows){
+  var a=Array.isArray(previousRows)?previousRows:[];
+  var b=Array.isArray(nextRows)?nextRows:[];
+  if(a.length!==b.length)return false;
+  var byId=new Map();
+  for(var i=0;i<a.length;i++){
+    var row=a[i];
+    if(row&&row.id!=null)byId.set(String(row.id),row);
+  }
+  for(var j=0;j<b.length;j++){
+    var next=b[j];
+    if(!next||next.id==null)return false;
+    var previous=byId.get(String(next.id));
+    if(!previous)return false;
+    var oldKeys=Object.keys(previous).filter(function(k){return k!=='local_archive_data_url';});
+    var newKeys=Object.keys(next).filter(function(k){return k!=='local_archive_data_url';});
+    if(oldKeys.length!==newKeys.length)return false;
+    for(var k=0;k<newKeys.length;k++){
+      var key=newKeys[k];
+      if(!Object.prototype.hasOwnProperty.call(previous,key))return false;
+      var av=previous[key],bv=next[key];
+      if(av===bv)continue;
+      if(av==null||bv==null||typeof av!=='object'||typeof bv!=='object'||Array.isArray(av)!==Array.isArray(bv))return false;
+      try{if(JSON.stringify(av)!==JSON.stringify(bv))return false;}catch(e){return false;}
+    }
+  }
+  return true;
+}
 async function refreshDashboardDocumentCache(){
   if(!user||!sb||!navigator.onLine||window.isOffline)return 0;
   try{if(typeof ensureSchoolDocumentRealtimeSync==='function')ensureSchoolDocumentRealtimeSync();}catch(e){}
@@ -3988,7 +4018,7 @@ async function refreshDashboardDocumentCache(){
       classes.forEach(function(c){[c.teacher_name,c.teacher_user].filter(Boolean).forEach(function(x){identities.add(String(x).trim());});});
       rows=rows.filter(function(d){return allowed.has(String(d.class_id||''))||identities.has(String(d.teacher_username||'').trim())||identities.has(String(d.teacher_name||'').trim());});
     }
-    var changed=JSON.stringify(cache.documents||[])!==JSON.stringify(rows);
+    var changed=!dastyarDocumentRowsEqual(cache.documents||[],rows);
     if(changed){
       cache.documents=rows;
       try{if(window.DastyarOffline&&DastyarOffline.saveSnapshot)await DastyarOffline.saveSnapshot(JSON.parse(JSON.stringify(cache)));}catch(e){}
@@ -11478,7 +11508,7 @@ function addBackupButton(){var host=document.querySelector('#login-screen .login
 async function createStudentBackup(){var status=el('dastyar-backup-report-status'),db;try{status.textContent='در حال خواندن مستقیم اطلاعات IndexedDB…';db=await openDB();var responses=await readAll(db,RESP),q=await readAll(db,QUEUE),sq=await readAll(db,SYNC);var students=readStudentsFromResponses(responses);[q,sq].forEach(function(list){list.forEach(function(item){if(item.table!=='sa_students')return;var payload=Array.isArray(item.payload)?item.payload:(item.payload?[item.payload]:[]);payload.forEach(function(r){if(item.method==='DELETE')students=students.filter(function(s){return String(s.id)!==String((item.filters||[]).find(function(f){return f.col==='id'})||{}).val});else if(item.method==='PATCH')students=students.map(function(s){return String(s.id)===String(((item.filters||[]).find(function(f){return f.col==='id'})||{}).val)?Object.assign({},s,item.payload):s});else students.push(r)})})});students=mergeStudents(students);if(!students.length){status.textContent='در حافظه IndexedDB دانش‌آموزی پیدا نشد. یک‌بار با اینترنت برنامه را باز کنید تا اطلاعات در حافظه محلی ذخیره شود؛ داده‌های فعلی دست‌نخورده می‌مانند.';return}var keys=[];students.forEach(function(s){Object.keys(s).forEach(function(k){if(!keys.includes(k)&&k!=='id')keys.push(k)})});var labels={first_name:'نام',last_name:'نام خانوادگی',code:'کد ملی/دانش‌آموزی',national_id:'کد ملی',class_id:'شناسه کلاس',father_name:'نام پدر',mother_name:'نام مادر',father_job:'شغل پدر',mother_job:'شغل مادر',father_phone:'تلفن پدر',mother_phone:'تلفن مادر',father_education:'تحصیلات پدر',mother_education:'تحصیلات مادر',birth_date:'تاریخ تولد',nationality:'ملیت',religion:'مذهب',address:'نشانی',guardian_phone:'تلفن سرپرست',shad_phone:'تلفن شاد'};var titleMap=function(k){return labels[k]||k.replace(/_/g,' ')};var table='<table><thead><tr><th>ردیف</th>'+keys.map(function(k){return '<th>'+safe(titleMap(k))+'</th>'}).join('')+'</tr></thead><tbody>'+students.map(function(s,i){return '<tr><td>'+(i+1)+'</td>'+keys.map(function(k){var v=s[k];if(v&&typeof v==='object')v=JSON.stringify(v);return '<td>'+safe(v)+'</td>'}).join('')+'</tr>'}).join('')+'</tbody></table>';var html='<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><title>پشتیبان دانش‌آموزان</title><style>@page{size:A4 landscape;margin:10mm}*{box-sizing:border-box}body{font-family:Tahoma,Arial,sans-serif;direction:rtl;color:#172033;font-size:9pt}h1{text-align:center;color:#075985;font-size:16pt;margin:0 0 5px}p{text-align:center;font-size:9pt;margin:4px 0 12px}table{width:100%;border-collapse:collapse;table-layout:auto}thead{display:table-header-group}tr{break-inside:avoid;page-break-inside:avoid}th,td{border:1px solid #94a3b8;padding:5px 4px;text-align:center;overflow-wrap:anywhere;vertical-align:middle}th{background:#dbeafe;color:#0c4a6e}tbody tr:nth-child(odd){background:#eff6ff}tbody tr:nth-child(even){background:#fff}.foot{margin-top:12px;font-size:8pt;text-align:left}@media screen{body{padding:16px}button{font-family:Tahoma;padding:10px 16px;background:#0284c7;color:#fff;border:0;border-radius:8px;margin-bottom:12px}}@media print{.no-print{display:none}}</style></head><body><button class="no-print" onclick="window.print()">چاپ / ذخیره به PDF</button><h1>دبستان شهید فتح‌الله فلاح‌پور</h1><p>نسخه پشتیبان مشخصات دانش‌آموزان — تعداد: '+students.length+' نفر — تاریخ تهیه: '+safe(new Date().toLocaleString('fa-IR'))+'</p>'+table+'<div class="foot">مدیر مدرسه: سید حسین نورایی انور</div><script>window.onload=function(){setTimeout(function(){try{window.print()}catch(e){}},350)};<\/script></body></html>';var blob=new Blob([html],{type:'text/html;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='پشتیبان-دانش‌آموزان-'+new Date().toISOString().slice(0,10)+'.html';document.body.appendChild(a);a.click();a.remove();var w=window.open(url,'_blank');if(!w){status.textContent='گزارش HTML ذخیره شد. فایل را باز کنید و گزینه چاپ / ذخیره به PDF را بزنید.'}else status.textContent='گزارش ساخته شد ('+students.length+' دانش‌آموز). پنجره چاپ باز می‌شود؛ مقصد چاپ را «ذخیره به‌صورت PDF» انتخاب کنید. فایل محلی HTML نیز دانلود شده است.';setTimeout(function(){URL.revokeObjectURL(url)},120000)}catch(e){status.textContent='تهیه نسخه پشتیبان ناموفق بود: '+(e.message||e)+'؛ اطلاعات فعلی پاک نشده است.'}finally{if(db)db.close()}}
 function ensureConnectionBox(){var login=el('login-screen');if(!login||el('login-conn-status'))return;var target=login.querySelector('.login-card');if(!target)return;var n=document.createElement('div');n.id='login-conn-status';n.style.cssText='font-size:.8rem;text-align:center;margin-top:8px;padding:8px;border-radius:9px';n.textContent='وضعیت اتصال هنوز بررسی نشده است.';var anchor=target.querySelector('.login-sub');if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(n,anchor.nextSibling);else target.appendChild(n)}
 function init(){ensureConnectionBox();addHeaderToggle();addBackupButton();if(window.DastyarOffline&&window.DastyarOffline.setLocalOnly){var saved=localStorage.getItem('dastyar_manual_offline')==='1';window.DastyarOffline.setLocalOnly(saved||!navigator.onLine)}window.addEventListener('online',function(){setTimeout(function(){if(localStorage.getItem('dastyar_manual_offline')==='1'){if(window.DastyarOffline&&window.DastyarOffline.setLocalOnly)window.DastyarOffline.setLocalOnly(true);setConnectionBox(false,'اینترنت وصل است، اما حالت آفلاین دستی روشن مانده است. برای آنلاین شدن، کلید را روشن کنید.');}else{var input=el('dastyar-manual-online');if(input){input.checked=true;syncLabel();}setConnectionBox(true,'اینترنت وصل شد؛ برای تأیید اتصال به سرور، کلید آنلاین را یک بار خاموش و روشن کنید.');}},950)});window.addEventListener('offline',function(){var input=el('dastyar-manual-online');if(input){input.checked=false;syncLabel();}if(window.DastyarOffline&&window.DastyarOffline.setLocalOnly)window.DastyarOffline.setLocalOnly(true);setConnectionBox(false,'اینترنت دستگاه قطع است؛ حالت آفلاین فعال شد.');});}
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();var headerToggleScheduled=false;var observer=new MutationObserver(function(){if(headerToggleScheduled)return;headerToggleScheduled=true;requestAnimationFrame(function(){headerToggleScheduled=false;if(el('app')&&!el('app').classList.contains('hidden'))addHeaderToggle();});});observer.observe(document.documentElement,{childList:true,subtree:true});
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();var headerToggleScheduled=false;var observer=new MutationObserver(function(){if(el('dastyar-connection-control')){observer.disconnect();return;}if(headerToggleScheduled)return;headerToggleScheduled=true;requestAnimationFrame(function(){headerToggleScheduled=false;if(el('app')&&!el('app').classList.contains('hidden'))addHeaderToggle();if(el('dastyar-connection-control'))observer.disconnect();});});if(!el('dastyar-connection-control'))observer.observe(document.documentElement,{childList:true,subtree:true});
 })();
 </script>
 
