@@ -11576,7 +11576,7 @@ async function serverFirstSync(){if(serverCheckRunning||!navigator.onLine)return
 var originalDoLogin=window.doLogin;if(typeof originalDoLogin==='function'){window.doLogin=async function(){var result=await originalDoLogin.apply(this,arguments);setTimeout(function(){serverFirstSync();},200);return result;};}
 function initAdditive(){addWordButton();}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initAdditive);else initAdditive();
-var wordButtonScheduled=false;var mo=new MutationObserver(function(){if(wordButtonScheduled)return;wordButtonScheduled=true;requestAnimationFrame(function(){wordButtonScheduled=false;addWordButton();});});if(document.documentElement)mo.observe(document.documentElement,{childList:true,subtree:true});
+function affectsAbsentees(records){for(var i=0;i<records.length;i++){var r=records[i],t=r.target&&r.target.nodeType===1?r.target:r.target&&r.target.parentElement;if(t&&t.closest&&t.closest('#page-absentees'))return true;var a=r.addedNodes||[];for(var j=0;j<a.length;j++){var n=a[j];if(n.nodeType!==1)continue;if(n.id==='page-absentees'||(n.querySelector&&n.querySelector('#page-absentees'))||(n.closest&&n.closest('#page-absentees')))return true;}}return false;}var wordButtonScheduled=false;var mo=new MutationObserver(function(records){if(!affectsAbsentees(records)||wordButtonScheduled)return;wordButtonScheduled=true;requestAnimationFrame(function(){wordButtonScheduled=false;addWordButton();});});if(document.documentElement)mo.observe(document.documentElement,{childList:true,subtree:true});
 /* Reconnection and manual online checks are handled by the single offline queue engine. */
 })();
 </script>
@@ -11619,7 +11619,7 @@ window.renderStudentCustomFields=function(studentId){var box=$('cf-list-'+studen
 document.addEventListener('click',function(ev){var edit=ev.target.closest&&ev.target.closest('[data-student-spec-edit],[data-spec-edit]');if(edit){showEditor(edit.getAttribute('data-student-spec-edit')||edit.getAttribute('data-spec-edit'));return}var rem=ev.target.closest&&ev.target.closest('[data-spec-remove-index]');if(rem){var id=rem.getAttribute('data-spec-student'),ix=Number(rem.getAttribute('data-spec-remove-index')),st=(cache.students||[]).find(function(x){return String(x.id)===String(id)});if(!st)return;var arr=specsFor(st);arr.splice(ix,1);persistLocal(st,arr).then(function(){syncSpecs(st,arr);window.renderStudentCustomFields(id);renderSpecsInStudentList()});}});
 // Preserve custom specs when remote reload replaces student objects.
 var oldReload=window.reloadAll;if(typeof oldReload==='function')window.reloadAll=async function(){var before={};(cache.students||[]).forEach(function(st){var a=specsFor(st);if(a.length)before[String(st.id)]=a});var result=await oldReload.apply(this,arguments);(cache.students||[]).forEach(function(st){if(!specsFor(st).length&&before[String(st.id)]){st.custom_specs=clone(before[String(st.id)]);st.custom_fields=objectCompat(before[String(st.id)])}});cache.customStudentSpecs=cache.customStudentSpecs||{};Object.keys(before).forEach(function(id){if(!cache.customStudentSpecs[id])cache.customStudentSpecs[id]=clone(before[id])});return result};
-var customPanelScheduled=false;var mo=new MutationObserver(function(){if(customPanelScheduled)return;customPanelScheduled=true;requestAnimationFrame(function(){customPanelScheduled=false;var form=$('add-st-form');if(form)createPanel(form);});});if(document.documentElement)mo.observe(document.documentElement,{childList:true,subtree:true});
+function affectsStudentAddForm(records){for(var i=0;i<records.length;i++){var r=records[i],t=r.target&&r.target.nodeType===1?r.target:r.target&&r.target.parentElement;if(t&&t.closest&&t.closest('#add-st-form'))return true;var a=r.addedNodes||[];for(var j=0;j<a.length;j++){var n=a[j];if(n.nodeType!==1)continue;if(n.id==='add-st-form'||(n.querySelector&&n.querySelector('#add-st-form'))||(n.closest&&n.closest('#add-st-form')))return true;}}return false;}var customPanelScheduled=false;var mo=new MutationObserver(function(records){if(!affectsStudentAddForm(records)||customPanelScheduled||$('ns-custom-specs'))return;customPanelScheduled=true;requestAnimationFrame(function(){customPanelScheduled=false;var form=$('add-st-form');if(form)createPanel(form);});});if(document.documentElement)mo.observe(document.documentElement,{childList:true,subtree:true});
 })();
 </script>
 <script id="dastyar-server-first-dedup-hardening-2026102720">
@@ -16048,8 +16048,9 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 else{install();setTimeout(install,900)}
 /* تغییرات متعدد DOM را در هر فریم فقط یک‌بار بررسی کن؛ observer سراسری حفظ می‌شود تا فرم‌های پویا همچنان شناسایی شوند. */
 var installScheduled=false;
-var observer=new MutationObserver(function(){
- if(installScheduled)return;
+function addsExamPanel(records){for(var i=0;i<records.length;i++){var a=records[i].addedNodes||[];for(var j=0;j<a.length;j++){var n=a[j];if(n.nodeType===1&&(n.id==='qa-exam-panel'||(n.querySelector&&n.querySelector('#qa-exam-panel'))))return true;}}return false;}
+var observer=new MutationObserver(function(records){
+ if(!addsExamPanel(records)||installScheduled)return;
  installScheduled=true;
  requestAnimationFrame(function(){installScheduled=false;install();});
 });
