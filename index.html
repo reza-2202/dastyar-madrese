@@ -17416,3 +17416,102 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 })();
 </script>
 
+
+<!-- DASTYAR SUBTLE ICON FEEDBACK: visual-only; no navigation/data logic changes -->
+<style id="dastyar-subtle-icon-feedback-20261128">
+/* بازخورد بصری بسیار سبک؛ بدون تغییر در منطق ناوبری یا داده‌ها */
+#app .home-tile.dastyar-visual-selected,
+#app .ni.dastyar-visual-selected{
+  position:relative;
+  border-color:#bfdbfe!important;
+  background:linear-gradient(180deg,#fbfdff 0%,#eff6ff 100%)!important;
+  color:#1d4ed8!important;
+  box-shadow:0 0 0 2px rgba(59,130,246,.09),0 3px 10px rgba(37,99,235,.07)!important;
+}
+#app .home-tile.dastyar-visual-selected .tile-icon{
+  transform:translateY(-1px);
+  filter:saturate(1.08);
+}
+#app .home-tile.dastyar-visual-selected::after,
+#app .ni.dastyar-visual-selected::after{
+  content:"✓";
+  position:absolute;
+  top:7px;
+  inset-inline-start:7px;
+  width:17px;
+  height:17px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  background:#dbeafe;
+  color:#1d4ed8;
+  font-size:11px;
+  line-height:1;
+  font-weight:800;
+  pointer-events:none;
+}
+#app .ni.dastyar-visual-selected::after{
+  top:1px;
+  inset-inline-start:2px;
+  width:13px;
+  height:13px;
+  font-size:9px;
+}
+#page-dashboard .home-tile-group[open]>.home-tile-group-title{
+  color:#1d4ed8;
+  background:rgba(239,246,255,.72);
+  border-radius:11px;
+  box-shadow:inset 0 0 0 1px rgba(147,197,253,.24);
+}
+#page-dashboard #dashboard-stats-toggle[open]>.home-tile-group-title{
+  color:#1d4ed8;
+  background:linear-gradient(90deg,#eff6ff,#f8fbff);
+  border-radius:12px;
+  box-shadow:inset 0 0 0 1px rgba(147,197,253,.32);
+}
+#app .home-tile.dastyar-tap-bump,
+#app .ni.dastyar-tap-bump,
+#app .home-tile-group-title.dastyar-tap-bump{
+  animation:dastyarSoftIconTap 180ms ease-out 1!important;
+}
+@keyframes dastyarSoftIconTap{
+  0%{transform:translateY(0) scale(1)}
+  38%{transform:translateY(-2px) scale(1.012)}
+  72%{transform:translateY(0) scale(.997)}
+  100%{transform:translateY(0) scale(1)}
+}
+@media(prefers-reduced-motion:reduce){
+  #app .home-tile.dastyar-tap-bump,
+  #app .ni.dastyar-tap-bump,
+  #app .home-tile-group-title.dastyar-tap-bump{animation:none!important}
+}
+</style>
+<script id="dastyar-subtle-icon-feedback-logic-20261128">
+(function(){
+  if(window.__dastyarSubtleIconFeedbackInit)return;
+  window.__dastyarSubtleIconFeedbackInit=true;
+  var selected=document.querySelector('#app .ni.on');
+  if(selected)selected.classList.add('dastyar-visual-selected');
+  document.addEventListener('click',function(ev){
+    var item=ev.target&&ev.target.closest&&ev.target.closest('#app .home-tile, #app .ni, #app .home-tile-group-title');
+    if(!item)return;
+    if(selected===item){
+      item.classList.remove('dastyar-visual-selected');
+      selected=null;
+    }else{
+      if(selected)selected.classList.remove('dastyar-visual-selected');
+      item.classList.add('dastyar-visual-selected');
+      selected=item;
+    }
+    item.classList.remove('dastyar-tap-bump');
+    requestAnimationFrame(function(){
+      if(item.isConnected)item.classList.add('dastyar-tap-bump');
+    });
+  },false);
+  document.addEventListener('animationend',function(ev){
+    if(ev.animationName==='dastyarSoftIconTap'&&ev.target&&ev.target.classList){
+      ev.target.classList.remove('dastyar-tap-bump');
+    }
+  },false);
+})();
+</script>
