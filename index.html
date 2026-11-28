@@ -4134,66 +4134,72 @@ function scheduleDastyarDashboardBackgroundRefresh(){
 }
 
 function refreshDash(){
-  // این تابع فقط رابط داشبورد را به‌روزرسانی می‌کند؛ هنگام باز بودن صفحه‌های دیگر،
-  // محاسبه شمارنده‌ها و درخواست‌های مخصوص داشبورد را به نوبت ورود به داشبورد موکول کن.
   var dashboardPage=document.getElementById('page-dashboard');
   if(dashboardPage&&!dashboardPage.classList.contains('on'))return;
+
+  // Keep the dashboard refresh synchronous and data-authoritative, but walk each
+  // large cache collection once and reuse role-scoped indexes throughout.
   try{checkUpcomingStudentBirthdays();}catch(birthdayError){console.warn('یادآوری تولد اجرا نشد',birthdayError);}
   scheduleDastyarDashboardBackgroundRefresh();
-  try{ if(typeof renderSmartReminders==='function') renderSmartReminders(); }catch(e){}
-  if(navigator.onLine && sb && (!(cache.students||[]).length) && typeof ensureStudentsFromServer==='function'){
-    ensureStudentsFromServer().then(function(n){ if(n>0){ try{ refreshDash(); }catch(e){} } });
+  try{if(typeof renderSmartReminders==='function')renderSmartReminders();}catch(e){}
+  var students=typeof myStudents==='function'?myStudents():(cache.students||[]);
+  var classes=typeof myClasses==='function'?myClasses():(cache.classes||[]);
+  if(navigator.onLine&&sb&&!students.length&&typeof ensureStudentsFromServer==='function'){
+    ensureStudentsFromServer().then(function(n){if(n>0){try{refreshDash();}catch(e){}}});
   }
+  var allStudents=cache.students||[];
+  var attendance=cache.attendance||[];
+  var evaluations=cache.evaluations||[];
+  var activities=cache.activities||[];
+  var documents=cache.documents||[];
+  var discipline=cache.discipline||[];
+  var t=String(today());
+  var classIds=new Set(classes.map(function(c){return String(c.id);}));
+  var studentIds=new Set(students.map(function(st){return String(st.id);}));
+  var allStudentIds=new Set(allStudents.map(function(st){return String(st.id);}));
+  var classById=Object.create(null);
+  classes.forEach(function(c){classById[String(c.id)]=c;});
+  document.getElementById('st-s').textContent=fa(students.length);
+  document.getElementById('st-c').textContent=fa(classes.length);
 
-  document.getElementById('st-s').textContent=fa(myStudents().length);
-  document.getElementById('st-c').textContent=fa(myClasses().length);
-  const t=today();
-  // آمار پایدار حضور/غیاب: اگر فهرست دانش‌آموز لحظه‌ای خالی شد، آخرین عدد معتبر حفظ می‌شود
-  if(!window.__dashAttStable) window.__dashAttStable={present:0,absent:0,attClasses:0,day:''};
-  if(window.__dashAttStable.day!==String(t)){ window.__dashAttStable={present:0,absent:0,attClasses:0,day:String(t)}; }
-  var classIdsDash=new Set((typeof myClasses==='function'?myClasses():(cache.classes||[])).map(function(c){return String(c.id);}));
-  var ids=new Set((typeof myStudents==='function'?myStudents():[]).map(function(s){return String(s.id);}));
-  var studentsReady=ids.size>0 || classIdsDash.size>0;
-  var present=0, absentToday=0, attClassSet=new Set();
-  (cache.attendance||[]).forEach(function(a){
-    if(!a||String(a.date||'')!==String(t)) return;
+  if(!window.__dashAttStable)window.__dashAttStable={present:0,absent:0,attClasses:0,day:''};
+  if(window.__dashAttStable.day!==t)window.__dashAttStable={present:0,absent:0,attClasses:0,day:t};
+  var present=0,absentToday=0,attClassSet=new Set(),hasTodayAttendance=false;
+  attendance.forEach(function(a){
+    if(!a||String(a.date||'')!==t)return;
+    hasTodayAttendance=true;
     var cid=String(a.class_id||'');
-    if(classIdsDash.size && cid && !classIdsDash.has(cid)) return;
-    // شمارش کلاس‌های دارای ثبت مستقل از کامل بودن فهرست دانش‌آموزان است.
-    if(String(a.status||'').trim()) attClassSet.add(cid||'_');
-    // آمار حاضر/غایب فقط برای دانش‌آموزان همین حساب محاسبه می‌شود.
-    if(ids.size && a.student_id!=null && !ids.has(String(a.student_id))) return;
-    var st=String(a.status||'').toLowerCase().trim();
-    if(st==='present'||st==='حاضر'){ present++; attClassSet.add(cid||'_'); }
-    else if(st==='absent'||st==='غایب'||st==='unexcused'||st==='excused'||st==='موجه'||st==='absent_excused'||st==='absent_unexcused'||st==='late'||st==='تأخیر'||st==='تاخیر'){
-      if(st==='late'||st==='تأخیر'||st==='تاخیر'){ /* تأخیر جزو غایب کامل نیست */ attClassSet.add(cid||'_'); }
-      else { absentToday++; attClassSet.add(cid||'_'); }
-    } else if(st){ attClassSet.add(cid||'_'); }
+    if(classIds.size&&cid&&!classIds.has(cid))return;
+    if(String(a.status||'').trim())attClassSet.add(cid||'_');
+    if(studentIds.size&&a.student_id!=null&&!studentIds.has(String(a.student_id)))return;
+    var status=String(a.status||'').toLowerCase().trim();
+    if(status==='present'||status==='حاضر'){present++;attClassSet.add(cid||'_');}
+    else if(status==='absent'||status==='غایب'||status==='unexcused'||status==='excused'||status==='موجه'||status==='absent_excused'||status==='absent_unexcused'||status==='late'||status==='تأخیر'||status==='تاخیر'){
+      if(status!=='late'&&status!=='تأخیر'&&status!=='تاخیر')absentToday++;
+      attClassSet.add(cid||'_');
+    }else if(status)attClassSet.add(cid||'_');
   });
-  // جلوگیری از صفر شدن لحظه‌ای هنگام همگام‌سازی
-  if(studentsReady || present>0 || absentToday>0 || (cache.attendance||[]).length>0){
-    var hasTodayAttendance=(cache.attendance||[]).some(function(a){return a&&String(a.date||'')===String(t);});
-    if(window.__dastyarAttendanceAuthoritative===true || hasTodayAttendance){
+  var studentsReady=studentIds.size>0||classIds.size>0;
+  if(studentsReady||present>0||absentToday>0||attendance.length>0){
+    if(window.__dastyarAttendanceAuthoritative===true||hasTodayAttendance){
       window.__dashAttStable.present=present;
       window.__dashAttStable.absent=absentToday;
       window.__dashAttStable.attClasses=attClassSet.size;
-    } else {
-      // پیش از دریافت داده معتبر، از صفرشدن موقت آمار جلوگیری می‌شود.
+    }else{
       present=window.__dashAttStable.present;
       absentToday=window.__dashAttStable.absent;
     }
-  } else {
+  }else{
     present=window.__dashAttStable.present;
     absentToday=window.__dashAttStable.absent;
   }
   document.getElementById('st-p').textContent=fa(present);
-  var evalClassIds=new Set((typeof myClasses==='function'?myClasses():(cache.classes||[])).map(function(c){return String(c.id);}));
+
   var evCount=0,autoMonthEvCount=0,dashEvalMonth=null;
   try{dashEvalMonth=parseJalali(t);}catch(e){}
-  (cache.evaluations||[]).forEach(function(e){
+  evaluations.forEach(function(e){
     if(!e||(typeof isDailyQaEvaluationRow==='function'&&isDailyQaEvaluationRow(e)))return;
-    var belongs=user&&user.role==='admin' ? true :
-      (e.class_id!=null ? evalClassIds.has(String(e.class_id)) : ids.has(String(e.student_id)));
+    var belongs=user&&user.role==='admin'?true:(e.class_id!=null?classIds.has(String(e.class_id)):studentIds.has(String(e.student_id)));
     if(!belongs)return;
     if(String(e.recorded_by||'').indexOf('| خلاصه خودکار پرسش‌وپاسخ')>=0){
       var ed=null;try{ed=parseJalali(e.date||e.created_at);}catch(err){}
@@ -4205,72 +4211,48 @@ function refreshDash(){
   });
   evCount+=autoMonthEvCount;
   var evEl=document.getElementById('st-e');if(evEl)evEl.textContent=fa(evCount);
-  // شمارنده مستقل پرسش‌وپاسخ؛ از همان cache محلی/سروری استفاده می‌کند تا ثبت آفلاین هم فوراً دیده شود.
-  var qaCount=(cache.activities||[]).filter(function(a){
-    if(!a||a.type!=='qa')return false;
-    return user&&user.role==='admin' ? true : evalClassIds.has(String(a.class_id));
-  }).length;
+  var qaCount=0;
+  activities.forEach(function(a){if(a&&a.type==='qa'&&(user&&user.role==='admin'?true:classIds.has(String(a.class_id))))qaCount++;});
   var qaEl=document.getElementById('st-qa');if(qaEl)qaEl.textContent=fa(qaCount);
   var qaBox=document.getElementById('qa-class-list');
   if(qaBox&&qaBox.style.display==='block'&&typeof renderQaClassList==='function')renderQaClassList();
-  // فایل‌های در انتظار چاپ/تحویل (هنوز دکمه آماده تحویل نخورده)
-  var docClassNames=[];
-  try{
-    var docs=(cache.documents||[]).filter(function(d){
-      if(!d) return false;
-      var st=String(d.print_status||'pending');
-      // فقط مواردی که هنوز آماده تحویل نشده‌اند
-      return st!=='ready_for_pickup' && st!=='delivered';
-    });
-    if(user&&user.role==='teacher'){
-      var teacherClassIds=new Set((typeof myClasses==='function'?myClasses():[]).map(function(c){return String(c.id);}));
-      var teacherDocIdentities=new Set([user.username,user.full_name].filter(Boolean).map(function(x){return String(x).trim();}));
-      (typeof myClasses==='function'?myClasses():[]).forEach(function(c){[c.teacher_name,c.teacher_user].filter(Boolean).forEach(function(x){teacherDocIdentities.add(String(x).trim());});});
-      docs=docs.filter(function(d){return teacherClassIds.has(String(d.class_id||''))||teacherDocIdentities.has(String(d.teacher_username||'').trim())||teacherDocIdentities.has(String(d.teacher_name||'').trim());});
-    }
-    var elF=document.getElementById('st-f'); if(elF) elF.textContent=fa(docs.length);
-    docClassNames=Array.from(new Set(docs.map(function(d){return String(d.class_name||((cache.classes||[]).find(function(c){return String(c.id)===String(d.class_id);})||{}).label||'کلاس نامشخص');}))).filter(Boolean);
-    var elFC=document.getElementById('st-f-classes'); if(elFC) elFC.textContent=docClassNames.length?('کلاس‌ها: '+docClassNames.join('، ')):'کلاسی در انتظار نیست';
-  }catch(e){ var elF2=document.getElementById('st-f'); if(elF2) elF2.textContent=fa(0); }
+
+  var docs=documents.filter(function(d){if(!d)return false;var st=String(d.print_status||'pending');return st!=='ready_for_pickup'&&st!=='delivered';});
+  if(user&&user.role==='teacher'){
+    var teacherDocIdentities=new Set([user.username,user.full_name].filter(Boolean).map(function(x){return String(x).trim();}));
+    classes.forEach(function(c){[c.teacher_name,c.teacher_user].filter(Boolean).forEach(function(x){teacherDocIdentities.add(String(x).trim());});});
+    docs=docs.filter(function(d){return classIds.has(String(d.class_id||''))||teacherDocIdentities.has(String(d.teacher_username||'').trim())||teacherDocIdentities.has(String(d.teacher_name||'').trim());});
+  }
+  var elF=document.getElementById('st-f');if(elF)elF.textContent=fa(docs.length);
+  var docClassNamesSet=new Set();
+  docs.forEach(function(d){var cl=classById[String(d.class_id)];var label=d.class_name||(cl&&cl.label)||'کلاس نامشخص';if(label)docClassNamesSet.add(String(label));});
+  var docClassNames=Array.from(docClassNamesSet);
+  var elFC=document.getElementById('st-f-classes');if(elFC)elFC.textContent=docClassNames.length?'کلاس‌ها: '+docClassNames.join('، '):'کلاسی در انتظار نیست';
   window.__dastyarPendingFileClasses=docClassNames.slice();
-  // کلاس‌هایی که امروز حضور و غیاب ثبت کرده‌اند (پایدار)
-  try{
-    var elA=document.getElementById('st-a');
-    var hasTodayAttendance=(cache.attendance||[]).some(function(a){return a&&String(a.date||'')===String(t);});
-    var attN=hasTodayAttendance?attClassSet.size:((window.__dashAttStable&&window.__dashAttStable.attClasses)||0);
-    if(elA) elA.textContent=fa(attN);
-  }catch(e){ var elA2=document.getElementById('st-a'); if(elA2&&window.__dashAttStable) elA2.textContent=fa(window.__dashAttStable.attClasses||0); }
-  try{
-    var isAdm=user&&user.role==='admin';
-    var clsIds={}; (typeof myClasses==='function'?myClasses():[]).forEach(function(c){clsIds[String(c.id)]=true;});
-    var activeStudentIds=new Set((cache.students||[]).map(function(s){return String(s.id);}));
-    var dCount=(cache.discipline||[]).filter(function(r){ if(!r||!activeStudentIds.has(String(r.student_id||'')))return false; if(typeof isDisciplinePending==='function'&&!isDisciplinePending(r))return false; if(isAdm)return true; return !!clsIds[String(r.class_id||'')]; }).length;
-    var elD=document.getElementById('st-d'); if(elD) elD.textContent=fa(dCount);
-  }catch(e){ var elD2=document.getElementById('st-d'); if(elD2) elD2.textContent=fa(0); }
-  // غایبین امروز — پایدار، بدون صفر شدن لحظه‌ای
-  try{
-    var absCount=(typeof absentToday==='number')?absentToday:((window.__dashAttStable&&window.__dashAttStable.absent)||0);
-    // unexcused هم غایب است
-    if(typeof absentToday!=='number'){
-      absCount=0;
-      var tdayAbs=String(t);
-      var clsAbs={}; (typeof myClasses==='function'?myClasses():[]).forEach(function(c){clsAbs[String(c.id)]=true;});
-      (cache.attendance||[]).forEach(function(a){
-        if(!a||String(a.date||'')!==tdayAbs) return;
-        if(clsAbs && Object.keys(clsAbs).length && !clsAbs[String(a.class_id||'')]) return;
-        var st=String(a.status||'').toLowerCase();
-        if(st==='absent'||st==='غایب'||st==='unexcused'||st==='excused'||st==='موجه'||st==='absent_excused'||st==='absent_unexcused') absCount++;
-      });
-    }
-    var elAbs=document.getElementById('st-abs'); if(elAbs) elAbs.textContent=fa(absCount);
-  }catch(e){ var elAbs2=document.getElementById('st-abs'); if(elAbs2&&window.__dashAttStable) elAbs2.textContent=fa(window.__dashAttStable.absent||0); }
-  try{ if(typeof setupAdminUrgentPanel==='function') setupAdminUrgentPanel(); }catch(e){}
+
+  var elA=document.getElementById('st-a');
+  var attN=hasTodayAttendance?attClassSet.size:((window.__dashAttStable&&window.__dashAttStable.attClasses)||0);
+  if(elA)elA.textContent=fa(attN);
+
+  var isAdm=!!(user&&user.role==='admin'),disciplineCount=0;
+  discipline.forEach(function(r){
+    if(!r||!allStudentIds.has(String(r.student_id||'')))return;
+    if(typeof isDisciplinePending==='function'&&!isDisciplinePending(r))return;
+    if(isAdm||classIds.has(String(r.class_id||'')))disciplineCount++;
+  });
+  var elD=document.getElementById('st-d');if(elD)elD.textContent=fa(disciplineCount);
+  var elAbs=document.getElementById('st-abs');if(elAbs)elAbs.textContent=fa(absentToday);
+  try{if(typeof setupAdminUrgentPanel==='function')setupAdminUrgentPanel();}catch(e){}
   try{
     var imp=document.getElementById('st-offimp-card');
-    if(imp) imp.style.display=(user&&user.role==='admin')?'':'none';
-    if(typeof updateOfflineExportCardAvailability==='function') updateOfflineExportCardAvailability();
+    if(imp)imp.style.display=(user&&user.role==='admin')?'':'none';
+    if(typeof updateOfflineExportCardAvailability==='function')updateOfflineExportCardAvailability();
   }catch(e){}
-  try{var inviteSummary=document.getElementById('parent-invitation-summary');if(inviteSummary)inviteSummary.style.display=(user&&(user.role==='admin'||user.role==='teacher'))?'block':'none';if(user)renderParentInvitationSummary();}catch(e){}
+  try{
+    var inviteSummary=document.getElementById('parent-invitation-summary');
+    if(inviteSummary)inviteSummary.style.display=(user&&(user.role==='admin'||user.role==='teacher'))?'block':'none';
+    if(user)renderParentInvitationSummary();
+  }catch(e){}
 }
 
 
