@@ -4336,6 +4336,7 @@ async function ensureStudentPhotoSession(){if(studentPhotoSessionToken)return st
 async function studentPhotoJson(action,extra){var token=await ensureStudentPhotoSession();if(!token)throw new Error('برای همگام‌سازی عکس‌ها اتصال اینترنت لازم است');var res=await fetch(SB_URL+'/functions/v1/student-photos',{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(Object.assign({action:action,token:token},extra||{}))});var data={};try{data=await res.json();}catch(e){}if(!res.ok||!data.ok)throw new Error(data.error||('خطای سرور عکس: '+res.status));return data;}
 async function studentPhotoUpload(studentId,blob){var token=await ensureStudentPhotoSession();if(!token)throw new Error('نشست عکس فعال نیست');var form=new FormData();form.append('token',token);form.append('student_id',String(studentId));form.append('file',blob,'student-photo.jpg');var res=await fetch(SB_URL+'/functions/v1/student-photos',{method:'POST',headers:{'apikey':SB_KEY},body:form});var data={};try{data=await res.json();}catch(e){}if(!res.ok||!data.ok)throw new Error(data.error||('بارگذاری عکس ناموفق بود: '+res.status));return data;}
 function updateVisibleStudentPhotoNodes(){
+ var studentPage=document.getElementById('page-students');if(studentPage&&!studentPage.classList.contains('on'))return;
  var box=document.getElementById('slist');if(!box)return;
  var photoById=Object.create(null);
  (cache.students||[]).forEach(function(st){if(st&&st.photo)photoById[String(st.id)]=String(st.photo);});
