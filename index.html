@@ -3355,7 +3355,7 @@ async function refreshDastyarActiveSection(force){
  if(__dastyarLiveSyncBusy||!user||!sb||!navigator.onLine||window.isOffline||document.visibilityState!=='visible')return;
  if(!force&&Date.now()-__dastyarLiveSyncAt<5500)return;
  var page=document.querySelector('.page.on');if(!page)return;var pageId=String(page.id||'').replace(/^page-/,'');var tables=[];
- if(pageId==='dashboard')tables=['sa_activities'];else if(pageId==='attendance'||pageId==='absentees')tables=['sa_attendance'];else if(pageId==='discipline')tables=['sa_discipline'];else if(pageId==='activity')tables=['sa_activities'];else if(pageId==='evaluation')tables=['sa_evaluations','sa_activities'];else if(pageId==='finance')tables=['sa_finance'];else if(pageId==='report'||pageId==='charts')tables=['sa_scores','sa_competencies','sa_evaluations','sa_activities'];else if(pageId==='studentfile'||pageId==='teacherreport'||pageId==='monthlyreport')tables=['sa_attendance','sa_scores','sa_competencies','sa_activities','sa_evaluations','sa_discipline','sa_finance'];else if(pageId!=='students'&&pageId!=='studentdata')return;
+ if(pageId==='dashboard')tables=['sa_activities'];else if(pageId==='attendance'||pageId==='absentees')tables=['sa_attendance'];else if(pageId==='discipline')tables=['sa_discipline'];else if(pageId==='activity')tables=['sa_activities'];else if(pageId==='evaluation')tables=['sa_evaluations','sa_activities'];else if(pageId==='finance')tables=['sa_finance'];else if(pageId==='report'||pageId==='charts')tables=['sa_scores','sa_competencies','sa_evaluations','sa_activities'];else if(pageId==='studentfile'||pageId==='teacherreport'||pageId==='monthlyreport')tables=['sa_attendance','sa_scores','sa_competencies','sa_activities','sa_evaluations','sa_discipline','sa_finance','sa_student_guidance'];else if(pageId!=='students'&&pageId!=='studentdata')return;
  __dastyarLiveSyncBusy=true;__dastyarLiveSyncAt=Date.now();
  try{
   if(window.DastyarOffline&&typeof DastyarOffline.pending==='function'){var q=await DastyarOffline.pending();if(Array.isArray(q)&&q.length)return;}
@@ -3365,7 +3365,7 @@ async function refreshDastyarActiveSection(force){
   oldIds.forEach(function(id){if(!newIds.has(id))removed.push(id);});
   if(removed.length){try{var tomb=JSON.parse(localStorage.getItem('dastyar_deleted_student_ids_v1')||'[]');removed.forEach(function(id){if(!tomb.includes(id))tomb.push(id);});localStorage.setItem('dastyar_deleted_student_ids_v1',JSON.stringify(tomb.slice(-1000)));}catch(e){}var gone=new Set(removed);['attendance','scores','competencies','activities','evaluations','discipline','finance','achievements'].forEach(function(k){if(Array.isArray(cache[k]))cache[k]=cache[k].filter(function(x){return !x||x.student_id==null||!gone.has(String(x.student_id));});});}
   var changed=JSON.stringify(old)!==JSON.stringify(next);if(changed)cache.students=next;
-  var map={sa_attendance:'attendance',sa_scores:'scores',sa_competencies:'competencies',sa_activities:'activities',sa_evaluations:'evaluations',sa_discipline:'discipline',sa_finance:'finance'};
+  var map={sa_attendance:'attendance',sa_scores:'scores',sa_competencies:'competencies',sa_activities:'activities',sa_evaluations:'evaluations',sa_discipline:'discipline',sa_finance:'finance',sa_student_guidance:'student_guidance'};
   for(var i=0;i<tables.length;i++){var x=res[i+1],name=map[tables[i]];if(!x||x.error||!Array.isArray(x.data)||!name)continue;var rows=x.data;if(tables[i]==='sa_attendance'){var clid=String((document.getElementById('at-class')||{}).value||''),date=String((document.getElementById('at-date')||{}).value||today());rows=(cache.attendance||[]).filter(function(a){return String(a.class_id)!==clid||String(a.date)!==date;}).concat(rows);}if(JSON.stringify(cache[name]||[])!==JSON.stringify(rows)){cache[name]=rows;changed=true;}}
   if(pageId==='dashboard'&&typeof refreshDashboardEvaluationDisciplineCache==='function'){
    try{await refreshDashboardEvaluationDisciplineCache(!!force);}catch(e){console.warn('به‌روزرسانی شمارنده‌های ارزشیابی و انضباط داشبورد ناموفق بود.',e);}
@@ -8616,7 +8616,7 @@ async function flushDastyarDashboardRealtimeChanges(){
     var page=document.querySelector('.page.on'),pageId=page?String(page.id||'').replace(/^page-/,''):'';
     if(isManager){
       var qaOnlyTables=dirtyTables.every(function(k){return ['sa_activities','sa_evaluations','sa_discipline'].indexOf(k)>=0;});
-      if(qaOnlyTables&&typeof refreshAdminQaAfterTeacherSync==='function')await refreshAdminQaAfterTeacherSync(true);
+      if(qaOnlyTables&&typeof refreshAdminQaAfterTeacherSync==='function'){var qaSynced=await refreshAdminQaAfterTeacherSync(true);if(qaSynced===false)throw new Error('به‌روزرسانی داده‌های پرسش‌وپاسخ، ارزشیابی یا انضباط تأیید نشد.');}
       else{await reloadAll();if(typeof refreshDash==='function')refreshDash();}
       page=document.querySelector('.page.on');pageId=page?String(page.id||'').replace(/^page-/,''):'';
       if(pageId==='students'||pageId==='studentdata'){if(typeof renderStudents==='function')renderStudents();}
@@ -8639,7 +8639,6 @@ async function flushDastyarDashboardRealtimeChanges(){
       if(typeof refreshDastyarActiveSection==='function')await refreshDastyarActiveSection(true);
       if(pageId==='dashboard'){
         if(dirty.sa_attendance&&typeof refreshTodayAttendanceFromServer==='function')await refreshTodayAttendanceFromServer();
-        if((dirty.sa_evaluations||dirty.sa_discipline)&&typeof refreshDashboardEvaluationDisciplineCache==='function')await refreshDashboardEvaluationDisciplineCache(true);
         if(dirty.sa_messages&&typeof renderTeacherNotices==='function')renderTeacherNotices();
       }
       if(pageId==='chat'&&typeof loadSchoolMessages==='function')await loadSchoolMessages();
@@ -8649,7 +8648,11 @@ async function flushDastyarDashboardRealtimeChanges(){
       }
       if(dirty.sa_achievements&&typeof window.refreshStudentAchievements==='function')await window.refreshStudentAchievements();
     }
-  }catch(e){console.warn('به‌روزرسانی زنده اطلاعات پنل ناموفق بود؛ رویدادهای تازه دریافت‌شده حفظ می‌شوند.',e);}
+  }catch(e){
+    dirtyTables.forEach(function(k){__dastyarDashboardRealtimeDirtyTables[k]=true;});
+    if(!__dastyarDocumentsRealtimeRefreshTimer)__dastyarDocumentsRealtimeRefreshTimer=setTimeout(flushDastyarDashboardRealtimeChanges,5000);
+    console.warn('به‌روزرسانی زنده اطلاعات پنل ناموفق بود؛ رویدادها برای تلاش مجدد نگه داشته شدند.',e);
+  }
   }finally{
     __dastyarRealtimeFlushBusy=false;
     if(Object.keys(__dastyarDashboardRealtimeDirtyTables).length&&!__dastyarDocumentsRealtimeRefreshTimer)__dastyarDocumentsRealtimeRefreshTimer=setTimeout(flushDastyarDashboardRealtimeChanges,350);
