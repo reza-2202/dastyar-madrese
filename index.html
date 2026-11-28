@@ -4158,7 +4158,7 @@ function refreshDash(){
   var studentIds=new Set(students.map(function(st){return String(st.id);}));
   var allStudentIds=new Set(allStudents.map(function(st){return String(st.id);}));
   var classById=Object.create(null);
-  classes.forEach(function(c){classById[String(c.id)]=c;});
+  (cache.classes||[]).forEach(function(c){classById[String(c.id)]=c;});
   document.getElementById('st-s').textContent=fa(students.length);
   document.getElementById('st-c').textContent=fa(classes.length);
 
